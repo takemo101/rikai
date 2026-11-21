@@ -123,6 +123,7 @@ test('資料の取得：存在する版だけ', async () => {
 
 test('新しい形のトピックは、一覧に印つきで出て、操作は 409（内部エラーにならない）', async () => {
   makeTopic('future');
+  fs.writeFileSync(path.join(dir, '.rikai', 'future', 'assets', 'x.png'), Buffer.from('PNG'));
   const file = path.join(dir, '.rikai', 'future', 'meta.json');
   const m = JSON.parse(fs.readFileSync(file, 'utf8'));
   m.schema = rikai.SCHEMA + 1;
@@ -130,10 +131,14 @@ test('新しい形のトピックは、一覧に印つきで出て、操作は 4
   const json = authed({ 'Content-Type': 'application/json' });
   try {
     const list = JSON.parse((await request('GET', '/api/topics', { headers: authed() })).body);
-    assert.deepEqual(list.map((t) => [t.slug, t.unsupported]), [['demo', false], ['future', true]]);
+    const byName = Object.fromEntries(list.map((t) => [t.slug, t]));
+    assert.equal(byName.demo.unsupported, false);
+    assert.deepEqual(byName.future, { slug: 'future', title: '題', unsupported: true }, '読めない形のトピックの、ほかの項目は、出さない');
     assert.equal((await request('GET', '/api/topic/future', { headers: authed() })).status, 409);
     assert.equal((await request('GET', '/api/page/future/root/1', { headers: authed() })).status, 409);
+    assert.equal((await request('GET', '/asset/future/x.png', { headers: authed() })).status, 409);
     assert.equal((await request('POST', '/api/comment', { headers: json, body: { topic: 'future', page: 'root', version: 1, text: 'x' } })).status, 409);
+    assert.equal((await request('POST', '/api/end', { headers: json, body: { topic: 'future' } })).status, 409);
   } finally {
     fs.rmSync(path.join(dir, '.rikai', 'future'), { recursive: true, force: true });
   }

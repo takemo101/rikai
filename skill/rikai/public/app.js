@@ -33,8 +33,8 @@
   async function api(path, body) {
     const res = await fetch(path, body ? { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) } : {});
     let j;
-    try { j = await res.json(); } catch (_) { throw new Error('通信エラー'); }
-    if (!res.ok || j.ok === false) throw new Error(j.error || 'エラー');
+    try { j = await res.json(); } catch (_) { throw Object.assign(new Error('通信エラー'), { status: res.status }); }
+    if (!res.ok || j.ok === false) throw Object.assign(new Error(j.error || 'エラー'), { status: res.status });
     return j;
   }
 
@@ -340,7 +340,9 @@
     const ul = h('ul', { class: 'topics' });
     for (const t of S.topics) {
       ul.append(h('li', { class: t.slug === S.slug ? 'cur' : '' },
-        h('a', { href: `#/${t.slug}/root`, text: t.title }),
+        t.unsupported
+          ? h('span', { class: 'topic-off', text: t.title })
+          : h('a', { href: `#/${t.slug}/root`, text: t.title }),
         t.pending ? h('span', { class: 'chip wait small', text: '待ち' }) : null,
         t.unsupported ? h('span', { class: 'chip warn small', title: 'この rikai が読めない、新しい形式です。rikai を更新してください', text: '新しい形式' }) : null,
         t.closed ? h('span', { class: 'chip small', text: '終了' }) : null));
@@ -698,9 +700,24 @@
   async function route() {
     const r = parseHash();
     S.topics = await api('/api/topics');
+    renderSide(); // 先に描く（読めないトピックが先頭でも、ほかのトピックへ移れるように）
     if (!r) {
-      if (!S.topics.length) { $('#article').textContent = 'トピックがありません。/rikai で資料を作ってください。'; return; }
-      location.hash = `#/${S.topics[0].slug}/root`;
+      const first = S.topics.find((t) => !t.unsupported);
+      if (!first) {
+        $('#article').textContent = S.topics.length
+          ? '読めるトピックがありません（新しい形式のトピックだけです）。rikai を更新してください。'
+          : 'トピックがありません。/rikai で資料を作ってください。';
+        return;
+      }
+      location.hash = `#/${first.slug}/root`;
+      return;
+    }
+    const target = S.topics.find((t) => t.slug === r.slug);
+    if (target && target.unsupported) {
+      // 読めない形式のトピックは、開かず、見ない（サーバーが 409 を返し続けるので、確認もしない）
+      S.slug = null; S.topic = null; S.composer = null;
+      renderAll();
+      $('#article').textContent = `「${target.title}」は、この rikai が読めない新しい形式です。rikai を更新してください。`;
       return;
     }
     const changed = r.slug !== S.slug || r.page !== S.page || r.version !== S.version;
@@ -714,11 +731,12 @@
   async function tick() {
     try {
       S.topics = await api('/api/topics');
+      renderSide();
       await refreshTopic(false);
       if (S.offline) { S.offline = false; renderTop(); }
-      renderSide();
-    } catch (_) {
-      if (!S.offline) { S.offline = true; renderTop(); }
+    } catch (e) {
+      // サーバーが答えたエラー（status がある）は、接続の失敗ではない。表示は、そのまま
+      if (!e.status && !S.offline) { S.offline = true; renderTop(); }
     }
   }
 

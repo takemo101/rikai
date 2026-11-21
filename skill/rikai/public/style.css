@@ -45,6 +45,7 @@ button.link { background: none; border: 0; color: var(--accent); padding: 0; fon
 #side .topics li.cur { background: var(--accent-soft); }
 #side a { color: inherit; text-decoration: none; display: block; padding: 3px 0; overflow: hidden; text-overflow: ellipsis; }
 #side a:hover { color: var(--accent); }
+#side .topic-off { color: var(--muted); display: block; padding: 3px 0; overflow: hidden; text-overflow: ellipsis; cursor: not-allowed; }
 #side a.cur { font-weight: 700; color: var(--accent); }
 .tree { padding-left: 4px !important; }
 .tree li { padding: 0 8px 0 12px; }

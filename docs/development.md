@@ -121,12 +121,12 @@ npm test        # node --test test/*.test.js。追加の依存なし（Node 18 �
 
 ## データの形を変えるとき
 
-`meta.json` の `schema`（`rikai.js` の `SCHEMA`。いまは 1）が、データの形の版（SPEC N7）。`threads.json`・`rounds/`・`pages/` の形も、この版が代表する。**既存の `.rikai/` を、壊さない**。
+`meta.json` の `schema`（`rikai.js` の `SCHEMA`。いまは 1）が、データの形の版（SPEC N7）。版は `meta.json` にだけ書く。`threads.json`・`rounds/`・`pages/` の形の変更も、この版を上げて表す。**既存の `.rikai/` を、壊さない**。
 
 - 形を**足すだけ**（古い形に、新しい項目がなくても読める）なら、版は上げない。読む側が、項目がなくても動くようにする。
 - 形を**変える・消す**（古い形のままでは読めない）ときは、次の順で行う。
   1. `SCHEMA` を 1 つ上げる。
-  2. 古い形を、新しい形へ読み替える移行（`loadMeta` の中。版が `SCHEMA` 未満なら、1 つずつ上げる関数）を足す。**移行は、読んだ値を直すだけで、保存は、次の `mutate` に任せる**（読むだけの操作が、ファイルを書き換えない）。
+  2. 古い形を、新しい形へ読み替える移行を足す。`meta.json` の変更は `loadMeta`、`threads.json` の変更は `loadThreads`、`rounds/` の変更は `listRounds`・`submit`（**それぞれ、読む場所**。`loadMeta` を通らずに `loadThreads`・`listRounds` を呼ぶ経路がある：`topicState`・`peek`・`cmdStatus`）で、版（`meta.json` から読む）を見て、1 つずつ上げる関数にする。**`meta.json` だけを読み替えて、`schema` を新しい版で保存すると、`threads.json` が古い形のまま、新しい版と書かれてしまう**ので、同じ `mutate` の中で、すべてを読み替えて保存する。移行は、読んだ値を直すだけにして、保存は、次の `mutate` に任せる（読むだけの操作が、ファイルを書き換えない）。
   3. 古い形のデータを入れた自動テストを足す（`test/store.test.js` の「版のない古い形」を参考に）。
   4. SPEC N7・構成説明・この節を更新する。
 - 新しい rikai で作られたトピックを、古い rikai が開くと、409 で断る（何も書き換えない）。古い rikai を使い続ける人は、`rikai` を更新する。

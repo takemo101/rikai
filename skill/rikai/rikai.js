@@ -100,12 +100,19 @@ const SCHEMA = 1;
 const schemaOf = (m) => (m.schema === undefined ? 1 : m.schema);
 const isSupported = (m) => Number.isInteger(schemaOf(m)) && schemaOf(m) >= 1 && schemaOf(m) <= SCHEMA;
 
+const topicTitle = (m) => (typeof m.title === 'string' ? m.title : String(m.slug));
+
 function loadMeta(slug) {
   checkSlug(slug);
   const m = readJSON(path.join(tdir(slug), 'meta.json'), null);
   if (!m) throw new HttpError(404, `トピックがありません: ${slug}`);
   if (!isSupported(m)) {
-    throw new HttpError(409, `このトピックは、この rikai が読めない形（データの版 ${JSON.stringify(m.schema)}）です。この rikai は、版 ${SCHEMA} までです。新しい rikai に更新してください（${slug}）`);
+    const v = schemaOf(m);
+    // 新しい形式と、壊れた値は、直し方が違う（更新しても、壊れた値は直らない）
+    if (Number.isInteger(v) && v > SCHEMA) {
+      throw new HttpError(409, `このトピックは、この rikai が読めない新しい形式（データの版 ${v}）です。この rikai は、版 ${SCHEMA} までです。新しい rikai に更新してください（${slug}）`);
+    }
+    throw new HttpError(409, `このトピックの meta.json の schema の値（${JSON.stringify(m.schema)}）が不正です。ファイルが壊れています（${slug}）`);
   }
   return m;
 }
@@ -137,7 +144,11 @@ function listTopics() {
   if (!fs.existsSync(BASE)) return [];
   return fs.readdirSync(BASE, { withFileTypes: true })
     .filter((d) => d.isDirectory() && SLUG_RE.test(d.name) && fs.existsSync(path.join(BASE, d.name, 'meta.json')))
-    .map((d) => readJSON(path.join(BASE, d.name, 'meta.json'), null))
+    .map((d) => {
+      const m = readJSON(path.join(BASE, d.name, 'meta.json'), null);
+      // 名前はディレクトリのものを使う（読めない形のメタの中身は、信用しない）
+      return m ? { ...m, slug: d.name } : null;
+    })
     .filter(Boolean);
 }
 
@@ -380,7 +391,8 @@ const actions = {
   },
   end(b) {
     const r = mutate(b.topic, (meta) => { meta.closed = true; return {}; });
-    if (listTopics().every((t) => t.closed)) hooks.allClosed();
+    // 読めない形のトピックは、閉じられないので、数えない（数えると、サーバーが終わらない）
+    if (listTopics().filter(isSupported).every((t) => t.closed)) hooks.allClosed();
     return r;
   },
 };
@@ -529,7 +541,7 @@ function cmdApply(slug, payload) {
 function cmdStatus(slug) {
   const topics = slug ? [loadMeta(slug)] : listTopics();
   out(topics.map((m) => {
-    if (!isSupported(m)) return { topic: m.slug, title: m.title, unsupported: true, schema: schemaOf(m) };
+    if (!isSupported(m)) return { topic: m.slug, title: topicTitle(m), unsupported: true, schema: schemaOf(m) };
     const th = loadThreads(m.slug);
     return {
       topic: m.slug, title: m.title, closed: !!m.closed,
@@ -636,8 +648,10 @@ async function handler(req, res) {
       if (deny) return send(res, 403, deny);
       const m = /^\/asset\/([^/]+)\/(.+)$/.exec(p);
       if (!m) return send(res, 404, 'not found');
-      checkSlug(decodeURIComponent(m[1]));
-      const dir = path.join(tdir(decodeURIComponent(m[1])), 'assets');
+      const slug = decodeURIComponent(m[1]);
+      checkSlug(slug);
+      loadMeta(slug); // 読めない形のトピックの画像も、配らない（409）
+      const dir = path.join(tdir(slug), 'assets');
       const file = path.resolve(dir, decodeURIComponent(m[2]));
       if (!file.startsWith(dir + path.sep)) return send(res, 403, 'forbidden');
       // 直接開かれても中のスクリプトを動かさない
@@ -651,7 +665,9 @@ async function handler(req, res) {
       if (req.method === 'GET') {
         if (p === '/api/ping') return send(res, 200, { ok: true, root: ROOT });
         if (p === '/api/topics') {
-          return send(res, 200, listTopics().map((m) => ({ slug: m.slug, title: m.title, closed: !!m.closed, pending: (m.pending || []).length, rev: m.rev, unsupported: !isSupported(m) })));
+          return send(res, 200, listTopics().map((m) => (isSupported(m)
+            ? { slug: m.slug, title: m.title, closed: !!m.closed, pending: (m.pending || []).length, rev: m.rev, unsupported: false }
+            : { slug: m.slug, title: topicTitle(m), unsupported: true })));
         }
         let m = /^\/api\/topic\/([^/]+)$/.exec(p);
         if (m) {
