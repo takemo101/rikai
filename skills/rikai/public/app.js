@@ -1021,28 +1021,46 @@
   const UI = { sideOpen: true, panelW: 380, wide: false };
   try { Object.assign(UI, JSON.parse(localStorage.getItem('rikai-ui') || '{}')); } catch (_) { /* 壊れていたら、既定のまま */ }
   const PANEL_MIN = 280, PANEL_DEFAULT = 380, PANEL_WIDE = 720;
-  const panelMax = () => Math.max(PANEL_MIN, Math.floor(window.innerWidth * 0.7));
+  const SIDE_W = 230, DOC_MIN = 360; // 左の一覧の幅（CSS の --side-w の既定）と、本文の領域に残す最小の幅
+  // 右の幅の上限：画面の 70%。ただし、左の一覧（開いているとき）と合わせて、本文の領域が DOC_MIN 以上、残る幅まで
+  const panelMax = () => Math.max(PANEL_MIN, Math.min(Math.floor(window.innerWidth * 0.7), window.innerWidth - (UI.sideOpen ? SIDE_W : 0) - DOC_MIN));
   const saveUi = () => { try { localStorage.setItem('rikai-ui', JSON.stringify(UI)); } catch (_) { /* 保存できなくても、使える */ } };
-  const panelWidth = () => (UI.wide ? Math.min(PANEL_WIDE, panelMax()) : Math.min(Math.max(Number(UI.panelW) || PANEL_DEFAULT, PANEL_MIN), panelMax()));
-  function wideLabel() { return UI.wide ? '狭くする' : '広くする'; }
+  const savedW = () => Math.max(PANEL_MIN, Number(UI.panelW) || PANEL_DEFAULT);
+  const panelWidth = () => (UI.wide ? Math.min(PANEL_WIDE, panelMax()) : Math.min(savedW(), panelMax()));
+  // いま「広い」状態か（広くするボタンで広げた・または、ドラッグで広げた幅が、広くする幅以上）。ボタンの文字と動作を、実際の幅に合わせる
+  const isWide = () => UI.wide || panelWidth() >= Math.min(PANEL_WIDE, panelMax());
+  function wideLabel() { return isWide() ? '狭くする' : '広くする'; }
   function applyUi() {
     const app = $('#app');
     app.classList.toggle('side-collapsed', !UI.sideOpen);
     const w = panelWidth();
     app.style.setProperty('--panel-w', `${w}px`);
-    $('#panel-resizer').setAttribute('aria-valuenow', String(w));
+    const rz = $('#panel-resizer');
+    rz.setAttribute('aria-valuenow', String(w));
+    rz.setAttribute('aria-valuemax', String(panelMax()));
     $('#btn-side').setAttribute('aria-expanded', String(!!UI.sideOpen));
     const wb = $('#btn-wide');
     if (wb) wb.textContent = wideLabel();
     $('#blkbtn').hidden = true; // 配置が変わるので、「＋」は、次にマウスを動かしたとき、出し直す
   }
-  function toggleWide() { UI.wide = !UI.wide; saveUi(); applyUi(); }
+  function toggleWide() {
+    if (isWide()) {
+      UI.wide = false;
+      if (savedW() >= Math.min(PANEL_WIDE, panelMax())) UI.panelW = PANEL_DEFAULT; // 広い幅を保存していたら、もとの幅へ（そのままだと、狭くならない）
+    } else UI.wide = true;
+    saveUi();
+    applyUi();
+  }
   $('#btn-side').addEventListener('click', () => { UI.sideOpen = !UI.sideOpen; saveUi(); applyUi(); });
   const resizer = $('#panel-resizer');
   resizer.addEventListener('pointerdown', (e) => {
+    if (e.button !== 0) return; // 左ボタン（またはタッチ・ペン）だけ。右ボタンの、メニューの途中で、離しを失わないように
+    $('#selbtn').hidden = true; // 配置が変わるので、選択の「コメント」・「＋」は、古い位置に残さない
+    $('#blkbtn').hidden = true;
     resizer.setPointerCapture(e.pointerId);
     resizer.classList.add('drag');
     document.body.classList.add('resizing');
+    resizer.focus({ preventScroll: true }); // 矢印キーで、続けて調整できるように
     e.preventDefault();
   });
   resizer.addEventListener('pointermove', (e) => {
@@ -1051,14 +1069,12 @@
     UI.panelW = Math.round(Math.min(Math.max(window.innerWidth - e.clientX, PANEL_MIN), panelMax()));
     applyUi();
   });
-  const endResize = (e) => {
-    if (resizer.hasPointerCapture(e.pointerId)) resizer.releasePointerCapture(e.pointerId);
+  // ドラッグの終わり（離す・取り消し・取り込みを失う、のどれでも）。ここで、必ず、元に戻す
+  resizer.addEventListener('lostpointercapture', () => {
     resizer.classList.remove('drag');
     document.body.classList.remove('resizing');
     saveUi();
-  };
-  resizer.addEventListener('pointerup', endResize);
-  resizer.addEventListener('pointercancel', endResize);
+  });
   resizer.addEventListener('dblclick', () => { UI.wide = false; UI.panelW = PANEL_DEFAULT; saveUi(); applyUi(); });
   resizer.addEventListener('keydown', (e) => {
     if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
