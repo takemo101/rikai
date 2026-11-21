@@ -102,6 +102,18 @@ mark.hl.active { outline: 2px solid var(--accent); outline-offset: 1px; }
 .blk-thread.resolved { outline-color: #cfc9ac; }
 .blk-thread.active { outline: 2px solid var(--accent); }
 
+/* コメントの番号（本文の、その印の右上）。右のパネルのカードの番号と対応する。::after なので、本文の文字は変わらない */
+mark.hl[data-no]::after { content: attr(data-no); display: inline-block; margin-left: 2px; padding: 0 4px; min-width: 15px; font-size: 10px; font-weight: 700; line-height: 15px; text-align: center; vertical-align: super; border-radius: 999px; background: var(--accent); color: #fff; cursor: pointer; }
+mark.hl.resolved[data-no]::after { background: #9c9784; }
+.blk-thread[data-no]::after { content: attr(data-no); position: absolute; top: -9px; left: -9px; padding: 0 5px; min-width: 18px; font-size: 11px; font-weight: 700; line-height: 18px; text-align: center; border-radius: 999px; background: var(--accent); color: #fff; }
+.blk-thread.resolved[data-no]::after { background: #9c9784; }
+/* カードと本文の印を、マウスを置いたとき、お互いに光らせる */
+mark.hl.linked { background: #ffd24d; outline: 2px solid var(--accent); outline-offset: 1px; }
+.blk-thread.linked { outline: 3px solid var(--accent); outline-offset: 3px; background: rgba(47, 93, 138, .06); }
+/* 入力中（まだ送っていない）のコメントの対象。オレンジ */
+mark.hl.pending { background: #ffd8a8; outline: 2px dashed #e8590c; outline-offset: 1px; cursor: default; }
+.blk-pending { outline: 3px dashed #e8590c; outline-offset: 3px; background: rgba(232, 89, 12, .06); }
+
 #selbtn { position: fixed; z-index: 20; background: #222; color: #fff; border: 0; border-radius: 6px; padding: 5px 12px; box-shadow: 0 2px 8px rgba(0,0,0,.25); }
 #blkbtn { position: fixed; z-index: 15; width: 24px; height: 24px; line-height: 20px; padding: 0; text-align: center; border-radius: 50%; border: 1px solid var(--accent); background: #fff; color: var(--accent); font-weight: 700; }
 #blkbtn:hover { background: var(--accent); color: #fff; }
@@ -113,6 +125,10 @@ mark.hl.active { outline: 2px solid var(--accent); outline-offset: 1px; }
 .empty { color: var(--muted); font-size: 12.5px; padding: 8px 4px; }
 .thread { background: #fff; border: 1px solid var(--line); border-radius: 8px; margin: 10px 0; padding: 10px 12px; }
 .thread.active { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-soft); }
+.thread.linked { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+.thread.composer { border: 2px solid #e8590c; box-shadow: 0 0 0 3px #ffe8d6; }
+.no { display: inline-block; min-width: 20px; padding: 0 6px; font-size: 12px; font-weight: 700; line-height: 20px; text-align: center; border-radius: 999px; background: var(--accent); color: #fff; }
+.no.pending { background: #e8590c; }
 .thread.fresh { border-left: 4px solid var(--new); }
 .thread.resolved { opacity: .8; }
 .th-head { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; cursor: pointer; margin-bottom: 6px; }
