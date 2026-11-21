@@ -34,7 +34,7 @@ README.md              概要・使い方
 SPEC.md                製品要件・状態・対象外・未決事項・利用者の判断
 AGENTS.md              開発規約・不変条件
 LICENSE                MIT
-install.sh             skill/rikai/ を ~/.claude/skills/rikai/ へ複製する（CLAUDE_SKILLS_DIR で変更）
+install.sh             skills/rikai/ を ~/.claude/skills/rikai/ へ複製する（CLAUDE_SKILLS_DIR で変更）
 package.json           npm test（`node --test test/*.test.js`）だけ。依存はない
 test/                  自動テスト（node:test）。helpers.js・store・actions・ask・apply・poll・anchor・diff・progress・server
 skills/rikai/

@@ -255,9 +255,11 @@
 
 **対象**：スキル本体のディレクトリ名の変更だけ（中身は変えない）。
 
-**確認したこと**：`npm test` 80 件が通過（テストの `require`・子プロセスのパスを新しい場所にした）。`install.sh` で一時の場所へコピーし、`SKILL.md`・`lib`・`public`・`rikai.js` が入り、`new`・`open`・`status`・`stop` が動くこと。文書の相対リンクが壊れていないこと（検査のスクリプト）。`skill/` を指す参照が、リポジトリ（`.git`・`.mikan` を除く）に残っていないこと（`grep`）。
+**確認したこと**：`npm test` 80 件が通過（テストの `require`・子プロセスのパスを新しい場所にした）。`install.sh` で一時の場所へコピーし、`SKILL.md`・`lib`・`public`・`rikai.js` が入り、`new`・`open`・`status`・`stop` が動くこと。文書の相対リンクが壊れていないこと（検査のスクリプト）。旧パスの参照が残っていないこと：`grep -rnP "(?<![A-Za-z_])skill(?![sA-Za-z_])" --exclude-dir=.git --exclude-dir=.mikan --exclude-dir=vendor .` の一致が、この変更の記録（SPEC §8 の行と、この節）だけであること。**最初の確認は、`skills/` を含む行を除いた検索で、2 行（SPEC F18・docs/README.md の配置図）を見落とし、レビューで見つかって直した**。
 
 **確認していない範囲**：実際の `~/.claude/skills/` へのインストール、実際の Claude Code での `/rikai`。
+
+**独立レビュー**（reviewer。read-only）：ブロッカー・Major なし。21 ファイルが、中身の同じ移動（rename 100%・ファイルの権限も同じ）であること、`install.sh` が古い配置の上にコピーしても `--delete` の動作が変わらないこと、リンクが壊れていないことを確認。Minor 2 件（上の見落とし 2 行／この節の「残っていない」という記録が、その時点で事実でなかった）は、直した。再レビューは、していない。プラグインとして配る場合は、`.claude-plugin/plugin.json` が別に要り、名前空間つきの呼び出し（`/rikai:rikai` など）になりうる（レビューの指摘。SPEC §7「配布」で扱う）。
 
 ### 人間の確認待ち
 

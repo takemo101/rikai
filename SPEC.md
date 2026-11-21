@@ -65,7 +65,7 @@
 
 | ID | 要件 |
 | --- | --- |
-| F18 | **エージェントのスキルとして使える**：`skill/rikai/SKILL.md`（`/rikai`）が、資料の作り方・`new`/`open`・待ち方・返信の方針・`apply` の入力・終わり方を、エージェントに示す。`install.sh` が、`~/.claude/skills/rikai/` に置く（`CLAUDE_SKILLS_DIR` で変更） |
+| F18 | **エージェントのスキルとして使える**：`skills/rikai/SKILL.md`（`/rikai`）が、資料の作り方・`new`/`open`・待ち方・返信の方針・`apply` の入力・終わり方を、エージェントに示す。`install.sh` が、`~/.claude/skills/rikai/` に置く（`CLAUDE_SKILLS_DIR` で変更） |
 | F19 | **待ち方を、エージェントに合わせる**：Claude Code は、`rikai poll` をバックグラウンドで起動してターンを終える（コマンドの終了で再開）。それ以外は、`poll` を使わず、ユーザーが「送りました」と伝えたら `rikai pull` で読む（画面に、その文をコピーするボタンがある） |
 | F20 | **理解を確かめる返信を求める**：SKILL.md が、言い換えで終わらず、`ask`（クイズ・Yes/No など）で確かめること、回答を採点すること、誤解は根拠を示して直すこと、を AI に求める |
 
