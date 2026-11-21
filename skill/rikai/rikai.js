@@ -8,6 +8,7 @@ const path = require('path');
 const http = require('http');
 const crypto = require('crypto');
 const cp = require('child_process');
+const { progressOf } = require('./public/progress.js'); // ビューアと同じ数え方（理解の進み具合）
 
 const SELF = __filename;
 const PUBLIC = path.join(__dirname, 'public');
@@ -557,6 +558,7 @@ function cmdStatus(slug) {
       pendingRounds: (m.pending || []),
       unsentInBrowser: countUnsent(th),
       openThreads: th.threads.filter((t) => !t.resolved).length,
+      progress: progressOf(th.threads),
       pages: Object.fromEntries(Object.entries(m.pages).map(([id, p]) => [id, { title: p.title, parent: p.parent, versions: p.versions, file: pageFile(m.slug, id, p.versions) }])),
     };
   }));
@@ -646,7 +648,7 @@ async function handler(req, res) {
       return serveFile(res, path.join(PUBLIC, 'index.html'), { 'Content-Security-Policy': INDEX_CSP });
     }
 
-    if (req.method === 'GET' && (p === '/app.js' || p === '/anchor.js' || p === '/diff.js' || p === '/style.css' || p === '/favicon.svg' || p.startsWith('/vendor/'))) {
+    if (req.method === 'GET' && (p === '/app.js' || p === '/anchor.js' || p === '/diff.js' || p === '/progress.js' || p === '/style.css' || p === '/favicon.svg' || p.startsWith('/vendor/'))) {
       const file = path.resolve(PUBLIC, '.' + p);
       if (!file.startsWith(PUBLIC + path.sep)) return send(res, 403, 'forbidden');
       return serveFile(res, file);
@@ -675,7 +677,7 @@ async function handler(req, res) {
         if (p === '/api/ping') return send(res, 200, { ok: true, root: ROOT });
         if (p === '/api/topics') {
           return send(res, 200, listTopics().map((m) => (isSupported(m)
-            ? { slug: m.slug, title: m.title, closed: !!m.closed, pending: (m.pending || []).length, rev: m.rev, unsupported: false }
+            ? { slug: m.slug, title: m.title, closed: !!m.closed, pending: (m.pending || []).length, rev: m.rev, progress: progressOf(loadThreads(m.slug).threads), unsupported: false }
             : { slug: m.slug, title: topicTitle(m), unsupported: true })));
         }
         let m = /^\/api\/topic\/([^/]+)$/.exec(p);

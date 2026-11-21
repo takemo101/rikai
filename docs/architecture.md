@@ -40,6 +40,7 @@ flowchart LR
 | `skill/rikai/public/app.js` | ビューア。Markdown の描画（無害化）・コメントの位置づけ（選択→アンカー・アンカー→強調）・パネル・ask の入力・ルーティング（ハッシュ）・サーバーの変更の取り込み | データの正本（サーバーが持つ。ここは写しと下書き） |
 | `skill/rikai/public/anchor.js` | コメントの探し直しの、**DOM に触れない純粋な関数**：`findQuote`（選んだ文）・`locateBlock`（ブロック）・`similarity`。ブラウザ（`window.RikaiAnchor`）と Node のテスト（`require`）の両方から使う | DOM・ネットワーク |
 | `skill/rikai/public/diff.js` | 版どうしの差分の、**DOM に触れない純粋な関数**：`diffText`（文字列のトークン単位の差分）・`matchBlocks`（ブロックの対応づけ）。`anchor.js` の `similarity` を使う。ブラウザ（`window.RikaiDiff`）と Node のテスト（`require`）の両方から使う | DOM・ネットワーク |
+| `skill/rikai/public/progress.js` | 理解の進み具合を数える、**DOM に触れない純粋な関数**（`progressOf`）：解決したスレッドの数・全スレッド・AI の質問の数・送信済みの回答がある数。**数だけ**で、理解の判定ではない。ブラウザ（`window.RikaiProgress`）・サーバー（`rikai.js` が `require`。一覧と `status`）・Node のテストの 3 つが共有する | DOM・ネットワーク |
 | `skill/rikai/public/index.html`・`style.css` | 画面の骨組みと見た目 | ロジック |
 | `skill/rikai/public/vendor/` | 同梱の marked・DOMPurify・mermaid と、ライセンス。**書き換えない** | |
 | `skill/rikai/SKILL.md` | AI への手順（資料の作り方・待ち方・返信の方針・`apply` の入力）。コマンドの仕様の**利用者側の説明** | コマンドの実装 |
@@ -53,7 +54,7 @@ flowchart LR
 | --- | --- |
 | `GET /` ほか（`/app.js`・`/style.css`・`/favicon.svg`・`/vendor/*`） | 画面。`/` は、`?t=` が正しければ Cookie を付けて `/` へ 302（URL から合言葉を外す）。`Content-Security-Policy` つき。静的ファイルは、`public/` の外へ出ない |
 | `GET /asset/<topic>/<path>` | `.rikai/<topic>/assets/` の画像だけ。`public` の外・`assets/` の外へ出ない。`Content-Security-Policy: sandbox` つき |
-| `GET /api/ping`・`/api/topics`・`/api/topic/<slug>?since=<rev>`・`/api/page/<slug>/<page>/<版>` | 疎通・トピックの一覧・トピックの状態（`rev` が同じなら `unchanged`）・資料の Markdown |
+| `GET /api/ping`・`/api/topics`・`/api/topic/<slug>?since=<rev>`・`/api/page/<slug>/<page>/<版>` | 疎通・トピックの一覧（読めるトピックには `progress`。一覧の更新のたびに、各トピックの `threads.json` を読む）・トピックの状態（`rev` が同じなら `unchanged`）・資料の Markdown |
 | `POST /api/comment`・`reply`・`answer`・`edit`・`delete`・`resolve`・`submit`・`end` | 画面からの操作（`actions` の同名の関数）。本体は JSON（2 MB まで）。結果は `{ok:true,…}`、失敗は `{ok:false,error}` |
 
 ## 状態の所有

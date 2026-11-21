@@ -92,6 +92,7 @@ test('画像の配信：assets の中だけ。外へ出る名前は断る。直�
 test('静的ファイルは、public の外へ出ない。知らないファイルは配らない', async () => {
   assert.equal((await request('GET', '/anchor.js')).status, 200);
   assert.equal((await request('GET', '/diff.js')).status, 200);
+  assert.equal((await request('GET', '/progress.js')).status, 200);
   assert.equal((await request('GET', '/vendor/marked.min.js')).status, 200);
   assert.notEqual((await request('GET', '/vendor/..%2F..%2Frikai.js')).status, 200);
   assert.equal((await request('GET', '/rikai.js')).status, 404);
@@ -159,4 +160,21 @@ test('rikai open が置く .server.json は、自分だけが読める権限（0
     try { run('stop'); } catch (_) { /* 起動に失敗していても、片付けを続ける */ }
     fs.rmSync(root, { recursive: true, force: true });
   }
+});
+
+test('一覧（/api/topics）に、理解の進み具合が付き、解決の操作で変わる', async () => {
+  const json = authed({ 'Content-Type': 'application/json' });
+  const made = await request('POST', '/api/comment', { headers: json, body: { topic: 'demo', page: 'root', version: 1, anchor: { quote: '本文' }, text: '進み具合の確認' } });
+  assert.equal(made.status, 200);
+  const list = JSON.parse((await request('GET', '/api/topics', { headers: authed() })).body);
+  const demo = list.find((t) => t.slug === 'demo');
+  const state = JSON.parse((await request('GET', '/api/topic/demo', { headers: authed() })).body);
+  assert.equal(demo.progress.threads.total, state.threads.length, 'スレッドの数が、状態の API と同じ');
+  assert.equal(demo.progress.threads.resolved, 0);
+  assert.deepEqual(demo.progress.asks, { total: 0, answered: 0 });
+
+  const resolved = await request('POST', '/api/resolve', { headers: json, body: { topic: 'demo', thread: state.threads[0].id, resolved: true } });
+  assert.equal(resolved.status, 200);
+  const after = JSON.parse((await request('GET', '/api/topics', { headers: authed() })).body).find((t) => t.slug === 'demo');
+  assert.equal(after.progress.threads.resolved, 1);
 });

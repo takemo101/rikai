@@ -110,6 +110,7 @@ test('読めない形のトピックが 1 つあっても、status（トピッ�
   const byName = Object.fromEntries(out.map((t) => [t.topic, t]));
   assert.equal(byName.demo.unsupported, undefined);
   assert.deepEqual(Object.keys(byName.demo.pages), ['root']);
+  assert.deepEqual(byName.demo.progress, { threads: { total: 0, resolved: 0, open: 0 }, asks: { total: 0, answered: 0 } });
   assert.deepEqual(byName.future, { topic: 'future', title: 'future', unsupported: true, schema: rikai.SCHEMA + 1 }, '名前は、ディレクトリのもの');
 });
 
