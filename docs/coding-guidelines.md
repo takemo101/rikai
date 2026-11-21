@@ -7,7 +7,7 @@
 - 実行時の依存は、**Node.js の標準モジュールだけ**（`fs`・`path`・`http`・`crypto`・`child_process`）。npm のパッケージを足さない（守っている）。
 - ブラウザ側の依存は、`public/vendor/` に**同梱した**ものだけ（marked・DOMPurify・mermaid）。CDN・外部のスクリプト・外部の画像・外部のフォントを読み込まない（CSP でも禁じている）。
 - ビルドしない：`public/` は、そのまま配信する素の HTML・CSS・JavaScript。変換・バンドルの手順を足さない。
-- 置き場所は、変わる理由で決める：コマンドの入口 → `rikai.js`、データの読み書き → `lib/store.js`、検査 → `lib/ask.js`（と各操作の中）、画面からの操作 → `lib/actions.js`、AI 向け → `lib/agent.js`、HTTP → `lib/server.js`、描画・操作 → `app.js`、AI への指示 → `SKILL.md`。**依存は一方向**：`util` ← `store` ← `ask` ← `actions`・`agent` ← `server` ← `rikai.js`（循環させない）。
+- 置き場所は、変わる理由で決める：コマンドの入口 → `rikai.js`、データの読み書き → `lib/store.js`、検査 → `lib/ask.js`（と各操作の中）、画面からの操作 → `lib/actions.js`、AI 向け（`poll`・`pull`・`apply`・`status`） → `lib/agent.js`、HTTP → `lib/server.js`、描画・操作 → `app.js`、AI への指示 → `SKILL.md`。**依存は一方向**：層の順 `util` → `store` → `ask` → `actions`・`agent` → `server` → `rikai.js` で、**後ろのモジュールだけが、前のモジュールを `require` できる**（逆向き・循環をさせない。前のすべてを、require するとは限らない：例えば `ask` は `util` だけ）。
 - 「util」「helper」に、無関係なものを集めない。
 
 ## 型と境界

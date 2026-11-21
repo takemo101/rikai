@@ -9,13 +9,11 @@ const path = require('path');
 const http = require('http');
 const cp = require('child_process');
 const { HttpError, out, sleep, now, readJSON, writeJSON } = require('./lib/util.js');
-const { progressOf } = require('./public/progress.js'); // ビューアと同じ数え方（理解の進み具合）
 const {
-  setRoot, getRoot, getBase, tdir, serverFile, ensureBase, schemaOf, isSupported, topicTitle,
-  loadMeta, loadThreads, pageFile, mutate, listTopics, countUnsent, newTopic,
+  setRoot, getRoot, getBase, tdir, serverFile, ensureBase, loadMeta, pageFile, mutate, newTopic,
 } = require('./lib/store.js');
 const { hooks } = require('./lib/actions.js');
-const { peek, cmdApply } = require('./lib/agent.js');
+const { cmdPoll, cmdPull, cmdApply, cmdStatus } = require('./lib/agent.js');
 const { startServer, shutdown } = require('./lib/server.js');
 
 const SELF = __filename;
@@ -43,38 +41,6 @@ function projectRoot(flags) {
   } catch (_) {
     return process.cwd();
   }
-}
-
-// ---------------------------------------------------------------- コマンド
-
-async function cmdPoll(slug, flags) {
-  const deadline = Date.now() + (Number(flags.timeout) || 43200) * 1000;
-  for (;;) {
-    const r = peek(slug);
-    if (r.status !== 'none') return out(r);
-    if (Date.now() > deadline) return out({ status: 'timeout' });
-    await sleep(500);
-  }
-}
-
-// 待機しない版。poll を使えないエージェントが、ユーザーに「送った」と言われたあとに読みに行く
-function cmdPull(slug) {
-  return out(peek(slug));
-}
-
-function cmdStatus(slug) {
-  const topics = slug ? [loadMeta(slug)] : listTopics();
-  out(topics.map((m) => {
-    if (!isSupported(m)) return { topic: m.slug, title: topicTitle(m), unsupported: true, schema: schemaOf(m) };
-    const th = loadThreads(m.slug);
-    return {
-      topic: m.slug, title: m.title, closed: !!m.closed,
-      pendingRounds: (m.pending || []),
-      unsentInBrowser: countUnsent(th),
-      progress: progressOf(th.threads),
-      pages: Object.fromEntries(Object.entries(m.pages).map(([id, p]) => [id, { title: p.title, parent: p.parent, versions: p.versions, file: pageFile(m.slug, id, p.versions) }])),
-    };
-  }));
 }
 
 // ---------------------------------------------------------------- 起動まわり

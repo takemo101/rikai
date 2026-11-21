@@ -1,9 +1,12 @@
 'use strict';
-// AI 向け：Submit された round を読む（peek）と、返信・新版・子ページを反映する（cmdApply）。
+// AI 向け：Submit された round を読む（peek・cmdPoll・cmdPull）、返信・新版・子ページを反映する（cmdApply）、状態を出す（cmdStatus）。
 const fs = require('fs');
 const path = require('path');
-const { HttpError, now, readJSON, writeJSON, normAnchor } = require('./util.js');
-const { SLUG_RE, tdir, pageFile, mutate, nextId, loadMeta, loadThreads, countUnsent } = require('./store.js');
+const { HttpError, out, sleep, now, readJSON, writeJSON, normAnchor } = require('./util.js');
+const { progressOf } = require('../public/progress.js'); // ビューアと同じ数え方（理解の進み具合）
+const {
+  SLUG_RE, tdir, pageFile, mutate, nextId, schemaOf, isSupported, topicTitle, loadMeta, loadThreads, listTopics, countUnsent,
+} = require('./store.js');
 const { normAsk } = require('./ask.js');
 
 function listRounds(slug) {
@@ -131,4 +134,36 @@ function cmdApply(slug, payload) {
   });
 }
 
-module.exports = { listRounds, peek, cmdApply };
+// ---------------------------------------------------------------- 出力するコマンド（CLI の poll / pull / status）
+
+async function cmdPoll(slug, flags) {
+  const deadline = Date.now() + (Number(flags.timeout) || 43200) * 1000;
+  for (;;) {
+    const r = peek(slug);
+    if (r.status !== 'none') return out(r);
+    if (Date.now() > deadline) return out({ status: 'timeout' });
+    await sleep(500);
+  }
+}
+
+// 待機しない版。poll を使えないエージェントが、ユーザーに「送った」と言われたあとに読みに行く
+function cmdPull(slug) {
+  return out(peek(slug));
+}
+
+function cmdStatus(slug) {
+  const topics = slug ? [loadMeta(slug)] : listTopics();
+  out(topics.map((m) => {
+    if (!isSupported(m)) return { topic: m.slug, title: topicTitle(m), unsupported: true, schema: schemaOf(m) };
+    const th = loadThreads(m.slug);
+    return {
+      topic: m.slug, title: m.title, closed: !!m.closed,
+      pendingRounds: (m.pending || []),
+      unsentInBrowser: countUnsent(th),
+      progress: progressOf(th.threads),
+      pages: Object.fromEntries(Object.entries(m.pages).map(([id, p]) => [id, { title: p.title, parent: p.parent, versions: p.versions, file: pageFile(m.slug, id, p.versions) }])),
+    };
+  }));
+}
+
+module.exports = { listRounds, peek, cmdPoll, cmdPull, cmdApply, cmdStatus };

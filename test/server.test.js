@@ -192,3 +192,31 @@ test('threads.json が壊れたトピックが 1 つあっても、一覧は 200
     fs.rmSync(path.join(dir, '.rikai', 'broken'), { recursive: true, force: true });
   }
 });
+
+test('rikai serve は、すべてのトピックが閉じたら、自分で終わる（終了の処理を、serve が取りつける）', async () => {
+  const root = fs.mkdtempSync(path.join(require('os').tmpdir(), 'rikai-exit-'));
+  const cli = path.join(__dirname, '..', 'skill', 'rikai', 'rikai.js');
+  const run = (...args) => cp.execFileSync(process.execPath, [cli, ...args, '--root', root], { input: '# 題\n', encoding: 'utf8', env: { ...process.env, NO_OPEN: '1' } });
+  const alive = (pid) => { try { process.kill(pid, 0); return true; } catch (_) { return false; } };
+  let pid = 0;
+  try {
+    run('new', 'one', '--title', '一');
+    run('new', 'two', '--title', '二');
+    run('open', 'one', '--no-open');
+    const info = JSON.parse(fs.readFileSync(path.join(root, '.rikai', '.server.json'), 'utf8'));
+    pid = info.pid;
+    const end = (topic) => fetch(`http://127.0.0.1:${info.port}/api/end`, {
+      method: 'POST', headers: { 'x-rikai-token': info.token, 'content-type': 'application/json' }, body: JSON.stringify({ topic }),
+    });
+    assert.equal((await end('one')).status, 200);
+    await new Promise((r) => setTimeout(r, 1500));
+    assert.equal(alive(pid), true, 'まだ開いているトピックがあるので、終わらない');
+    assert.equal((await end('two')).status, 200);
+    for (let i = 0; i < 50 && alive(pid); i++) await new Promise((r) => setTimeout(r, 100));
+    assert.equal(alive(pid), false, 'すべて閉じたら、サーバーのプロセスが終わる');
+    assert.equal(fs.existsSync(path.join(root, '.rikai', '.server.json')), false, '.server.json も消える');
+  } finally {
+    if (pid && alive(pid)) { try { process.kill(pid, 'SIGTERM'); } catch (_) { /* すでに終わっている */ } }
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});
