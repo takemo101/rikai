@@ -110,20 +110,20 @@ npm test        # node --test test/*.test.js。追加の依存なし（Node 18 �
 
 ### コマンドを足す
 
-1. `rikai.js` の `main()` の `switch` に `case` を足す。引数の解釈は `parseArgs`（値を取るオプションは、`flags`。値を取らないものだけ、`no-open`・`force` の並びに足す）。
+1. `rikai.js` の `main()` の `switch` に `case` を足す。引数の解釈は `parseArgs`（値を取るオプションは、`flags`。値を取らないものだけ、`no-open`・`force` の並びに足す）。中身が検査や書き込みなら、`lib/` に置く。
 2. `HELP` に 1 行足す。
 3. 規則・検査は、コマンドの関数に置く（`main()` に書かない）。失敗は `HttpError` を投げる（`main()` が `{ok:false,errors}` と終了コード 1 にする）。
 4. `SKILL.md` の手順・`README.md` のコマンド表・`docs/development.md` の表を直す。
 
 ### ask の型を足す
 
-1. `rikai.js`：`ASK_TYPES`・`normAsk`（AI の入力の検査）・`normAnswer`（人間の回答の検査）。
+1. `lib/ask.js`：`ASK_TYPES`・`normAsk`（AI の入力の検査）・`normAnswer`（人間の回答の検査）。
 2. `app.js`：`askDraftValid`・`renderAsk`（入力の描画・下書き）。
 3. `SKILL.md` の `ask` の表と、SPEC F10 を直す。
 
 ## データの形を変えるとき
 
-`meta.json` の `schema`（`rikai.js` の `SCHEMA`。いまは 1）が、データの形の版（SPEC N7）。版は `meta.json` にだけ書く。`threads.json`・`rounds/`・`pages/` の形の変更も、この版を上げて表す。**既存の `.rikai/` を、壊さない**。
+`meta.json` の `schema`（`lib/store.js` の `SCHEMA`。いまは 1）が、データの形の版（SPEC N7）。版は `meta.json` にだけ書く。`threads.json`・`rounds/`・`pages/` の形の変更も、この版を上げて表す。**既存の `.rikai/` を、壊さない**。
 
 - 形を**足すだけ**（古い形に、新しい項目がなくても読める）なら、版は上げない。読む側が、項目がなくても動くようにする。
 - 形を**変える・消す**（古い形のままでは読めない）ときは、次の順で行う。

@@ -36,17 +36,23 @@ flowchart LR
 
 | 場所 | 責務 | 持たないもの |
 | --- | --- | --- |
-| `skill/rikai/rikai.js` | コマンド（`new`・`open`・`poll`・`pull`・`apply`・`status`・`stop`・内部の `serve`）と、サーバー。**ストア**（`.rikai/` の読み書き・ロック・`mutate`）・**ask の検査**・**画面からの操作**（`actions`）・**AI 向けの操作**（`peek`〔`poll`・`pull` が共有〕・`cmdApply`・`cmdStatus`）・**HTTP**（認証・配信・ルーティング）・**起動まわり**（`startServer`・サーバーの起動・疎通・ブラウザを開く）。`require` されたときは、何も実行せず、テストが使う関数を `module.exports` で出す（直接実行されたときだけ `main()`） | 画面の描画・資料の中身の解釈（Markdown は、ただの文字列として保存する） |
+| `skill/rikai/rikai.js` | **CLI の入口**：引数の解釈（`parseArgs`・`projectRoot`）と、各コマンド（`new`・`open`・`poll`・`pull`・`apply`・`status`・`stop`・内部の `serve`）の振り分け。**起動まわり**（サーバーの起動・疎通・ブラウザを開く・`serve` の終了処理の取りつけ）。`lib/` のモジュールを使う。**読み込むと動き出す**（`main()`）ので、テストは読み込まない | 画面の描画・資料の中身の解釈・データの検査（`lib/` の仕事） |
+| `skill/rikai/lib/util.js` | 共通の小さな道具：`HttpError`・`out`・`now`・`readJSON`・`writeJSON`・`sleep`・入力の整形（`str`・`normAnchor`）。ほかのモジュールに依存しない | |
+| `skill/rikai/lib/store.js` | **ストア**：`.rikai/<topic>/` の読み書き・ロック・`mutate`・データの形の版（`SCHEMA`）・トピックの一覧・`newTopic`・`progressOrNull`。**プロジェクトのルート（`ROOT`）と `.rikai`（`BASE`）の状態を持つ**（`setRoot`・`getRoot`・`getBase`） | HTTP・画面の操作・AI 向けの検査 |
+| `skill/rikai/lib/ask.js` | **ask の検査**：`normAsk`（AI が出す質問）・`normAnswer`（人の回答） | ファイルの読み書き |
+| `skill/rikai/lib/actions.js` | **画面からの操作**（`actions`：`comment`・`reply`・`answer`・`edit`・`delete`・`resolve`・`submit`・`end`）。全トピックが閉じたときの動き `hooks.allClosed`（既定は何もしない。`serve` のプロセスが、終了の処理を入れる） | HTTP |
+| `skill/rikai/lib/agent.js` | **AI 向けの操作**：`listRounds`・`peek`（`poll`・`pull` が共有）・`cmdApply`（検証してから書く） | HTTP・画面の操作 |
+| `skill/rikai/lib/server.js` | **HTTP**：認証（合言葉・`Host`・`Origin`）・配信・ルーティング・`startServer`・`shutdown`。`PORT`・`TOKEN` の状態を持つ | データの検査（`actions` と `store` を呼ぶだけ） |
 | `skill/rikai/public/app.js` | ビューア。Markdown の描画（無害化）・コメントの位置づけ（選択→アンカー・アンカー→強調）・パネル・ask の入力・ルーティング（ハッシュ）・サーバーの変更の取り込み | データの正本（サーバーが持つ。ここは写しと下書き） |
 | `skill/rikai/public/anchor.js` | コメントの探し直しの、**DOM に触れない純粋な関数**：`findQuote`（選んだ文）・`locateBlock`（ブロック）・`similarity`。ブラウザ（`window.RikaiAnchor`）と Node のテスト（`require`）の両方から使う | DOM・ネットワーク |
 | `skill/rikai/public/diff.js` | 版どうしの差分の、**DOM に触れない純粋な関数**：`diffText`（文字列のトークン単位の差分）・`matchBlocks`（ブロックの対応づけ）。`anchor.js` の `similarity` を使う。ブラウザ（`window.RikaiDiff`）と Node のテスト（`require`）の両方から使う | DOM・ネットワーク |
-| `skill/rikai/public/progress.js` | 理解の進み具合を数える、**DOM に触れない純粋な関数**（`progressOf`）：解決したスレッドの数・全スレッド・AI の質問の数・送信済みの回答がある数。**数だけ**で、理解の判定ではない。ブラウザ（`window.RikaiProgress`）・サーバー（`rikai.js` が `require`。一覧と `status`）・Node のテストの 3 つが共有する | DOM・ネットワーク |
+| `skill/rikai/public/progress.js` | 理解の進み具合を数える、**DOM に触れない純粋な関数**（`progressOf`）：解決したスレッドの数・全スレッド・AI の質問の数・送信済みの回答がある数。**数だけ**で、理解の判定ではない。ブラウザ（`window.RikaiProgress`）・サーバー（`lib/store.js` の `progressOrNull`〔一覧〕と `rikai.js` の `status` が `require`）・Node のテストの 3 つが共有する | DOM・ネットワーク |
 | `skill/rikai/public/index.html`・`style.css` | 画面の骨組みと見た目 | ロジック |
 | `skill/rikai/public/vendor/` | 同梱の marked・DOMPurify・mermaid と、ライセンス。**書き換えない** | |
 | `skill/rikai/SKILL.md` | AI への手順（資料の作り方・待ち方・返信の方針・`apply` の入力）。コマンドの仕様の**利用者側の説明** | コマンドの実装 |
 | `install.sh` | `skill/rikai/` を `~/.claude/skills/rikai/` へ複製（`rsync --delete`） | |
 
-### サーバーの API（`rikai.js`）
+### サーバーの API（`lib/server.js`）
 
 すべて、合言葉の Cookie（または `X-Rikai-Token` ヘッダー）が要る（`/` の最初の 1 回は `?t=`）。
 
@@ -63,8 +69,8 @@ flowchart LR
 
 | 状態 | 所有者 | 場所・形 | 備考 |
 | --- | --- | --- | --- |
-| ページ木・版の数・題名・round の番号・未処理の round・閉じたか・`rev`・データの形の版（`schema`） | `rikai.js`（`mutate`） | `.rikai/<topic>/meta.json` | 保存のたびに `rev` を 1 つ上げ、`schema` を書く（画面が、変更を見つける印）。このコードより新しい `schema` は、読み書きを断る（`loadMeta`。409） |
-| スレッド・メッセージ・解決・送信済みか | `rikai.js`（`mutate`） | `.rikai/<topic>/threads.json`（`seq` で ID `t…`・`m…` を採番） | 人間の発言は `sent:false`（下書き）で入り、Submit で `true` になる |
+| ページ木・版の数・題名・round の番号・未処理の round・閉じたか・`rev`・データの形の版（`schema`） | `lib/store.js`（`mutate`） | `.rikai/<topic>/meta.json` | 保存のたびに `rev` を 1 つ上げ、`schema` を書く（画面が、変更を見つける印）。このコードより新しい `schema` は、読み書きを断る（`loadMeta`。409） |
+| スレッド・メッセージ・解決・送信済みか | `lib/store.js`（`mutate`） | `.rikai/<topic>/threads.json`（`seq` で ID `t…`・`m…` を採番） | 人間の発言は `sent:false`（下書き）で入り、Submit で `true` になる |
 | 資料の各版 | `rikai new`・`apply` だけが作る | `.rikai/<topic>/pages/<page>/v<N>.md` | **作ったあとは書き換えない** |
 | Submit の送信内容 | `submit`（作る）・`apply`（`handled` にする） | `.rikai/<topic>/rounds/NNN.json` | `pending` → `handled`。`poll`・`pull` は、`pending` の最初のものを出す |
 | 画像 | 人（またはエージェント）が置く | `.rikai/<topic>/assets/` | 読むだけ（`/asset/`） |
@@ -146,7 +152,7 @@ flowchart TB
 
 見直しの候補。直したら、この節から消す。
 
-- **ファイルが大きい**：`rikai.js`・`app.js` は、どちらも 500 行を超える（2026-11-21 の時点で、約 820 行・約 800 行）。`rikai.js` は、ストア・HTTP・コマンドが 1 ファイルにある。Node の標準だけで足りる・配布が簡単、を優先した。分けるなら、ストア／サーバー／コマンドの境目（`// ----` の見出し）で。
+- **ファイルが大きい**：`app.js` は、500 行を超える（2026-11-21 の時点で、約 920 行）。ブラウザで、ビルドなしの script タグなので、分けるには、読み込み順とグローバルの扱いを決める必要があり、自動テストの保護もない（DOM を使うため）。**`rikai.js` は、`lib/` に分けた**（RIK-007。最大の `lib/actions.js`・`lib/server.js` は、それぞれ約 150・約 190 行）。
 - **自動テストの範囲**：`npm test`（Node 標準の `node:test`）が、ストア・画面からの操作・`apply`・ask・`peek`・アンカーの探し直し・サーバーの入口を試す（[開発手順](development.md#検証の入口)）。**対象外**：ビューア（DOM）。無害化（DOMPurify）・描画・選択・パネルは、ブラウザでの手作業の確認だけ。ロックの競合（`sleepSync`）・`poll` の待ち（時間）も、試していない。
 - **古いコメントは、ブロックの種類・抜粋を持たない**：`blockTag`・`blockText` を足した（2026-11-21）より前のブロックへのコメントは、それらを持たない。そのときは、種類を問わず、内容の抜粋なしで、同じ内容（`blockHash`）か、同じ位置（`blockId`）しか探せない。移行（版 2）は、まだない。
 - **ロックの待ちが、イベントループを止める**：`mutate` の同期の待ち（最大 8 秒）。通常はすぐ取れるが、CLI の `apply` が長く掴むと、サーバーが、その間、止まる。

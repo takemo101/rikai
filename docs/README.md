@@ -39,7 +39,14 @@ package.json           npm test（`node --test test/*.test.js`）だけ。依存
 test/                  自動テスト（node:test）。helpers.js・store・actions・ask・apply・poll・anchor・diff・progress・server
 skill/rikai/
   SKILL.md             エージェント向けの手順（/rikai）
-  rikai.js             コマンド（new・open・poll・pull・apply・status・stop）とローカルサーバー。Node 18+・依存なし
+  rikai.js             コマンドの入口（new・open・poll・pull・apply・status・stop）と、サーバーの起動。Node 18+・依存なし
+  lib/
+    util.js            共通の小さな道具（エラー・時刻・JSON・入力の整形）
+    store.js           .rikai の読み書き・ロック・mutate・データの形の版（ルートの状態を持つ）
+    ask.js             ask の検査（質問・回答）
+    actions.js         画面からの操作（comment・reply・answer・edit・delete・resolve・submit・end）
+    agent.js           AI 向け（poll・pull の読み取り・apply）
+    server.js          HTTP サーバー（認証・配信・API）
   public/
     index.html         画面の骨組み
     app.js             ビューア（描画・コメントの位置づけ・パネル・ask）
