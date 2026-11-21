@@ -3,16 +3,20 @@
 // DOM に触れない純粋な関数だけ（ブラウザ〔window.RikaiFmt〕と Node のテスト〔require〕の両方から使う）。
 // 資料は、AI が書いた、非信頼のデータ。文字は、必ず、ここで escape してから、決まったタグ・クラスの中に入れる（資料の文字が、タグ・属性にならない）。
 // ビューアは、このあと、全体を DOMPurify に通す（`style` 属性は使えない。位置・長さは、data-* に数だけで持ち、ビューアが、無害化のあとに設定する）。
+// 各行・各項目は、改行で終わる（見た目には出ない）。コメントの引用・AI に届くブロックの文字が、読める形になるように。
 (function (root) {
   const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
   const lines = (text) => String(text == null ? '' : text).replace(/\r\n?/g, '\n').replace(/\n$/, '').split('\n');
 
-  // ---- diff：行の種類で、色分け（追加・削除・ハンクの見出し・ファイルの見出し）。各行は、1 つのブロックの要素（行末の改行を含む）
+  // ---- diff：行の種類で、色分け（追加・削除・ハンクの見出し・ファイルの見出し）。ハンクの中では、`---`・`+++` で始まる行も、削除・追加
   function diffHtml(text) {
+    let inHunk = false; // 「@@」のあと、次の「diff 」までは、ハンクの中（`--- 古い SQL のコメント` を、ファイルの見出しにしない）
     const out = lines(text).map((l) => {
       let c = 'ctx';
-      if (/^(diff |index |--- |\+\+\+ |new file|deleted file|similarity |rename |old mode|new mode)/.test(l)) c = 'meta';
-      else if (l.startsWith('@@')) c = 'hunk';
+      if (l.startsWith('diff ')) { inHunk = false; c = 'meta'; }
+      else if (l.startsWith('@@')) { inHunk = true; c = 'hunk'; }
+      else if (l.startsWith('\\')) c = 'meta'; // \ No newline at end of file
+      else if (!inHunk && /^(index |--- |\+\+\+ |new file|deleted file|similarity |rename |old mode|new mode)/.test(l)) c = 'meta';
       else if (l.startsWith('+')) c = 'add';
       else if (l.startsWith('-')) c = 'del';
       return `<span class="dl ${c}">${esc(l)}\n</span>`;
@@ -21,8 +25,10 @@
   }
 
   // ---- terminal：ANSI の色（SGR）。色・太字・薄字・斜体・下線。ほかの制御文字は、捨てる。256 色・24 ビット色の、基本の 16 色以外は、色なし
-  // ESC の書き方は、実際の制御文字のほか、\x1b・\u001b・\033・␛・^[ も受ける（AI が、制御文字を書きにくいため）
-  const ANSI_RE = /(?:\u001b|\\x1b|\\u001b|\\033|␛|\^\[)\[([0-9;]*)m/g;
+  // ESC の書き方は、実際の制御文字のほか、\x1b・\u001b・\033・\e・␛・^[ も受ける（AI が、制御文字を書きにくいため）
+  const ESC = '(?:\\u001b|\\\\x1[bB]|\\\\u001[bB]|\\\\033|\\\\e|␛|\\^\\[)';
+  const ANSI_RE = new RegExp(`${ESC}\\[([0-9;]*)m`, 'g');
+  const OTHER_SEQ_RE = new RegExp(`${ESC}\\[[0-9;?]*[@-~]`, 'g');
   function applySgr(st, params) {
     const codes = params === '' ? [0] : params.split(';').map((n) => Number(n));
     for (let i = 0; i < codes.length; i++) {
@@ -53,7 +59,7 @@
     const src = lines(text).join('\n');
     const st = { fg: null, bg: null, b: false, d: false, i: false, u: false };
     let out = '', last = 0, m;
-    const clean = (s) => s.replace(/\u001b\[[0-9;?]*[@-~]/g, '').replace(/[\u0000-\u0008\u000b-\u001f\u007f]/g, '');
+    const clean = (s) => s.replace(OTHER_SEQ_RE, '').replace(/[\u0000-\u0008\u000b-\u001f\u007f]/g, '');
     const emit = (s) => {
       const t = clean(s);
       if (!t) return;
@@ -67,34 +73,66 @@
       last = m.index + m[0].length;
     }
     emit(src.slice(last));
-    return `<div class="fmt fmt-term" data-fmt="terminal"><pre>${out}</pre></div>\n`;
+    return `<div class="fmt fmt-term" data-fmt="terminal"><pre>${out}\n</pre></div>\n`;
   }
 
-  // ---- json：折りたためる木。JSON として読めない・大きすぎる（3000 ノード超・深さ 40 超）ときは、null（ふつうのコードブロックにする）
+  // ---- json：折りたためる木。**書かれたとおりに見せる**：数・文字列・キーは、元の文字のまま（桁あふれ・`1.50`・`-0`・`\n` の表記・重複したキー・キーの順を、変えない）。
+  // JSON として読めない・大きすぎる（3000 ノード超・深さ 40 超）ときは、null（ふつうのコードブロックにする）
   const JSON_MAX_NODES = 3000, JSON_MAX_DEPTH = 40;
-  function jsonHtml(text) {
-    let v;
-    try { v = JSON.parse(String(text)); } catch (_) { return null; }
-    let n = 0;
-    let tooBig = false;
-    const key = (k) => (k == null ? '' : `<span class="jk">"${esc(k)}"</span><span class="jp">: </span>`);
-    const node = (k, val, depth) => {
-      if (++n > JSON_MAX_NODES || depth > JSON_MAX_DEPTH) { tooBig = true; return ''; }
-      if (val === null) return `<div class="jl">${key(k)}<span class="jb">null</span></div>`;
-      if (typeof val === 'string') return `<div class="jl">${key(k)}<span class="js">"${esc(val)}"</span></div>`;
-      if (typeof val === 'number') return `<div class="jl">${key(k)}<span class="jn">${esc(val)}</span></div>`;
-      if (typeof val === 'boolean') return `<div class="jl">${key(k)}<span class="jb">${val}</span></div>`;
-      const isArr = Array.isArray(val);
-      const entries = isArr ? val.map((x, i) => [i, x]) : Object.entries(val);
-      const [o, c] = isArr ? ['[', ']'] : ['{', '}'];
-      if (!entries.length) return `<div class="jl">${key(k)}<span class="jp">${o}${c}</span></div>`;
-      const kids = entries.map(([ck, cv]) => node(isArr ? null : ck, cv, depth + 1)).join('');
-      const meta = isArr ? `${entries.length} item${entries.length === 1 ? '' : 's'}` : `${entries.length} key${entries.length === 1 ? '' : 's'}`;
-      return `<details${depth < 2 ? ' open' : ''}><summary>${key(k)}<span class="jp">${o}</span><span class="jm"> ${meta}</span></summary><div class="jc">${kids}</div><div class="jl"><span class="jp">${c}</span></div></details>`;
+  const NUM_OR_LIT = /-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?|true|false|null/y;
+  // JSON.parse で、正しいと分かった文字列を、元の文字のまま、木にする（値は、種類と元の文字）
+  function parseRaw(src) {
+    let i = 0, n = 0;
+    const ws = () => { while (i < src.length && ' \t\n\r'.includes(src[i])) i++; };
+    const str = () => { const s = i++; while (i < src.length && src[i] !== '"') i += src[i] === '\\' ? 2 : 1; i++; return src.slice(s, i); };
+    const value = (depth) => {
+      if (++n > JSON_MAX_NODES || depth > JSON_MAX_DEPTH) throw new Error('big');
+      ws();
+      const c = src[i];
+      if (c === '{' || c === '[') {
+        const obj = c === '{', close = obj ? '}' : ']', items = [];
+        i++; ws();
+        if (src[i] === close) { i++; return { t: obj ? 'o' : 'a', items }; }
+        for (;;) {
+          ws();
+          let k = null;
+          if (obj) { k = str(); ws(); i++; } // 「:」
+          items.push([k, value(depth + 1)]);
+          ws();
+          if (src[i] === ',') { i++; continue; }
+          i++; // 閉じ
+          return { t: obj ? 'o' : 'a', items };
+        }
+      }
+      if (c === '"') return { t: 's', raw: str() };
+      NUM_OR_LIT.lastIndex = i;
+      const m = NUM_OR_LIT.exec(src);
+      if (!m) throw new Error('bad');
+      i += m[0].length;
+      return { t: /^-?\d/.test(m[0]) ? 'n' : 'b', raw: m[0] };
     };
-    const html = node(null, v, 0);
-    if (tooBig) return null;
-    return `<div class="fmt fmt-json" data-fmt="json">${html}</div>\n`;
+    const v = value(0);
+    return v;
+  }
+  function jsonHtml(text) {
+    const src = String(text == null ? '' : text);
+    try { JSON.parse(src); } catch (_) { return null; }
+    let tree;
+    try { tree = parseRaw(src); } catch (_) { return null; }
+    const key = (k) => (k == null ? '' : `<span class="jk">${esc(k)}</span><span class="jp">: </span>`);
+    const node = (k, v, depth) => {
+      if (v.t === 's') return `<div class="jl">${key(k)}<span class="js">${esc(v.raw)}</span>\n</div>`;
+      if (v.t === 'n') return `<div class="jl">${key(k)}<span class="jn">${esc(v.raw)}</span>\n</div>`;
+      if (v.t === 'b') return `<div class="jl">${key(k)}<span class="jb">${esc(v.raw)}</span>\n</div>`;
+      const [o, c] = v.t === 'a' ? ['[', ']'] : ['{', '}'];
+      if (!v.items.length) return `<div class="jl">${key(k)}<span class="jp">${o}${c}</span>\n</div>`;
+      const kids = v.items.map(([ck, cv]) => node(ck, cv, depth + 1)).join('');
+      const len = v.items.length;
+      const meta = v.t === 'a' ? `${len} item${len === 1 ? '' : 's'}` : `${len} key${len === 1 ? '' : 's'}`;
+      // 個数は、文字でなく、data-n から、CSS で出す（コメントの引用・AI に届く文字に、画面の補助の言葉が入らないように）
+      return `<details${depth < 2 ? ' open' : ''}><summary data-n="${meta}">${key(k)}<span class="jp">${o}</span>\n</summary><div class="jc">${kids}</div><div class="jl"><span class="jp">${c}</span>\n</div></details>`;
+    };
+    return `<div class="fmt fmt-json" data-fmt="json">${node(null, tree, 0)}</div>\n`;
   }
 
   // ---- trace：手順のタイムライン（ウォーターフォール）。1 行 = 「名前 | 開始 | 長さ | メモ（任意）」。開始・長さは、ミリ秒（数）。
@@ -107,15 +145,18 @@
       if (!l || l.startsWith('#')) continue;
       const cols = l.split('|').map((s) => s.trim());
       const start = Number(cols[1]), dur = Number(cols[2]);
-      if (cols.length < 3 || !cols[0] || cols[1] === '' || cols[2] === '' || !Number.isFinite(start) || !Number.isFinite(dur) || start < 0 || dur < 0) return null;
+      if (cols.length < 3 || !cols[0] || cols[1] === '' || cols[2] === '' || !Number.isFinite(start) || !Number.isFinite(dur) || !Number.isFinite(start + dur) || start < 0 || dur < 0) return null;
       rows.push({ name: cols[0], start, dur, note: cols.slice(3).join(' | ') });
       if (rows.length > 200) return null;
     }
     if (!rows.length) return null;
-    const total = Math.max(...rows.map((r) => r.start + r.dur)) || 1;
-    const pct = (v) => Math.round((v / total) * 10000) / 100;
-    const body = rows.map((r) => `<div class="tr"><span class="tn">${esc(r.name)}</span><span class="tt"><span class="tb" data-s="${pct(r.start)}" data-w="${pct(r.dur)}"></span></span><span class="td">${esc(fmtMs(r.dur))}</span>${r.note ? `<span class="tm">${esc(r.note)}</span>` : ''}</div>`).join('');
-    return `<div class="fmt fmt-trace" data-fmt="trace">${body}<div class="tr tz"><span class="tn"></span><span class="tt"><span class="tl">0</span><span class="tl r">${esc(fmtMs(total))}</span></span></div></div>\n`;
+    const total = Math.max(...rows.map((r) => r.start + r.dur));
+    const scale = total || 1;
+    const pct = (v) => Math.round((v / scale) * 10000) / 100;
+    // 開始・長さ・メモも、文字として持つ（コメントの引用・AI に届く文字から、タイムラインの中身が分かるように）。位置は、data-s・data-w（数）から、ビューアが設定する
+    const body = rows.map((r) => `<div class="tr"><span class="tn">${esc(r.name)}</span> <span class="tt"><span class="tb" data-s="${pct(r.start)}" data-w="${pct(r.dur)}"></span></span> <span class="ts">@${esc(fmtMs(r.start))}</span> <span class="td">${esc(fmtMs(r.dur))}</span>${r.note ? ` <span class="tm">${esc(r.note)}</span>` : ''}\n</div>`).join('');
+    // 軸の目盛り（0 と全体の長さ）は、文字でなく、data-total から、CSS で出す（コメントの引用・AI に届く文字に、入らない）
+    return `<div class="fmt fmt-trace" data-fmt="trace">${body}<div class="tr tz"><span class="tn"></span> <span class="tt" data-total="${esc(total ? fmtMs(total) : '0')}"></span></div></div>\n`;
   }
 
   // コードブロックの言語から、HTML を返す。この形式でない・読めない（JSON が壊れている など）ときは、null
@@ -125,8 +166,9 @@
     return f ? f(text) : null;
   }
   const LABEL = { diff: '差分', terminal: '端末出力', json: 'JSON', trace: 'トレース' };
+  const labelOf = (kind) => (Object.prototype.hasOwnProperty.call(LABEL, kind) ? LABEL[kind] : '図表');
 
-  const api = { esc, diffHtml, ansiHtml, jsonHtml, traceHtml, render, LABEL };
+  const api = { esc, diffHtml, ansiHtml, jsonHtml, traceHtml, render, labelOf };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.RikaiFmt = api;
 })(typeof window !== 'undefined' ? window : globalThis);
