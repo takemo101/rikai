@@ -11,12 +11,15 @@
   // ---- diff：行の種類で、色分け（追加・削除・ハンクの見出し・ファイルの見出し）。ハンクの中では、`---`・`+++` で始まる行も、削除・追加
   function diffHtml(text) {
     let inHunk = false; // 「@@」のあと、次の「diff 」までは、ハンクの中（`--- 古い SQL のコメント` を、ファイルの見出しにしない）
-    const out = lines(text).map((l) => {
+    const ls = lines(text);
+    const header = new Set(); // 「diff --git」のない、複数ファイルの差分：ハンクの中でも、「--- 」「+++ 」「@@」の 3 行が続けば、前の 2 行は、ファイルの見出し
+    ls.forEach((l, i) => { if (l.startsWith('--- ') && (ls[i + 1] || '').startsWith('+++ ') && (ls[i + 2] || '').startsWith('@@')) { header.add(i); header.add(i + 1); } });
+    const out = ls.map((l, i) => {
       let c = 'ctx';
       if (l.startsWith('diff ')) { inHunk = false; c = 'meta'; }
       else if (l.startsWith('@@')) { inHunk = true; c = 'hunk'; }
       else if (l.startsWith('\\')) c = 'meta'; // \ No newline at end of file
-      else if (!inHunk && /^(index |--- |\+\+\+ |new file|deleted file|similarity |rename |old mode|new mode)/.test(l)) c = 'meta';
+      else if (header.has(i) || (!inHunk && /^(index |--- |\+\+\+ |new file|deleted file|similarity |rename |old mode|new mode)/.test(l))) c = 'meta';
       else if (l.startsWith('+')) c = 'add';
       else if (l.startsWith('-')) c = 'del';
       return `<span class="dl ${c}">${esc(l)}\n</span>`;
@@ -153,10 +156,11 @@
     const total = Math.max(...rows.map((r) => r.start + r.dur));
     const scale = total || 1;
     const pct = (v) => Math.round((v / scale) * 10000) / 100;
-    // 開始・長さ・メモも、文字として持つ（コメントの引用・AI に届く文字から、タイムラインの中身が分かるように）。位置は、data-s・data-w（数）から、ビューアが設定する
-    const body = rows.map((r) => `<div class="tr"><span class="tn">${esc(r.name)}</span> <span class="tt"><span class="tb" data-s="${pct(r.start)}" data-w="${pct(r.dur)}"></span></span> <span class="ts">@${esc(fmtMs(r.start))}</span> <span class="td">${esc(fmtMs(r.dur))}</span>${r.note ? ` <span class="tm">${esc(r.note)}</span>` : ''}\n</div>`).join('');
+    // 開始・長さ・メモも、文字として持つ（コメントの引用・AI に届く文字から、タイムラインの中身が分かるように）。位置は、data-s・data-w（数）から、ビューアが設定する。
+    // 区切りの空白・改行は、**セルの span の中**に入れる（グリッドの子の間の空白は、コメントの強調 <mark> に包まれると、グリッドの項目になって、表示が崩れる）
+    const body = rows.map((r) => `<div class="tr"><span class="tn">${esc(r.name)} </span><span class="tt"><span class="tb" data-s="${pct(r.start)}" data-w="${pct(r.dur)}"></span></span><span class="ts">@${esc(fmtMs(r.start))} </span><span class="td">${esc(fmtMs(r.dur))}${r.note ? ' ' : '\n'}</span>${r.note ? `<span class="tm">${esc(r.note)}\n</span>` : ''}</div>`).join('');
     // 軸の目盛り（0 と全体の長さ）は、文字でなく、data-total から、CSS で出す（コメントの引用・AI に届く文字に、入らない）
-    return `<div class="fmt fmt-trace" data-fmt="trace">${body}<div class="tr tz"><span class="tn"></span> <span class="tt" data-total="${esc(total ? fmtMs(total) : '0')}"></span></div></div>\n`;
+    return `<div class="fmt fmt-trace" data-fmt="trace">${body}<div class="tr tz"><span class="tn"></span><span class="tt" data-total="${esc(total ? fmtMs(total) : '0')}"></span></div></div>\n`;
   }
 
   // コードブロックの言語から、HTML を返す。この形式でない・読めない（JSON が壊れている など）ときは、null

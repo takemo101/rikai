@@ -50,6 +50,12 @@ test('diff：行の種類で、クラスが決まる。ハンクの中の「---�
   assert.match(fmt.diffHtml('--- a\n+++ b\n+x'), /dl meta">--- a\n[\s\S]*dl meta">\+\+\+ b\n[\s\S]*dl add">\+x/, '@@ がない差分は、見出しの行を、見出しにする');
 });
 
+test('diff：「diff --git」のない、複数ファイルの差分でも、2 つ目のファイルの見出しは、見出し（ハンクの中の、削除・追加と、取り違えない）', () => {
+  const html = fmt.diffHtml('--- a/x\n+++ b/x\n@@ -1 +1 @@\n-a\n+b\n--- a/y\n+++ b/y\n@@ -1 +1 @@\n-c\n+d\n--- 古い SQL のコメント\n+++ 足した行');
+  const kinds = [...html.matchAll(/<span class="dl (\w+)">/g)].map((m) => m[1]);
+  assert.deepEqual(kinds, ['meta', 'meta', 'hunk', 'del', 'add', 'meta', 'meta', 'hunk', 'del', 'add', 'del', 'add'], '「---・+++・@@」が続くときだけ、見出し。ハンクの最後の「--- 」「+++ 」は、削除・追加');
+});
+
 test('terminal：色・太字・リセットを、クラスにする。制御文字は捨て、ESC の別の書き方も受ける', () => {
   const html = fmt.ansiHtml('\u001b[1;31mエラー\u001b[0m 通常 \x1b[42;30m緑地\x1b[49m 後 \\x1b[94m明るい青\\u001b[0m \u001b[38;5;2m256色\u001b[0m \u001b[38;2;1;2;3m真の色\u001b[0m ␛[4mA␛[0m ^[[3mB^[[0m \\x1B[1mC\\e[0m \\033[2mD\\033[0m');
   assert.match(html, /<span class="a-f1 a-b">エラー<\/span>/);
@@ -92,6 +98,8 @@ test('json：折りたためる木。書かれたとおりに見せる（数・�
   assert.match(raw, /<span class="jn">1\.50<\/span>/);
   assert.equal((raw.match(/&quot;dup&quot;/g) || []).length, 2, '重複したキーも、両方');
   assert.ok(raw.indexOf('&quot;b&quot;') < raw.indexOf('<span class="jk">&quot;1&quot;'), '整数のようなキーを、並べ替えない');
+  const tabbed = fmt.jsonHtml('{\t"a":\r\n1,\r\n\t"b":\t[\t]\r\n}');
+  assert.match(tabbed || '', /<span class="jk">&quot;a&quot;<\/span><span class="jp">: <\/span><span class="jn">1<\/span>[\s\S]*<span class="jk">&quot;b&quot;<\/span><span class="jp">: <\/span><span class="jp">\[\]<\/span>/, 'タブ・CR の空白があっても、キーと値を、正しく読む（タブで字下げした JSON）');
   assert.match(raw, /<span class="js">&quot;a\\nb\\&quot;c\\u00e9&quot;<\/span>/, '文字列は、書かれた表記のまま（\\n・\\"・\\uXXXX）');
   assert.match(html.replace(/<[^>]+>/g, '').replace(/&quot;/g, '"'), /"a": \{\n"b": \{\n/, 'テキストは、行ごとに改行する（引用・AI に届く文字になる）');
   for (const bad of ['', '{', '{"a":}', 'undefined', "{'a':1}", '[1,]']) assert.equal(fmt.jsonHtml(bad), null, JSON.stringify(bad));
@@ -106,12 +114,14 @@ test('trace：「名前 | 開始 | 長さ | メモ」の行から、タイムラ
   const html = fmt.traceHtml('# コメント\nリクエスト | 0 | 100 | 受付\nDB 検索 | 20 | 60\n\nレスポンス | 100 | 400 | a | b');
   const bars = [...html.matchAll(/data-s="([\d.]+)" data-w="([\d.]+)"/g)].map((m) => [Number(m[1]), Number(m[2])]);
   assert.deepEqual(bars, [[0, 20], [4, 12], [20, 80]], '全体（500ms）に対する、開始・長さの %');
-  assert.match(html, /<span class="td">100ms<\/span>/);
-  assert.match(html, /<span class="ts">@20ms<\/span>/, '開始も、文字で持つ');
+  assert.match(html, /<span class="td">100ms <\/span>/);
+  assert.match(html, /<span class="ts">@20ms <\/span>/, '開始も、文字で持つ');
   assert.match(html, /<span class="tt" data-total="500ms"><\/span>/, '全体の長さ（軸の端は、CSS で出す）');
   assert.doesNotMatch(html.replace(/<[^>]+>/g, ''), /500ms|\b0\b.*500/, '軸の目盛りは、文字に入らない');
-  assert.match(html, /<span class="tm">a \| b<\/span>/, 'メモは、| を含められる');
-  assert.match(html.replace(/<[^>]+>/g, ''), /DB 検索 +@20ms +60ms\n/, 'テキストは、1 行にまとまり、改行で終わる');
+  assert.match(html, /<span class="tm">a \| b\n<\/span>/, 'メモは、| を含められる');
+  assert.match(html.replace(/<[^>]+>/g, ''), /DB 検索 @20ms 60ms\n/, 'テキストは、1 行にまとまり、改行で終わる');
+  // 区切りの空白・改行は、セルの中だけ（グリッドの子の間の空白は、コメントの強調 <mark> に包まれると、グリッドの項目になって、表示が崩れる）
+  assert.doesNotMatch(html, /<\/span>\s+<span|<\/span>\s+<\/div>|<div class="tr">\s|<\/div>\s+<div class="tr/, 'セルの外に、空白・改行がない');
   assert.match(fmt.traceHtml('x | 0 | 1500'), /1\.5s/);
   for (const bad of ['', '# だけ', 'x | 1', 'x | a | 2', ' | 1 | 2', 'x | -1 | 2', 'x | 1 | -2', 'x | | 2', 'x | 1 | Infinity', 'x | 1e308 | 1e308']) assert.equal(fmt.traceHtml(bad), null, JSON.stringify(bad));
   assert.equal(fmt.traceHtml(Array.from({ length: 201 }, (_, i) => `s${i} | ${i} | 1`).join('\n')), null, '200 行を超える');
