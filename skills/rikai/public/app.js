@@ -398,6 +398,7 @@
     markBlocks(frag);
     // 件数に、どの版のものかの印（key）を付ける（ページ・版を切り替えた直後に、前のページの件数を見せないため）
     S.diff = S.showChanges && v > 1 && S.prevMd != null ? { ...addDiff(frag), key: S.loaded } : null;
+    cancelRegion(); // 範囲を選んでいる途中の枠が、消える要素を指さないように
     art.replaceChildren(frag);
     await fillMermaid(art);
     if (tok !== S.renderTok) return;
@@ -724,7 +725,9 @@
     r.onerror = () => reject(r.error);
     r.readAsDataURL(file);
   });
+  // 付けられた画像の名前の一覧を返す（付けなかったものは、入らない）
   async function attachFiles(key, files) {
+    const added = [];
     for (const f of files) {
       if (!IMG_TYPES.includes(f.type)) { toast('画像は、png・jpeg・gif・webp だけ付けられます', true); continue; }
       if (f.size > IMG_MAX_MB * 1024 * 1024) { toast(`画像が大きすぎます（${IMG_MAX_MB}MB まで）`, true); continue; }
@@ -736,9 +739,10 @@
       try { r = await act(async () => api('/api/attach', { topic: slug, data: await readBase64(f) })); } finally { S.uploading--; }
       // 終わるまでに、入力欄をやめた・送った・別のトピックへ移った、なら、この画像は、付けない（別の入力欄に、出ないように）。
       // 続けて何枚も貼ると、上の枚数の検査は、完了を待たずに通るので、付ける直前に、もう一度、上限を見る
-      if (r && slug === S.slug && gen === (S.imgGen[key] || 0) && !draftImgs(key).includes(r.name) && draftImgs(key).length < IMG_MAX_N) draftImgs(key).push(r.name);
+      if (r && slug === S.slug && gen === (S.imgGen[key] || 0) && !draftImgs(key).includes(r.name) && draftImgs(key).length < IMG_MAX_N) { draftImgs(key).push(r.name); added.push(r.name); }
     }
     renderThreads();
+    return added;
   }
   // 入力欄の外にファイルを落としても、ブラウザが、そのファイルを開いて、画面（書きかけの文）を失わないようにする
   for (const t of ['dragover', 'drop']) document.addEventListener(t, (e) => { if (e.dataTransfer && [...e.dataTransfer.types].includes('Files')) e.preventDefault(); });
@@ -862,6 +866,10 @@
 
   function startComposer(anchor) {
     if (!isLatest()) { toast('コメントは最新版にだけ付けられます', true); return; }
+    // 前の入力欄が、範囲の切り出し画像を、自動で付けていたら、外す（対象が変わるので、別の範囲の画像を、送らない）。まだ終わっていないアップロードは、捨てる
+    const prevCrop = S.composer && S.composer.regionImg;
+    if (prevCrop) S.drafts.imgs.composer = draftImgs('composer').filter((n) => n !== prevCrop);
+    S.imgGen.composer = (S.imgGen.composer || 0) + 1;
     S.composer = { anchor };
     renderThreads();
     const ta = $('[data-key="composer"]');
@@ -1096,31 +1104,47 @@
     if (!regState || !regState.from) return;
     const q = regRect(e), { blk, media } = regState;
     cancelRegion();
-    if (q.w < 8 || q.h < 8) { toast('範囲が小さすぎます。ドラッグで、範囲を選んでください', true); return; }
+    // 小さすぎる範囲は、断る。サーバーも、0.5% 未満の範囲は、捨てる（大きな画像で、枠が消えないように、同じ基準で）
+    if (q.w < 8 || q.h < 8 || q.w / q.W < 0.005 || q.h / q.H < 0.005) { toast('範囲が小さすぎます。ドラッグで、範囲を選んでください', true); return; }
     finishRegion(blk, media, { x: q.x / q.W, y: q.y / q.H, w: q.w / q.W, h: q.h / q.H });
   });
   regsel.addEventListener('pointercancel', cancelRegion);
   document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && regState) cancelRegion(); });
   document.addEventListener('pointerdown', (e) => { if (regState && !regsel.contains(e.target)) cancelRegion(); });
   window.addEventListener('resize', cancelRegion);
+  // 範囲の名前（カードの見出し・AI に届く label）。画像の alt・図（Mermaid）・インラインの svg の文字
+  function regionLabel(blk, media) {
+    if (media.tagName.toLowerCase() === 'img') return `画像${media.alt ? `: ${media.alt}` : ''}`;
+    return blk.classList.contains('mermaid-block') ? '図' : (trunc(blk.textContent, 40) || '図');
+  }
   function finishRegion(blk, media, rect) {
     const r4 = (v) => Math.round(v * 10000) / 10000;
     const rect4 = { x: r4(rect.x), y: r4(rect.y), w: r4(rect.w), h: r4(rect.h) };
-    startComposer({ ...blockAnchor(blk), label: `${blockLabel(blk)}の一部`, rect: rect4 });
+    startComposer({ ...blockAnchor(blk), label: `${regionLabel(blk, media)}の一部`, rect: rect4 });
+    const comp = S.composer;
+    if (!comp) return; // 最新版でないとき、startComposer が断った
     cropMedia(media, rect4)
-      .then((file) => { if (file) attachFiles('composer', [file]); })
+      .then(async (file) => {
+        if (!file || S.composer !== comp) return; // 切り出している間に、入力欄をやめた・別の対象へ移ったなら、付けない
+        const names = await attachFiles('composer', [file]);
+        if (names[0] && S.composer === comp) comp.regionImg = names[0]; // 対象を選び直したとき、この画像だけを外すため
+      })
       .catch(() => toast('この範囲の画像を作れませんでした（このブラウザでは、図の切り出しができないことがあります）。位置だけで、コメントできます', true));
   }
-  // 範囲を、PNG にする。画像は、元の大きさ（自然な解像度）から切り出す。図（svg）は、画像にして（最大 2 倍）から切り出す。
+  // 範囲を、画像にする。画像は、元の解像度から。図（svg）と、ベクターの画像（SVG の img）は、表示の大きさの最大 2 倍で描く。
+  // 出力は、長い辺が 2400px まで（写真の元の解像度は、5MB を超えるため）。PNG が大きすぎるときは、JPEG にする。
   // 画像は同じオリジン（/asset/・data:）なので、canvas が汚れない。svg は、外部のものを読まない（data: の画像にする）
   async function cropMedia(media, rect) {
-    let src, sw, sh;
-    if (media.tagName.toLowerCase() === 'img') {
+    const isImg = media.tagName.toLowerCase() === 'img';
+    const b = media.getBoundingClientRect();
+    const vectorScale = Math.min(2, 2400 / Math.max(b.width, b.height));
+    let src, sw, sh; // 描く元と、それを画像にしたときの大きさ（切り出しの座標は、この大きさで測る）
+    if (isImg && !/^data:image\/svg|\.svg(?:[?#]|$)/i.test(media.currentSrc || media.src)) {
       src = media; sw = media.naturalWidth; sh = media.naturalHeight;
+    } else if (isImg) {
+      src = media; sw = Math.round(b.width * vectorScale); sh = Math.round(b.height * vectorScale);
     } else {
-      const b = media.getBoundingClientRect();
-      const scale = Math.min(2, 2400 / Math.max(b.width, b.height));
-      sw = Math.round(b.width * scale); sh = Math.round(b.height * scale); // 画像にしたときの大きさ（切り出しの座標は、この大きさで測る）
+      sw = Math.round(b.width * vectorScale); sh = Math.round(b.height * vectorScale);
       const clone = media.cloneNode(true);
       clone.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
       if (!clone.getAttribute('viewBox')) clone.setAttribute('viewBox', `0 0 ${b.width} ${b.height}`);
@@ -1136,20 +1160,41 @@
     }
     const sx = Math.round(rect.x * sw), sy = Math.round(rect.y * sh);
     const cw = Math.max(1, Math.min(sw - sx, Math.round(rect.w * sw))), ch = Math.max(1, Math.min(sh - sy, Math.round(rect.h * sh)));
+    const k = Math.min(1, 2400 / Math.max(cw, ch)); // 出力の縮小
     const cv = document.createElement('canvas');
-    cv.width = cw; cv.height = ch;
+    cv.width = Math.max(1, Math.round(cw * k)); cv.height = Math.max(1, Math.round(ch * k));
     const ctx = cv.getContext('2d');
     ctx.fillStyle = '#fff'; // 透明な図は、PNG にしたとき、見えなくならないよう、白地に
-    ctx.fillRect(0, 0, cw, ch);
-    ctx.drawImage(src, sx, sy, cw, ch, 0, 0, cw, ch);
-    return new Promise((resolve) => cv.toBlob((blob) => resolve(blob ? new File([blob], 'region.png', { type: 'image/png' }) : null), 'image/png'));
+    ctx.fillRect(0, 0, cv.width, cv.height);
+    ctx.drawImage(src, -sx * k, -sy * k, sw * k, sh * k); // 全体を、ずらして描く（はみ出す所は、切れる）。k が 1 なら、切り出しと同じ
+    const toBlob = (type, q) => new Promise((resolve) => cv.toBlob(resolve, type, q));
+    let blob = await toBlob('image/png');
+    let name = 'region.png';
+    if (blob && blob.size > IMG_MAX_MB * 1024 * 1024 * 0.98) { blob = await toBlob('image/jpeg', 0.88); name = 'region.jpg'; }
+    return blob ? new File([blob], name, { type: blob.type }) : null;
   }
 
+  // 範囲の枠（押せない）の下を、マウスが通っているとき、その範囲のコメントを返す（重なるときは、小さい枠）。
+  // 枠は押せないので、1 つの画像に複数の範囲があっても、それぞれのコメントに、ホバー・クリックが届くように、位置で探す
+  function regionTidAt(x, y) {
+    let best = null, area = Infinity;
+    for (const rb of $$('.regionbox:not(.pending)', $('#badges'))) {
+      const r = rb.getBoundingClientRect();
+      if (x >= r.left && x <= r.right && y >= r.top && y <= r.bottom && r.width * r.height < area) { best = rb.dataset.tid; area = r.width * r.height; }
+    }
+    return best;
+  }
+  function articleTid(e) {
+    const t = regionTidAt(e.clientX, e.clientY);
+    if (t) return t;
+    const el = e.target.closest('[data-tid]:not([data-tid="pending"])'); // 入力中の強調（pending）の下にある、コメントの印を選ぶ
+    return el ? el.dataset.tid : null;
+  }
   $('#article').addEventListener('click', (e) => {
     const a = e.target.closest('a[data-page]');
     if (a) return; // ハッシュで遷移する
-    const el = e.target.closest('[data-tid]:not([data-tid="pending"])'); // 入力中の強調（pending）の下にある、コメントの印を選ぶ
-    if (el) focusThread(el.dataset.tid, false);
+    const tid = articleTid(e);
+    if (tid) focusThread(tid, false);
   });
 
   // ブロックの番号の印は、要素の外の層（#badges。#docscroll の中の絶対位置）に出す。要素の中に出すと、箱の overflow で切れる・横スクロールで流れる・行末の文字に重なる。
@@ -1222,15 +1267,16 @@
     setLinked(tid);
   });
   $('#threads').addEventListener('mouseleave', () => setLinked(null));
-  $('#article').addEventListener('mouseover', (e) => {
-    const el = e.target.closest('[data-tid]:not([data-tid="pending"])');
-    const tid = el ? el.dataset.tid : null;
+  function hoverArticle(e) {
+    const tid = articleTid(e);
     if (tid === linkedTid) return;
     setLinked(tid);
     const card = tid && $(`.thread[data-tid="${tid}"]`);
     // 右のカードが見えない所にあるときだけ、動かす。入力欄を開いている間は、動かさない（入力欄が、見えなくなるため）
     if (card && !S.composer) card.scrollIntoView({ block: 'nearest' });
-  });
+  }
+  $('#article').addEventListener('mouseover', hoverArticle);
+  $('#article').addEventListener('mousemove', (e) => { if (S.regions && S.regions.length) hoverArticle(e); }); // 同じ画像の中で、範囲から範囲へ動くとき
   $('#article').addEventListener('mouseleave', () => setLinked(null));
 
   // ------------------------------------------------------------ Submit / 終了
