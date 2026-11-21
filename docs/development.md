@@ -86,6 +86,7 @@ npm test        # node --test test/*.test.js。追加の依存なし（Node 18 �
 | `anchor.test.js` | `findQuote`・`locateBlock`・`similarity`（コメントの探し直し） |
 | `diff.test.js` | `diffText`（元に戻せること・変更箇所・大きな入力）・`matchBlocks`（同じ・変更・追加・削除・種類の違い・区間の制約・空・重複） |
 | `progress.test.js` | `progressOf`（空・解決・質問・送信済みと未送信の回答・別の質問への回答・AI 起点のスレッド）と、実際の操作の流れでの数 |
+| `plugin.test.js` | プラグインの宣言と配置の食い違い：スキルの場所・名前（ディレクトリ名と一致）・SKILL.md の frontmatter の項目（omp が、余計な項目のあるスキルを読み込まない）・`plugin.json` の項目と、`package.json` との名前・版の一致・各カタログの指す場所・pi の `skills`。各エージェントの検証コマンドは、含めない（手元の CLI に依存するため。上の表） |
 | `server.test.js` | 実際に待ち受けて、合言葉・`Host`・`Origin`・Cookie・CSP・配信のパス・`rikai open` の `.server.json` の権限（0600）・`rikai serve` が、すべてのトピックが閉じたら自分で終わること（子プロセス。`serve` が終了の処理を取りつける経路） |
 
 `test/helpers.js` が、一時のプロジェクト（`os.tmpdir()`）と、作り物の資料・コメントを用意する。利用者の `.rikai/` には触れない。**ブラウザの描画（DOMPurify・選択・パネル）は、DOM が要るので、自動テストの対象外**。次の手作業で確かめる。
@@ -98,6 +99,7 @@ npm test        # node --test test/*.test.js。追加の依存なし（Node 18 �
 | 無害化 | 資料に `<script>`・`<img onerror>`・`[x](javascript:…)`・外部の画像 URL を入れて、実行されない・表示されないこと |
 | 認証 | 合言葉なしの `GET /api/topics` が 403 になること |
 | インストール | `CLAUDE_SKILLS_DIR=/tmp/x bash install.sh`。実際の `~/.claude/skills` へは、依頼があるときだけ |
+| プラグイン | 各エージェントの検証コマンド：`claude plugin validate .`・`grok plugin validate .`・`agy plugin validate .`。入れる確認は、**`HOME=/tmp/x` を付けて**（`~/.claude` などを変えない）：`claude plugin marketplace add <リポジトリ> && claude plugin install rikai@rikai`・`codex plugin marketplace add <リポジトリ> && codex plugin add rikai@rikai`・`grok plugin install <リポジトリ> --trust`・`agy plugin install <リポジトリ>`・`omp plugin marketplace add <リポジトリ> && omp plugin install rikai@rikai`・`pi install <リポジトリ>`。実際のエージェントでの確認は、`claude --plugin-dir`・`omp --plugin-dir`・`pi -e` で、その実行の間だけ読み込ませる |
 
 自動テストを足すときは、`test/<領域>.test.js` に、Node 標準の `node:test` と `node:assert/strict` で書く（依存を増やさない）。**足したテストは、実装を壊して（たとえば、検査を外して）、落ちることを、一度確かめる**。
 
@@ -192,4 +194,8 @@ npm audit          # 修正のある版を探す
 
 ## リリース
 
-タグ・GitHub Release・配布物は、まだ決めていない（SPEC §7 の「配布」）。いまの配布は、リポジトリの clone と `install.sh`。リリースを行うときは、利用者の依頼があるときだけ。
+タグ・GitHub Release・配布物は、まだ決めていない（SPEC §7 の「配布」）。いまの配布は、リポジトリの clone と `install.sh`、各エージェントのプラグイン（README）。リリースを行うときは、利用者の依頼があるときだけ。
+
+### 版（プラグインの更新）
+
+**利用者に見える変更（特に `skills/rikai/` の中身）を `main` に入れるときは、`package.json` と `plugin.json` の `version` を、同じ値に上げる**（`test/plugin.test.js` が、食い違いを検出する）。理由：omp・codex・agy は、この版で、入れた複製を管理する。**版を上げないと、更新しても、古い複製のまま**（レビューで、omp と codex で確認）。Claude Code は、`.claude-plugin/` に版がないので、git のコミットで更新される（`.claude-plugin/` に版を足さない：足すと、Claude Code も、上げるまで更新しなくなる）。

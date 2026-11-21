@@ -14,9 +14,13 @@
 ## 必要なもの
 
 - Node.js 18 以上（追加の npm パッケージは不要。marked / DOMPurify / mermaid は同梱）
-- Claude Code など、スキルを読めるエージェント
+- Claude Code・omp・pi・grok・agy・codex・opencode など、スキル（`SKILL.md`）を読めるエージェント
 
 ## インストール
+
+どれか 1 つの方法で入れます。入れたあと、エージェントを開き直してください。
+
+### スキルとして置く（どのエージェントでも）
 
 ```bash
 git clone https://github.com/takemo101/rikai.git
@@ -24,11 +28,24 @@ cd rikai
 bash install.sh      # ~/.claude/skills/rikai/ にコピーされる
 ```
 
-Claude Code を開き直すと `/rikai` が使えます。アンインストールは `rm -rf ~/.claude/skills/rikai`。
+`~/.claude/skills/` を読むエージェント（Claude Code、opencode ほか）で使えます。ほかのエージェントは、`skills/rikai/` を、そのエージェントのスキルの置き場（opencode：`~/.config/opencode/skills/` または `.agents/skills/`、pi：`~/.pi/agent/skills/`、grok：`~/.grok/skills/`、agy：`~/.gemini/config/skills/`）にコピーします。アンインストールは、置いたディレクトリを消します。
+
+### プラグインとして入れる
+
+| エージェント | コマンド | 呼び出し |
+|---|---|---|
+| Claude Code | `claude plugin marketplace add takemo101/rikai` → `claude plugin install rikai@rikai` | `/rikai:rikai` |
+| omp | `omp plugin marketplace add takemo101/rikai` → `omp plugin install rikai@rikai` | `/skill:rikai` |
+| pi | `pi install git:github.com/takemo101/rikai` | `/skill:rikai` |
+| grok | `grok plugin install takemo101/rikai --trust` | `/rikai` |
+| agy | clone して `agy plugin install ./rikai` | `/rikai` |
+| codex | `codex plugin marketplace add takemo101/rikai` → `codex plugin add rikai@rikai` | （各エージェントの表示に従う） |
+
+プラグインの中身は、どれも同じ `skills/rikai/` です（マニフェストは、`plugin.json`・`.claude-plugin/`・`.agents/plugins/`・`package.json` の `pi`）。**どのコマンドを、実際に動かして確かめたかは、[検証手順と記録](docs/verification.md#プラグイン対応2026-11-21rik-010) を見てください**（実際のエージェントで `/rikai` を通しで使うことは、まだ確かめていません）。
 
 ## 使い方
 
-1. `/rikai このPRを理解したい`（`/rikai` だけなら直前の回答、`/rikai src/auth.ts` ならそのファイル）
+1. `/rikai このPRを理解したい`（`/rikai` だけなら直前の回答、`/rikai src/auth.ts` ならそのファイル）。呼び出しの名前は、エージェントによって違います（[上の表](#プラグインとして入れる)）。「理解したい」などの発言から、エージェントが自動で使うこともあります（止め方は [SPEC §8](SPEC.md#8-利用者の判断)）。
 2. ブラウザで資料が開きます。
    - 文を選択して「コメント」。図・表・画像は、ブロックにマウスを置くと右に出る **＋** から。
    - AI の質問に答えて「回答を保存」。
