@@ -60,7 +60,7 @@ test('画面は、URL の合言葉を Cookie に移して、URL から外す。C
   assert.equal(redirect.status, 302);
   assert.equal(redirect.headers.location, '/');
   const cookie = redirect.headers['set-cookie'][0];
-  assert.match(cookie, /^rikai_t=/);
+  assert.match(cookie, new RegExp(`^rikai_t_${port}=`), 'Cookie の名前に、ポートが入る');
   assert.match(cookie, /HttpOnly/);
   assert.match(cookie, /SameSite=Strict/);
 
@@ -72,8 +72,19 @@ test('画面は、URL の合言葉を Cookie に移して、URL から外す。C
 });
 
 test('Cookie でも API を呼べる', async () => {
-  const r = await request('GET', '/api/topics', { headers: { Cookie: `rikai_t=${token}` } });
+  const r = await request('GET', '/api/topics', { headers: { Cookie: `rikai_t_${port}=${token}` } });
   assert.equal(r.status, 200);
+});
+
+test('別のポートの rikai の Cookie（同じホストで共有される）では、通らない。名前が固定の古い Cookie も通らない', async () => {
+  // ブラウザは、127.0.0.1 の Cookie を、ポートを問わず送る。別のサーバーのものが混ざっても、このサーバーの合言葉にはならない
+  const other = `rikai_t_${port + 1}=${token}`;
+  assert.equal((await request('GET', '/api/topics', { headers: { Cookie: other } })).status, 403);
+  assert.equal((await request('GET', '/', { headers: { Cookie: other } })).status, 403);
+  assert.equal((await request('GET', '/api/topics', { headers: { Cookie: `rikai_t=${token}` } })).status, 403, '名前が固定の Cookie は、もう見ない');
+  // 別のサーバーの Cookie と、このサーバーの Cookie が、同時にあっても、このサーバーのものだけを見る
+  const both = `rikai_t_${port + 1}=x; rikai_t_${port}=${token}`;
+  assert.equal((await request('GET', '/api/topics', { headers: { Cookie: both } })).status, 200);
 });
 
 test('画像の配信：assets の中だけ。外へ出る名前は断る。直接開かれても sandbox', async () => {
