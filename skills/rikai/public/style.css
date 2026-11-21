@@ -108,6 +108,8 @@ mark.hl.resolved[data-no]::after { background: #9c9784; }
 /* ブロックの番号は、箱の内側の右上に出す（表・コード・図は overflow: auto で、箱の外に出すと切り取られる。箇条書きは、左に出すと最初の文字に重なる） */
 .blk-thread[data-no]::after { content: attr(data-no); position: absolute; top: 3px; right: 4px; z-index: 1; padding: 0 5px; min-width: 18px; font-size: 11px; font-weight: 700; line-height: 18px; text-align: center; border-radius: 999px; background: var(--accent); color: #fff; }
 .blk-thread.resolved[data-no]::after { background: #9c9784; }
+/* 箱がスクロールしない文章のブロック（段落・見出し・箇条書き・引用）は、右上の印の分だけ、右を空ける（行末の文字が、印に隠れないように） */
+#article .blk-thread[data-no]:not(table):not(pre):not(.mermaid-block) { padding-right: 38px; }
 /* カードと本文の印を、マウスを置いたとき、お互いに光らせる */
 mark.hl.linked { background: #ffd24d; outline: 2px solid var(--accent); outline-offset: 1px; }
 .blk-thread.linked { outline: 3px solid var(--accent); outline-offset: 3px; background: rgba(47, 93, 138, .06); }

@@ -864,8 +864,10 @@
       return;
     }
     const changed = r.slug !== S.slug || r.page !== S.page || r.version !== S.version;
+    // 見ているページ・版が、実質、変わらないなら（最新版を「/v2」と明示して移った、など）、入力欄は閉じない
+    const sameView = r.slug === S.slug && r.page === S.page && (r.version || latestOf(r.page)) === curVersion();
     if (r.slug !== S.slug) S.topic = null;
-    if (changed) S.composer = null; // 別のページ・版へ移ったら、入力中の対象（本文の位置）は、意味を失う
+    if (!sameView && S.composer) { S.composer = null; S.drafts.composer = ''; } // 別のページ・版へ移ったら、入力中の対象（本文の位置）は、意味を失う。書きかけの文も、別の対象に出ないよう消す
     S.slug = r.slug; S.page = r.page; S.version = r.version;
     if (changed) { S.loaded = ''; S.active = null; }
     await act(async () => { await refreshTopic(true); });
