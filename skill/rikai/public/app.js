@@ -60,7 +60,7 @@
     md: null, prevMd: null, loaded: '', docSig: '',
     composer: null, active: null, showChanges: true, locs: new Map(), approx: new Map(), renderTok: 0,
     drafts: { reply: {}, ask: {}, edit: {}, composer: '' },
-    editing: null, seen: new Set(JSON.parse(localStorage.getItem('rikai-seen') || '[]')), offline: false,
+    editing: null, seen: new Set(JSON.parse(localStorage.getItem('rikai-seen') || '[]')), offline: false, error: null,
   };
   const svgCache = new Map();
   let mermaidSeq = 0;
@@ -324,6 +324,7 @@
     const st = $('#top-status');
     st.replaceChildren();
     if (S.offline) st.append(h('span', { class: 'chip warn', text: 'サーバーに接続できません' }));
+    else if (S.error) st.append(h('span', { class: 'chip warn', title: S.error, text: `サーバーのエラー: ${trunc(S.error, 40)}` }));
     else if (t && t.meta.pending && t.meta.pending.length) {
       st.append(
         h('span', { class: 'chip wait', text: 'AIの返信待ち' }),
@@ -733,10 +734,11 @@
       S.topics = await api('/api/topics');
       renderSide();
       await refreshTopic(false);
-      if (S.offline) { S.offline = false; renderTop(); }
+      if (S.offline || S.error) { S.offline = false; S.error = null; renderTop(); }
     } catch (e) {
-      // サーバーが答えたエラー（status がある）は、接続の失敗ではない。表示は、そのまま
-      if (!e.status && !S.offline) { S.offline = true; renderTop(); }
+      // 接続できない（fetch の失敗。status がない）と、サーバーが答えたエラー（status がある）は、別の状態として見せる
+      const next = e.status ? { offline: false, error: e.message } : { offline: true, error: null };
+      if (S.offline !== next.offline || S.error !== next.error) { Object.assign(S, next); renderTop(); }
     }
   }
 
