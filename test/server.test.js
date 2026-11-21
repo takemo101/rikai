@@ -121,6 +121,24 @@ test('資料の取得：存在する版だけ', async () => {
   assert.equal((await request('GET', '/api/page/demo/nope/1', { headers: authed() })).status, 404);
 });
 
+test('新しい形のトピックは、一覧に印つきで出て、操作は 409（内部エラーにならない）', async () => {
+  makeTopic('future');
+  const file = path.join(dir, '.rikai', 'future', 'meta.json');
+  const m = JSON.parse(fs.readFileSync(file, 'utf8'));
+  m.schema = rikai.SCHEMA + 1;
+  fs.writeFileSync(file, JSON.stringify(m));
+  const json = authed({ 'Content-Type': 'application/json' });
+  try {
+    const list = JSON.parse((await request('GET', '/api/topics', { headers: authed() })).body);
+    assert.deepEqual(list.map((t) => [t.slug, t.unsupported]), [['demo', false], ['future', true]]);
+    assert.equal((await request('GET', '/api/topic/future', { headers: authed() })).status, 409);
+    assert.equal((await request('GET', '/api/page/future/root/1', { headers: authed() })).status, 409);
+    assert.equal((await request('POST', '/api/comment', { headers: json, body: { topic: 'future', page: 'root', version: 1, text: 'x' } })).status, 409);
+  } finally {
+    fs.rmSync(path.join(dir, '.rikai', 'future'), { recursive: true, force: true });
+  }
+});
+
 test('rikai open が置く .server.json は、自分だけが読める権限（0600）', () => {
   const root = fs.mkdtempSync(path.join(require('os').tmpdir(), 'rikai-open-'));
   const cli = path.join(__dirname, '..', 'skill', 'rikai', 'rikai.js');

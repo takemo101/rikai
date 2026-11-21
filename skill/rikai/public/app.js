@@ -342,6 +342,7 @@
       ul.append(h('li', { class: t.slug === S.slug ? 'cur' : '' },
         h('a', { href: `#/${t.slug}/root`, text: t.title }),
         t.pending ? h('span', { class: 'chip wait small', text: '待ち' }) : null,
+        t.unsupported ? h('span', { class: 'chip warn small', title: 'この rikai が読めない、新しい形式です。rikai を更新してください', text: '新しい形式' }) : null,
         t.closed ? h('span', { class: 'chip small', text: '終了' }) : null));
     }
     side.append(ul);

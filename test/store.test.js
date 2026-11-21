@@ -53,3 +53,48 @@ test('mutate は、成功するたびに rev を進め、失敗のあとでも�
 test('存在しないトピックは 404', () => {
   assert.throws(() => rikai.loadMeta('nothing'), httpError(404));
 });
+
+// ---- データの形の版 ----
+
+const metaPath = () => path.join(dir, '.rikai', 'demo', 'meta.json');
+const writeMeta = (edit) => {
+  const m = JSON.parse(fs.readFileSync(metaPath(), 'utf8'));
+  edit(m);
+  fs.writeFileSync(metaPath(), JSON.stringify(m, null, 2));
+};
+
+test('新しく作ったトピックには、形の版が入る', () => {
+  makeTopic();
+  assert.equal(JSON.parse(fs.readFileSync(metaPath(), 'utf8')).schema, rikai.SCHEMA);
+});
+
+test('版のない古い形は読め、次の保存で版が入る', () => {
+  makeTopic();
+  writeMeta((m) => { delete m.schema; });
+  assert.equal(rikai.loadMeta('demo').slug, 'demo');
+  rikai.mutate('demo', () => ({}));
+  assert.equal(JSON.parse(fs.readFileSync(metaPath(), 'utf8')).schema, rikai.SCHEMA);
+});
+
+test('新しい形・不正な版のトピックは、読み書きを 409 で断り、何も書き換えない', () => {
+  for (const bad of [rikai.SCHEMA + 1, 0, '1', null, 1.5]) {
+    makeTopic(`t${String(bad).replace(/\W/g, '')}`);
+  }
+  for (const bad of [rikai.SCHEMA + 1, 0, '1', null, 1.5]) {
+    const slug = `t${String(bad).replace(/\W/g, '')}`;
+    const file = path.join(dir, '.rikai', slug, 'meta.json');
+    const m = JSON.parse(fs.readFileSync(file, 'utf8'));
+    m.schema = bad;
+    fs.writeFileSync(file, JSON.stringify(m));
+    const before = fs.readFileSync(file, 'utf8');
+    const threads = fs.readFileSync(path.join(dir, '.rikai', slug, 'threads.json'), 'utf8');
+
+    assert.throws(() => rikai.loadMeta(slug), httpError(409, /読めない形/), `schema=${JSON.stringify(bad)}`);
+    assert.throws(() => rikai.mutate(slug, () => ({})), httpError(409));
+    assert.throws(() => rikai.actions.comment({ topic: slug, page: 'root', version: 1, anchor: null, text: 'x' }), httpError(409));
+    assert.throws(() => rikai.peek(slug), httpError(409));
+    assert.throws(() => rikai.cmdApply(slug, { replies: [] }), httpError(409));
+    assert.equal(fs.readFileSync(file, 'utf8'), before, 'meta.json は、そのまま');
+    assert.equal(fs.readFileSync(path.join(dir, '.rikai', slug, 'threads.json'), 'utf8'), threads, 'threads.json も、そのまま');
+  }
+});

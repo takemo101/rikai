@@ -94,13 +94,23 @@ function withLock(slug, fn) {
   try { return fn(); } finally { try { fs.rmdirSync(dir); } catch (_) {} }
 }
 
+// データ（meta.json）の形の版。形を変えるときは、ここを上げて、古い形を読み替える処理を足す（docs/development.md）。
+// 版のない古い形は、版 1 として読む。このコードより新しい版は、読み書きを断る（新しい形を、古いコードが壊さないように）。
+const SCHEMA = 1;
+const schemaOf = (m) => (m.schema === undefined ? 1 : m.schema);
+const isSupported = (m) => Number.isInteger(schemaOf(m)) && schemaOf(m) >= 1 && schemaOf(m) <= SCHEMA;
+
 function loadMeta(slug) {
   checkSlug(slug);
   const m = readJSON(path.join(tdir(slug), 'meta.json'), null);
   if (!m) throw new HttpError(404, `トピックがありません: ${slug}`);
+  if (!isSupported(m)) {
+    throw new HttpError(409, `このトピックは、この rikai が読めない形（データの版 ${JSON.stringify(m.schema)}）です。この rikai は、版 ${SCHEMA} までです。新しい rikai に更新してください（${slug}）`);
+  }
   return m;
 }
 function saveMeta(m) {
+  m.schema = SCHEMA;
   m.rev = (m.rev || 0) + 1;
   writeJSON(path.join(tdir(m.slug), 'meta.json'), m);
 }
@@ -519,6 +529,7 @@ function cmdApply(slug, payload) {
 function cmdStatus(slug) {
   const topics = slug ? [loadMeta(slug)] : listTopics();
   out(topics.map((m) => {
+    if (!isSupported(m)) return { topic: m.slug, title: m.title, unsupported: true, schema: schemaOf(m) };
     const th = loadThreads(m.slug);
     return {
       topic: m.slug, title: m.title, closed: !!m.closed,
@@ -640,7 +651,7 @@ async function handler(req, res) {
       if (req.method === 'GET') {
         if (p === '/api/ping') return send(res, 200, { ok: true, root: ROOT });
         if (p === '/api/topics') {
-          return send(res, 200, listTopics().map((m) => ({ slug: m.slug, title: m.title, closed: !!m.closed, pending: (m.pending || []).length, rev: m.rev })));
+          return send(res, 200, listTopics().map((m) => ({ slug: m.slug, title: m.title, closed: !!m.closed, pending: (m.pending || []).length, rev: m.rev, unsupported: !isSupported(m) })));
         }
         let m = /^\/api\/topic\/([^/]+)$/.exec(p);
         if (m) {
@@ -812,6 +823,6 @@ async function main() {
 if (require.main === module) main();
 
 module.exports = {
-  setRoot, HttpError, checkSlug, newTopic, mutate, loadMeta, loadThreads, listRounds, pageFile, tdir,
+  setRoot, HttpError, SCHEMA, checkSlug, newTopic, mutate, loadMeta, loadThreads, listRounds, pageFile, tdir,
   normAsk, normAnswer, actions, hooks, peek, cmdApply, cmdStatus, startServer,
 };
