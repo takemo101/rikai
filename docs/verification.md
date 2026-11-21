@@ -226,6 +226,31 @@
 
 **再レビュー**（同じ reviewer。修正だけを対象。read-only）：ブロッカー・Major・Minor なし（approve）。前の 8 件の修正と、回帰のないこと（79 件通過）を確認。警告は、トピックの名前と、エラーの種類だけで、パスもファイルの中身も出ない。`openThreads` の読み手は、ほかになかった。Nit 2 件（上の「約 0.5 秒後」の言い方が、示せる範囲を超えている／再レビューの記録がない）は、直した。**前からあること（この変更では直していない）**：壊れたトピックを開いたときのサーバーのログには、JSON の構文エラーの文がそのまま出る。この文に、ファイルの先頭の一部が入るかどうかは、Node の版による（Node 24 では入らないことを、レビューは確認した。Node 20 は試していない）。
 
+### `rikai.js` の分割（2026-11-21。RIK-007）
+
+**対象**：動作を変えない、責務ごとの分割（`rikai.js` 約 870 行 → 入口 約 150 行＋`lib/` の 6 ファイル〔33〜191 行〕）。SPEC の要件は、増減しない。
+
+**作業の方法**：コードは、編集ツールの範囲の切り取り・貼り付け（CUT/PUT の named register）で、そのまま動かした（手で書き直していない）。書き換えたのは、次の所だけ：`require`・`module.exports`・`ROOT`/`BASE` を `getRoot()`/`getBase()` にしたこと・`PUBLIC` のパス（`lib/` から見て `..`/`public`）・`hooks.allClosed` の既定（空）と、`serve` のプロセスが終了の処理を入れること・`rikai.js` の `module.exports` と `require.main === module` の判定を外して `main()` を直接呼ぶこと・`str`/`normAnchor` を `lib/util.js` に置いたこと・コメント（先頭の説明・`hooks` の説明）。`cmdPoll`・`cmdPull`・`cmdStatus` は、レビューの指摘で、`rikai.js` から `lib/agent.js` へ、同じように動かした。
+
+**確認したこと**：
+
+- `npm test`：80 件がすべて通過（79 件＋`serve` の終了の経路の 1 件。既存のテストの中身は変えていない。変えたのは、`test/helpers.js` の `rikai` が、`lib/` のモジュールを束ねるようにしたことだけ）。
+- 別のモジュールで宣言した名前が、そのファイルで宣言・取り込みなしに使われていないことを、使い捨てのスクリプトで確かめた（`rikai.js` の「actions」は、コメントだけ。`lib/ask.js` の `out` は、関数の中の別の変数）。
+- `install.sh` で一時の場所へコピーしたものを、実際に動かした：`new` → `open`（サーバーを起こす）→ 画面の API で `comment`・`submit` → `pull` → `apply` → `status` → `resolve` → `end`。**`end` のあと、サーバーが自分で終了し（`.server.json` が消え、疎通しない）、`hooks.allClosed` を `serve` が入れる経路が動くこと**を確認。`stop` も動いた。
+- ブラウザ（DOM の操作）：画面が開き、資料の見出しが出る・API でコメントすると、スレッドが出て「解決 0/1」になる。
+- 実装を壊した作業コピーで、新しいテストが失敗することを確認（確認のあと、捨てた）：`rikai.js` の `hooks.allClosed = …`（`serve` の取りつけ）を消すと、「すべて閉じたら、サーバーのプロセスが終わる」が失敗する（`server.test.js` の 1 件）。
+- レビューの指摘で `cmdPoll`・`cmdPull`・`cmdStatus` を `lib/agent.js` へ動かしたあとに、もう一度、`install.sh` のコピーで、`new`・`poll --timeout 1`（`timeout`）・`pull`（`none`）・`open`・コメントと Submit のあとの `poll`（`feedback`）・`apply`・`status`（全トピック）・存在しないトピックの `status`（`ok:false`）・`stop` を動かした。
+
+**確認していない範囲**：
+
+- テストは、`rikai.js`（入口）を直接は読み込まない（読み込むと、動き出す）。入口は、子プロセスで動かす（`status`・`new`・`open`・`stop`・`serve`）。`main()` の `switch` の振り分けのうち、`poll`・`pull`・`apply` は、自動テストの対象外で、上の手作業の流れだけ。
+- 実際の Claude Code から `/rikai` を使う流れ（SPEC F18）。
+- ブラウザでの見た目（変更は、サーバーの構成だけで、画面のファイルには触れていない）。
+
+**独立レビュー**（reviewer。read-only）：ブロッカー・Major なし。実際の確認：旧 `rikai.js` の 81 の宣言を、新しい場所と比べた（75 は、一字一句同じ。3 つは、`ROOT`/`BASE` を `getRoot()`/`getBase()` にしただけで同じ。違うのは `PUBLIC`・`hooks` の既定・`cmdServe` の 3 つ）。循環した `require`・未宣言の名前・使われない取り込みはない。`ROOT`/`BASE` の古い写しを持つ所はない。テストの `rikai.hooks` は、`actions.js` と同じオブジェクト。`install.sh` のコピーで、`new` から、すべてのトピックが閉じたあとのサーバーの自動終了まで、動いた。Minor 2 件（`serve` が終了の処理を入れる経路に、自動テストがない／`cmdStatus`・`cmdPoll`・`cmdPull` が `rikai.js` に残り、文書の「AI 向け → `lib/agent.js`」と食い違う）・Nit 4 件（この節の「書き換えた所」の一覧に、`PUBLIC` のパスがない／CLI のテストの範囲を、少なく書いている／「最大のモジュール」の名前の間違い／依存の鎖の書き方が、実際より厳しく読める）。**すべて直した**（上の記録は、直したあとのもの）。
+
+**再レビュー**（同じ reviewer。修正だけを対象。read-only）：ブロッカー・Major・Minor なし（approve）。動かした 3 つの関数は、旧コードと一字一句同じ。取り込みの漏れ・余り・循環なし。新しいテストを単独で 5 回・`npm test` を 3 回動かして、すべて通り、`serve` のプロセスと一時のフォルダの残りはなかった。`hooks.allClosed` の取りつけを消した作業コピーで、テストが失敗することも、別に確認された。Nit 2 件（索引の `agent.js` の説明に `status` がない／この記録が「再レビューはしていない」のまま）は、直した。
+
 ### 人間の確認待ち
 
 AI は、これらを合格にしない。

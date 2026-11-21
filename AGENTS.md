@@ -53,7 +53,7 @@
 
 [構成説明](docs/architecture.md) と、変更対象の SPEC の節を読み、次の 4 点を確認する。原則は [参考にした設計原則](docs/references.md)、具体的な規則は [コーディング指針](docs/coding-guidelines.md)。
 
-1. **変更理由と所有権**：サーバーとコマンドは `skill/rikai/rikai.js`、画面は `skill/rikai/public/`、AI への指示は `skill/rikai/SKILL.md`。**状態の所有者は、構成説明の表で 1 か所に決める**（データは `.rikai/` のファイルで、書くのは `rikai.js` の `mutate()` だけ。ブラウザの状態は `app.js` の `S` だけ）。
+1. **変更理由と所有権**：コマンドの入口は `skill/rikai/rikai.js`、サーバー・ストア・検査・操作は `skill/rikai/lib/`、画面は `skill/rikai/public/`、AI への指示は `skill/rikai/SKILL.md`。**状態の所有者は、構成説明の表で 1 か所に決める**（データは `.rikai/` のファイルで、書くのは `lib/store.js` の `mutate()` を通るものだけ。ブラウザの状態は `app.js` の `S` だけ）。
 2. **型付きの境界**：外（HTTP の本体・`apply` の JSON・コマンドの引数・ファイル）からの値は、必要な境界で一度だけ検査・正規化する（`normAsk`・`normAnswer`・`normAnchor`・`checkSlug`）。内側で再検証しない。
 3. **信頼の境界**：AI が書いた Markdown/HTML・資料・返信は、非信頼のデータとして、必ず DOMPurify を通して描く。人間のコメントは、文字として表示する（`textContent`）。**`innerHTML` へ、検査していない文字を入れない**。
 4. **明示的な失敗**：失敗は、HTTP の状態（`HttpError`）と、コマンドの `{ok:false, errors:[…]}`・終了コード 1 で返す。握り潰さない。失敗を、成功に見える代用品に置き換えない。`apply` は、すべて検証してから書く。

@@ -6,7 +6,7 @@
 
 ## 進め方
 
-1. **範囲を決める**：1 つのファイル、または 1 つの責務（例：`rikai.js` のストア、`app.js` のコメントの位置づけ）。全体を一度に見ない。
+1. **範囲を決める**：1 つのファイル、または 1 つの責務（例：`lib/store.js`、`app.js` のコメントの位置づけ）。全体を一度に見ない。
 2. **観察**：下の観点ごとに、コードを**直接読んで**、根拠（ファイルと行）を集める。`grep` の件数・警告は、**見る場所の目印**で、根拠ではない。
 3. **判断**：観点ごとに、「読む人・変える人を助けているか」を言葉で判断する。件数や点数を、目標にしない。
 4. **優先**：影響（波及する範囲・誤りの起きやすさ・安全）が大きく、直しやすいものから。
@@ -16,7 +16,7 @@
 
 | 観点 | 見るもの | 見ないもの |
 |---|---|---|
-| **責務と所有** | データを書く場所が `mutate` に集まっているか。同じ情報を 2 か所で持っていないか（サーバーの正本とブラウザの写し）。`rikai.js` の見出し（共通・ストア・検証・操作・AI 向け・サーバー・起動）をまたぐ依存が、逆向きになっていないか | 意図した窓口 |
+| **責務と所有** | データを書く場所が `mutate` に集まっているか。同じ情報を 2 か所で持っていないか（サーバーの正本とブラウザの写し）。`lib/` のモジュールの依存が、層の順（`util` → `store` → `ask` → `actions`・`agent` → `server` → `rikai.js`。後ろだけが、前を `require` する）に沿っているか。逆向き・循環がないか | 意図した窓口 |
 | **抽象の見合い** | 中継するだけで、検査・変換を足さない関数。1 回しか使わない抽象。呼び出し側が、本来の入口（`mutate`・`normAsk`）を迂回していないか | |
 | **失敗の扱いの一貫性** | `HttpError`・`{ok:false}`・例外の混在。`catch (_) {}` の理由。部分的な反映が残る経路。見せ方を、境界以外が決めていないか | 意図した、最上位の受け口（`handler`・`main`） |
 | **信頼の境界** | 外から来た値（AI の JSON・資料・HTTP・ファイル）が、検査なしに、保存・表示・パスの結合に届いていないか。`innerHTML` に入る文字。`PURIFY`・CSP・Mermaid の設定が緩んでいないか。`/api/`・`/asset/` の入口で `denyReason` を通っているか | |
@@ -32,12 +32,12 @@
 目印に使える確認（読むための入口で、結論ではない）：
 
 ```sh
-grep -n "catch (_)" skill/rikai/rikai.js        # 握りつぶしの候補（理由が分かる所だけのはず）
+grep -n "catch (_)" -r skill/rikai/rikai.js skill/rikai/lib   # 握りつぶしの候補（理由が分かる所だけのはず）
 grep -n "innerHTML" skill/rikai/public/app.js   # 無害化を通した結果だけのはず
-grep -n "writeJSON\|writeFileSync" skill/rikai/rikai.js   # mutate・new・apply・submit 以外で書いていないか
+grep -n "writeJSON\|writeFileSync" -r skill/rikai/rikai.js skill/rikai/lib   # mutate・new・apply・submit 以外で書いていないか
 grep -n "TODO\|FIXME" -r skill                  # 保留
-grep -n "await" skill/rikai/rikai.js            # mutate の中に await がないか（読んで確かめる）
-wc -l skill/rikai/rikai.js skill/rikai/public/app.js   # 大きくなりすぎていないか（責務から読む）
+grep -n "await" -r skill/rikai/rikai.js skill/rikai/lib   # mutate の中に await がないか（読んで確かめる）
+wc -l skill/rikai/rikai.js skill/rikai/lib/*.js skill/rikai/public/app.js   # 大きくなりすぎていないか（責務から読む）
 ```
 
 ## このリポジトリの見直し候補

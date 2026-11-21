@@ -3,7 +3,16 @@
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
-const rikai = require('../skill/rikai/rikai.js');
+const lib = path.join(__dirname, '..', 'skill', 'rikai', 'lib');
+// テストが使う、lib/ のモジュールの束（rikai.js は CLI の入口で、読み込むと動き出すので、require しない）
+const rikai = {
+  ...require(path.join(lib, 'util.js')),
+  ...require(path.join(lib, 'store.js')),
+  ...require(path.join(lib, 'ask.js')),
+  ...require(path.join(lib, 'actions.js')),
+  ...require(path.join(lib, 'agent.js')),
+  ...require(path.join(lib, 'server.js')),
+};
 
 const ROOT_MD = '# 題\n\n本文です。\n\n| 項目 | 値 |\n| --- | --- |\n| 有効期限 | 15分 |\n';
 
