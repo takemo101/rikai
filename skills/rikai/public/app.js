@@ -992,7 +992,10 @@
   }
   let badgeFrame = 0;
   const scheduleBadges = () => { if (!badgeFrame) badgeFrame = requestAnimationFrame(() => { badgeFrame = 0; placeBadges(); }); };
-  new ResizeObserver(scheduleBadges).observe($('#article')); // 図の描画・画像の読み込み・折りたたみ・幅の変更で、記事の大きさが変わるとき
+  // 図の描画・画像の読み込み・折りたたみ・幅の変更で、記事の大きさが変わるとき。スクロールバーの出入りなど、本文の領域の大きさが変わるときも
+  const badgeObserver = new ResizeObserver(scheduleBadges);
+  badgeObserver.observe($('#article'));
+  badgeObserver.observe($('#docscroll'));
   $('#badges').addEventListener('click', (e) => {
     const el = e.target.closest('[data-tid]');
     if (el) focusThread(el.dataset.tid, false);
@@ -1086,6 +1089,7 @@
     const wb = $('#btn-wide');
     if (wb) wb.textContent = wideLabel();
     $('#blkbtn').hidden = true; // 配置が変わるので、「＋」は、次にマウスを動かしたとき、出し直す
+    scheduleBadges(); // 記事の大きさが変わらず、位置だけ動くとき（上限の幅で中央にそろえているときの、左の一覧のしまい・右の幅の変更）も、ブロックの印を合わせ直す
   }
   function toggleWide() {
     if (isWide()) {
