@@ -1,7 +1,7 @@
 'use strict';
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { tokenize, diffText, matchBlocks, MAX_CELLS, MAX_BLOCK_CELLS, MAX_GAP_PAIRS } = require('../skill/rikai/public/diff.js');
+const { tokenize, diffText, matchBlocks, MAX_CELLS, MAX_BLOCK_CELLS, MAX_PAIRS } = require('../skill/rikai/public/diff.js');
 
 const join = (ops, keep) => ops.filter((o) => keep.includes(o.t)).map((o) => o.s).join('');
 
@@ -93,7 +93,7 @@ test('matchBlocks：空の版・同じ版', () => {
 test('matchBlocks：ほとんど全部が書き直された資料でも、近さを調べる組の数に上限がある（上限を超える区間は、追加と削除）', () => {
   // どのブロックも、前の版の同じ番号のブロックと、とても似ている（上限がなければ、「変更」として対応づく）
   const n = 500;
-  assert.ok(n * n > MAX_GAP_PAIRS);
+  assert.ok(n * n > MAX_PAIRS);
   const prev = Array.from({ length: n }, (_, i) => B(`p${i}`, 'P', `段落${i}の説明です。共通の文言がしばらく続きます`));
   const cur = Array.from({ length: n }, (_, i) => B(`c${i}`, 'P', `段落${i}の説明でした。共通の文言がしばらく続きます`));
   const t0 = Date.now();
@@ -123,4 +123,26 @@ test('matchBlocks：同じ内容のブロックが複数あっても、1 対 1 �
   const r = matchBlocks([B('a', 'P', 'x'), B('a', 'P', 'x')], [B('a', 'P', 'x')]);
   assert.deepEqual(r.cur, [{ status: 'same', prev: 0 }]);
   assert.deepEqual(r.removed, [1]);
+});
+
+test('matchBlocks：近さを調べる組の数は、区間ごとではなく、全体で上限がある（区間が小さくても、多ければ、後ろの区間は、追加と削除）', () => {
+  // 「同じ」見出しで区切られた 10 の区間。どの区間も、60×60 の組（上限の内側）で、前と今のブロックが、とても似ている
+  const gaps = 10, k = 60;
+  assert.ok(k * k <= MAX_PAIRS && gaps * k * k > MAX_PAIRS);
+  const prev = [], cur = [];
+  for (let g = 0; g < gaps; g++) {
+    prev.push(B(`h${g}`, 'H2', `見出し${g}`));
+    cur.push(B(`h${g}`, 'H2', `見出し${g}`));
+    for (let i = 0; i < k; i++) {
+      prev.push(B(`p${g}-${i}`, 'P', `区間${g}の段落${i}の説明です。共通の文言がしばらく続きます`));
+      cur.push(B(`c${g}-${i}`, 'P', `区間${g}の段落${i}の説明でした。共通の文言がしばらく続きます`));
+    }
+  }
+  const r = matchBlocks(prev, cur);
+  const changedIn = (g) => r.cur.slice(g * (k + 1) + 1, (g + 1) * (k + 1)).filter((c) => c.status === 'changed').length;
+  assert.equal(changedIn(0), k, '先頭の区間は、予算の内側');
+  assert.equal(changedIn(gaps - 1), 0, '最後の区間は、予算を使い切ったあとなので、追加と削除');
+  assert.ok(r.cur.filter((c) => c.status === 'same').length === gaps, '見出しは、すべて「同じ」');
+  const used = r.cur.map((c) => c.prev).filter((p) => p !== null);
+  assert.equal(new Set(used).size, used.length, '前のブロックを、2 回使わない');
 });

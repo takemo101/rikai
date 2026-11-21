@@ -296,7 +296,8 @@
   // 差分の計画（ブロックの対応づけと、変更ブロックの文字の差分）。同じ版どうしなら同じ結果なので、覚えておく
   // （コメントの操作・スレッドの変更のたびに、前の版の描画と、対応づけを、やり直さない）
   function diffPlan(frag) {
-    if (S.diffCache && S.diffCache.key === S.loaded) return S.diffCache.plan;
+    // 同じ版でも、中身（Markdown）が同じときだけ使う（ページを切り替えながら読み込む途中で、違う中身が、同じ印で入る競合に備える）
+    if (S.diffCache && S.diffCache.key === S.loaded && S.diffCache.md === S.md && S.diffCache.prev === S.prevMd) return S.diffCache.plan;
     const prev = mdToFragment(S.prevMd, S.slug);
     markBlocks(prev);
     const pe = blockEls(prev), ce = blockEls(frag);
@@ -308,7 +309,7 @@
     // 文字のないブロック（画像だけの段落・区切り線）は、ラベルで見せる
     const removed = m.removed.map((i) => pi[i].text || blockLabel(pe[i]) || `（${pe[i].tagName.toLowerCase()}）`);
     const plan = { statuses: m.cur.map((c) => c.status), ops, removed };
-    S.diffCache = { key: S.loaded, plan };
+    S.diffCache = { key: S.loaded, md: S.md, prev: S.prevMd, plan };
     return plan;
   }
 
@@ -448,7 +449,7 @@
       bar.append(sel);
       if (curVersion() > 1) {
         bar.append(h('label', { class: 'chk' }, h('input', { type: 'checkbox', 'data-key': 'chk-changes', checked: S.showChanges, onchange: (e) => { S.showChanges = e.target.checked; S.docSig = ''; loadPage(); } }), '前の版からの変更を表示'));
-        if (S.diff && S.diff.key === S.loaded) bar.append(h('span', { class: 'chip', title: '前の版との比較', text: `変更 ${S.diff.changed}・追加 ${S.diff.added}・削除 ${S.diff.removed}` }));
+        if (S.diff && S.diff.key === `${S.slug}/${S.page}/${curVersion()}`) bar.append(h('span', { class: 'chip', title: '前の版との比較', text: `変更 ${S.diff.changed}・追加 ${S.diff.added}・削除 ${S.diff.removed}` }));
       }
     }
     if (!isLatest()) {

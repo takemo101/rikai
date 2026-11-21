@@ -59,10 +59,10 @@
   const SIMILAR = 0.5;
   // 順序を保つ対応づけの表（ブロック数の積）の上限。超えたら、同じ内容を先頭から対応づける
   const MAX_BLOCK_CELLS = 4_000_000;
-  // 近いブロックを探す、1 つの区間の、比べる組の数の上限。超えたら、その区間は、追加と削除にする
-  const MAX_GAP_PAIRS = 40_000;
+  // 近いブロックを探すとき、比べる組の数の、全体の上限。使い切ったら、残りの区間は、追加と削除にする（時間の保護）
+  const MAX_PAIRS = 20_000;
   // 近さを見る、ブロックの文字の長さ（先頭から）
-  const MATCH_EXCERPT = 400;
+  const MATCH_EXCERPT = 200;
 
   // prev・cur は [{ hash, tag, text }]（本文の順）。戻り値:
   //   cur: 今の版の各ブロックごとの { status: 'same' | 'changed' | 'added', prev: 前の版の添字 | null }
@@ -105,10 +105,13 @@
     const norm = (t) => String(t).replace(/\s+/g, ' ').trim().slice(0, MATCH_EXCERPT);
     const pex = prev.map((p) => norm(p.text)), cex = cur.map((c) => norm(c.text));
     const bounds = [[-1, -1], ...anchors, [n, m]];
+    let budget = MAX_PAIRS;
     for (let k = 0; k + 1 < bounds.length; k++) {
       const [pa, ca] = bounds[k], [pb, cb] = bounds[k + 1];
-      // 区間が大きすぎるとき（ほとんど全部が書き直された資料）は、近さを調べず、追加と削除にする（比べる組の数が、積で増えるため）
-      if ((pb - pa - 1) * (cb - ca - 1) > MAX_GAP_PAIRS) continue;
+      // 比べる組の数は、区間のブロック数の積で増える。残りの予算を超える区間は、近さを調べず、追加と削除にする
+      const pairs = (pb - pa - 1) * (cb - ca - 1);
+      if (pairs > budget) continue;
+      budget -= Math.max(0, pairs);
       const cand = [];
       for (let j = ca + 1; j < cb; j++) {
         for (let i = pa + 1; i < pb; i++) {
@@ -128,7 +131,7 @@
     return { cur: cur.map((_, j) => ({ status: status[j], prev: curPrev[j] })), removed };
   }
 
-  const api = { tokenize, diffText, matchBlocks, MAX_CELLS, MAX_BLOCK_CELLS, MAX_GAP_PAIRS };
+  const api = { tokenize, diffText, matchBlocks, MAX_CELLS, MAX_BLOCK_CELLS, MAX_PAIRS };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.RikaiDiff = api;
 })(typeof window !== 'undefined' ? window : globalThis);
