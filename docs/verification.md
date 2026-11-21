@@ -280,7 +280,7 @@
 
 - **pi**（`pi -p -e <リポジトリ>`、`/skill:rikai`）：スキルを読み込み、`node "<リポジトリ>/skills/rikai/rikai.js" status` を実行。`SKILL_DIR` は、スキルの `location` の親ディレクトリ。出力 `[]`。SKILL.md の frontmatter を整理する前と後の、2 回とも同じ結果。
 - **omp**（`omp -p --plugin-dir <リポジトリ>`、`/skill:rikai`）：同じく、`[Skill file: …/SKILL.md]` のディレクトリを `SKILL_DIR` にして、`status` を実行。出力 `[]`。
-- **Claude Code**：`claude -p … --plugin-dir` は、認証の期限切れ（`OAuth session expired`）で、実行できなかった。**未確認**。
+- **Claude Code**（`claude -p "/rikai:rikai …" --plugin-dir <リポジトリ> --allowedTools "Bash(node:*)"`。ログインし直したあとの、2 回目の実行。最初の実行は、認証の期限切れで、失敗した）：スキルを読み込み、`node "<リポジトリ>/skills/rikai/rikai.js" status` を実行。`SKILL_DIR` は、「スキルを読み込んだときに示されたベースディレクトリ」で、ホームの検索はしていない。出力 `[]`。
 - grok・agy・codex：実際のエージェントでの実行は、していない。**未確認**。
 
 **不具合（実機で見つけたこと）**：最初の SKILL.md は、frontmatter に `argument-hint` と `disable-model-invocation` があり、omp が、ルートの `plugin.json` を持つパッケージ（Agent Plugins）のスキルとして**読み込まなかった**（`skill://rikai` が `Unknown skill`）。二分で、どちらか 1 つだけでも、読み込まれなくなることを確認し、両方を外すと、読み込まれた（レビューも、`license`・`allowed-tools` なら、読み込まれることを確認）。omp のドキュメントも、Agent Plugins のスキルの frontmatter を、厳しく検査すると書いている。外したので、モデルが自動で使えるようになる（SPEC §8 に、AI の判断と、止め方を記録）。自動テスト（`test/plugin.test.js`）が、frontmatter が Agent Skills の項目だけであることを守る。
@@ -290,8 +290,8 @@
 **確認していない範囲**：
 
 - README の **GitHub を指定したコマンド**は、マージ前は試せなかったが、**マージ後（`main` = `02e6793`）に、一時の `HOME` で実行して、6 つとも入った**：`claude plugin marketplace add takemo101/rikai` → `install rikai@rikai`（版は git のコミット）、`codex plugin marketplace add takemo101/rikai` → `plugin add rikai@rikai`（0.1.0）、`omp plugin marketplace add takemo101/rikai` → `plugin install rikai@rikai`（0.1.0）、`grok plugin install takemo101/rikai --trust`、`pi install git:github.com/takemo101/rikai`、agy は clone して `agy plugin install ./rikai`（0.1.0）。入ったことの確認までで、入れたあとに `/rikai` を動かしてはいない。確認のあと、一時の `HOME` は消した。
-- Claude Code・grok・agy・codex で `/rikai` を実際に動かすこと。omp・pi でも、`status` だけで、**資料の作成・Submit・返信の通し**は、していない（SPEC の人間の確認待ち）。
-- 呼び出しの名前（`/rikai:rikai`・`/skill:rikai`・`/rikai`）のうち、確かめたのは、omp と pi の `/skill:rikai` だけ。ほかは、各エージェントのドキュメントと、検証コマンドの出力（Claude Code の `rikai:rikai`）による。
+- codex・grok・agy で `/rikai` を実際に動かすこと。Claude Code・omp・pi でも、`status` だけで、**資料の作成・Submit・返信の通し**は、していない（SPEC の人間の確認待ち）。
+- 呼び出しの名前（`/rikai:rikai`・`/skill:rikai`・`/rikai`）のうち、確かめたのは、Claude Code の `/rikai:rikai` と、omp・pi の `/skill:rikai`。grok・agy の `/rikai` と、codex の呼び出しは、各エージェントのドキュメントによる（実際には、動かしていない）。
 - 同じ名前のスキルが、ほかの場所（`~/.claude/skills/` など）にもあるときの重複の扱い（omp のドキュメントには、同じ内容なら、あとのものを黙って捨てるとある。確認していない）。
 - Claude Code のプラグインのスキルを、自動では使わせない方法はない（`skillOverrides` の対象外）。`install.sh` の複製での `skillOverrides` の動作は、公式ドキュメントによる（確認していない）。
 
