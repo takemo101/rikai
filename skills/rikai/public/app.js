@@ -633,7 +633,8 @@
       S.approx.has(t.id) ? h('span', { class: 'chip warn small', text: S.approx.get(t.id) === 'similar' ? '近い内容のブロックに表示' : '同じ位置のブロックに表示' }) : null,
       future ? h('span', { class: 'chip small', text: '後の版のコメント' }) : null,
       h('div', { class: 'quote', text: trunc(quote, 90) })));
-    for (const m of t.messages) card.append(renderMessage(t, m));
+    // 回答（kind が answer）は、質問の下の入力欄で見せるので、メッセージとしては描かない（null）。null を append すると、文字「null」が出る
+    for (const m of t.messages) { const el = renderMessage(t, m); if (el) card.append(el); }
     const foot = h('div', { class: 'th-foot' });
     if (!t.resolved) {
       foot.append(
