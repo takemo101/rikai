@@ -116,7 +116,7 @@ mark.hl.resolved[data-no]::after { background: #9c9784; }
 /* ブロックの番号は、要素の外の層（#badges）に、絶対位置で出す（要素の中だと、箱の overflow で切れる・横スクロールで流れる・行末の文字に重なる）。位置は app.js の placeBadges */
 #docscroll { position: relative; }
 #badges { position: absolute; top: 0; left: 0; width: 0; height: 0; z-index: 2; }
-.bbadge { position: absolute; display: flex; gap: 3px; }
+.bbadge { position: absolute; display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 3px; width: 46px; } /* 記事の左の余白（12px 外〜34px 内）に収める。複数のコメントは、折り返す（本文の先頭の文字に、かぶらない） */
 .bno { padding: 0 5px; min-width: 18px; font-size: 11px; font-weight: 700; line-height: 18px; text-align: center; border-radius: 999px; background: var(--accent); color: #fff; cursor: pointer; box-shadow: 0 0 0 2px var(--paper); }
 .bno.resolved { background: #9c9784; }
 .bno.linked { outline: 2px solid var(--accent); outline-offset: 2px; }
