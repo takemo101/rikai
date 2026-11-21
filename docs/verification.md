@@ -261,6 +261,39 @@
 
 **独立レビュー**（reviewer。read-only）：ブロッカー・Major なし。21 ファイルが、中身の同じ移動（rename 100%・ファイルの権限も同じ）であること、`install.sh` が古い配置の上にコピーしても `--delete` の動作が変わらないこと、リンクが壊れていないことを確認。Minor 2 件（上の見落とし 2 行／この節の「残っていない」という記録が、その時点で事実でなかった）は、直した。再レビューは、していない。プラグインとして配る場合は、`.claude-plugin/plugin.json` が別に要り、名前空間つきの呼び出し（`/rikai:rikai` など）になりうる（レビューの指摘。SPEC §7「配布」で扱う）。
 
+### プラグイン対応（2026-11-21。RIK-010）
+
+**対象**：SPEC F18（Claude Code・omp・pi・grok・agy・codex をプラグインで入れる。opencode は対象外）と、SKILL.md のパス指定・frontmatter。**環境**：macOS（Apple Silicon）。claude 2.1.329・omp 19.0.1・pi 1.6.0・grok 1.0.92・agy 1.5.13・codex 0.171.0。マニフェストの形式は、各エージェントの公式ドキュメント（2026-11-21 に取得）で確かめて書いた。
+
+**利用者の環境を変えない方法**：入れる操作は、`HOME` を一時のディレクトリに向けて実行した（`~/.claude`・`~/.codex`・`~/.grok`・`~/.gemini`・`~/.pi`・`~/.omp` に書かない）。実際のエージェントでの実行は、`claude --plugin-dir`・`omp --plugin-dir`・`pi -e` のように、その実行の間だけ読み込ませた。確認のあと、一時のものは消した。
+
+| エージェント | 実行したこと | 結果 |
+|---|---|---|
+| Claude Code | `claude plugin validate .`／一時の `HOME` で `marketplace add <ローカル>` → `install rikai@rikai` → `list`・`details` | 検証は通過（警告は、版と icon がないことだけ）。入って有効。スキルが `rikai:rikai` として 1 つ |
+| grok | `grok plugin validate .`／`install <ローカル> --trust` → `list`・`details`・`inspect --json` | 検証は通過。入った。`inspect` に、`source.type = plugin`・名前 rikai のスキルが出た |
+| agy | `agy plugin validate .`／`agy plugin install <ローカル>` → `list` | 通過（警告 1 件：リポジトリの `AGENTS.md` は、プラグインの規則として読まれない。意図どおり）。**`--strict` は、この警告と、icon・版の指摘で、失敗する場合がある**（`plugin.json` に版は入れた）。入って有効、スキル 1 |
+| codex | 一時の `HOME` で `plugin marketplace add <ローカル>` → `plugin add rikai@rikai` → `plugin list` | `installed, enabled`（0.1.0） |
+| omp | 一時の `HOME` で `plugin marketplace add <ローカル>` → `plugin install rikai@rikai`、別に `plugin link`・`plugin doctor` | 入った（0.1.0）。`doctor` は、エラー 0 |
+| pi | 一時の `HOME` で `pi install <ローカル>` → `pi list` | 入った |
+
+**実際のエージェントでの実行**（作業ディレクトリは、空の一時のディレクトリ。「資料は作らず、手順書どおりに `status` だけを実行し、実行したコマンド・`SKILL_DIR` の決め方・出力を報告して」と依頼）：
+
+- **pi**（`pi -p -e <リポジトリ>`、`/skill:rikai`）：スキルを読み込み、`node "<リポジトリ>/skills/rikai/rikai.js" status` を実行。`SKILL_DIR` は、スキルの `location` の親ディレクトリ。出力 `[]`。SKILL.md の frontmatter を整理する前と後の、2 回とも同じ結果。
+- **omp**（`omp -p --plugin-dir <リポジトリ>`、`/skill:rikai`）：同じく、`[Skill file: …/SKILL.md]` のディレクトリを `SKILL_DIR` にして、`status` を実行。出力 `[]`。
+- **Claude Code**：`claude -p … --plugin-dir` は、認証の期限切れ（`OAuth session expired`）で、実行できなかった。**未確認**。
+- grok・agy・codex：実際のエージェントでの実行は、していない。**未確認**。
+
+**不具合（実機で見つけたこと）**：最初の SKILL.md は、frontmatter に `argument-hint` と `disable-model-invocation` があり、omp が、プラグインのスキルとして**読み込まなかった**（`skill://rikai` が `Unknown skill`）。二分で、どちらか 1 つだけでも、読み込まれなくなることを確認し、両方を外すと、読み込まれた。omp のドキュメントも、Agent Plugins のスキルの frontmatter を、厳しく検査すると書いている。外したので、モデルが自動で使えるようになる（SPEC §8 に、AI の判断として記録）。自動テスト（`test/plugin.test.js`）が、frontmatter が Agent Skills の項目だけであることを守る。
+
+**自動テスト**：85 件通過（80＋プラグイン 5 件）。マニフェストの名前・版（`package.json` と `plugin.json`）・schema の項目・スキルの場所と名前（agy は、名前がディレクトリ名と違うと読み込まない）・カタログの指す場所・pi の `skills` の参照先・frontmatter の項目。**実装を壊した作業コピーで失敗することを確認**（確認のあと、捨てた）：frontmatter に `disable-model-invocation` を足す・スキルを `skill/` に戻す・版を食い違わせる・`plugin.json` に schema 外の項目を足す・SKILL.md の `name` を変える（それぞれ 1〜2 件が失敗）。
+
+**確認していない範囲**：
+
+- README の **GitHub を指定したコマンド**（`takemo101/rikai`）。マージ前は、`main` にマニフェストがないので、試せない。ローカルのパスでの確認だけ。
+- Claude Code・grok・agy・codex で `/rikai` を実際に動かすこと。omp・pi でも、`status` だけで、**資料の作成・Submit・返信の通し**は、していない（SPEC の人間の確認待ち）。
+- 呼び出しの名前（`/rikai:rikai`・`/skill:rikai`・`/rikai`）のうち、確かめたのは、omp と pi の `/skill:rikai` だけ。ほかは、各エージェントのドキュメントと、検証コマンドの出力（Claude Code の `rikai:rikai`）による。
+- 同じ名前のスキルが、ほかの場所（`~/.claude/skills/` など）にもあるときの重複の扱い（omp のドキュメントには、同じ内容なら、あとのものを黙って捨てるとある。確認していない）。
+
 ### 人間の確認待ち
 
 AI は、これらを合格にしない。

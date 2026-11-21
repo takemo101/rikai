@@ -1,0 +1,11 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+  "name": "rikai",
+  "version": "0.1.0",
+  "description": "資料にコメントして Submit すると、AI が返信と資料の修正（版）で答える。理解できるまで回すスキル",
+  "author": { "name": "takemo101" },
+  "homepage": "https://github.com/takemo101/rikai",
+  "repository": "https://github.com/takemo101/rikai",
+  "license": "MIT",
+  "keywords": ["understanding", "review", "markdown", "comments"]
+}

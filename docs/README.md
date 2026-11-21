@@ -35,8 +35,11 @@ SPEC.md                製品要件・状態・対象外・未決事項・利用
 AGENTS.md              開発規約・不変条件
 LICENSE                MIT
 install.sh             skills/rikai/ を ~/.claude/skills/rikai/ へ複製する（CLAUDE_SKILLS_DIR で変更）
-package.json           npm test（`node --test test/*.test.js`）だけ。依存はない
-test/                  自動テスト（node:test）。helpers.js・store・actions・ask・apply・poll・anchor・diff・progress・server
+package.json           npm test（`node --test test/*.test.js`）だけ。依存はない。pi のパッケージの宣言（`pi`）と版も持つ
+plugin.json            プラグインの宣言（codex・omp・agy。Agent Plugins 1.0.0）
+.claude-plugin/        Claude Code・grok のプラグインの宣言（plugin.json・marketplace.json）
+.agents/plugins/       codex のカタログ（marketplace.json）
+test/                  自動テスト（node:test）。helpers.js・store・actions・ask・apply・poll・anchor・diff・progress・plugin・server
 skills/rikai/
   SKILL.md             エージェント向けの手順（/rikai）
   rikai.js             コマンドの入口（new・open・poll・pull・apply・status・stop）と、サーバーの起動。Node 18+・依存なし

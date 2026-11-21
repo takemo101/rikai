@@ -1,8 +1,6 @@
 ---
 name: rikai
-description: 資料（説明・PR・設計・コード解説）を Markdown で作ってブラウザに表示し、ユーザーが文や図にコメントして Submit するたびに、返信と資料の修正（版）で答える。理解が深まるまで何周も回す。ユーザーが /rikai と打ったとき、または「理解したい」「資料にコメントしたい」と言ったときに使う。
-argument-hint: "[理解したいこと（例：このPRを理解したい） | ファイルのパス | 空で直前の回答]"
-disable-model-invocation: true
+description: 資料（説明・PR・設計・コード解説）を Markdown で作ってブラウザに表示し、ユーザーが文や図にコメントして Submit するたびに、返信と資料の修正（版）で答える。理解が深まるまで何周も回す。ユーザーが /rikai と打ったとき（あとに、理解したいこと・ファイルのパスを書ける。空なら直前の回答が対象）、または「理解したい」「資料にコメントしたい」と言ったときに使う。
 ---
 
 # rikai
@@ -15,11 +13,18 @@ disable-model-invocation: true
 - 資料は版で残る（v1, v2…）。直すときは新しい版を足す。過去の版は書き換えない。
 - 返信から子ページ（詳細資料）を作れる。ユーザーが「詳しく見る」を押すとそのページに移る。
 
-以降の `rikai` は次のコマンドを指す。
+以降の `rikai` は、**この SKILL.md と同じディレクトリにある `rikai.js`** を `node` で動かすコマンドを指す。
 
 ```bash
-node "${CLAUDE_SKILL_DIR}/rikai.js"
+node "<SKILL_DIR>/rikai.js"
 ```
+
+`<SKILL_DIR>` は、この SKILL.md があるディレクトリの絶対パス。次の順で決める（一度決めたら、以降は同じパスを使う）。
+
+1. このファイルを読み込んだときに示されたパス（スキルの場所・ベースディレクトリ）の、ディレクトリ部分。
+2. 読み込み方で分からなければ、`rikai.js` と `public/` と `lib/` が並ぶ `rikai/` ディレクトリを探す（例：`~/.claude/skills/rikai`・`~/.agents/skills/rikai`・プラグインの `skills/rikai`）。`find ~ -path '*/rikai/rikai.js' -not -path '*/node_modules/*' 2>/dev/null | head`
+
+`$ARGUMENTS` は、ユーザーが `/rikai` のあとに書いた文字。展開されていなければ、ユーザーの発言から読み取る。
 
 ## 1. 資料を作って開く
 
