@@ -277,18 +277,27 @@
       }
       S.locs.set(t.id, el);
     }
-    // 本文の順に番号をつける（右のパネルの、同じ番号のカードと対応する）。印は、CSS の ::after（data-no）で出す
-    // （要素や文字を足さないので、コメントの位置づけに使う本文の文字を、変えない）
+    // 本文の順に番号をつける（右のパネルの、同じ番号のカードと対応する）。
+    // 文の印は、CSS の ::after（data-no）。ブロックの印は、要素の外の層（#badges）に出す（placeBadges）。どちらも、要素や文字を足さない
+    // （コメントの位置づけに使う本文の文字を、変えない）
     S.nums = new Map();
+    S.blkBadges = new Map();
     const located = threadsOnPage().filter((t) => S.locs.get(t.id)).sort(docOrder);
     located.forEach((t, i) => {
       const n = i + 1;
       S.nums.set(t.id, n);
       const marks = $$(`mark.hl[data-tid="${t.id}"]`, art);
-      const target = marks.length ? marks[marks.length - 1] : S.locs.get(t.id);
-      // 1 つのブロックに、複数のコメントがあるときは、番号を並べる（「6,7」）。カードの番号は、どれも、本文の印と対応する
-      target.dataset.no = target.dataset.no ? `${target.dataset.no},${n}` : String(n);
+      if (marks.length) {
+        const target = marks[marks.length - 1];
+        target.dataset.no = target.dataset.no ? `${target.dataset.no},${n}` : String(n);
+      } else {
+        // 1 つのブロックに、複数のコメントがあるときは、番号を並べる（「6,7」）。カードの番号は、どれも、本文の印と対応する
+        const el = S.locs.get(t.id);
+        if (!S.blkBadges.has(el)) S.blkBadges.set(el, []);
+        S.blkBadges.get(el).push({ tid: t.id, n, resolved: !!t.resolved });
+      }
     });
+    placeBadges();
     markPending();
   }
 
@@ -963,6 +972,44 @@
     if (el) focusThread(el.dataset.tid, false);
   });
 
+  // ブロックの番号の印は、要素の外の層（#badges。#docscroll の中の絶対位置）に出す。要素の中に出すと、箱の overflow で切れる・横スクロールで流れる・行末の文字に重なる。
+  // 位置は、記事の左の縁（記事の余白の中）に、そろえる。大きさが変わる（図の描画・窓・幅の変更）と、合わせ直す
+  function placeBadges() {
+    const layer = $('#badges');
+    layer.textContent = '';
+    if (!S.blkBadges) return;
+    const ds = $('#docscroll'), dr = ds.getBoundingClientRect(), ar = $('#article').getBoundingClientRect();
+    const left = Math.round(ar.left - dr.left + ds.scrollLeft) - 12;
+    for (const [el, list] of S.blkBadges) {
+      if (!el.isConnected) continue;
+      const r = el.getBoundingClientRect();
+      if (!r.width && !r.height) continue; // 閉じた <details> の中など、見えない所には、出さない
+      const box = h('div', { class: 'bbadge' }, list.map((b) => h('span', { class: b.resolved ? 'bno resolved' : 'bno', 'data-tid': b.tid, text: String(b.n) })));
+      box.style.top = `${Math.round(r.top - dr.top + ds.scrollTop) + 2}px`;
+      box.style.left = `${left}px`;
+      layer.append(box);
+    }
+  }
+  let badgeFrame = 0;
+  const scheduleBadges = () => { if (!badgeFrame) badgeFrame = requestAnimationFrame(() => { badgeFrame = 0; placeBadges(); }); };
+  // 図の描画・画像の読み込み・折りたたみ・幅の変更で、記事の大きさが変わるとき。スクロールバーの出入りなど、本文の領域の大きさが変わるときも
+  const badgeObserver = new ResizeObserver(scheduleBadges);
+  badgeObserver.observe($('#article'));
+  badgeObserver.observe($('#docscroll'));
+  $('#badges').addEventListener('click', (e) => {
+    const el = e.target.closest('[data-tid]');
+    if (el) focusThread(el.dataset.tid, false);
+  });
+  $('#badges').addEventListener('mouseover', (e) => {
+    const el = e.target.closest('[data-tid]');
+    const tid = el ? el.dataset.tid : null;
+    if (tid === linkedTid) return;
+    setLinked(tid);
+    const card = tid && $(`.thread[data-tid="${tid}"]`);
+    if (card && !S.composer) card.scrollIntoView({ block: 'nearest' });
+  });
+  $('#badges').addEventListener('mouseleave', () => setLinked(null));
+
   // 本文の印と、右のカードを、マウスを置いたとき、お互いに光らせる（どのコメントが、どの対象のものかが、すぐ分かるように）
   let linkedTid = null;
   function setLinked(tid) {
@@ -1042,6 +1089,7 @@
     const wb = $('#btn-wide');
     if (wb) wb.textContent = wideLabel();
     $('#blkbtn').hidden = true; // 配置が変わるので、「＋」は、次にマウスを動かしたとき、出し直す
+    scheduleBadges(); // 記事の大きさが変わらず、位置だけ動くとき（上限の幅で中央にそろえているときの、左の一覧のしまい・右の幅の変更）も、ブロックの印を合わせ直す
   }
   function toggleWide() {
     if (isWide()) {
