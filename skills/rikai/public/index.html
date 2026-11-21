@@ -10,6 +10,7 @@
 <body>
   <div id="app">
     <header id="top">
+      <button id="btn-side" class="ghost small" title="左の一覧を、しまう／出す" aria-label="左の一覧を、しまう／出す" aria-expanded="true">☰</button>
       <div class="brand">rikai</div>
       <div id="top-title"></div>
       <div class="spacer"></div>
@@ -25,6 +26,7 @@
       </div>
     </main>
     <aside id="threads"></aside>
+    <div id="panel-resizer" role="separator" aria-orientation="vertical" aria-label="コメントの幅（ドラッグ、または左右の矢印キーで変える。ダブルクリックでもとの幅）" title="ドラッグで、コメントの幅を変える（ダブルクリックで、もとの幅）" tabindex="0" aria-valuemin="280"></div>
   </div>
 
   <button id="selbtn" hidden>コメント</button>
