@@ -3,7 +3,7 @@
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
-const lib = path.join(__dirname, '..', 'skill', 'rikai', 'lib');
+const lib = path.join(__dirname, '..', 'skills', 'rikai', 'lib');
 // テストが使う、lib/ のモジュールの束（rikai.js は CLI の入口で、読み込むと動き出すので、require しない）
 const rikai = {
   ...require(path.join(lib, 'util.js')),

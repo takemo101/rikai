@@ -1,7 +1,7 @@
 'use strict';
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { tokenize, diffText, matchBlocks, MAX_CELLS, MAX_BLOCK_CELLS, MAX_PAIRS } = require('../skill/rikai/public/diff.js');
+const { tokenize, diffText, matchBlocks, MAX_CELLS, MAX_BLOCK_CELLS, MAX_PAIRS } = require('../skills/rikai/public/diff.js');
 
 const join = (ops, keep) => ops.filter((o) => keep.includes(o.t)).map((o) => o.s).join('');
 

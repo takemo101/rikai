@@ -35,7 +35,7 @@
 リポジトリのまま動かせる。**`--root` で、一時のプロジェクトを指す**（実際のプロジェクトの `.rikai/` を、触らない）。
 
 ```bash
-RK="node $PWD/skill/rikai/rikai.js --root /tmp/rk-dev"
+RK="node $PWD/skills/rikai/rikai.js --root /tmp/rk-dev"
 mkdir -p /tmp/rk-dev
 
 $RK new demo --title "試し" <<'MD'
@@ -135,7 +135,7 @@ npm test        # node --test test/*.test.js。追加の依存なし（Node 18 �
 
 ## 同梱ライブラリの更新
 
-`skill/rikai/public/vendor/` に、固定した版を置いている（オフラインで動かすため）。そのぶん、脆弱性の修正が自動では入らない。ときどき確かめる。
+`skills/rikai/public/vendor/` に、固定した版を置いている（オフラインで動かすため）。そのぶん、脆弱性の修正が自動では入らない。ときどき確かめる。
 
 | ライブラリ | 版（2026-11-21 に取得） | 写すファイル | 置き名 |
 |---|---|---|---|

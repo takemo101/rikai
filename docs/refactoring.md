@@ -32,12 +32,12 @@
 目印に使える確認（読むための入口で、結論ではない）：
 
 ```sh
-grep -n "catch (_)" -r skill/rikai/rikai.js skill/rikai/lib   # 握りつぶしの候補（理由が分かる所だけのはず）
-grep -n "innerHTML" skill/rikai/public/app.js   # 無害化を通した結果だけのはず
-grep -n "writeJSON\|writeFileSync" -r skill/rikai/rikai.js skill/rikai/lib   # mutate・new・apply・submit 以外で書いていないか
-grep -n "TODO\|FIXME" -r skill                  # 保留
-grep -n "await" -r skill/rikai/rikai.js skill/rikai/lib   # mutate の中に await がないか（読んで確かめる）
-wc -l skill/rikai/rikai.js skill/rikai/lib/*.js skill/rikai/public/app.js   # 大きくなりすぎていないか（責務から読む）
+grep -n "catch (_)" -r skills/rikai/rikai.js skills/rikai/lib   # 握りつぶしの候補（理由が分かる所だけのはず）
+grep -n "innerHTML" skills/rikai/public/app.js   # 無害化を通した結果だけのはず
+grep -n "writeJSON\|writeFileSync" -r skills/rikai/rikai.js skills/rikai/lib   # mutate・new・apply・submit 以外で書いていないか
+grep -n "TODO\|FIXME" -r skills                  # 保留
+grep -n "await" -r skills/rikai/rikai.js skills/rikai/lib   # mutate の中に await がないか（読んで確かめる）
+wc -l skills/rikai/rikai.js skills/rikai/lib/*.js skills/rikai/public/app.js   # 大きくなりすぎていないか（責務から読む）
 ```
 
 ## このリポジトリの見直し候補

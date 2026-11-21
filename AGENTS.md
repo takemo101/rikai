@@ -15,7 +15,7 @@
 - [参考にした設計原則](docs/references.md)：参考にしたツールと、採用・不採用の原則。
 - [リファクタリングの観点](docs/refactoring.md)：動作を変えずに見直すときの観点と進め方。
 - [検証手順と記録](docs/verification.md)：条件の観測方法・実際に確認した範囲・人間の確認待ち。
-- [スキル本体](skill/rikai/SKILL.md)：エージェントが `/rikai` で読む手順。コマンド・入力の形を変えたら、同じ変更で直す。
+- [スキル本体](skills/rikai/SKILL.md)：エージェントが `/rikai` で読む手順。コマンド・入力の形を変えたら、同じ変更で直す。
 
 この規約は、同じ作者の voice-control の `AGENTS.md`・`docs/` の構成を参考にして、このプロジェクトに合わせて書いた。**開発の進め方（mikan の Issue 進行・GitButler と PR）は、voice-control と同じ**にしている（利用者の判断：2026-11-21）。**製品の不変条件・Swift・音声・Tiny-Jev に関する規約は、引き継いでいない**。
 
@@ -53,12 +53,12 @@
 
 [構成説明](docs/architecture.md) と、変更対象の SPEC の節を読み、次の 4 点を確認する。原則は [参考にした設計原則](docs/references.md)、具体的な規則は [コーディング指針](docs/coding-guidelines.md)。
 
-1. **変更理由と所有権**：コマンドの入口は `skill/rikai/rikai.js`、サーバー・ストア・検査・操作は `skill/rikai/lib/`、画面は `skill/rikai/public/`、AI への指示は `skill/rikai/SKILL.md`。**状態の所有者は、構成説明の表で 1 か所に決める**（データは `.rikai/` のファイルで、書くのは `lib/store.js` の `mutate()` を通るものだけ。ブラウザの状態は `app.js` の `S` だけ）。
+1. **変更理由と所有権**：コマンドの入口は `skills/rikai/rikai.js`、サーバー・ストア・検査・操作は `skills/rikai/lib/`、画面は `skills/rikai/public/`、AI への指示は `skills/rikai/SKILL.md`。**状態の所有者は、構成説明の表で 1 か所に決める**（データは `.rikai/` のファイルで、書くのは `lib/store.js` の `mutate()` を通るものだけ。ブラウザの状態は `app.js` の `S` だけ）。
 2. **型付きの境界**：外（HTTP の本体・`apply` の JSON・コマンドの引数・ファイル）からの値は、必要な境界で一度だけ検査・正規化する（`normAsk`・`normAnswer`・`normAnchor`・`checkSlug`）。内側で再検証しない。
 3. **信頼の境界**：AI が書いた Markdown/HTML・資料・返信は、非信頼のデータとして、必ず DOMPurify を通して描く。人間のコメントは、文字として表示する（`textContent`）。**`innerHTML` へ、検査していない文字を入れない**。
 4. **明示的な失敗**：失敗は、HTTP の状態（`HttpError`）と、コマンドの `{ok:false, errors:[…]}`・終了コード 1 で返す。握り潰さない。失敗を、成功に見える代用品に置き換えない。`apply` は、すべて検証してから書く。
 
-- 追加の npm パッケージを足さない（Node の標準だけ）。表示ライブラリは `skill/rikai/public/vendor/` に同梱し、ライセンスを添える。更新は [開発手順](docs/development.md#同梱ライブラリの更新)。
+- 追加の npm パッケージを足さない（Node の標準だけ）。表示ライブラリは `skills/rikai/public/vendor/` に同梱し、ライセンスを添える。更新は [開発手順](docs/development.md#同梱ライブラリの更新)。
 - 不要な確保・コピー・計算を避ける。
 - 一律の層構成・フレームワーク・DB・不要な抽象を、先回りで導入しない。
 

@@ -6,6 +6,6 @@ dest="${CLAUDE_SKILLS_DIR:-$HOME/.claude/skills}/rikai"
 command -v node >/dev/null || { echo "Node.js 18 以上が必要です" >&2; exit 1; }
 node -e 'process.exit(+process.versions.node.split(".")[0] >= 18 ? 0 : 1)' || { echo "Node.js 18 以上が必要です" >&2; exit 1; }
 mkdir -p "$dest"
-rsync -a --delete "$here/skill/rikai/" "$dest/"
+rsync -a --delete "$here/skills/rikai/" "$dest/"
 echo "インストールしました: $dest"
 echo "Claude Code を開き直すと /rikai が使えます"

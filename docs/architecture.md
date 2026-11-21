@@ -36,21 +36,21 @@ flowchart LR
 
 | 場所 | 責務 | 持たないもの |
 | --- | --- | --- |
-| `skill/rikai/rikai.js` | **CLI の入口**：引数の解釈（`parseArgs`・`projectRoot`）と、各コマンド（`new`・`open`・`poll`・`pull`・`apply`・`status`・`stop`・内部の `serve`）の振り分け（`poll`・`pull`・`apply`・`status` の中身は、`lib/agent.js`）。**起動まわり**（サーバーの起動・疎通・ブラウザを開く・`serve` の終了処理の取りつけ）。**読み込むと動き出す**（`main()`）ので、テストは読み込まない | 画面の描画・資料の中身の解釈・データの検査（`lib/` の仕事） |
-| `skill/rikai/lib/util.js` | 共通の小さな道具：`HttpError`・`out`・`now`・`readJSON`・`writeJSON`・`sleep`・入力の整形（`str`・`normAnchor`）。ほかのモジュールに依存しない | |
-| `skill/rikai/lib/store.js` | **ストア**：`.rikai/<topic>/` の読み書き・ロック・`mutate`・データの形の版（`SCHEMA`）・トピックの一覧・`newTopic`・`progressOrNull`。**プロジェクトのルート（`ROOT`）と `.rikai`（`BASE`）の状態を持つ**（`setRoot`・`getRoot`・`getBase`） | HTTP・画面の操作・AI 向けの検査 |
-| `skill/rikai/lib/ask.js` | **ask の検査**：`normAsk`（AI が出す質問）・`normAnswer`（人の回答） | ファイルの読み書き |
-| `skill/rikai/lib/actions.js` | **画面からの操作**（`actions`：`comment`・`reply`・`answer`・`edit`・`delete`・`resolve`・`submit`・`end`）。全トピックが閉じたときの動き `hooks.allClosed`（既定は何もしない。`serve` のプロセスが、終了の処理を入れる） | HTTP |
-| `skill/rikai/lib/agent.js` | **AI 向けの操作**：`listRounds`・`peek`（`poll`・`pull` が共有）・`cmdPoll`・`cmdPull`・`cmdApply`（検証してから書く）・`cmdStatus`（出力するコマンドは、`out` で JSON を出す） | HTTP・画面の操作 |
-| `skill/rikai/lib/server.js` | **HTTP**：認証（合言葉・`Host`・`Origin`）・配信・ルーティング・`startServer`・`shutdown`。`PORT`・`TOKEN` の状態を持つ | データの検査（`actions` と `store` を呼ぶだけ） |
-| `skill/rikai/public/app.js` | ビューア。Markdown の描画（無害化）・コメントの位置づけ（選択→アンカー・アンカー→強調）・パネル・ask の入力・ルーティング（ハッシュ）・サーバーの変更の取り込み | データの正本（サーバーが持つ。ここは写しと下書き） |
-| `skill/rikai/public/anchor.js` | コメントの探し直しの、**DOM に触れない純粋な関数**：`findQuote`（選んだ文）・`locateBlock`（ブロック）・`similarity`。ブラウザ（`window.RikaiAnchor`）と Node のテスト（`require`）の両方から使う | DOM・ネットワーク |
-| `skill/rikai/public/diff.js` | 版どうしの差分の、**DOM に触れない純粋な関数**：`diffText`（文字列のトークン単位の差分）・`matchBlocks`（ブロックの対応づけ）。`anchor.js` の `similarity` を使う。ブラウザ（`window.RikaiDiff`）と Node のテスト（`require`）の両方から使う | DOM・ネットワーク |
-| `skill/rikai/public/progress.js` | 理解の進み具合を数える、**DOM に触れない純粋な関数**（`progressOf`）：解決したスレッドの数・全スレッド・AI の質問の数・送信済みの回答がある数。**数だけ**で、理解の判定ではない。ブラウザ（`window.RikaiProgress`）・サーバー（`lib/store.js` の `progressOrNull`〔一覧〕と `rikai.js` の `status` が `require`）・Node のテストの 3 つが共有する | DOM・ネットワーク |
-| `skill/rikai/public/index.html`・`style.css` | 画面の骨組みと見た目 | ロジック |
-| `skill/rikai/public/vendor/` | 同梱の marked・DOMPurify・mermaid と、ライセンス。**書き換えない** | |
-| `skill/rikai/SKILL.md` | AI への手順（資料の作り方・待ち方・返信の方針・`apply` の入力）。コマンドの仕様の**利用者側の説明** | コマンドの実装 |
-| `install.sh` | `skill/rikai/` を `~/.claude/skills/rikai/` へ複製（`rsync --delete`） | |
+| `skills/rikai/rikai.js` | **CLI の入口**：引数の解釈（`parseArgs`・`projectRoot`）と、各コマンド（`new`・`open`・`poll`・`pull`・`apply`・`status`・`stop`・内部の `serve`）の振り分け（`poll`・`pull`・`apply`・`status` の中身は、`lib/agent.js`）。**起動まわり**（サーバーの起動・疎通・ブラウザを開く・`serve` の終了処理の取りつけ）。**読み込むと動き出す**（`main()`）ので、テストは読み込まない | 画面の描画・資料の中身の解釈・データの検査（`lib/` の仕事） |
+| `skills/rikai/lib/util.js` | 共通の小さな道具：`HttpError`・`out`・`now`・`readJSON`・`writeJSON`・`sleep`・入力の整形（`str`・`normAnchor`）。ほかのモジュールに依存しない | |
+| `skills/rikai/lib/store.js` | **ストア**：`.rikai/<topic>/` の読み書き・ロック・`mutate`・データの形の版（`SCHEMA`）・トピックの一覧・`newTopic`・`progressOrNull`。**プロジェクトのルート（`ROOT`）と `.rikai`（`BASE`）の状態を持つ**（`setRoot`・`getRoot`・`getBase`） | HTTP・画面の操作・AI 向けの検査 |
+| `skills/rikai/lib/ask.js` | **ask の検査**：`normAsk`（AI が出す質問）・`normAnswer`（人の回答） | ファイルの読み書き |
+| `skills/rikai/lib/actions.js` | **画面からの操作**（`actions`：`comment`・`reply`・`answer`・`edit`・`delete`・`resolve`・`submit`・`end`）。全トピックが閉じたときの動き `hooks.allClosed`（既定は何もしない。`serve` のプロセスが、終了の処理を入れる） | HTTP |
+| `skills/rikai/lib/agent.js` | **AI 向けの操作**：`listRounds`・`peek`（`poll`・`pull` が共有）・`cmdPoll`・`cmdPull`・`cmdApply`（検証してから書く）・`cmdStatus`（出力するコマンドは、`out` で JSON を出す） | HTTP・画面の操作 |
+| `skills/rikai/lib/server.js` | **HTTP**：認証（合言葉・`Host`・`Origin`）・配信・ルーティング・`startServer`・`shutdown`。`PORT`・`TOKEN` の状態を持つ | データの検査（`actions` と `store` を呼ぶだけ） |
+| `skills/rikai/public/app.js` | ビューア。Markdown の描画（無害化）・コメントの位置づけ（選択→アンカー・アンカー→強調）・パネル・ask の入力・ルーティング（ハッシュ）・サーバーの変更の取り込み | データの正本（サーバーが持つ。ここは写しと下書き） |
+| `skills/rikai/public/anchor.js` | コメントの探し直しの、**DOM に触れない純粋な関数**：`findQuote`（選んだ文）・`locateBlock`（ブロック）・`similarity`。ブラウザ（`window.RikaiAnchor`）と Node のテスト（`require`）の両方から使う | DOM・ネットワーク |
+| `skills/rikai/public/diff.js` | 版どうしの差分の、**DOM に触れない純粋な関数**：`diffText`（文字列のトークン単位の差分）・`matchBlocks`（ブロックの対応づけ）。`anchor.js` の `similarity` を使う。ブラウザ（`window.RikaiDiff`）と Node のテスト（`require`）の両方から使う | DOM・ネットワーク |
+| `skills/rikai/public/progress.js` | 理解の進み具合を数える、**DOM に触れない純粋な関数**（`progressOf`）：解決したスレッドの数・全スレッド・AI の質問の数・送信済みの回答がある数。**数だけ**で、理解の判定ではない。ブラウザ（`window.RikaiProgress`）・サーバー（`lib/store.js` の `progressOrNull`〔一覧〕と `rikai.js` の `status` が `require`）・Node のテストの 3 つが共有する | DOM・ネットワーク |
+| `skills/rikai/public/index.html`・`style.css` | 画面の骨組みと見た目 | ロジック |
+| `skills/rikai/public/vendor/` | 同梱の marked・DOMPurify・mermaid と、ライセンス。**書き換えない** | |
+| `skills/rikai/SKILL.md` | AI への手順（資料の作り方・待ち方・返信の方針・`apply` の入力）。コマンドの仕様の**利用者側の説明** | コマンドの実装 |
+| `install.sh` | `skills/rikai/` を `~/.claude/skills/rikai/` へ複製（`rsync --delete`） | |
 
 ### サーバーの API（`lib/server.js`）
 

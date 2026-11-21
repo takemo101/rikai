@@ -107,7 +107,7 @@ test('読めない形のトピックが 1 つあっても、status（トピッ�
   rikai.actions.resolve({ topic: 'demo', thread, resolved: true });
   // 新しい形では、pages などの形が違い、slug・title も持たないかもしれない
   fs.writeFileSync(path.join(dir, '.rikai', 'future', 'meta.json'), JSON.stringify({ schema: rikai.SCHEMA + 1, nodes: [] }));
-  const cli = path.join(__dirname, '..', 'skill', 'rikai', 'rikai.js');
+  const cli = path.join(__dirname, '..', 'skills', 'rikai', 'rikai.js');
   const out = JSON.parse(cp.execFileSync(process.execPath, [cli, 'status', '--root', dir], { encoding: 'utf8' }));
   const byName = Object.fromEntries(out.map((t) => [t.topic, t]));
   assert.equal(byName.demo.unsupported, undefined);
