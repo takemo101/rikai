@@ -33,8 +33,8 @@
   async function api(path, body) {
     const res = await fetch(path, body ? { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) } : {});
     let j;
-    try { j = await res.json(); } catch (_) { throw new Error('通信エラー'); }
-    if (!res.ok || j.ok === false) throw new Error(j.error || 'エラー');
+    try { j = await res.json(); } catch (_) { throw Object.assign(new Error('通信エラー'), { status: res.status }); }
+    if (!res.ok || j.ok === false) throw Object.assign(new Error(j.error || 'エラー'), { status: res.status });
     return j;
   }
 
@@ -60,7 +60,7 @@
     md: null, prevMd: null, loaded: '', docSig: '',
     composer: null, active: null, showChanges: true, locs: new Map(), approx: new Map(), renderTok: 0,
     drafts: { reply: {}, ask: {}, edit: {}, composer: '' },
-    editing: null, seen: new Set(JSON.parse(localStorage.getItem('rikai-seen') || '[]')), offline: false,
+    editing: null, seen: new Set(JSON.parse(localStorage.getItem('rikai-seen') || '[]')), offline: false, error: null,
   };
   const svgCache = new Map();
   let mermaidSeq = 0;
@@ -324,6 +324,7 @@
     const st = $('#top-status');
     st.replaceChildren();
     if (S.offline) st.append(h('span', { class: 'chip warn', text: 'サーバーに接続できません' }));
+    else if (S.error) st.append(h('span', { class: 'chip warn', title: S.error, text: `サーバーのエラー: ${trunc(S.error, 40)}` }));
     else if (t && t.meta.pending && t.meta.pending.length) {
       st.append(
         h('span', { class: 'chip wait', text: 'AIの返信待ち' }),
@@ -340,8 +341,11 @@
     const ul = h('ul', { class: 'topics' });
     for (const t of S.topics) {
       ul.append(h('li', { class: t.slug === S.slug ? 'cur' : '' },
-        h('a', { href: `#/${t.slug}/root`, text: t.title }),
+        t.unsupported
+          ? h('span', { class: 'topic-off', text: t.title })
+          : h('a', { href: `#/${t.slug}/root`, text: t.title }),
         t.pending ? h('span', { class: 'chip wait small', text: '待ち' }) : null,
+        t.unsupported ? h('span', { class: 'chip warn small', title: 'この rikai が読めない、新しい形式です。rikai を更新してください', text: '新しい形式' }) : null,
         t.closed ? h('span', { class: 'chip small', text: '終了' }) : null));
     }
     side.append(ul);
@@ -697,9 +701,24 @@
   async function route() {
     const r = parseHash();
     S.topics = await api('/api/topics');
+    renderSide(); // 先に描く（読めないトピックが先頭でも、ほかのトピックへ移れるように）
     if (!r) {
-      if (!S.topics.length) { $('#article').textContent = 'トピックがありません。/rikai で資料を作ってください。'; return; }
-      location.hash = `#/${S.topics[0].slug}/root`;
+      const first = S.topics.find((t) => !t.unsupported);
+      if (!first) {
+        $('#article').textContent = S.topics.length
+          ? '読めるトピックがありません（新しい形式のトピックだけです）。rikai を更新してください。'
+          : 'トピックがありません。/rikai で資料を作ってください。';
+        return;
+      }
+      location.hash = `#/${first.slug}/root`;
+      return;
+    }
+    const target = S.topics.find((t) => t.slug === r.slug);
+    if (target && target.unsupported) {
+      // 読めない形式のトピックは、開かず、見ない（サーバーが 409 を返し続けるので、確認もしない）
+      S.slug = null; S.topic = null; S.composer = null;
+      renderAll();
+      $('#article').textContent = `「${target.title}」は、この rikai が読めない新しい形式です。rikai を更新してください。`;
       return;
     }
     const changed = r.slug !== S.slug || r.page !== S.page || r.version !== S.version;
@@ -713,11 +732,13 @@
   async function tick() {
     try {
       S.topics = await api('/api/topics');
-      await refreshTopic(false);
-      if (S.offline) { S.offline = false; renderTop(); }
       renderSide();
-    } catch (_) {
-      if (!S.offline) { S.offline = true; renderTop(); }
+      await refreshTopic(false);
+      if (S.offline || S.error) { S.offline = false; S.error = null; renderTop(); }
+    } catch (e) {
+      // 接続できない（fetch の失敗。status がない）と、サーバーが答えたエラー（status がある）は、別の状態として見せる
+      const next = e.status ? { offline: false, error: e.message } : { offline: true, error: null };
+      if (S.offline !== next.offline || S.error !== next.error) { Object.assign(S, next); renderTop(); }
     }
   }
 

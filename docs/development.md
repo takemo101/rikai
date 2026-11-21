@@ -119,6 +119,18 @@ npm test        # node --test test/*.test.js。追加の依存なし（Node 18 �
 2. `app.js`：`askDraftValid`・`renderAsk`（入力の描画・下書き）。
 3. `SKILL.md` の `ask` の表と、SPEC F10 を直す。
 
+## データの形を変えるとき
+
+`meta.json` の `schema`（`rikai.js` の `SCHEMA`。いまは 1）が、データの形の版（SPEC N7）。版は `meta.json` にだけ書く。`threads.json`・`rounds/`・`pages/` の形の変更も、この版を上げて表す。**既存の `.rikai/` を、壊さない**。
+
+- 形を**足すだけ**（古い形に、新しい項目がなくても読める）なら、版は上げない。読む側が、項目がなくても動くようにする。
+- 形を**変える・消す**（古い形のままでは読めない）ときは、次の順で行う。
+  1. `SCHEMA` を 1 つ上げる。
+  2. 古い形を、新しい形へ読み替える移行を足す。`meta.json` の変更は `loadMeta`、`threads.json` の変更は `loadThreads`（**それぞれ、読む場所**。`loadMeta` を通らずに `loadThreads` を呼ぶ経路がある：`topicState`・`peek`・`cmdStatus`）で、版（`meta.json` から読む）を見て、1 つずつ上げる関数にする。**`meta.json` だけを読み替えて、`schema` を新しい版で保存すると、`threads.json` が古い形のまま、新しい版と書かれてしまう**。`mutate` が保存するのは、`meta.json` と `threads.json` だけなので、この 2 つは、同じ `mutate` の中で、まとめて読み替えて保存する。**`rounds/` の各ファイルは、`mutate` では保存されない**（`submit` が作り、`cmdApply` が `handled` にするときだけ書き換える）。`rounds/` の形を変えるときは、`meta.json` の版ではなく、**ファイル自身の形**（項目の有無）で判断して読み替えるか、`mutate` が、全部の round を書き換えるように広げる。移行は、読んだ値を直すだけにして、保存は、次の `mutate` に任せる（読むだけの操作が、ファイルを書き換えない）。
+  3. 古い形のデータを入れた自動テストを足す（`test/store.test.js` の「版のない古い形」を参考に）。
+  4. SPEC N7・構成説明・この節を更新する。
+- 新しい rikai で作られたトピックを、古い rikai が開くと、409 で断る（何も書き換えない）。古い rikai を使い続ける人は、`rikai` を更新する。
+
 ## 同梱ライブラリの更新
 
 `skill/rikai/public/vendor/` に、固定した版を置いている（オフラインで動かすため）。そのぶん、脆弱性の修正が自動では入らない。ときどき確かめる。
