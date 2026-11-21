@@ -130,7 +130,22 @@ mark.hl.pending { background: #ffd8a8; outline: 2px dashed #e8590c; outline-offs
 #selbtn { position: fixed; z-index: 20; background: #222; color: #fff; border: 0; border-radius: 6px; padding: 5px 12px; box-shadow: 0 2px 8px rgba(0,0,0,.25); }
 #blkbtn { position: fixed; z-index: 15; width: 24px; height: 24px; line-height: 20px; padding: 0; text-align: center; border-radius: 50%; border: 1px solid var(--accent); background: #fff; color: var(--accent); font-weight: 700; }
 #blkbtn:hover { background: var(--accent); color: #fff; }
-#selbtn[hidden], #blkbtn[hidden], #toast[hidden], #ended[hidden] { display: none; }
+#regbtn { position: fixed; z-index: 15; height: 24px; padding: 0 9px; line-height: 20px; font-size: 12px; font-weight: 700; border-radius: 12px; border: 1px solid var(--accent); background: #fff; color: var(--accent); }
+#regbtn:hover { background: var(--accent); color: #fff; }
+#selbtn[hidden], #blkbtn[hidden], #regbtn[hidden], #regsel[hidden], #toast[hidden], #ended[hidden] { display: none; }
+
+/* 画像・図の中の範囲を選ぶ（ドラッグ）。#regsel は、その画像・図の上に重ねる（#docscroll の中の絶対位置） */
+#regsel { position: absolute; z-index: 3; cursor: crosshair; background: rgba(47, 93, 138, .14); outline: 2px dashed var(--accent); touch-action: none; user-select: none; }
+#regsel .hint { position: absolute; top: 4px; left: 4px; background: #222; color: #fff; font-size: 12px; padding: 2px 8px; border-radius: 4px; pointer-events: none; }
+#regsel .box { position: absolute; border: 2px solid #e8590c; background: rgba(232, 89, 12, .18); pointer-events: none; }
+/* 範囲を対象にしたコメントの枠（#badges の中。押せない：下の画像・図に、マウスが届くように） */
+.regionbox { position: absolute; border: 2px dashed #e0b400; background: rgba(224, 180, 0, .12); border-radius: 2px; pointer-events: none; }
+.regionbox.resolved { border-color: #cfc9ac; background: rgba(207, 201, 172, .12); }
+.regionbox.pending { border-color: #e8590c; background: rgba(232, 89, 12, .14); }
+.regionbox.linked { border: 2px solid var(--accent); background: rgba(47, 93, 138, .18); }
+.regionbox .rn { position: absolute; top: -10px; left: -10px; min-width: 18px; padding: 0 5px; font-size: 11px; font-weight: 700; line-height: 18px; text-align: center; border-radius: 999px; background: var(--accent); color: #fff; box-shadow: 0 0 0 2px var(--paper); }
+.regionbox.resolved .rn { background: #9c9784; }
+.regionbox.pending .rn { background: #e8590c; }
 
 /* 右 */
 #threads { background: #faf9f5; border-left: 1px solid var(--line); overflow: auto; padding: 4px 12px 60px; }
