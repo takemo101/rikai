@@ -48,6 +48,7 @@ flowchart LR
 | `skills/rikai/public/anchor.js` | コメントの探し直しの、**DOM に触れない純粋な関数**：`findQuote`（選んだ文）・`locateBlock`（ブロック）・`similarity`。ブラウザ（`window.RikaiAnchor`）と Node のテスト（`require`）の両方から使う | DOM・ネットワーク |
 | `skills/rikai/public/diff.js` | 版どうしの差分の、**DOM に触れない純粋な関数**：`diffText`（文字列のトークン単位の差分）・`matchBlocks`（ブロックの対応づけ）。`anchor.js` の `similarity` を使う。ブラウザ（`window.RikaiDiff`）と Node のテスト（`require`）の両方から使う | DOM・ネットワーク |
 | `skills/rikai/public/progress.js` | 理解の進み具合を数える、**DOM に触れない純粋な関数**（`progressOf`）：解決したスレッドの数・全スレッド・AI の質問の数・送信済みの回答がある数。**数だけ**で、理解の判定ではない。ブラウザ（`window.RikaiProgress`）・サーバー（`lib/store.js` の `progressOrNull`〔一覧〕と `rikai.js` の `status` が `require`）・Node のテストの 3 つが共有する | DOM・ネットワーク |
+| `skills/rikai/public/fmt.js` | 資料の「形式」の、**DOM に触れない純粋な関数**：コードブロックの種類（`diff`・`json`・`terminal`〔`ansi`〕・`trace`）から、HTML の文字列を作る（`render`）。**文字は、必ず、ここで escape して、決まったタグ・クラスの中に入れる**（資料の文字が、タグ・属性にならない）。`style` は使えない（無害化で消える）ので、trace の棒の位置・長さは、`data-s`・`data-w` の数で持ち、ビューア（`mdToFragment`）が、無害化のあとに設定する。ブラウザ（`window.RikaiFmt`）と Node のテストの両方から使う | DOM・ネットワーク |
 | `skills/rikai/public/index.html`・`style.css` | 画面の骨組みと見た目 | ロジック |
 | `skills/rikai/public/vendor/` | 同梱の marked・DOMPurify・mermaid と、ライセンス。**書き換えない** | |
 | `skills/rikai/SKILL.md` | AI への手順（資料の作り方・待ち方・返信の方針・`apply` の入力）。コマンドの仕様の**利用者側の説明** | コマンドの実装 |
