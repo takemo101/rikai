@@ -677,12 +677,28 @@
     return m ? { slug: m[1], page: m[2] || 'root', version: m[3] ? Number(m[3]) : null } : null;
   }
 
+  // 終えたトピックは、全面の表示で覆う。ほかに開いているトピックがあれば、そこへ移れるようにする
+  function renderEnded() {
+    const closed = !!(S.topic && S.topic.meta.closed);
+    $('#ended').hidden = !closed;
+    const others = closed ? S.topics.filter((t) => t.slug !== S.slug && !t.closed && !t.unsupported) : [];
+    // 変わっていなければ、作り直さない（作り直すと、Tab で選んだリンクの選択が外れ、押している最中のクリックが外れうる）
+    const key = JSON.stringify([closed, others.map((t) => [t.slug, t.title])]);
+    if (key === S.endedKey) return;
+    S.endedKey = key;
+    if (!closed) return;
+    const body = others.length
+      ? [h('p', { text: 'ほかに、開いているトピックがあります。' }), h('ul', { class: 'ended-list' }, others.map((t) => h('li', {}, h('a', { href: `#/${t.slug}/root`, text: t.title }))))]
+      : [h('p', {}, 'このタブは閉じて構いません。続きはもう一度 ', h('code', { text: '/rikai' }), ' で開けます。')];
+    $('#ended-box').replaceChildren(h('h2', { text: 'このトピックのレビューを終了しました' }), ...body);
+  }
+
   function renderAll() {
     renderTop();
     renderSide();
     renderDocbar();
     renderThreads();
-    $('#ended').hidden = !(S.topic && S.topic.meta.closed);
+    renderEnded();
   }
 
   async function refreshTopic(force) {
@@ -733,6 +749,7 @@
     try {
       S.topics = await api('/api/topics');
       renderSide();
+      renderEnded();
       await refreshTopic(false);
       if (S.offline || S.error) { S.offline = false; S.error = null; renderTop(); }
     } catch (e) {

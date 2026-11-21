@@ -111,3 +111,16 @@ test('質問が不正なら、apply 全体を断る', () => {
   }), httpError(400, /options/));
   assert.equal(readThreads().threads[0].messages.length, 1);
 });
+
+test('返信が要るのは、新しい発言か再開があるスレッド。「解決」だけの通知には要らない', () => {
+  const a = addComment();
+  submit();
+  rikai.cmdApply('demo', { replies: [{ thread: a, body: '返信' }] });
+  rikai.actions.resolve({ topic: 'demo', thread: a, resolved: true });
+  submit();
+  assert.equal(rikai.cmdApply('demo', {}).unansweredThreads, undefined, '「解決」だけなら、返信しなくてよい');
+
+  rikai.actions.resolve({ topic: 'demo', thread: a, resolved: false });
+  submit();
+  assert.deepEqual(rikai.cmdApply('demo', {}).unansweredThreads, [a], '再開されたのに、返信がない');
+});

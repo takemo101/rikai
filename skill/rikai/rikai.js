@@ -277,6 +277,15 @@ function findUnsentUserMsg(t, id) {
   return m;
 }
 
+// 解決の状態を変える（「解決」・「再開」・返信による再開で共通）。AI が最後に知っている状態と比べて、AI に送る変更かを決める。
+// 知っている状態は、変更が未送信（resolveSent が false）ならいまの逆、送信済みならいまと同じ。
+// 「解決」→「再開」のように元に戻したときは、送る変更にしない（何も変わっていないのに通知になるため）
+function setResolved(t, want) {
+  const known = t.resolveSent ? t.resolved : !t.resolved;
+  t.resolved = want;
+  t.resolveSent = want === known;
+}
+
 // 全トピックが閉じたときの動き。テストでは差し替える
 const hooks = { allClosed: () => setTimeout(shutdown, 800) };
 
@@ -302,7 +311,7 @@ const actions = {
       const t = findThread(th, b.thread);
       const text = str(b.text).trim();
       if (!text) throw new HttpError(400, '返信が空です');
-      if (t.resolved) { t.resolved = false; t.resolveSent = true; }
+      if (t.resolved) setResolved(t, false);
       t.messages.push({ id: nextId(th, 'm'), author: 'user', kind: 'followup', at: now(), text, sent: false });
       return {};
     });
@@ -347,8 +356,7 @@ const actions = {
   resolve(b) {
     return mutate(b.topic, (meta, th) => {
       const t = findThread(th, b.thread);
-      const want = !!b.resolved;
-      if (t.resolved !== want) { t.resolved = want; t.resolveSent = false; }
+      setResolved(t, !!b.resolved);
       return {};
     });
   },
@@ -528,7 +536,8 @@ function cmdApply(slug, payload) {
       r.status = 'handled';
       r.handledAt = now();
       writeJSON(path.join(tdir(slug), 'rounds', `${String(r.round).padStart(3, '0')}.json`), r);
-      for (const it of r.items) if (!replied.includes(it.thread) && !it.userMarked) unanswered.push(it.thread);
+      // 返信が要るのは、新しい発言があるとき、または再開されたとき（「解決」だけの通知には、返信しなくてよい）
+      for (const it of r.items) if (!replied.includes(it.thread) && (it.new.length || it.userMarked === 'reopened')) unanswered.push(it.thread);
     }
     meta.pending = (meta.pending || []).filter((n) => !handledNos.includes(n));
     return {
