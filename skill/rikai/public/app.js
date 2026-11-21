@@ -207,7 +207,8 @@
     const art = $('#article');
     if (!art.contains(r.commonAncestorContainer)) return null;
     const a = elOf(r.startContainer), b = elOf(r.endContainer);
-    if (a.closest('.diffbox') || b.closest('.diffbox')) return null; // 差分の文字には、コメントを付けない
+    // 差分の文字から選び始めたときは、コメントを付けない。終わりが、変更したブロックの直後の箱に入っても（三回クリックなど）、始まりが本文なら、受け付ける
+    if (a.closest('.diffbox')) return null;
     const mb = a.closest('.mermaid-block') || b.closest('.mermaid-block');
     if (mb) return blockAnchor(mb);
     const idx = textIndex(art);
@@ -278,8 +279,9 @@
   }
 
   // 差分に使う、ブロックの文字（表は、セルを「 | 」で、行を改行でつなぐ。図は、ソース）
+  const safeDecode = (s) => { try { return decodeURIComponent(s); } catch (_) { return s; } }; // AI が書いた HTML の属性が、不正なことがある
   function plainText(el) {
-    if (el.dataset.mermaid) return decodeURIComponent(el.dataset.mermaid);
+    if (el.classList.contains('mermaid-block')) return safeDecode(el.dataset.mermaid || '');
     if (el.tagName === 'TABLE') return [...el.rows].map((r) => [...r.cells].map((c) => c.textContent.trim()).join(' | ')).join('\n');
     if (el.tagName === 'PRE') return (el.textContent || '').replace(/\n$/, '');
     return (el.textContent || '').replace(/\s+/g, ' ').trim();
@@ -291,28 +293,43 @@
     return tag === 'LI' ? h('li', { class: 'diffbox' }, details) : details;
   }
 
-  // 前の版との差分を、frag（今の版のブロック）に足す。戻り値は、件数
-  function addDiff(frag) {
+  // 差分の計画（ブロックの対応づけと、変更ブロックの文字の差分）。同じ版どうしなら同じ結果なので、覚えておく
+  // （コメントの操作・スレッドの変更のたびに、前の版の描画と、対応づけを、やり直さない）
+  function diffPlan(frag) {
+    if (S.diffCache && S.diffCache.key === S.loaded) return S.diffCache.plan;
     const prev = mdToFragment(S.prevMd, S.slug);
     markBlocks(prev);
     const pe = blockEls(prev), ce = blockEls(frag);
     const info = (els) => els.map((e) => ({ hash: e.dataset.bhash, tag: e.tagName, text: plainText(e) }));
     const pi = info(pe), ci = info(ce);
     const m = matchBlocks(pi, ci);
-    const sum = { changed: 0, added: 0, removed: m.removed.length };
+    const ops = new Map();
+    m.cur.forEach((c, j) => { if (c.status === 'changed') ops.set(j, diffText(pi[c.prev].text, ci[j].text)); });
+    // 文字のないブロック（画像だけの段落・区切り線）は、ラベルで見せる
+    const removed = m.removed.map((i) => pi[i].text || blockLabel(pe[i]) || `（${pe[i].tagName.toLowerCase()}）`);
+    const plan = { statuses: m.cur.map((c) => c.status), ops, removed };
+    S.diffCache = { key: S.loaded, plan };
+    return plan;
+  }
+
+  // 前の版との差分を、frag（今の版のブロック）に足す。戻り値は、件数
+  function addDiff(frag) {
+    const plan = diffPlan(frag);
+    const ce = blockEls(frag);
+    const sum = { changed: 0, added: 0, removed: plan.removed.length };
     // ブロックの後ろに箱を足すので、後ろのブロックから処理する（前から足すと、続くブロックの位置が動く）
     for (let j = ce.length - 1; j >= 0; j--) {
-      const c = m.cur[j];
-      if (c.status === 'same') continue;
+      const st = plan.statuses[j];
+      if (st === 'same') continue;
       ce[j].classList.add('changed');
-      if (c.status === 'added') { sum.added++; ce[j].classList.add('added'); continue; }
+      if (st === 'added') { sum.added++; ce[j].classList.add('added'); continue; }
       sum.changed++;
-      ce[j].after(diffBox(diffText(pi[c.prev].text, ci[j].text), ce[j].tagName));
+      ce[j].after(diffBox(plan.ops.get(j), ce[j].tagName));
     }
-    if (m.removed.length) {
+    if (plan.removed.length) {
       frag.append(h('details', { class: 'diffbox removed' },
-        h('summary', { text: `前の版からなくなったブロック (${m.removed.length})` }),
-        m.removed.map((i) => h('div', { class: 'diff' }, h('del', { text: pi[i].text })))));
+        h('summary', { text: `前の版からなくなったブロック (${plan.removed.length})` }),
+        plan.removed.map((text) => h('div', { class: 'diff' }, h('del', { text })))));
     }
     return sum;
   }
@@ -325,7 +342,8 @@
     const v = curVersion();
     const frag = mdToFragment(S.md, S.slug);
     markBlocks(frag);
-    S.diff = S.showChanges && v > 1 && S.prevMd != null ? addDiff(frag) : null;
+    // 件数に、どの版のものかの印（key）を付ける（ページ・版を切り替えた直後に、前のページの件数を見せないため）
+    S.diff = S.showChanges && v > 1 && S.prevMd != null ? { ...addDiff(frag), key: S.loaded } : null;
     art.replaceChildren(frag);
     await fillMermaid(art);
     if (tok !== S.renderTok) return;
@@ -411,6 +429,7 @@
 
   function renderDocbar() {
     const bar = $('#docbar');
+    const hadFocus = document.activeElement && document.activeElement.dataset && document.activeElement.dataset.key === 'chk-changes';
     bar.replaceChildren();
     if (!S.topic) return;
     const all = pages();
@@ -428,14 +447,15 @@
       for (let i = n; i >= 1; i--) sel.append(h('option', { value: i, selected: i === curVersion() }, `v${i}${i === n ? '（最新）' : ''}`));
       bar.append(sel);
       if (curVersion() > 1) {
-        bar.append(h('label', { class: 'chk' }, h('input', { type: 'checkbox', checked: S.showChanges, onchange: (e) => { S.showChanges = e.target.checked; S.docSig = ''; loadPage(); } }), '前の版からの変更を表示'));
-        if (S.diff) bar.append(h('span', { class: 'chip', title: '前の版との比較', text: `変更 ${S.diff.changed}・追加 ${S.diff.added}・削除 ${S.diff.removed}` }));
+        bar.append(h('label', { class: 'chk' }, h('input', { type: 'checkbox', 'data-key': 'chk-changes', checked: S.showChanges, onchange: (e) => { S.showChanges = e.target.checked; S.docSig = ''; loadPage(); } }), '前の版からの変更を表示'));
+        if (S.diff && S.diff.key === S.loaded) bar.append(h('span', { class: 'chip', title: '前の版との比較', text: `変更 ${S.diff.changed}・追加 ${S.diff.added}・削除 ${S.diff.removed}` }));
       }
     }
     if (!isLatest()) {
       bar.append(h('span', { class: 'chip warn', text: `過去の版 v${curVersion()} を表示中（コメントは最新版にだけ付けられます）` }),
         h('a', { class: 'btnlink', href: `#/${S.slug}/${S.page}`, text: '最新版へ' }));
     }
+    if (hadFocus) { const c = bar.querySelector('[data-key="chk-changes"]'); if (c) c.focus(); } // 作り直しで、キーボードの位置が外れないように
   }
 
   // ------------------------------------------------------------ スレッドパネル

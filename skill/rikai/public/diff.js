@@ -57,7 +57,12 @@
   }
 
   const SIMILAR = 0.5;
+  // 順序を保つ対応づけの表（ブロック数の積）の上限。超えたら、同じ内容を先頭から対応づける
   const MAX_BLOCK_CELLS = 4_000_000;
+  // 近いブロックを探す、1 つの区間の、比べる組の数の上限。超えたら、その区間は、追加と削除にする
+  const MAX_GAP_PAIRS = 40_000;
+  // 近さを見る、ブロックの文字の長さ（先頭から）
+  const MATCH_EXCERPT = 400;
 
   // prev・cur は [{ hash, tag, text }]（本文の順）。戻り値:
   //   cur: 今の版の各ブロックごとの { status: 'same' | 'changed' | 'added', prev: 前の版の添字 | null }
@@ -65,6 +70,7 @@
   // 1) 同じ内容（hash）を、順序を保って対応づける（最長共通部分列）
   // 2) 残りを、同じ「同じ」の間の区間の中で、同じ種類で内容が近いものどうし（類似度 0.5 以上。高い順）
   // 3) 残りの今のブロックは追加、前のブロックは削除
+
   function matchBlocks(prev, cur) {
     const n = prev.length, m = cur.length;
     const curPrev = new Array(m).fill(null);
@@ -95,14 +101,19 @@
     }
     for (const [i, j] of anchors) { curPrev[j] = i; status[j] = 'same'; prevUsed[i] = true; }
 
+    // 内容が近いかを見るのは、先頭の MATCH_EXCERPT 文字だけ。一度だけ整えて、何度も整えない
+    const norm = (t) => String(t).replace(/\s+/g, ' ').trim().slice(0, MATCH_EXCERPT);
+    const pex = prev.map((p) => norm(p.text)), cex = cur.map((c) => norm(c.text));
     const bounds = [[-1, -1], ...anchors, [n, m]];
     for (let k = 0; k + 1 < bounds.length; k++) {
       const [pa, ca] = bounds[k], [pb, cb] = bounds[k + 1];
+      // 区間が大きすぎるとき（ほとんど全部が書き直された資料）は、近さを調べず、追加と削除にする（比べる組の数が、積で増えるため）
+      if ((pb - pa - 1) * (cb - ca - 1) > MAX_GAP_PAIRS) continue;
       const cand = [];
       for (let j = ca + 1; j < cb; j++) {
         for (let i = pa + 1; i < pb; i++) {
           if (prev[i].tag !== cur[j].tag) continue;
-          const s = anchor.similarity(prev[i].text, cur[j].text);
+          const s = anchor.similarity(pex[i], cex[j]);
           if (s >= SIMILAR) cand.push({ i, j, s });
         }
       }
@@ -117,7 +128,7 @@
     return { cur: cur.map((_, j) => ({ status: status[j], prev: curPrev[j] })), removed };
   }
 
-  const api = { tokenize, diffText, matchBlocks, MAX_CELLS };
+  const api = { tokenize, diffText, matchBlocks, MAX_CELLS, MAX_BLOCK_CELLS, MAX_GAP_PAIRS };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.RikaiDiff = api;
 })(typeof window !== 'undefined' ? window : globalThis);

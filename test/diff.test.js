@@ -1,7 +1,7 @@
 'use strict';
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { tokenize, diffText, matchBlocks, MAX_CELLS } = require('../skill/rikai/public/diff.js');
+const { tokenize, diffText, matchBlocks, MAX_CELLS, MAX_BLOCK_CELLS, MAX_GAP_PAIRS } = require('../skill/rikai/public/diff.js');
 
 const join = (ops, keep) => ops.filter((o) => keep.includes(o.t)).map((o) => o.s).join('');
 
@@ -34,16 +34,20 @@ test('diffText：どんな入力でも、「同じ」と「削除」をつなぐ
   }
 });
 
-test('diffText：大きな入力は、固まらずに、丸ごとの置き換えになる（前後の同じ部分は、残す）', () => {
-  const a = '共通の頭' + 'あ'.repeat(1500) + '共通の尾';
-  const b = '共通の頭' + 'い'.repeat(1500) + '共通の尾';
+test('diffText：大きな入力（上限を超える）は、丸ごとの置き換えになる。上限の内側なら、共通のトークンを活かす', () => {
+  // 中身に共通のトークンがある（「あい」と「いあ」）ので、上限がなければ、細かい差分（5 つの塊）になる
+  const head = '共通の頭', tail = '共通の尾';
+  const big = [head + 'あい'.repeat(750) + tail, head + 'いあ'.repeat(750) + tail];
   assert.ok(1500 * 1500 > MAX_CELLS);
   const t0 = Date.now();
-  const ops = diffText(a, b);
+  const ops = diffText(big[0], big[1]);
   assert.ok(Date.now() - t0 < 1000, '1 秒以内');
-  assert.deepEqual(ops.map((o) => o.t), ['eq', 'del', 'ins', 'eq']);
-  assert.equal(join(ops, ['eq', 'del']), a);
-  assert.equal(join(ops, ['eq', 'ins']), b);
+  assert.deepEqual(ops.map((o) => o.t), ['eq', 'del', 'ins', 'eq'], '上限を超えたので、丸ごとの置き換え（前後の同じ部分は残る）');
+  assert.equal(join(ops, ['eq', 'del']), big[0]);
+  assert.equal(join(ops, ['eq', 'ins']), big[1]);
+
+  const small = [head + 'あい'.repeat(20) + tail, head + 'いあ'.repeat(20) + tail];
+  assert.ok(diffText(small[0], small[1]).length > 4, '上限の内側では、共通のトークンを活かした細かい差分になる');
 });
 
 const B = (hash, tag, text) => ({ hash, tag, text });
@@ -84,6 +88,35 @@ test('matchBlocks：空の版・同じ版', () => {
   assert.deepEqual(matchBlocks([B('a', 'P', 'x')], []), { cur: [], removed: [0] });
   const same = [B('a', 'P', 'x'), B('b', 'P', 'y')];
   assert.deepEqual(matchBlocks(same, same).cur.map((c) => c.status), ['same', 'same']);
+});
+
+test('matchBlocks：ほとんど全部が書き直された資料でも、近さを調べる組の数に上限がある（上限を超える区間は、追加と削除）', () => {
+  // どのブロックも、前の版の同じ番号のブロックと、とても似ている（上限がなければ、「変更」として対応づく）
+  const n = 500;
+  assert.ok(n * n > MAX_GAP_PAIRS);
+  const prev = Array.from({ length: n }, (_, i) => B(`p${i}`, 'P', `段落${i}の説明です。共通の文言がしばらく続きます`));
+  const cur = Array.from({ length: n }, (_, i) => B(`c${i}`, 'P', `段落${i}の説明でした。共通の文言がしばらく続きます`));
+  const t0 = Date.now();
+  const r = matchBlocks(prev, cur);
+  assert.ok(Date.now() - t0 < 1500, '固まらない');
+  assert.ok(r.cur.every((c) => c.status === 'added'));
+  assert.equal(r.removed.length, n);
+  // 上限の内側の区間では、「変更」として対応づく
+  const small = matchBlocks(prev.slice(0, 20), cur.slice(0, 20));
+  assert.ok(small.cur.every((c, i) => c.status === 'changed' && c.prev === i));
+});
+
+test('matchBlocks：ブロックの数が非常に多いとき（順序を見る表が大きすぎる）も、1 対 1 で、同じ内容と変更を対応づける', () => {
+  const n = 2100;
+  assert.ok(n * n > MAX_BLOCK_CELLS);
+  const prev = Array.from({ length: n }, (_, i) => B(`h${i}`, 'P', `x${i}`));
+  const cur = prev.map((b, i) => (i === 1000 ? B('changed', 'P', 'x1000b') : b));
+  const r = matchBlocks(prev, cur);
+  assert.equal(r.cur.filter((c) => c.status === 'same').length, n - 1);
+  assert.deepEqual(r.cur[1000], { status: 'changed', prev: 1000 });
+  assert.deepEqual(r.removed, []);
+  const used = r.cur.map((c) => c.prev).filter((p) => p !== null);
+  assert.equal(new Set(used).size, used.length, '前のブロックを、2 回使わない');
 });
 
 test('matchBlocks：同じ内容のブロックが複数あっても、1 対 1 で対応づける', () => {
