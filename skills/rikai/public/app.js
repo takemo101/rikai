@@ -861,14 +861,15 @@
 
   // 「＋」は、ブロックの右端（本文の箱の内側の余白）に出す。ボタンへ向かう間に消えない・別のブロックへ飛ばないように、
   // ポインタが「そのブロックの高さ × 箱の右端まで」の帯にいる間は、同じブロックのまま出し続ける。
-  // 帯の外でも、本文の箱の左右の余白（ポインタが x 方向に外れている）では、同じ高さにある本文のブロックを探す。
+  // 帯の外でも、本文の箱の右の余白にいる間は、同じ高さにある本文のブロックを探す（左の余白は、探さない）。
   function scheduleBlkHide() {
     clearTimeout(blkHide);
     blkHide = setTimeout(() => { blkbtn.hidden = true; }, 350);
   }
   function blockAt(x, y) {
     const art = $('#article').getBoundingClientRect();
-    const px = Math.min(Math.max(x, art.left + 48), art.right - 48);
+    const m = Math.min(48, art.width / 2);
+    const px = Math.min(Math.max(x, art.left + m), art.right - m);
     const el = document.elementFromPoint(px, y);
     return el && el.closest ? el.closest('#article [data-bid]') : null;
   }
@@ -880,8 +881,9 @@
   function placeBlkBtn(blk) {
     const r = blk.getBoundingClientRect();
     const art = $('#article').getBoundingClientRect();
+    const top = $('#docscroll').getBoundingClientRect().top + 4; // 本文の領域の上端（上のバーに、重ねない）
     blkbtn.style.left = `${art.right - 34}px`;
-    blkbtn.style.top = `${Math.min(Math.max(r.top, 50), Math.max(r.bottom - 26, 50))}px`;
+    blkbtn.style.top = `${Math.min(Math.max(r.top, top), Math.max(r.bottom - 26, top))}px`;
   }
   $('#docscroll').addEventListener('mousemove', (e) => {
     if (!isLatest()) return;
