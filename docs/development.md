@@ -194,4 +194,8 @@ npm audit          # 修正のある版を探す
 
 ## リリース
 
-タグ・GitHub Release・配布物は、まだ決めていない（SPEC §7 の「配布」）。いまの配布は、リポジトリの clone と `install.sh`。リリースを行うときは、利用者の依頼があるときだけ。
+タグ・GitHub Release・配布物は、まだ決めていない（SPEC §7 の「配布」）。いまの配布は、リポジトリの clone と `install.sh`、各エージェントのプラグイン（README）。リリースを行うときは、利用者の依頼があるときだけ。
+
+### 版（プラグインの更新）
+
+**利用者に見える変更（特に `skills/rikai/` の中身）を `main` に入れるときは、`package.json` と `plugin.json` の `version` を、同じ値に上げる**（`test/plugin.test.js` が、食い違いを検出する）。理由：omp・codex・agy は、この版で、入れた複製を管理する。**版を上げないと、更新しても、古い複製のまま**（レビューで、omp と codex で確認）。Claude Code は、`.claude-plugin/` に版がないので、git のコミットで更新される（`.claude-plugin/` に版を足さない：足すと、Claude Code も、上げるまで更新しなくなる）。

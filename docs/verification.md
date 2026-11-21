@@ -271,7 +271,7 @@
 |---|---|---|
 | Claude Code | `claude plugin validate .`／一時の `HOME` で `marketplace add <ローカル>` → `install rikai@rikai` → `list`・`details` | 検証は通過（警告は、版と icon がないことだけ）。入って有効。スキルが `rikai:rikai` として 1 つ |
 | grok | `grok plugin validate .`／`install <ローカル> --trust` → `list`・`details`・`inspect --json` | 検証は通過。入った。`inspect` に、`source.type = plugin`・名前 rikai のスキルが出た |
-| agy | `agy plugin validate .`／`agy plugin install <ローカル>` → `list` | 通過（警告 1 件：リポジトリの `AGENTS.md` は、プラグインの規則として読まれない。意図どおり）。**`--strict` は、この警告と、icon・版の指摘で、失敗する場合がある**（`plugin.json` に版は入れた）。入って有効、スキル 1 |
+| agy | `agy plugin validate .`／`agy plugin install <ローカル>` → `list` | 通過（警告 1 件：リポジトリの `AGENTS.md` は、プラグインの規則として読まれない。意図どおり）。**`--strict` は、この警告 1 件で、必ず失敗する**（レビューで確認。agy のドキュメントの、複数のツールのリポジトリの扱いどおり。CI で使うなら、`--json` で、この警告を除いて判定する）。icon がないことは、注意書き（失敗にならない）。入って有効、スキル 1 |
 | codex | 一時の `HOME` で `plugin marketplace add <ローカル>` → `plugin add rikai@rikai` → `plugin list` | `installed, enabled`（0.1.0） |
 | omp | 一時の `HOME` で `plugin marketplace add <ローカル>` → `plugin install rikai@rikai`、別に `plugin link`・`plugin doctor` | 入った（0.1.0）。`doctor` は、エラー 0 |
 | pi | 一時の `HOME` で `pi install <ローカル>` → `pi list` | 入った |
@@ -283,7 +283,7 @@
 - **Claude Code**：`claude -p … --plugin-dir` は、認証の期限切れ（`OAuth session expired`）で、実行できなかった。**未確認**。
 - grok・agy・codex：実際のエージェントでの実行は、していない。**未確認**。
 
-**不具合（実機で見つけたこと）**：最初の SKILL.md は、frontmatter に `argument-hint` と `disable-model-invocation` があり、omp が、プラグインのスキルとして**読み込まなかった**（`skill://rikai` が `Unknown skill`）。二分で、どちらか 1 つだけでも、読み込まれなくなることを確認し、両方を外すと、読み込まれた。omp のドキュメントも、Agent Plugins のスキルの frontmatter を、厳しく検査すると書いている。外したので、モデルが自動で使えるようになる（SPEC §8 に、AI の判断として記録）。自動テスト（`test/plugin.test.js`）が、frontmatter が Agent Skills の項目だけであることを守る。
+**不具合（実機で見つけたこと）**：最初の SKILL.md は、frontmatter に `argument-hint` と `disable-model-invocation` があり、omp が、ルートの `plugin.json` を持つパッケージ（Agent Plugins）のスキルとして**読み込まなかった**（`skill://rikai` が `Unknown skill`）。二分で、どちらか 1 つだけでも、読み込まれなくなることを確認し、両方を外すと、読み込まれた（レビューも、`license`・`allowed-tools` なら、読み込まれることを確認）。omp のドキュメントも、Agent Plugins のスキルの frontmatter を、厳しく検査すると書いている。外したので、モデルが自動で使えるようになる（SPEC §8 に、AI の判断と、止め方を記録）。自動テスト（`test/plugin.test.js`）が、frontmatter が Agent Skills の項目だけであることを守る。
 
 **自動テスト**：85 件通過（80＋プラグイン 5 件）。マニフェストの名前・版（`package.json` と `plugin.json`）・schema の項目・スキルの場所と名前（agy は、名前がディレクトリ名と違うと読み込まない）・カタログの指す場所・pi の `skills` の参照先・frontmatter の項目。**実装を壊した作業コピーで失敗することを確認**（確認のあと、捨てた）：frontmatter に `disable-model-invocation` を足す・スキルを `skill/` に戻す・版を食い違わせる・`plugin.json` に schema 外の項目を足す・SKILL.md の `name` を変える（それぞれ 1〜2 件が失敗）。
 
@@ -293,6 +293,9 @@
 - Claude Code・grok・agy・codex で `/rikai` を実際に動かすこと。omp・pi でも、`status` だけで、**資料の作成・Submit・返信の通し**は、していない（SPEC の人間の確認待ち）。
 - 呼び出しの名前（`/rikai:rikai`・`/skill:rikai`・`/rikai`）のうち、確かめたのは、omp と pi の `/skill:rikai` だけ。ほかは、各エージェントのドキュメントと、検証コマンドの出力（Claude Code の `rikai:rikai`）による。
 - 同じ名前のスキルが、ほかの場所（`~/.claude/skills/` など）にもあるときの重複の扱い（omp のドキュメントには、同じ内容なら、あとのものを黙って捨てるとある。確認していない）。
+- Claude Code のプラグインのスキルを、自動では使わせない方法はない（`skillOverrides` の対象外）。`install.sh` の複製での `skillOverrides` の動作は、公式ドキュメントによる（確認していない）。
+
+**独立レビュー**（reviewer。read-only。一時の `HOME` で、claude・codex・omp・grok・agy・pi に、ローカルのパスから入れて確認。モデルを使う実行はしていない）：ブロッカーなし。Major 1 件（omp・codex は、版が同じだと更新しない。版を上げる決まりが、どこにもない）、Minor 5 件（`<SKILL_DIR>` の探索が、古い複製・別の版を拾いうる／自動で使われたときの止め方が、プラグインでは通らない／`$ARGUMENTS` が空のとき、対象が決まらない／agy の `--strict` の記録が不正確／テストの frontmatter の読み取りが、折りたたみの値・引用符つきのキー・CRLF を扱えない）・Nit 2 件（呼び出しの名前が、`/rikai` と書かれている／F18 の「プラグインから」が広すぎる）。**すべて直した**（再レビューは、していない）。
 
 ### 人間の確認待ち
 

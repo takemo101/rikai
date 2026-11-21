@@ -17,11 +17,11 @@ const SKILL_KEYS = ['name', 'description', 'license', 'compatibility', 'metadata
 const PLUGIN_KEYS = ['$schema', 'name', 'version', 'description', 'author', 'homepage', 'repository', 'license', 'keywords', 'extensions'];
 
 function frontmatter(file) {
-  const m = /^---\n([\s\S]*?)\n---\n/.exec(fs.readFileSync(file, 'utf8'));
+  const m = /^---\r?\n([\s\S]*?)\r?\n---\r?\n/.exec(fs.readFileSync(file, 'utf8'));
   assert.ok(m, `${file} に frontmatter がありません`);
   const fm = {};
-  for (const line of m[1].split('\n')) {
-    const kv = /^([A-Za-z][\w-]*):\s*(.*)$/.exec(line);
+  for (const line of m[1].split(/\r?\n/)) {
+    const kv = /^["']?([A-Za-z][\w-]*)["']?\s*:\s*(.*)$/.exec(line); // 引用符つきのキーも、キーとして数える（omp は、それも項目として検査する）
     if (kv) fm[kv[1]] = kv[2];
   }
   return fm;
@@ -31,6 +31,7 @@ test('スキルは skills/<名前>/SKILL.md にあり、名前がディレクト
   const dir = path.join(root, 'skills', 'rikai');
   const fm = frontmatter(path.join(dir, 'SKILL.md'));
   assert.equal(fm.name, path.basename(dir), 'agy は、名前がディレクトリ名と違うと読み込まない');
+  assert.doesNotMatch(fm.description || '', /^[>|][+-]?$/, 'description が複数行（>・|）だと、このテストでは長さを測れない。1 行で書く');
   assert.ok(fm.description && fm.description.length <= 1024, 'description は 1〜1024 文字');
   assert.deepEqual(Object.keys(fm).filter((k) => !SKILL_KEYS.includes(k)), [], 'Agent Skills にない項目（omp が、スキルごと読み込まなくなる）');
   for (const f of ['rikai.js', 'lib', 'public']) assert.ok(fs.existsSync(path.join(dir, f)), `${f} が、スキルと同じ場所にない（SKILL.md の手順が動かない）`);
