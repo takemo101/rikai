@@ -104,6 +104,14 @@ test('Submit：AI が読める、画像のファイルの絶対パスが、new �
   assert.equal(readThreads().threads[0].messages[0].images[0], n, '保存されるのは、名前だけ（パスは、出力のときに付ける）');
 });
 
+test('assets/ がなくても、保存できる（git は空のフォルダを持たない）。ちょうど 4 枚は付けられる', () => {
+  fs.rmSync(assetsDir(), { recursive: true });
+  const names = [PNG, JPG, GIF, WEBP].map(attach);
+  assert.equal(assetFiles().length, 4);
+  const id = addComment({ images: names });
+  assert.deepEqual(readThreads().threads.find((t) => t.id === id).messages[0].images, names, '4 枚は、上限の内');
+});
+
 function post(port, token, p, body, headers = {}) {
   return new Promise((resolve, reject) => {
     const req = http.request({ host: '127.0.0.1', port, method: 'POST', path: p, headers: { Connection: 'close', 'x-rikai-token': token, ...headers } }, (res) => {
@@ -137,12 +145,18 @@ test('HTTP：合言葉がなければ 403・画像は保存され /asset/ で配
     assert.equal(got.csp, 'sandbox', '直接開かれても、中のスクリプトを動かさない');
     assert.deepEqual(got.body, PNG);
 
+    // 実際のスクリーンショットは、1.5MB（base64 で 2MB）を超える。attach の本文の上限が、ほかの API の 2MB なら、ここで 413 になる
+    const large = Buffer.concat([PNG, Buffer.alloc(3 * 1024 * 1024, 7)]);
+    const bigOk = await post(port, token, '/api/attach', { topic: 'demo', data: b64(large) });
+    assert.equal(bigOk.status, 200, `3MB の画像: ${bigOk.status} ${bigOk.error || ''}`);
+    assert.equal(fs.statSync(path.join(assetsDir(), JSON.parse(bigOk.body).name)).size, large.length);
+
     // 画像の上限（5MB）を、base64 で超えるものは、読み込みの途中で拒否される。ほかの API の 2MB の上限は、変わらない
     const over = await post(port, token, '/api/attach', `{"topic":"demo","data":"${'A'.repeat(7 * 1024 * 1024)}"}`);
     assert.ok(over.status === 413 || over.status === 0, `上限を超えた本文は、拒否: ${over.status} ${over.error || ''}`);
     const mid = await post(port, token, '/api/comment', `{"topic":"demo","text":"x","pad":"${'A'.repeat(3 * 1024 * 1024)}"}`);
     assert.ok(mid.status === 413 || mid.status === 0, 'ほかの API は、2MB のまま');
-    assert.equal(assetFiles().length, 1, '拒否されたものは、書かれない');
+    assert.equal(assetFiles().length, 2, '拒否されたものは、書かれない（保存したのは、PNG と 3MB の画像だけ）');
   } finally {
     server.closeAllConnections();
     server.close();

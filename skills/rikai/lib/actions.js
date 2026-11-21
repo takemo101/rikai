@@ -50,6 +50,7 @@ const actions = {
     return mutate(b.topic, (meta) => {
       const file = path.join(tdir(meta.slug), 'assets', name);
       if (!fs.existsSync(file)) {
+        fs.mkdirSync(path.dirname(file), { recursive: true }); // 空のフォルダは、git が持たない・手で消えることがある（submit の rounds/ と同じ）
         const tmp = `${file}.${process.pid}.tmp`;
         fs.writeFileSync(tmp, buf);
         fs.renameSync(tmp, file);

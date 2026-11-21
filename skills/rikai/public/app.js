@@ -62,6 +62,7 @@
     md: null, prevMd: null, loaded: '', docSig: '',
     composer: null, active: null, showChanges: true, locs: new Map(), approx: new Map(), nums: new Map(), pendingEl: null, renderTok: 0,
     drafts: { reply: {}, ask: {}, edit: {}, composer: '', imgs: {} }, // imgs：入力欄ごとの、添付した画像の名前（'composer'・`reply-<スレッド>`）。送るまで、画面だけが持つ
+    imgGen: {}, uploading: 0, // 入力欄ごとの世代（やめる・送る・移るで進める。終わりが遅れたアップロードを、捨てるため）と、アップロード中の数
     editing: null, seen: new Set(JSON.parse(localStorage.getItem('rikai-seen') || '[]')), offline: false, error: null,
   };
   const svgCache = new Map();
@@ -710,6 +711,8 @@
   const IMG_MAX_MB = 5, IMG_MAX_N = 4;
   const imgUrl = (name) => `/asset/${encodeURIComponent(S.slug)}/${encodeURIComponent(name)}`;
   const draftImgs = (key) => S.drafts.imgs[key] || (S.drafts.imgs[key] = []);
+  // 入力欄の画像を空にする（やめる・送る・別の対象へ移る）。世代を進めて、まだ終わっていないアップロードの結果は、捨てる
+  const resetImgs = (key) => { S.drafts.imgs[key] = []; S.imgGen[key] = (S.imgGen[key] || 0) + 1; };
   const readBase64 = (file) => new Promise((resolve, reject) => {
     const r = new FileReader();
     r.onload = () => resolve(String(r.result).split(',')[1] || '');
@@ -721,11 +724,19 @@
       if (!IMG_TYPES.includes(f.type)) { toast('画像は、png・jpeg・gif・webp だけ付けられます', true); continue; }
       if (f.size > IMG_MAX_MB * 1024 * 1024) { toast(`画像が大きすぎます（${IMG_MAX_MB}MB まで）`, true); continue; }
       if (draftImgs(key).length >= IMG_MAX_N) { toast(`画像は ${IMG_MAX_N} 枚までです`, true); break; }
-      const r = await act(async () => api('/api/attach', { topic: S.slug, data: await readBase64(f) }));
-      if (r && !draftImgs(key).includes(r.name)) draftImgs(key).push(r.name);
+      const slug = S.slug, gen = S.imgGen[key] || 0;
+      S.uploading++;
+      renderThreads();
+      let r;
+      try { r = await act(async () => api('/api/attach', { topic: slug, data: await readBase64(f) })); } finally { S.uploading--; }
+      // 終わるまでに、入力欄をやめた・送った・別のトピックへ移った、なら、この画像は、付けない（別の入力欄に、出ないように）。
+      // 続けて何枚も貼ると、上の枚数の検査は、完了を待たずに通るので、付ける直前に、もう一度、上限を見る
+      if (r && slug === S.slug && gen === (S.imgGen[key] || 0) && !draftImgs(key).includes(r.name) && draftImgs(key).length < IMG_MAX_N) draftImgs(key).push(r.name);
     }
     renderThreads();
   }
+  // 入力欄の外にファイルを落としても、ブラウザが、そのファイルを開いて、画面（書きかけの文）を失わないようにする
+  for (const t of ['dragover', 'drop']) document.addEventListener(t, (e) => { if (e.dataTransfer && [...e.dataTransfer.types].includes('Files')) e.preventDefault(); });
   // 入力欄（textarea）に付ける、貼り付け・ドラッグの受け口。文字の貼り付けは、そのまま通す（画像だけのときだけ、受ける）
   const imageHandlers = (key) => ({
     onpaste: (e) => {
@@ -751,6 +762,7 @@
         h('img', { src: imgUrl(n), alt: '添付の画像' }),
         h('button', { class: 'x', title: '外す', 'aria-label': '画像を外す', text: '×', onclick: () => { S.drafts.imgs[key] = names.filter((x) => x !== n); renderThreads(); } }))),
       h('button', { class: 'link', text: '画像を付ける', title: 'ファイルを選ぶ。貼り付け（⌘/Ctrl+V）・ドラッグでも付けられます', onclick: () => input.click() }),
+      S.uploading ? h('span', { class: 'sl', text: 'アップロード中…' }) : null,
       input);
   }
 
@@ -758,8 +770,9 @@
     const key = `reply-${t.id}`;
     const text = (S.drafts.reply[t.id] || '').trim();
     const images = draftImgs(key);
+    if (S.uploading) { toast('画像のアップロード中です。終わってから、送ってください', true); return; }
     if (!text && !images.length) return;
-    await act(async () => { await api('/api/reply', { topic: S.slug, thread: t.id, text, images }); S.drafts.reply[t.id] = ''; S.drafts.imgs[key] = []; await refreshTopic(true); });
+    await act(async () => { await api('/api/reply', { topic: S.slug, thread: t.id, text, images }); S.drafts.reply[t.id] = ''; resetImgs(key); await refreshTopic(true); });
   }
 
   function docOrder(a, b) {
@@ -816,12 +829,13 @@
     const submit = async () => {
       const text = (S.drafts.composer || '').trim();
       const images = draftImgs('composer');
+      if (S.uploading) { toast('画像のアップロード中です。終わってから、送ってください', true); return; }
       if (!text && !images.length) return;
       const r = await act(() => api('/api/comment', { topic: S.slug, page: S.page, version: curVersion(), anchor: a, text, images }));
       if (!r) return;
       S.composer = null;
       S.drafts.composer = '';
-      S.drafts.imgs.composer = [];
+      resetImgs('composer');
       S.active = r.thread;
       await refreshTopic(true);
       focusThread(r.thread, false);
@@ -838,7 +852,7 @@
       imageBar('composer'),
       h('div', { class: 'row' },
         h('button', { class: 'primary small', text: 'コメントを追加', onclick: submit }),
-        h('button', { class: 'ghost small', text: 'やめる', onclick: () => { S.composer = null; S.drafts.composer = ''; S.drafts.imgs.composer = []; renderThreads(); } })));
+        h('button', { class: 'ghost small', text: 'やめる', onclick: () => { S.composer = null; S.drafts.composer = ''; resetImgs('composer'); renderThreads(); } })));
   }
 
   function startComposer(anchor) {
@@ -937,7 +951,7 @@
     // 見ているページ・版が、実質、変わらないなら（最新版を「/v2」と明示して移った、など）、入力欄は閉じない
     const sameView = r.slug === S.slug && r.page === S.page && (r.version || latestOf(r.page)) === curVersion();
     if (r.slug !== S.slug) { S.topic = null; S.drafts.imgs = {}; } // 添付した画像は、そのトピックの assets/ にある。別のトピックの入力欄へ持ち越さない
-    if (!sameView && S.composer) { S.composer = null; S.drafts.composer = ''; S.drafts.imgs.composer = []; } // 別のページ・版へ移ったら、入力中の対象（本文の位置）は、意味を失う。書きかけの文・画像も、別の対象に出ないよう消す
+    if (!sameView && S.composer) { S.composer = null; S.drafts.composer = ''; resetImgs('composer'); } // 別のページ・版へ移ったら、入力中の対象（本文の位置）は、意味を失う。書きかけの文・画像も、別の対象に出ないよう消す
     S.slug = r.slug; S.page = r.page; S.version = r.version;
     if (changed) { S.loaded = ''; S.active = null; }
     await act(async () => { await refreshTopic(true); });
