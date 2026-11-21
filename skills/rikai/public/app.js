@@ -61,7 +61,8 @@
     topics: [], slug: null, page: 'root', version: null, topic: null,
     md: null, prevMd: null, loaded: '', docSig: '',
     composer: null, active: null, showChanges: true, locs: new Map(), approx: new Map(), nums: new Map(), pendingEl: null, renderTok: 0,
-    drafts: { reply: {}, ask: {}, edit: {}, composer: '' },
+    drafts: { reply: {}, ask: {}, edit: {}, composer: '', imgs: {} }, // imgs：入力欄ごとの、添付した画像の名前（'composer'・`reply-<スレッド>`）。送るまで、画面だけが持つ
+    imgGen: {}, uploading: 0, // 入力欄ごとの世代（やめる・送る・移るで進める。終わりが遅れたアップロードを、捨てるため）と、アップロード中の数
     editing: null, seen: new Set(JSON.parse(localStorage.getItem('rikai-seen') || '[]')), offline: false, error: null,
   };
   const svgCache = new Map();
@@ -639,7 +640,8 @@
             h('button', { class: 'primary small', text: '保存', onclick: () => act(async () => { await api('/api/edit', { topic: S.slug, thread: t.id, msg: m.id, text: S.drafts.edit[m.id] != null ? S.drafts.edit[m.id] : m.text }); S.editing = null; delete S.drafts.edit[m.id]; await refreshTopic(true); }) }),
             h('button', { class: 'ghost small', text: 'キャンセル', onclick: () => { S.editing = null; delete S.drafts.edit[m.id]; renderThreads(); } })));
       } else {
-        box.append(h('div', { class: 'body pre', text: m.text }));
+        if (m.text) box.append(h('div', { class: 'body pre', text: m.text }));
+        if (m.images && m.images.length) box.append(h('div', { class: 'imgs' }, m.images.map((n) => h('a', { href: imgUrl(n), target: '_blank', rel: 'noopener' }, h('img', { src: imgUrl(n), alt: '添付の画像', loading: 'lazy' })))));
         if (!m.sent) {
           box.append(h('div', { class: 'row meta' }, h('span', { class: 'chip draft small', text: '未送信' }),
             h('button', { class: 'link', text: '編集', onclick: () => { S.editing = m.id; renderThreads(); } }),
@@ -686,10 +688,12 @@
     if (!t.resolved) {
       foot.append(
         h('textarea', {
-          rows: 2, 'data-key': `reply-${t.id}`, placeholder: '返信・追加の質問（⌘/Ctrl+Enter で追加）', value: S.drafts.reply[t.id] || '',
+          rows: 2, 'data-key': `reply-${t.id}`, placeholder: '返信・追加の質問（⌘/Ctrl+Enter で追加。画像は、貼り付け・ドラッグでも）', value: S.drafts.reply[t.id] || '',
           oninput: (e) => { S.drafts.reply[t.id] = e.target.value; },
           onkeydown: (e) => { if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') { e.preventDefault(); sendReply(t); } },
+          ...imageHandlers(`reply-${t.id}`),
         }),
+        imageBar(`reply-${t.id}`),
         h('div', { class: 'row' },
           h('button', { class: 'primary small', text: '返信を追加', onclick: () => sendReply(t) }),
           h('button', { class: 'ghost small', text: '理解できた（解決）', onclick: () => act(async () => { await api('/api/resolve', { topic: S.slug, thread: t.id, resolved: true }); await refreshTopic(true); }) })));
@@ -700,10 +704,75 @@
     return card;
   }
 
+  // ------------------------------------------------------------ 画像の添付（コメント・返信）
+  // 貼り付け（⌘/Ctrl+V。OS のスクリーンショットも）・ドラッグ・ファイル選択で付ける。付けた時点で、サーバーが assets/ に保存し、名前を返す。
+  // 送るまでは、×で外せる（外しても、保存したファイルは残る。同じ画像は、同じ名前なので、増えない）。形式・大きさ・枚数の最終の検査は、サーバー
+  const IMG_TYPES = ['image/png', 'image/jpeg', 'image/gif', 'image/webp'];
+  const IMG_MAX_MB = 5, IMG_MAX_N = 4;
+  const imgUrl = (name) => `/asset/${encodeURIComponent(S.slug)}/${encodeURIComponent(name)}`;
+  const draftImgs = (key) => S.drafts.imgs[key] || (S.drafts.imgs[key] = []);
+  // 入力欄の画像を空にする（やめる・送る・別の対象へ移る）。世代を進めて、まだ終わっていないアップロードの結果は、捨てる
+  const resetImgs = (key) => { S.drafts.imgs[key] = []; S.imgGen[key] = (S.imgGen[key] || 0) + 1; };
+  const readBase64 = (file) => new Promise((resolve, reject) => {
+    const r = new FileReader();
+    r.onload = () => resolve(String(r.result).split(',')[1] || '');
+    r.onerror = () => reject(r.error);
+    r.readAsDataURL(file);
+  });
+  async function attachFiles(key, files) {
+    for (const f of files) {
+      if (!IMG_TYPES.includes(f.type)) { toast('画像は、png・jpeg・gif・webp だけ付けられます', true); continue; }
+      if (f.size > IMG_MAX_MB * 1024 * 1024) { toast(`画像が大きすぎます（${IMG_MAX_MB}MB まで）`, true); continue; }
+      if (draftImgs(key).length >= IMG_MAX_N) { toast(`画像は ${IMG_MAX_N} 枚までです`, true); break; }
+      const slug = S.slug, gen = S.imgGen[key] || 0;
+      S.uploading++;
+      renderThreads();
+      let r;
+      try { r = await act(async () => api('/api/attach', { topic: slug, data: await readBase64(f) })); } finally { S.uploading--; }
+      // 終わるまでに、入力欄をやめた・送った・別のトピックへ移った、なら、この画像は、付けない（別の入力欄に、出ないように）。
+      // 続けて何枚も貼ると、上の枚数の検査は、完了を待たずに通るので、付ける直前に、もう一度、上限を見る
+      if (r && slug === S.slug && gen === (S.imgGen[key] || 0) && !draftImgs(key).includes(r.name) && draftImgs(key).length < IMG_MAX_N) draftImgs(key).push(r.name);
+    }
+    renderThreads();
+  }
+  // 入力欄の外にファイルを落としても、ブラウザが、そのファイルを開いて、画面（書きかけの文）を失わないようにする
+  for (const t of ['dragover', 'drop']) document.addEventListener(t, (e) => { if (e.dataTransfer && [...e.dataTransfer.types].includes('Files')) e.preventDefault(); });
+  // 入力欄（textarea）に付ける、貼り付け・ドラッグの受け口。文字の貼り付けは、そのまま通す（画像だけのときだけ、受ける）
+  const imageHandlers = (key) => ({
+    onpaste: (e) => {
+      const cd = e.clipboardData;
+      const files = cd ? [...cd.files].filter((f) => f.type.startsWith('image/')) : [];
+      if (!files.length || [...cd.types].includes('text/plain')) return;
+      e.preventDefault();
+      attachFiles(key, files);
+    },
+    ondragover: (e) => { if (e.dataTransfer && [...e.dataTransfer.types].includes('Files')) e.preventDefault(); },
+    ondrop: (e) => {
+      const files = e.dataTransfer ? [...e.dataTransfer.files] : [];
+      if (!files.length) return;
+      e.preventDefault();
+      attachFiles(key, files);
+    },
+  });
+  function imageBar(key) {
+    const names = draftImgs(key);
+    const input = h('input', { type: 'file', accept: IMG_TYPES.join(','), multiple: true, hidden: true, onchange: (e) => { const files = [...e.target.files]; e.target.value = ''; attachFiles(key, files); } });
+    return h('div', { class: 'imgbar' },
+      names.map((n) => h('span', { class: 'thumb' },
+        h('img', { src: imgUrl(n), alt: '添付の画像' }),
+        h('button', { class: 'x', title: '外す', 'aria-label': '画像を外す', text: '×', onclick: () => { S.drafts.imgs[key] = names.filter((x) => x !== n); renderThreads(); } }))),
+      h('button', { class: 'link', text: '画像を付ける', title: 'ファイルを選ぶ。貼り付け（⌘/Ctrl+V）・ドラッグでも付けられます', onclick: () => input.click() }),
+      S.uploading ? h('span', { class: 'sl', text: 'アップロード中…' }) : null,
+      input);
+  }
+
   async function sendReply(t) {
+    const key = `reply-${t.id}`;
     const text = (S.drafts.reply[t.id] || '').trim();
-    if (!text) return;
-    await act(async () => { await api('/api/reply', { topic: S.slug, thread: t.id, text }); S.drafts.reply[t.id] = ''; await refreshTopic(true); });
+    const images = draftImgs(key);
+    if (S.uploading) { toast('画像のアップロード中です。終わってから、送ってください', true); return; }
+    if (!text && !images.length) return;
+    await act(async () => { await api('/api/reply', { topic: S.slug, thread: t.id, text, images }); S.drafts.reply[t.id] = ''; resetImgs(key); await refreshTopic(true); });
   }
 
   function docOrder(a, b) {
@@ -759,11 +828,14 @@
     const a = S.composer.anchor;
     const submit = async () => {
       const text = (S.drafts.composer || '').trim();
-      if (!text) return;
-      const r = await act(() => api('/api/comment', { topic: S.slug, page: S.page, version: curVersion(), anchor: a, text }));
+      const images = draftImgs('composer');
+      if (S.uploading) { toast('画像のアップロード中です。終わってから、送ってください', true); return; }
+      if (!text && !images.length) return;
+      const r = await act(() => api('/api/comment', { topic: S.slug, page: S.page, version: curVersion(), anchor: a, text, images }));
       if (!r) return;
       S.composer = null;
       S.drafts.composer = '';
+      resetImgs('composer');
       S.active = r.thread;
       await refreshTopic(true);
       focusThread(r.thread, false);
@@ -772,13 +844,15 @@
       h('div', { class: 'th-head' }, h('span', { class: 'no pending', title: '本文の、オレンジの部分へのコメントです', text: '新' }), h('span', { class: 'chip draft small', text: '新しいコメント' }), h('div', { class: 'quote', text: trunc(a.quote || a.label, 90) }),
         S.pendingEl ? h('div', { class: 'hint', text: '本文の、オレンジの部分へのコメントです' }) : null),
       h('textarea', {
-        rows: 3, 'data-key': 'composer', placeholder: 'わからない点・確認したい点・直してほしい点（⌘/Ctrl+Enter で追加）', value: S.drafts.composer,
+        rows: 3, 'data-key': 'composer', placeholder: 'わからない点・確認したい点・直してほしい点（⌘/Ctrl+Enter で追加。画像は、貼り付け・ドラッグでも）', value: S.drafts.composer,
         oninput: (e) => { S.drafts.composer = e.target.value; },
         onkeydown: (e) => { if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') { e.preventDefault(); submit(); } },
+        ...imageHandlers('composer'),
       }),
+      imageBar('composer'),
       h('div', { class: 'row' },
         h('button', { class: 'primary small', text: 'コメントを追加', onclick: submit }),
-        h('button', { class: 'ghost small', text: 'やめる', onclick: () => { S.composer = null; S.drafts.composer = ''; renderThreads(); } })));
+        h('button', { class: 'ghost small', text: 'やめる', onclick: () => { S.composer = null; S.drafts.composer = ''; resetImgs('composer'); renderThreads(); } })));
   }
 
   function startComposer(anchor) {
@@ -876,8 +950,8 @@
     const changed = r.slug !== S.slug || r.page !== S.page || r.version !== S.version;
     // 見ているページ・版が、実質、変わらないなら（最新版を「/v2」と明示して移った、など）、入力欄は閉じない
     const sameView = r.slug === S.slug && r.page === S.page && (r.version || latestOf(r.page)) === curVersion();
-    if (r.slug !== S.slug) S.topic = null;
-    if (!sameView && S.composer) { S.composer = null; S.drafts.composer = ''; } // 別のページ・版へ移ったら、入力中の対象（本文の位置）は、意味を失う。書きかけの文も、別の対象に出ないよう消す
+    if (r.slug !== S.slug) { S.topic = null; S.drafts.imgs = {}; } // 添付した画像は、そのトピックの assets/ にある。別のトピックの入力欄へ持ち越さない
+    if (!sameView && S.composer) { S.composer = null; S.drafts.composer = ''; resetImgs('composer'); } // 別のページ・版へ移ったら、入力中の対象（本文の位置）は、意味を失う。書きかけの文・画像も、別の対象に出ないよう消す
     S.slug = r.slug; S.page = r.page; S.version = r.version;
     if (changed) { S.loaded = ''; S.active = null; }
     await act(async () => { await refreshTopic(true); });

@@ -11,9 +11,11 @@ const {
   listTopics, topicState, progressOrNull,
 } = require('./store.js');
 const { actions } = require('./actions.js');
+const { IMG_MAX } = require('./image.js');
 
 const PUBLIC = path.join(__dirname, '..', 'public');
 const MAX_BODY = 2 * 1024 * 1024;
+const MAX_ATTACH_BODY = Math.ceil(IMG_MAX / 3) * 4 + 4096; // 画像（base64 で 4/3 倍）と、JSON の枠
 
 let PORT = 0;
 let TOKEN = '';
@@ -58,13 +60,13 @@ function send(res, status, body, headers = {}) {
   res.end(isObj ? JSON.stringify(body) : body);
 }
 
-function readBody(req) {
+function readBody(req, max = MAX_BODY) {
   return new Promise((resolve, reject) => {
     let size = 0;
     const chunks = [];
     req.on('data', (c) => {
       size += c.length;
-      if (size > MAX_BODY) { reject(new HttpError(413, '大きすぎます')); req.destroy(); return; }
+      if (size > max) { reject(new HttpError(413, '大きすぎます')); req.destroy(); return; }
       chunks.push(c);
     });
     req.on('end', () => {
@@ -157,7 +159,7 @@ async function handler(req, res) {
       if (req.method === 'POST') {
         const name = p.slice('/api/'.length);
         if (!Object.prototype.hasOwnProperty.call(actions, name)) throw new HttpError(404, 'not found');
-        const b = await readBody(req);
+        const b = await readBody(req, name === 'attach' ? MAX_ATTACH_BODY : MAX_BODY);
         checkSlug(b.topic);
         return send(res, 200, { ok: true, ...actions[name](b) });
       }

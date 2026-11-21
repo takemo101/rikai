@@ -186,6 +186,14 @@ mark.hl.pending { background: #ffd8a8; outline: 2px dashed #e8590c; outline-offs
 details.done { margin-top: 12px; }
 details.done summary { cursor: pointer; color: var(--muted); font-size: 12.5px; }
 
+/* コメント・返信に添付する画像（入力欄の下のサムネイルと、送ったあとのメッセージの中の画像） */
+.imgbar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 4px 0 2px; }
+.thumb { position: relative; display: inline-block; }
+.thumb img { display: block; height: 56px; max-width: 96px; object-fit: cover; border: 1px solid var(--line); border-radius: 4px; background: #fff; }
+.thumb .x { position: absolute; top: -7px; right: -7px; width: 18px; height: 18px; padding: 0; border-radius: 50%; line-height: 16px; font-size: 12px; background: #222; color: #fff; border: 2px solid #fff; cursor: pointer; }
+.msg .imgs { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+.msg .imgs img { display: block; max-width: 100%; max-height: 220px; border: 1px solid var(--line); border-radius: 4px; background: #fff; }
+
 #toast { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); background: #222; color: #fff; padding: 8px 16px; border-radius: 8px; z-index: 50; max-width: 70vw; white-space: pre-wrap; }
 #toast.err { background: #a8321b; }
 

@@ -43,6 +43,7 @@ flowchart LR
 | `skills/rikai/lib/actions.js` | **画面からの操作**（`actions`：`comment`・`reply`・`answer`・`edit`・`delete`・`resolve`・`submit`・`end`）。全トピックが閉じたときの動き `hooks.allClosed`（既定は何もしない。`serve` のプロセスが、終了の処理を入れる） | HTTP |
 | `skills/rikai/lib/agent.js` | **AI 向けの操作**：`listRounds`・`peek`（`poll`・`pull` が共有）・`cmdPoll`・`cmdPull`・`cmdApply`（検証してから書く）・`cmdStatus`（出力するコマンドは、`out` で JSON を出す） | HTTP・画面の操作 |
 | `skills/rikai/lib/server.js` | **HTTP**：認証（合言葉・`Host`・`Origin`）・配信・ルーティング・`startServer`・`shutdown`。`PORT`・`TOKEN` の状態を持つ | データの検査（`actions` と `store` を呼ぶだけ） |
+| `skills/rikai/lib/image.js` | **添付の画像の検査**：形式を中身の先頭のバイトで見分ける（`decodeImage`。png・jpeg・gif・webp だけ。5MB まで）・名前を、中身のハッシュから決める（`c-<16 文字>.<拡張子>`）・名前の形（`IMG_NAME_RE`）・枚数の上限。保存・参照の検査は `actions.js`（`attach`・`normImages`） | ファイルの読み書き・HTTP |
 | `skills/rikai/public/app.js` | ビューア。Markdown の描画（無害化）・コメントの位置づけ（選択→アンカー・アンカー→強調）・**コメントの番号と、本文の印・右のカードの対応づけ**（文の番号は CSS の `::after`〔`data-no`〕。**ブロックの番号は、要素の外の層〔`#badges`。`#docscroll` の中の絶対位置〕に、`placeBadges` が出す**：要素の中だと、箱の overflow で切れる・横スクロールで流れる。記事の大きさが変わると、`ResizeObserver` で合わせ直す。マウスを置いたときの光り〔`.linked`〕・入力中の対象の強調〔`mark.pending`・`.blk-pending`。入力欄を閉じると外す〕・入力欄を、対象の位置の順に入れる〔`composerSlot`〕）・パネル・ask の入力・ルーティング（ハッシュ）・サーバーの変更の取り込み | データの正本（サーバーが持つ。ここは写しと下書き）。本文の要素・文字を足すこと（番号・強調は、位置づけに使う本文の文字を変えない形で） |
 | `skills/rikai/public/anchor.js` | コメントの探し直しの、**DOM に触れない純粋な関数**：`findQuote`（選んだ文）・`locateBlock`（ブロック）・`similarity`。ブラウザ（`window.RikaiAnchor`）と Node のテスト（`require`）の両方から使う | DOM・ネットワーク |
 | `skills/rikai/public/diff.js` | 版どうしの差分の、**DOM に触れない純粋な関数**：`diffText`（文字列のトークン単位の差分）・`matchBlocks`（ブロックの対応づけ）。`anchor.js` の `similarity` を使う。ブラウザ（`window.RikaiDiff`）と Node のテスト（`require`）の両方から使う | DOM・ネットワーク |
@@ -62,7 +63,7 @@ flowchart LR
 | `GET /` ほか（`/app.js`・`/style.css`・`/favicon.svg`・`/vendor/*`） | 画面。`/` は、`?t=` が正しければ Cookie を付けて `/` へ 302（URL から合言葉を外す）。`Content-Security-Policy` つき。静的ファイルは、`public/` の外へ出ない |
 | `GET /asset/<topic>/<path>` | `.rikai/<topic>/assets/` の画像だけ。`public` の外・`assets/` の外へ出ない。`Content-Security-Policy: sandbox` つき |
 | `GET /api/ping`・`/api/topics`・`/api/topic/<slug>?since=<rev>`・`/api/page/<slug>/<page>/<版>` | 疎通・トピックの一覧（読めるトピックには `progress`。一覧の更新のたびに、各トピックの `threads.json` を読む）・トピックの状態（`rev` が同じなら `unchanged`）・資料の Markdown |
-| `POST /api/comment`・`reply`・`answer`・`edit`・`delete`・`resolve`・`submit`・`end` | 画面からの操作（`actions` の同名の関数）。本体は JSON（2 MB まで）。結果は `{ok:true,…}`、失敗は `{ok:false,error}` |
+| `POST /api/comment`・`reply`・`answer`・`edit`・`delete`・`resolve`・`submit`・`end`・`attach` | 画面からの操作（`actions` の同名の関数）。本体は JSON（2 MB まで。**`attach` だけは、画像（base64）のため、約 7MB まで**）。結果は `{ok:true,…}`、失敗は `{ok:false,error}`。`attach` は、画像を `assets/` に、ロックの下で保存し、名前を返す。`comment`・`reply` は、`images`（その名前の配列）を受ける |
 
 ## 状態の所有
 
@@ -74,7 +75,7 @@ flowchart LR
 | スレッド・メッセージ・解決・送信済みか | `lib/store.js`（`mutate`） | `.rikai/<topic>/threads.json`（`seq` で ID `t…`・`m…` を採番） | 人間の発言は `sent:false`（下書き）で入り、Submit で `true` になる |
 | 資料の各版 | `rikai new`・`apply` だけが作る | `.rikai/<topic>/pages/<page>/v<N>.md` | **作ったあとは書き換えない** |
 | Submit の送信内容 | `submit`（作る）・`apply`（`handled` にする） | `.rikai/<topic>/rounds/NNN.json` | `pending` → `handled`。`poll`・`pull` は、`pending` の最初のものを出す |
-| 画像 | 人（またはエージェント）が置く | `.rikai/<topic>/assets/` | 読むだけ（`/asset/`） |
+| 画像 | 資料の画像は、人（またはエージェント）が置く。**コメント・返信の添付は、`attach`（ロックの下）が書く** | `.rikai/<topic>/assets/` | 読むだけ（`/asset/`）。メッセージには、名前だけを持つ（`images`）。Submit の出力で、絶対パスにする。使われなかった画像は残る（掃除はしない） |
 | サーバーの情報 | `serve`（作る・消す）・CLI（読む） | `.rikai/.server.json`（pid・ポート・合言葉） | 疎通しなければ、古いものとして消して起こし直す |
 | ブラウザの状態 | `app.js` の `S` | メモリ | 表示中のトピック・ページ・版・パネルの下書き・開いている入力。再読み込みで消える（下書きのコメントはサーバーが持つので消えない。**ask の選びかけ・返信欄の入力は、消える**） |
 | 既読の AI の発言 | `app.js` | `localStorage` の `rikai-seen` | 「AIの返信」の印を消すための印。サーバーには送らない |
