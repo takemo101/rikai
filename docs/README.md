@@ -36,7 +36,7 @@ AGENTS.md              開発規約・不変条件
 LICENSE                MIT
 install.sh             skill/rikai/ を ~/.claude/skills/rikai/ へ複製する（CLAUDE_SKILLS_DIR で変更）
 package.json           npm test（`node --test test/*.test.js`）だけ。依存はない
-test/                  自動テスト（node:test）。helpers.js・store・actions・ask・apply・poll・anchor・server
+test/                  自動テスト（node:test）。helpers.js・store・actions・ask・apply・poll・anchor・diff・server
 skill/rikai/
   SKILL.md             エージェント向けの手順（/rikai）
   rikai.js             コマンド（new・open・poll・pull・apply・status・stop）とローカルサーバー。Node 18+・依存なし
@@ -44,6 +44,7 @@ skill/rikai/
     index.html         画面の骨組み
     app.js             ビューア（描画・コメントの位置づけ・パネル・ask）
     anchor.js          コメントの探し直し（DOM に触れない関数。ブラウザと Node のテストが共有）
+    diff.js            版どうしの差分（DOM に触れない関数。ブラウザと Node のテストが共有）
     style.css          見た目
     favicon.svg
     vendor/            同梱: marked・DOMPurify・mermaid と、各ライセンス（書き換えない）

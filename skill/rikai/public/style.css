@@ -86,6 +86,15 @@ label.chk { font-size: 12.5px; color: var(--muted); display: flex; gap: 4px; ali
 
 #article .blk { position: relative; border-radius: 4px; }
 #article .blk.changed { box-shadow: -10px 0 0 -7px #4caf75; background: linear-gradient(90deg, #eaf7ef, transparent 40%); }
+#article .blk.changed.added { box-shadow: -10px 0 0 -7px #2e9e5b; }
+#article .diffbox { margin: 4px 0 12px; font-size: 12.5px; color: var(--muted); }
+#article li.diffbox { list-style: none; display: block; } /* list-item のままだと、番号つきの並びで、番号を 1 つ使う */
+#article .diffbox summary { cursor: pointer; user-select: none; }
+#article .diffbox .diff { margin-top: 4px; padding: 6px 10px; background: #faf9f5; border: 1px dashed var(--line); border-radius: 6px; color: var(--ink); white-space: pre-wrap; word-break: break-word; }
+#article .diffbox ins { background: #d6f0df; text-decoration: none; }
+#article .diffbox del { background: #fbdcdc; text-decoration: line-through; }
+#article .diffbox.removed { margin-top: 24px; padding-top: 8px; border-top: 1px dashed var(--line); }
+#article .diffbox.removed .diff + .diff { margin-top: 4px; }
 mark.hl { background: var(--hl-live); color: inherit; border-radius: 2px; cursor: pointer; padding: 1px 0; }
 mark.hl.resolved { background: var(--hl-done); }
 mark.hl.active { outline: 2px solid var(--accent); outline-offset: 1px; }
