@@ -60,7 +60,7 @@
   const S = {
     topics: [], slug: null, page: 'root', version: null, topic: null,
     md: null, prevMd: null, loaded: '', docSig: '',
-    composer: null, active: null, showChanges: true, locs: new Map(), approx: new Map(), renderTok: 0,
+    composer: null, active: null, showChanges: true, locs: new Map(), approx: new Map(), nums: new Map(), pendingEl: null, renderTok: 0,
     drafts: { reply: {}, ask: {}, edit: {}, composer: '' },
     editing: null, seen: new Set(JSON.parse(localStorage.getItem('rikai-seen') || '[]')), offline: false, error: null,
   };
@@ -276,6 +276,43 @@
         }
       }
       S.locs.set(t.id, el);
+    }
+    // 本文の順に番号をつける（右のパネルの、同じ番号のカードと対応する）。印は、CSS の ::after（data-no）で出す
+    // （要素や文字を足さないので、コメントの位置づけに使う本文の文字を、変えない）
+    S.nums = new Map();
+    const located = threadsOnPage().filter((t) => S.locs.get(t.id)).sort(docOrder);
+    located.forEach((t, i) => {
+      const n = i + 1;
+      S.nums.set(t.id, n);
+      const marks = $$(`mark.hl[data-tid="${t.id}"]`, art);
+      const target = marks.length ? marks[marks.length - 1] : S.locs.get(t.id);
+      // 1 つのブロックに、複数のコメントがあるときは、番号を並べる（「6,7」）。カードの番号は、どれも、本文の印と対応する
+      target.dataset.no = target.dataset.no ? `${target.dataset.no},${n}` : String(n);
+    });
+    markPending();
+  }
+
+  // 入力中のコメントの対象を、本文で強調する（まだ送っていない。オレンジ）。入力欄を開いている間だけ
+  function clearPending() {
+    const art = $('#article');
+    for (const m of $$('mark.hl.pending', art)) m.replaceWith(...m.childNodes);
+    for (const e of $$('.blk-pending', art)) e.classList.remove('blk-pending');
+    art.normalize();
+    S.pendingEl = null;
+  }
+  function markPending() {
+    const art = $('#article');
+    if (!S.composer && !art.querySelector('mark.hl.pending, .blk-pending')) return; // 何もなければ、本文に触らない
+    clearPending();
+    if (!S.composer) return;
+    const a = S.composer.anchor;
+    if (a.quote) {
+      const hit = findQuote(textIndex(art).text, a);
+      if (hit) S.pendingEl = wrapRange(art, hit.start, hit.end, 'pending', 'pending');
+    } else {
+      const blocks = blockEls(art);
+      const found = locateBlock(blocks.map((b) => ({ id: b.dataset.bid, hash: b.dataset.bhash, tag: b.tagName, text: blockText(b) })), a);
+      if (found) { S.pendingEl = blocks[found.index]; S.pendingEl.classList.add('blk-pending'); }
     }
   }
 
@@ -625,8 +662,9 @@
     const future = t.version > curVersion();
     const fresh = t.messages.some((m) => m.author === 'ai' && !S.seen.has(m.id));
     const quote = t.anchor ? (t.anchor.quote || t.anchor.label) : 'AIからの質問';
-    const card = h('div', { class: `thread ${stCls}${S.active === t.id ? ' active' : ''}${fresh ? ' fresh' : ''}`, 'data-tid': t.id });
+    const card = h('div', { class: `thread ${stCls}${S.active === t.id ? ' active' : ''}${fresh ? ' fresh' : ''}${linkedTid === t.id ? ' linked' : ''}`, 'data-tid': t.id });
     card.append(h('div', { class: 'th-head', onclick: () => focusThread(t.id, true) },
+      S.nums.has(t.id) ? h('span', { class: 'no', title: '本文の、同じ番号の印の所へのコメントです', text: String(S.nums.get(t.id)) }) : null,
       h('span', { class: `chip ${stCls} small`, text: stText }),
       h('span', { class: 'chip small', text: `v${t.version}` }),
       orphan ? h('span', { class: 'chip warn small', text: '修正で文が変わりました' }) : null,
@@ -667,6 +705,15 @@
     return 0;
   }
 
+  // 入力欄を入れる位置（live の何番目の前か）。対象が本文の中で見つからないときは、先頭
+  function composerSlot(live) {
+    if (!S.composer) return -1;
+    const p = S.pendingEl;
+    if (!p) return 0;
+    const i = live.findIndex((t) => { const e = S.locs.get(t.id); return e && (p.compareDocumentPosition(e) & Node.DOCUMENT_POSITION_FOLLOWING); });
+    return i >= 0 ? i : live.filter((t) => S.locs.get(t.id)).length;
+  }
+
   function renderThreads() {
     const panel = $('#threads');
     // 入力中の欄を覚えておき、描き直したあとに戻す
@@ -677,12 +724,15 @@
     if (!S.topic) return;
     const head = h('div', { class: 'side-h', text: 'コメント' });
     panel.append(head);
-    if (S.composer) panel.append(renderComposer());
+    markPending(); // 入力中の対象を本文で強調し、その位置を決めてから、入力欄を並べる
     const list = threadsOnPage();
     const live = list.filter((t) => !t.resolved).sort(docOrder);
     const done = list.filter((t) => t.resolved).sort(docOrder);
     if (!list.length && !S.composer) panel.append(h('div', { class: 'empty', text: '本文の文を選択すると「コメント」が出ます。図・表・画像は、ブロックの右に出る ＋ から。' }));
-    for (const t of live) panel.append(renderThread(t));
+    // 入力欄は、対象の位置の順に、スレッドの間へ入れる（いつも一番上、にしない）
+    const slot = composerSlot(live);
+    live.forEach((t, i) => { if (i === slot) panel.append(renderComposer()); panel.append(renderThread(t)); });
+    if (S.composer && slot >= live.length) panel.append(renderComposer());
     if (done.length) {
       const det = h('details', { class: 'done' }, h('summary', { text: `解決済み (${done.length})` }));
       for (const t of done) det.append(renderThread(t));
@@ -709,7 +759,8 @@
       focusThread(r.thread, false);
     };
     return h('div', { class: 'thread composer' },
-      h('div', { class: 'th-head' }, h('span', { class: 'chip draft small', text: '新しいコメント' }), h('div', { class: 'quote', text: trunc(a.quote || a.label, 90) })),
+      h('div', { class: 'th-head' }, h('span', { class: 'no pending', title: '本文の、オレンジの部分へのコメントです', text: '新' }), h('span', { class: 'chip draft small', text: '新しいコメント' }), h('div', { class: 'quote', text: trunc(a.quote || a.label, 90) }),
+        S.pendingEl ? h('div', { class: 'hint', text: '本文の、オレンジの部分へのコメントです' }) : null),
       h('textarea', {
         rows: 3, 'data-key': 'composer', placeholder: 'わからない点・確認したい点・直してほしい点（⌘/Ctrl+Enter で追加）', value: S.drafts.composer,
         oninput: (e) => { S.drafts.composer = e.target.value; },
@@ -726,6 +777,8 @@
     renderThreads();
     const ta = $('[data-key="composer"]');
     if (ta) ta.focus();
+    const card = $('.thread.composer');
+    if (card) card.scrollIntoView({ block: 'center', behavior: 'smooth' });
     getSelection().removeAllRanges();
     $('#selbtn').hidden = true;
     $('#blkbtn').hidden = true;
@@ -811,7 +864,10 @@
       return;
     }
     const changed = r.slug !== S.slug || r.page !== S.page || r.version !== S.version;
-    if (r.slug !== S.slug) { S.topic = null; S.composer = null; }
+    // 見ているページ・版が、実質、変わらないなら（最新版を「/v2」と明示して移った、など）、入力欄は閉じない
+    const sameView = r.slug === S.slug && r.page === S.page && (r.version || latestOf(r.page)) === curVersion();
+    if (r.slug !== S.slug) S.topic = null;
+    if (!sameView && S.composer) { S.composer = null; S.drafts.composer = ''; } // 別のページ・版へ移ったら、入力中の対象（本文の位置）は、意味を失う。書きかけの文も、別の対象に出ないよう消す
     S.slug = r.slug; S.page = r.page; S.version = r.version;
     if (changed) { S.loaded = ''; S.active = null; }
     await act(async () => { await refreshTopic(true); });
@@ -902,9 +958,37 @@
   $('#article').addEventListener('click', (e) => {
     const a = e.target.closest('a[data-page]');
     if (a) return; // ハッシュで遷移する
-    const el = e.target.closest('[data-tid]');
+    const el = e.target.closest('[data-tid]:not([data-tid="pending"])'); // 入力中の強調（pending）の下にある、コメントの印を選ぶ
     if (el) focusThread(el.dataset.tid, false);
   });
+
+  // 本文の印と、右のカードを、マウスを置いたとき、お互いに光らせる（どのコメントが、どの対象のものかが、すぐ分かるように）
+  let linkedTid = null;
+  function setLinked(tid) {
+    linkedTid = tid;
+    $$('.linked').forEach((e) => e.classList.remove('linked'));
+    if (!tid) return;
+    $$(`[data-tid="${tid}"]`).forEach((e) => e.classList.add('linked'));
+    const loc = S.locs.get(tid); // 1 つのブロックに複数のコメントがあるとき、data-tid は、最後の 1 つだけ。位置は、ここから取る
+    if (loc) loc.classList.add('linked');
+  }
+  $('#threads').addEventListener('mouseover', (e) => {
+    const c = e.target.closest('.thread[data-tid]');
+    const tid = c ? c.dataset.tid : null;
+    if (tid === linkedTid && (!c || c.classList.contains('linked'))) return;
+    setLinked(tid);
+  });
+  $('#threads').addEventListener('mouseleave', () => setLinked(null));
+  $('#article').addEventListener('mouseover', (e) => {
+    const el = e.target.closest('[data-tid]:not([data-tid="pending"])');
+    const tid = el ? el.dataset.tid : null;
+    if (tid === linkedTid) return;
+    setLinked(tid);
+    const card = tid && $(`.thread[data-tid="${tid}"]`);
+    // 右のカードが見えない所にあるときだけ、動かす。入力欄を開いている間は、動かさない（入力欄が、見えなくなるため）
+    if (card && !S.composer) card.scrollIntoView({ block: 'nearest' });
+  });
+  $('#article').addEventListener('mouseleave', () => setLinked(null));
 
   // ------------------------------------------------------------ Submit / 終了
   const dlg = $('#submitdlg');
