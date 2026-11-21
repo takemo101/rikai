@@ -91,6 +91,7 @@ test('画像の配信：assets の中だけ。外へ出る名前は断る。直�
 
 test('静的ファイルは、public の外へ出ない。知らないファイルは配らない', async () => {
   assert.equal((await request('GET', '/anchor.js')).status, 200);
+  assert.equal((await request('GET', '/diff.js')).status, 200);
   assert.equal((await request('GET', '/vendor/marked.min.js')).status, 200);
   assert.notEqual((await request('GET', '/vendor/..%2F..%2Frikai.js')).status, 200);
   assert.equal((await request('GET', '/rikai.js')).status, 404);

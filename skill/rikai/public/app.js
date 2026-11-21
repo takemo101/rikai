@@ -53,6 +53,7 @@
 
   // 引用・ブロックの探し直しは anchor.js（DOM に触れない関数。Node のテストと共有）
   const { findQuote, locateBlock } = window.RikaiAnchor;
+  const { diffText, matchBlocks } = window.RikaiDiff;
 
   // ------------------------------------------------------------ 状態
   const S = {
@@ -142,10 +143,12 @@
   }
 
   // ------------------------------------------------------------ ブロックと本文テキスト
+  // 差分の箱（.diffbox）は、ブロックではない（コメントの位置づけ・ブロックの番号に入れない）
   function blockEls(root) {
     const out = [];
     for (const el of root.children) {
-      if (el.tagName === 'UL' || el.tagName === 'OL') { for (const li of el.children) if (li.tagName === 'LI') out.push(li); } else out.push(el);
+      if (el.classList.contains('diffbox')) continue;
+      if (el.tagName === 'UL' || el.tagName === 'OL') { for (const li of el.children) if (li.tagName === 'LI' && !li.classList.contains('diffbox')) out.push(li); } else out.push(el);
     }
     return out;
   }
@@ -160,7 +163,7 @@
     const w = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
       acceptNode(n) {
         const p = n.parentElement;
-        if (!p || p.closest('.mermaid-block, style, script')) return NodeFilter.FILTER_REJECT;
+        if (!p || p.closest('.mermaid-block, .diffbox, style, script')) return NodeFilter.FILTER_REJECT;
         return NodeFilter.FILTER_ACCEPT;
       },
     });
@@ -204,6 +207,7 @@
     const art = $('#article');
     if (!art.contains(r.commonAncestorContainer)) return null;
     const a = elOf(r.startContainer), b = elOf(r.endContainer);
+    if (a.closest('.diffbox') || b.closest('.diffbox')) return null; // 差分の文字には、コメントを付けない
     const mb = a.closest('.mermaid-block') || b.closest('.mermaid-block');
     if (mb) return blockAnchor(mb);
     const idx = textIndex(art);
@@ -273,6 +277,46 @@
     }
   }
 
+  // 差分に使う、ブロックの文字（表は、セルを「 | 」で、行を改行でつなぐ。図は、ソース）
+  function plainText(el) {
+    if (el.dataset.mermaid) return decodeURIComponent(el.dataset.mermaid);
+    if (el.tagName === 'TABLE') return [...el.rows].map((r) => [...r.cells].map((c) => c.textContent.trim()).join(' | ')).join('\n');
+    if (el.tagName === 'PRE') return (el.textContent || '').replace(/\n$/, '');
+    return (el.textContent || '').replace(/\s+/g, ' ').trim();
+  }
+
+  function diffBox(ops, tag) {
+    const body = h('div', { class: 'diff' }, ops.map((o) => (o.t === 'eq' ? o.s : h(o.t === 'del' ? 'del' : 'ins', { text: o.s }))));
+    const details = h('details', { class: tag === 'LI' ? '' : 'diffbox' }, h('summary', { text: '前の版との差分' }), body);
+    return tag === 'LI' ? h('li', { class: 'diffbox' }, details) : details;
+  }
+
+  // 前の版との差分を、frag（今の版のブロック）に足す。戻り値は、件数
+  function addDiff(frag) {
+    const prev = mdToFragment(S.prevMd, S.slug);
+    markBlocks(prev);
+    const pe = blockEls(prev), ce = blockEls(frag);
+    const info = (els) => els.map((e) => ({ hash: e.dataset.bhash, tag: e.tagName, text: plainText(e) }));
+    const pi = info(pe), ci = info(ce);
+    const m = matchBlocks(pi, ci);
+    const sum = { changed: 0, added: 0, removed: m.removed.length };
+    // ブロックの後ろに箱を足すので、後ろのブロックから処理する（前から足すと、続くブロックの位置が動く）
+    for (let j = ce.length - 1; j >= 0; j--) {
+      const c = m.cur[j];
+      if (c.status === 'same') continue;
+      ce[j].classList.add('changed');
+      if (c.status === 'added') { sum.added++; ce[j].classList.add('added'); continue; }
+      sum.changed++;
+      ce[j].after(diffBox(diffText(pi[c.prev].text, ci[j].text), ce[j].tagName));
+    }
+    if (m.removed.length) {
+      frag.append(h('details', { class: 'diffbox removed' },
+        h('summary', { text: `前の版からなくなったブロック (${m.removed.length})` }),
+        m.removed.map((i) => h('div', { class: 'diff' }, h('del', { text: pi[i].text })))));
+    }
+    return sum;
+  }
+
   async function renderDoc() {
     const tok = ++S.renderTok;
     const scroller = $('#docscroll');
@@ -281,17 +325,13 @@
     const v = curVersion();
     const frag = mdToFragment(S.md, S.slug);
     markBlocks(frag);
-    if (S.showChanges && v > 1 && S.prevMd != null) {
-      const prev = mdToFragment(S.prevMd, S.slug);
-      markBlocks(prev);
-      const seen = new Set(blockEls(prev).map((e) => e.dataset.bhash));
-      for (const el of blockEls(frag)) if (!seen.has(el.dataset.bhash)) el.classList.add('changed');
-    }
+    S.diff = S.showChanges && v > 1 && S.prevMd != null ? addDiff(frag) : null;
     art.replaceChildren(frag);
     await fillMermaid(art);
     if (tok !== S.renderTok) return;
     applyHighlights(art);
     scroller.scrollTop = scroll;
+    renderDocbar();
     renderThreads();
   }
 
@@ -389,6 +429,7 @@
       bar.append(sel);
       if (curVersion() > 1) {
         bar.append(h('label', { class: 'chk' }, h('input', { type: 'checkbox', checked: S.showChanges, onchange: (e) => { S.showChanges = e.target.checked; S.docSig = ''; loadPage(); } }), '前の版からの変更を表示'));
+        if (S.diff) bar.append(h('span', { class: 'chip', title: '前の版との比較', text: `変更 ${S.diff.changed}・追加 ${S.diff.added}・削除 ${S.diff.removed}` }));
       }
     }
     if (!isLatest()) {
