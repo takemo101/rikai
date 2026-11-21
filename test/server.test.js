@@ -178,3 +178,17 @@ test('一覧（/api/topics）に、理解の進み具合が付き、解決の操
   const after = JSON.parse((await request('GET', '/api/topics', { headers: authed() })).body).find((t) => t.slug === 'demo');
   assert.equal(after.progress.threads.resolved, 1);
 });
+
+test('threads.json が壊れたトピックが 1 つあっても、一覧は 200 で、そのトピックだけ進み具合が null（ほかのトピックは数が付く）', async () => {
+  makeTopic('broken');
+  fs.writeFileSync(path.join(dir, '.rikai', 'broken', 'threads.json'), '{壊れた');
+  try {
+    const res = await request('GET', '/api/topics', { headers: authed() });
+    assert.equal(res.status, 200);
+    const byName = Object.fromEntries(JSON.parse(res.body).map((t) => [t.slug, t]));
+    assert.equal(byName.broken.progress, null);
+    assert.equal(typeof byName.demo.progress.threads.total, 'number');
+  } finally {
+    fs.rmSync(path.join(dir, '.rikai', 'broken'), { recursive: true, force: true });
+  }
+});

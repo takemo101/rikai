@@ -103,6 +103,8 @@ test('新しい形・不正な版のトピックは、読み書きを 409 で断
 test('読めない形のトピックが 1 つあっても、status（トピック名なし）は落ちず、読めるトピックを出す', () => {
   makeTopic();
   makeTopic('future');
+  const { thread } = rikai.actions.comment({ topic: 'demo', page: 'root', version: 1, anchor: null, text: '進み具合' });
+  rikai.actions.resolve({ topic: 'demo', thread, resolved: true });
   // 新しい形では、pages などの形が違い、slug・title も持たないかもしれない
   fs.writeFileSync(path.join(dir, '.rikai', 'future', 'meta.json'), JSON.stringify({ schema: rikai.SCHEMA + 1, nodes: [] }));
   const cli = path.join(__dirname, '..', 'skill', 'rikai', 'rikai.js');
@@ -110,7 +112,7 @@ test('読めない形のトピックが 1 つあっても、status（トピッ�
   const byName = Object.fromEntries(out.map((t) => [t.topic, t]));
   assert.equal(byName.demo.unsupported, undefined);
   assert.deepEqual(Object.keys(byName.demo.pages), ['root']);
-  assert.deepEqual(byName.demo.progress, { threads: { total: 0, resolved: 0, open: 0 }, asks: { total: 0, answered: 0 } });
+  assert.deepEqual(byName.demo.progress, { threads: { total: 1, resolved: 1, open: 0 }, asks: { total: 0, answered: 0 } });
   assert.deepEqual(byName.future, { topic: 'future', title: 'future', unsupported: true, schema: rikai.SCHEMA + 1 }, '名前は、ディレクトリのもの');
 });
 

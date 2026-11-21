@@ -548,6 +548,18 @@ function cmdApply(slug, payload) {
   });
 }
 
+// 一覧に付ける、理解の進み具合。threads.json が壊れたトピックがあっても、一覧全体を 500 にしない（そのトピックは、数なし）。
+// 警告は、トピックごとに 1 回だけ。壊れたファイルの中身が、エラーの文に入ることがあるので、種類（name）だけを出す
+const warnedThreads = new Set();
+function progressOrNull(slug) {
+  try {
+    return progressOf(loadThreads(slug).threads);
+  } catch (e) {
+    if (!warnedThreads.has(slug)) { warnedThreads.add(slug); console.error(`threads.json を読めません（${slug}: ${e.name}）`); }
+    return null;
+  }
+}
+
 function cmdStatus(slug) {
   const topics = slug ? [loadMeta(slug)] : listTopics();
   out(topics.map((m) => {
@@ -557,7 +569,6 @@ function cmdStatus(slug) {
       topic: m.slug, title: m.title, closed: !!m.closed,
       pendingRounds: (m.pending || []),
       unsentInBrowser: countUnsent(th),
-      openThreads: th.threads.filter((t) => !t.resolved).length,
       progress: progressOf(th.threads),
       pages: Object.fromEntries(Object.entries(m.pages).map(([id, p]) => [id, { title: p.title, parent: p.parent, versions: p.versions, file: pageFile(m.slug, id, p.versions) }])),
     };
@@ -677,7 +688,7 @@ async function handler(req, res) {
         if (p === '/api/ping') return send(res, 200, { ok: true, root: ROOT });
         if (p === '/api/topics') {
           return send(res, 200, listTopics().map((m) => (isSupported(m)
-            ? { slug: m.slug, title: m.title, closed: !!m.closed, pending: (m.pending || []).length, rev: m.rev, progress: progressOf(loadThreads(m.slug).threads), unsupported: false }
+            ? { slug: m.slug, title: m.title, closed: !!m.closed, pending: (m.pending || []).length, rev: m.rev, progress: progressOrNull(m.slug), unsupported: false }
             : { slug: m.slug, title: topicTitle(m), unsupported: true })));
         }
         let m = /^\/api\/topic\/([^/]+)$/.exec(p);

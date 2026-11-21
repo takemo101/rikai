@@ -385,7 +385,7 @@
     st.replaceChildren();
     if (t && t.threads.length) {
       const p = progressOf(t.threads);
-      st.append(h('span', { class: 'chip', title: '数だけです（人が「理解できた」にしたスレッドの数と、答えた質問の数）。理解できたかの判定ではありません', text: `解決 ${p.threads.resolved}/${p.threads.total}${p.asks.total ? `・回答 ${p.asks.answered}/${p.asks.total}` : ''}` }));
+      st.append(h('span', { class: 'chip', title: '数だけです（人が「理解できた（解決）」にしたスレッドの数と、回答を送信した質問の数。保存しただけの回答は数えません）。理解できたかの判定ではありません', text: `解決 ${p.threads.resolved}/${p.threads.total}${p.asks.total ? `・回答 ${p.asks.answered}/${p.asks.total}` : ''}` }));
     }
     if (S.offline) st.append(h('span', { class: 'chip warn', text: 'サーバーに接続できません' }));
     else if (S.error) st.append(h('span', { class: 'chip warn', title: S.error, text: `サーバーのエラー: ${trunc(S.error, 40)}` }));
@@ -408,7 +408,11 @@
         t.unsupported
           ? h('span', { class: 'topic-off', text: t.title })
           : h('a', { href: `#/${t.slug}/root`, text: t.title }),
-        t.progress && t.progress.threads.total ? h('span', { class: 'chip small', title: '解決したスレッド / 全スレッド', text: `${t.progress.threads.resolved}/${t.progress.threads.total}` }) : null,
+        (() => {
+          // 開いているトピックは、画面が持っている最新のスレッドから数える（一覧の更新を待たず、上のバーと食い違わない）
+          const p = t.slug === S.slug && S.topic ? progressOf(S.topic.threads) : t.progress;
+          return p && p.threads.total ? h('span', { class: 'chip small', title: '解決したスレッド / 全スレッド', text: `${p.threads.resolved}/${p.threads.total}` }) : null;
+        })(),
         t.pending ? h('span', { class: 'chip wait small', text: '待ち' }) : null,
         t.unsupported ? h('span', { class: 'chip warn small', title: 'この rikai が読めない、新しい形式です。rikai を更新してください', text: '新しい形式' }) : null,
         t.closed ? h('span', { class: 'chip small', text: '終了' }) : null));

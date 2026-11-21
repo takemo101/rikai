@@ -31,9 +31,25 @@ test('保存しただけの（未送信の）回答・別の質問への回答�
   assert.deepEqual(progressOf([{ messages: [ai('m1', true), answer('m2', 'mX', true)] }]).asks, { total: 1, answered: 0 });
 });
 
-test('AI が起点のスレッド（人のコメントがない）の質問も数える。人の発言の ask は数えない', () => {
+test('人の発言についた ask は、数えない（AI の質問だけを数える）', () => {
   const t = [{ resolved: false, messages: [{ id: 'm1', author: 'user', kind: 'comment', ask: { type: 'yes_no', question: 'q' } }, ai('m2', true)] }];
   assert.deepEqual(progressOf(t).asks, { total: 1, answered: 0 });
+});
+
+test('AI が起点のスレッド（apply の threads[]。人のコメントがない）の質問も、数える。回答を送ると、答えた数になる', () => {
+  const dir = tempProject();
+  try {
+    makeTopic();
+    rikai.cmdApply('demo', { threads: [{ page: 'root', body: '確認です', ask: singleAsk }] });
+    const th = readThreads().threads;
+    assert.equal(th[0].origin, 'ai');
+    assert.deepEqual(progressOf(th), { threads: { total: 1, resolved: 0, open: 1 }, asks: { total: 1, answered: 0 } });
+    rikai.actions.answer({ topic: 'demo', thread: th[0].id, msg: th[0].messages[0].id, answer: { choice: 'a' } });
+    submit();
+    assert.deepEqual(progressOf(readThreads().threads).asks, { total: 1, answered: 1 });
+  } finally {
+    removeProject(dir);
+  }
 });
 
 test('実際の操作の流れ：質問 → 回答を保存（数えない）→ Submit（数える）→ 解決', () => {
