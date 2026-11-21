@@ -85,6 +85,7 @@ npm test        # node --test test/*.test.js。追加の依存なし（Node 18 �
 | `poll.test.js` | `peek`（`poll`・`pull` の出力）・`closed`・全トピックが閉じたときの合図 |
 | `anchor.test.js` | `findQuote`・`locateBlock`・`similarity`（コメントの探し直し） |
 | `diff.test.js` | `diffText`（元に戻せること・変更箇所・大きな入力）・`matchBlocks`（同じ・変更・追加・削除・種類の違い・区間の制約・空・重複） |
+| `progress.test.js` | `progressOf`（空・解決・質問・送信済みと未送信の回答・別の質問への回答・AI 起点のスレッド）と、実際の操作の流れでの数 |
 | `server.test.js` | 実際に待ち受けて、合言葉・`Host`・`Origin`・Cookie・CSP・配信のパス・`rikai open` の `.server.json` の権限（0600） |
 
 `test/helpers.js` が、一時のプロジェクト（`os.tmpdir()`）と、作り物の資料・コメントを用意する。利用者の `.rikai/` には触れない。**ブラウザの描画（DOMPurify・選択・パネル）は、DOM が要るので、自動テストの対象外**。次の手作業で確かめる。
