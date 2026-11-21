@@ -172,7 +172,7 @@ JSON
 
 | キー | 内容 |
 | --- | --- |
-| `round` | 処理する round 番号（`feedback` の `round`）。省略すると未処理のものを全部処理する |
+| `round` | 処理する round 番号（`feedback` の `round`）。**未処理の round が複数あるときは、必須**（poll・pull が出すのは、いちばん古い round だけ。読んでいない round を、巻き込まないため）。1 つだけなら、省略できる |
 | `replies[]` | `thread`（必須）、`body`（Markdown。mermaid・表・コード可）、`page`（リンクする子ページ ID）、`ask` |
 | `revisions[]` | `page`、`markdown`（**資料の全文**）、`title`（任意）。新しい版になる。1回の apply で同じページは1回だけ |
 | `pages[]` | 子ページ。`id`（英小文字・数字・ハイフン）、`title`、`parent`（省略で `root`）、`markdown` |
