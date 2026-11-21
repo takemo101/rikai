@@ -148,7 +148,7 @@ test('新しい形のトピックは、一覧に印つきで出て、操作は 4
 
 test('rikai open が置く .server.json は、自分だけが読める権限（0600）', () => {
   const root = fs.mkdtempSync(path.join(require('os').tmpdir(), 'rikai-open-'));
-  const cli = path.join(__dirname, '..', 'skill', 'rikai', 'rikai.js');
+  const cli = path.join(__dirname, '..', 'skills', 'rikai', 'rikai.js');
   const run = (...args) => cp.execFileSync(process.execPath, [cli, ...args, '--root', root], { input: '# 題\n', encoding: 'utf8', env: { ...process.env, NO_OPEN: '1' } });
   try {
     run('new', 'perm', '--title', '権限');
@@ -195,7 +195,7 @@ test('threads.json が壊れたトピックが 1 つあっても、一覧は 200
 
 test('rikai serve は、すべてのトピックが閉じたら、自分で終わる（終了の処理を、serve が取りつける）', async () => {
   const root = fs.mkdtempSync(path.join(require('os').tmpdir(), 'rikai-exit-'));
-  const cli = path.join(__dirname, '..', 'skill', 'rikai', 'rikai.js');
+  const cli = path.join(__dirname, '..', 'skills', 'rikai', 'rikai.js');
   const run = (...args) => cp.execFileSync(process.execPath, [cli, ...args, '--root', root], { input: '# 題\n', encoding: 'utf8', env: { ...process.env, NO_OPEN: '1' } });
   const alive = (pid) => { try { process.kill(pid, 0); return true; } catch (_) { return false; } };
   let pid = 0;

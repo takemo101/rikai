@@ -1,7 +1,7 @@
 'use strict';
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { progressOf } = require('../skill/rikai/public/progress.js');
+const { progressOf } = require('../skills/rikai/public/progress.js');
 const { rikai, tempProject, removeProject, makeTopic, addComment, submit, readThreads, singleAsk } = require('./helpers.js');
 
 test('空・壊れた入力でも、0 を返す', () => {

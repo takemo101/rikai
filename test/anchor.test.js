@@ -1,7 +1,7 @@
 'use strict';
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { findQuote, locateBlock, similarity } = require('../skill/rikai/public/anchor.js');
+const { findQuote, locateBlock, similarity } = require('../skills/rikai/public/anchor.js');
 
 const slice = (text, hit) => text.slice(hit.start, hit.end);
 

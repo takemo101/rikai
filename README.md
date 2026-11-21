@@ -55,7 +55,7 @@ rikai status [topic]               未処理のバッチなどを見る
 rikai stop                         サーバーを止める
 ```
 
-詳細は `skill/rikai/SKILL.md` を見てください。
+詳細は `skills/rikai/SKILL.md` を見てください。
 
 ## 保存の形
 
@@ -94,4 +94,4 @@ npm test    # 自動テスト（Node 18 以上。追加の依存なし。ブラ�
 
 ## ライセンス
 
-MIT（[LICENSE](LICENSE)）。同梱しているライブラリは `skill/rikai/public/vendor/LICENSE-*` を参照してください。
+MIT（[LICENSE](LICENSE)）。同梱しているライブラリは `skills/rikai/public/vendor/LICENSE-*` を参照してください。

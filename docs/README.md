@@ -15,13 +15,13 @@ rikai の補助文書の入口。製品要件・受け入れ条件・対象外�
 | [参考にした設計原則](references.md) | どのツール・原則を参考にし、何を選ばなかったか。調べた外部の機能と確認の状況 | 製品要件・原則の全文 |
 | [リファクタリングの観点](refactoring.md) | 動作を変えずに見直すときの観点と進め方 | 製品要件・実施権限・スコア化 |
 | [検証手順と記録](verification.md) | 条件をどう観測し、何をいつ確認したか、何が人間の確認待ちか | 新しい合格条件・未実施の成功 |
-| [スキル本体](../skill/rikai/SKILL.md) | エージェントが `/rikai` で読む手順（資料の作り方・待ち方・返信の方針・`apply` の入力） | コマンドの実装 |
+| [スキル本体](../skills/rikai/SKILL.md) | エージェントが `/rikai` で読む手順（資料の作り方・待ち方・返信の方針・`apply` の入力） | コマンドの実装 |
 
 文書間で矛盾を見つけたら、派生文書を根拠に製品要件を変更しない。SPEC の該当節と利用者の判断を確認し、必要な修正を、関係する文書へ反映する。
 
 ## 読む順序
 
-- **ツールを知る**：README → SPEC の位置づけ・機能要件・対象外 → [SKILL.md](../skill/rikai/SKILL.md)。
+- **ツールを知る**：README → SPEC の位置づけ・機能要件・対象外 → [SKILL.md](../skills/rikai/SKILL.md)。
 - **作業を始める**：SPEC の対象節と §6・§7 → [開発規約](../AGENTS.md)・[開発手順](development.md) → [構成説明](architecture.md)の該当箇所 → [コーディング指針](coding-guidelines.md) → 実際のソース。
 - **設計を判断する**：[参考にした設計原則](references.md) → [構成説明](architecture.md)。見直すときは、[リファクタリングの観点](refactoring.md)。
 - **動作を確かめる**：SPEC の受け入れ条件と §6 → [検証手順と記録](verification.md)。設計の説明だけで、動作確認を済ませない。
@@ -37,7 +37,7 @@ LICENSE                MIT
 install.sh             skill/rikai/ を ~/.claude/skills/rikai/ へ複製する（CLAUDE_SKILLS_DIR で変更）
 package.json           npm test（`node --test test/*.test.js`）だけ。依存はない
 test/                  自動テスト（node:test）。helpers.js・store・actions・ask・apply・poll・anchor・diff・progress・server
-skill/rikai/
+skills/rikai/
   SKILL.md             エージェント向けの手順（/rikai）
   rikai.js             コマンドの入口（new・open・poll・pull・apply・status・stop）と、サーバーの起動。Node 18+・依存なし
   lib/
