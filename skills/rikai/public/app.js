@@ -842,7 +842,7 @@
   selbtn.addEventListener('click', () => { if (pendingAnchor) startComposer(pendingAnchor); });
   blkbtn.addEventListener('click', () => { if (blkTarget) startComposer(blockAnchor(blkTarget)); });
   blkbtn.addEventListener('mouseenter', () => clearTimeout(blkHide));
-  blkbtn.addEventListener('mouseleave', () => { blkbtn.hidden = true; });
+  blkbtn.addEventListener('mouseleave', () => scheduleBlkHide());
 
   document.addEventListener('mouseup', (e) => {
     if (e.target === selbtn) return;
@@ -859,21 +859,42 @@
   });
   document.addEventListener('mousedown', (e) => { if (e.target !== selbtn) selbtn.hidden = true; });
 
-  $('#docscroll').addEventListener('mousemove', (e) => {
-    if (!isLatest()) return;
-    const blk = e.target.closest && e.target.closest('#article [data-bid]');
-    if (!blk) { clearTimeout(blkHide); blkHide = setTimeout(() => { blkbtn.hidden = true; }, 200); return; }
+  // 「＋」は、ブロックの右端（本文の箱の内側の余白）に出す。ボタンへ向かう間に消えない・別のブロックへ飛ばないように、
+  // ポインタが「そのブロックの高さ × 箱の右端まで」の帯にいる間は、同じブロックのまま出し続ける。
+  // 帯の外でも、本文の箱の左右の余白（ポインタが x 方向に外れている）では、同じ高さにある本文のブロックを探す。
+  function scheduleBlkHide() {
     clearTimeout(blkHide);
-    if (blk === blkTarget && !blkbtn.hidden) return;
-    blkTarget = blk;
+    blkHide = setTimeout(() => { blkbtn.hidden = true; }, 350);
+  }
+  function blockAt(x, y) {
+    const art = $('#article').getBoundingClientRect();
+    const px = Math.min(Math.max(x, art.left + 48), art.right - 48);
+    const el = document.elementFromPoint(px, y);
+    return el && el.closest ? el.closest('#article [data-bid]') : null;
+  }
+  function inBand(blk, x, y) {
     const r = blk.getBoundingClientRect();
     const art = $('#article').getBoundingClientRect();
-    blkbtn.style.left = `${art.right + 6}px`;
-    blkbtn.style.top = `${Math.max(r.top, 50)}px`;
+    return y >= r.top - 4 && y <= r.bottom + 4 && x >= r.left - 8 && x <= art.right + 8;
+  }
+  function placeBlkBtn(blk) {
+    const r = blk.getBoundingClientRect();
+    const art = $('#article').getBoundingClientRect();
+    blkbtn.style.left = `${art.right - 34}px`;
+    blkbtn.style.top = `${Math.min(Math.max(r.top, 50), Math.max(r.bottom - 26, 50))}px`;
+  }
+  $('#docscroll').addEventListener('mousemove', (e) => {
+    if (!isLatest()) return;
+    if (blkTarget && !blkbtn.hidden && inBand(blkTarget, e.clientX, e.clientY)) { clearTimeout(blkHide); return; }
+    const blk = blockAt(e.clientX, e.clientY);
+    if (!blk) { scheduleBlkHide(); return; }
+    clearTimeout(blkHide);
+    blkTarget = blk;
+    placeBlkBtn(blk);
     blkbtn.hidden = false;
   });
   $('#docscroll').addEventListener('scroll', () => { blkbtn.hidden = true; });
-  $('#docscroll').addEventListener('mouseleave', () => { blkHide = setTimeout(() => { blkbtn.hidden = true; }, 200); });
+  $('#docscroll').addEventListener('mouseleave', () => scheduleBlkHide());
 
   $('#article').addEventListener('click', (e) => {
     const a = e.target.closest('a[data-page]');
