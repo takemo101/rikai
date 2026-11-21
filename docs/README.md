@@ -45,7 +45,7 @@ skill/rikai/
     store.js           .rikai の読み書き・ロック・mutate・データの形の版（ルートの状態を持つ）
     ask.js             ask の検査（質問・回答）
     actions.js         画面からの操作（comment・reply・answer・edit・delete・resolve・submit・end）
-    agent.js           AI 向け（poll・pull の読み取り・apply）
+    agent.js           AI 向け（poll・pull・apply・status）
     server.js          HTTP サーバー（認証・配信・API）
   public/
     index.html         画面の骨組み
