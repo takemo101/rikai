@@ -85,6 +85,10 @@ rikai stop                         サーバーを止める
 
 続きの開発は [AGENTS.md](AGENTS.md)（規約）と [docs/README.md](docs/README.md)（文書の案内）から読んでください。製品要件の正本は [SPEC.md](SPEC.md)、確認した範囲は [検証手順と記録](docs/verification.md) です。
 
+```bash
+npm test    # 自動テスト（Node 18 以上。追加の依存なし。ブラウザは使わない）
+```
+
 ## ライセンス
 
 MIT（[LICENSE](LICENSE)）。同梱しているライブラリは `skill/rikai/public/vendor/LICENSE-*` を参照してください。

@@ -51,57 +51,14 @@
     try { return await fn(); } catch (e) { toast(e.message, true); return null; }
   }
 
-  // ------------------------------------------------------------ 引用の再特定（human-review の anchor-text と同じ考え方）
-  function occurrences(text, quote) {
-    const found = [];
-    let at = text.indexOf(quote);
-    while (at !== -1) { found.push(at); at = text.indexOf(quote, at + 1); }
-    return found;
-  }
-  const commonSuffix = (a, b) => { let n = 0; while (n < a.length && n < b.length && a[a.length - 1 - n] === b[b.length - 1 - n]) n++; return n; };
-  const commonPrefix = (a, b) => { let n = 0; while (n < a.length && n < b.length && a[n] === b[n]) n++; return n; };
-  function bestHit(text, hits, quote, prefix, suffix) {
-    let best = hits[0], bs = -1;
-    for (const at of hits) {
-      const sc = commonSuffix(prefix, text.slice(Math.max(0, at - prefix.length), at)) + commonPrefix(suffix, text.slice(at + quote.length, at + quote.length + suffix.length));
-      if (sc > bs) { bs = sc; best = at; }
-    }
-    return best;
-  }
-  function collapseWithMap(text) {
-    let flat = '', pending = -1;
-    const map = [];
-    for (let i = 0; i < text.length; i++) {
-      if (/\s/.test(text[i])) { if (pending === -1) pending = i; continue; }
-      if (pending !== -1 && flat) { flat += ' '; map.push(pending); }
-      pending = -1;
-      flat += text[i];
-      map.push(i);
-    }
-    return { flat, map };
-  }
-  function findQuote(text, a) {
-    const quote = a && a.quote;
-    if (!quote) return null;
-    const hits = occurrences(text, quote);
-    if (hits.length) {
-      const at = hits.length === 1 ? hits[0] : bestHit(text, hits, quote, a.prefix || '', a.suffix || '');
-      return { start: at, end: at + quote.length };
-    }
-    const { flat, map } = collapseWithMap(text);
-    const fq = quote.replace(/\s+/g, ' ').trim();
-    if (!fq || !map.length) return null;
-    const fh = occurrences(flat, fq);
-    if (!fh.length) return null;
-    const at = bestHit(flat, fh, fq, (a.prefix || '').replace(/\s+/g, ' '), (a.suffix || '').replace(/\s+/g, ' '));
-    return { start: map[at], end: map[at + fq.length - 1] + 1 };
-  }
+  // 引用・ブロックの探し直しは anchor.js（DOM に触れない関数。Node のテストと共有）
+  const { findQuote, locateBlock } = window.RikaiAnchor;
 
   // ------------------------------------------------------------ 状態
   const S = {
     topics: [], slug: null, page: 'root', version: null, topic: null,
     md: null, prevMd: null, loaded: '', docSig: '',
-    composer: null, active: null, showChanges: true, locs: new Map(), renderTok: 0,
+    composer: null, active: null, showChanges: true, locs: new Map(), approx: new Map(), renderTok: 0,
     drafts: { reply: {}, ask: {}, edit: {}, composer: '' },
     editing: null, seen: new Set(JSON.parse(localStorage.getItem('rikai-seen') || '[]')), offline: false,
   };
@@ -235,7 +192,10 @@
     return trunc(el.textContent, 40);
   }
   function blockAnchor(el) {
-    return { blockId: el.dataset.bid || '', blockHash: el.dataset.bhash || '', quote: '', prefix: '', suffix: '', label: blockLabel(el) };
+    return {
+      blockId: el.dataset.bid || '', blockHash: el.dataset.bhash || '', blockTag: el.tagName, blockText: blockText(el).slice(0, window.RikaiAnchor.EXCERPT),
+      quote: '', prefix: '', suffix: '', label: blockLabel(el),
+    };
   }
   function anchorFromSelection() {
     const sel = getSelection();
@@ -286,8 +246,10 @@
 
   function applyHighlights(art) {
     S.locs = new Map();
+    S.approx = new Map();
     const v = curVersion();
     const blocks = blockEls(art);
+    const infos = blocks.map((b) => ({ id: b.dataset.bid, hash: b.dataset.bhash, tag: b.tagName, text: blockText(b) }));
     for (const t of threadsOnPage()) {
       if (t.version > v) { S.locs.set(t.id, null); continue; }
       const a = t.anchor;
@@ -297,10 +259,15 @@
         const idx = textIndex(art);
         const hit = findQuote(idx.text, a);
         if (hit) el = wrapRange(art, hit.start, hit.end, t.id, statusClass(t));
-      }
-      if (!el && !a.quote) {
-        el = blocks.find((b) => b.dataset.bhash === a.blockHash) || (t.version === v ? blocks.find((b) => b.dataset.bid === a.blockId) : null) || null;
-        if (el) { el.classList.add('blk-thread', statusClass(t)); el.dataset.tid = t.id; }
+      } else {
+        // 内容が変わったブロックも、近い内容・同じ位置のブロックを、推定として探す（推定は、パネルに印を出す）
+        const found = locateBlock(infos, a);
+        if (found) {
+          el = blocks[found.index];
+          el.classList.add('blk-thread', statusClass(t));
+          el.dataset.tid = t.id;
+          if (found.approx) S.approx.set(t.id, found.approx);
+        }
       }
       S.locs.set(t.id, el);
     }
@@ -587,6 +554,7 @@
       h('span', { class: `chip ${stCls} small`, text: stText }),
       h('span', { class: 'chip small', text: `v${t.version}` }),
       orphan ? h('span', { class: 'chip warn small', text: '修正で文が変わりました' }) : null,
+      S.approx.has(t.id) ? h('span', { class: 'chip warn small', text: S.approx.get(t.id) === 'similar' ? '近い内容のブロックに表示' : '同じ位置のブロックに表示' }) : null,
       future ? h('span', { class: 'chip small', text: '後の版のコメント' }) : null,
       h('div', { class: 'quote', text: trunc(quote, 90) })));
     for (const m of t.messages) card.append(renderMessage(t, m));
