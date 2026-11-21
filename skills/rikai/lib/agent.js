@@ -78,6 +78,9 @@ function cmdApply(slug, payload) {
     if (P.round != null) {
       handle = pendingRounds.filter((r) => r.round === Number(P.round));
       if (!handle.length) errs.push(`round ${P.round} は未処理ではありません`);
+    } else if (pendingRounds.length > 1) {
+      // poll・pull が出すのは、いちばん古い round だけ。省略して全部を処理済みにすると、読んでいない round の発言に、返信せずに済ませてしまう
+      errs.push(`未処理の round が複数あります（${pendingRounds.map((r) => r.round).join('・')}）。poll・pull が出すのは、いちばん古い round だけです。読んだ round を、round に指定して、1 つずつ処理してください`);
     }
     if (errs.length) throw new HttpError(400, errs.join('\n'));
 

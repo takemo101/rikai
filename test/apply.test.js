@@ -97,11 +97,16 @@ test('round を指定すると、その round だけを処理する。未処理�
   rikai.actions.reply({ topic: 'demo', thread: id, text: '追加' });
   submit();
   assert.deepEqual(rikai.loadMeta('demo').pending, [1, 2]);
+  // 読んでいない round を、巻き込まない：poll・pull が出すのは、いちばん古い round だけ。round を省いたとき、未処理が複数なら、断る（何も書かない）
+  assert.equal(rikai.peek('demo').round, 1);
+  const before = JSON.stringify(rikai.loadMeta('demo').pending);
+  assert.throws(() => rikai.cmdApply('demo', { replies: [{ thread: id, body: '返信' }] }), httpError(400, /未処理の round が複数.*1・2/));
+  assert.equal(JSON.stringify(rikai.loadMeta('demo').pending), before, '断ったときは、何も書かない');
   assert.throws(() => rikai.cmdApply('demo', { round: 9, replies: [] }), httpError(400, /未処理ではありません/));
   const r = rikai.cmdApply('demo', { round: 1, replies: [{ thread: id, body: '返信' }] });
   assert.deepEqual(r.handledRounds, [1]);
   assert.deepEqual(rikai.loadMeta('demo').pending, [2]);
-  assert.deepEqual(rikai.cmdApply('demo', {}).handledRounds, [2], 'round を省くと、残りを処理する');
+  assert.deepEqual(rikai.cmdApply('demo', {}).handledRounds, [2], '未処理が 1 つなら、round を省いてよい');
 });
 
 test('質問が不正なら、apply 全体を断る', () => {
