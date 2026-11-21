@@ -99,6 +99,36 @@ test('「理解できた」と「再開」は、次の Submit で AI に届き�
   assert.equal(thread(id).resolved, false);
 });
 
+test('「解決」と「再開」を、送る前に往復しても、AI に送る変更はない（通知にならない）', () => {
+  const id = addComment();
+  submit();
+  rikai.cmdApply('demo', { replies: [{ thread: id, body: '返信' }] });
+
+  A.resolve({ topic: 'demo', thread: id, resolved: true });
+  assert.equal(rikai.peek('demo').unsent, 1, '解決の操作が、未送信として 1 件');
+  A.resolve({ topic: 'demo', thread: id, resolved: false });
+  assert.equal(rikai.peek('demo').unsent, 0, '元に戻したので、送るものはない');
+  assert.throws(() => submit(), httpError(400, /送るコメント/));
+});
+
+test('AI が「解決」と知っているスレッドを、再開して、また解決しても、送る変更はない。再開だけなら、reopened が届く', () => {
+  const id = addComment();
+  submit();
+  rikai.cmdApply('demo', { replies: [{ thread: id, body: '返信' }] });
+  A.resolve({ topic: 'demo', thread: id, resolved: true });
+  submit(); // AI は「解決」と知っている
+  rikai.cmdApply('demo', {}); // 届いた round を処理する（未処理があると、peek は unsent でなく feedback を返す）
+
+  A.resolve({ topic: 'demo', thread: id, resolved: false });
+  A.resolve({ topic: 'demo', thread: id, resolved: true });
+  assert.equal(rikai.peek('demo').unsent, 0);
+
+  A.resolve({ topic: 'demo', thread: id, resolved: false });
+  assert.equal(submit(), 3);
+  const round = JSON.parse(fs.readFileSync(path.join(dir, '.rikai', 'demo', 'rounds', '003.json'), 'utf8'));
+  assert.equal(round.items[0].userMarked, 'reopened');
+});
+
 test('存在しないスレッド・メッセージは 404', () => {
   assert.throws(() => A.reply({ topic: 'demo', thread: 't99', text: 'x' }), httpError(404));
   const id = addComment();

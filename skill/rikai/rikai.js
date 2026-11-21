@@ -348,7 +348,11 @@ const actions = {
     return mutate(b.topic, (meta, th) => {
       const t = findThread(th, b.thread);
       const want = !!b.resolved;
-      if (t.resolved !== want) { t.resolved = want; t.resolveSent = false; }
+      // AI が最後に知っている状態。変更が未送信（resolveSent が false）なら、いまの状態の逆
+      // 「解決」→「再開」のように、元に戻したときは、AI に送る変更はない（送ると、何も変わっていないのに通知になる）
+      const known = t.resolveSent ? t.resolved : !t.resolved;
+      t.resolved = want;
+      t.resolveSent = want === known;
       return {};
     });
   },

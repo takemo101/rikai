@@ -159,3 +159,5 @@ dialog textarea { width: 100%; font: inherit; padding: 6px 8px; border: 1px soli
 
 #ended { position: fixed; inset: 0; background: rgba(246,245,241,.96); z-index: 100; display: flex; align-items: center; justify-content: center; }
 .ended-box { text-align: center; }
+.ended-list { list-style: none; padding: 0; }
+.ended-list a { color: var(--accent); font-size: 16px; }
