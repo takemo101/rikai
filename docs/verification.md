@@ -289,7 +289,7 @@
 
 **確認していない範囲**：
 
-- README の **GitHub を指定したコマンド**（`takemo101/rikai`）。マージ前は、`main` にマニフェストがないので、試せない。ローカルのパスでの確認だけ。
+- README の **GitHub を指定したコマンド**は、マージ前は試せなかったが、**マージ後（`main` = `02e6793`）に、一時の `HOME` で実行して、6 つとも入った**：`claude plugin marketplace add takemo101/rikai` → `install rikai@rikai`（版は git のコミット）、`codex plugin marketplace add takemo101/rikai` → `plugin add rikai@rikai`（0.1.0）、`omp plugin marketplace add takemo101/rikai` → `plugin install rikai@rikai`（0.1.0）、`grok plugin install takemo101/rikai --trust`、`pi install git:github.com/takemo101/rikai`、agy は clone して `agy plugin install ./rikai`（0.1.0）。入ったことの確認までで、入れたあとに `/rikai` を動かしてはいない。確認のあと、一時の `HOME` は消した。
 - Claude Code・grok・agy・codex で `/rikai` を実際に動かすこと。omp・pi でも、`status` だけで、**資料の作成・Submit・返信の通し**は、していない（SPEC の人間の確認待ち）。
 - 呼び出しの名前（`/rikai:rikai`・`/skill:rikai`・`/rikai`）のうち、確かめたのは、omp と pi の `/skill:rikai` だけ。ほかは、各エージェントのドキュメントと、検証コマンドの出力（Claude Code の `rikai:rikai`）による。
 - 同じ名前のスキルが、ほかの場所（`~/.claude/skills/` など）にもあるときの重複の扱い（omp のドキュメントには、同じ内容なら、あとのものを黙って捨てるとある。確認していない）。
