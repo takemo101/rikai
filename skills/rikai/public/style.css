@@ -103,6 +103,46 @@ label.chk { font-size: 12.5px; color: var(--muted); display: flex; gap: 4px; ali
 #article .diffbox del { background: #fbdcdc; text-decoration: line-through; }
 #article .diffbox.removed { margin-top: 24px; padding-top: 8px; border-top: 1px dashed var(--line); }
 #article .diffbox.removed .diff + .diff { margin-top: 4px; }
+
+/* 資料の形式（diff・json・terminal・trace）。public/fmt.js の出力。`.md` は、本文（#article）と、AI の返信の本体の、両方につく */
+.md .fmt { margin: 0 0 14px; border: 1px solid var(--line); border-radius: 6px; background: #fff; overflow: auto; }
+.md .fmt pre { margin: 0; padding: 8px 0; background: transparent; border: 0; border-radius: 0; font: 12.5px/1.55 ui-monospace, SFMono-Regular, Menlo, monospace; }
+#article .blk.changed.fmt { background: #fff; } /* 変更したブロックの薄い緑の背景（linear-gradient）で、暗い端末の背景・文字色が、読めなくならないように */
+.fmt-diff pre { display: grid; width: max-content; min-width: 100%; } /* 横にスクロールしても、行の背景が、途中で切れない */
+.fmt-diff .dl { display: block; padding: 0 12px; white-space: pre; }
+.fmt-diff .dl.add { background: #e6f6ea; color: #1a5c32; }
+.fmt-diff .dl.del { background: #fdeaea; color: #8c2a1d; }
+.fmt-diff .dl.hunk { background: #eef3f9; color: #2f5d8a; }
+.fmt-diff .dl.meta { color: #6b6b6b; font-weight: 600; }
+.md .fmt-term, #article .blk.changed.fmt-term { background: #1e1f22; border-color: #1e1f22; }
+.md .fmt-term pre { padding: 10px 14px; color: #d8d8d8; }
+.md .fmt-term mark.hl { color: #1e1f22; } /* コメントの強調（黄）の上でも、文字が読める */
+/* 背景（a-g）を先に、文字色（a-f）を後に置く：明るい背景の、暗い文字色を、指定された文字色が上書きできるように */
+.a-g0 { background: #484f58; } .a-g1 { background: #b62324; } .a-g2 { background: #2ea043; } .a-g3 { background: #9e6a03; } .a-g4 { background: #1f6feb; } .a-g5 { background: #8957e5; } .a-g6 { background: #1b7c83; } .a-g7 { background: #b1bac4; color: #1e1f22; }
+.a-g8 { background: #6e7681; } .a-g9 { background: #da3633; } .a-g10 { background: #3fb950; } .a-g11 { background: #d29922; } .a-g12 { background: #388bfd; } .a-g13 { background: #a371f7; } .a-g14 { background: #39c5cf; } .a-g15 { background: #f0f6fc; color: #1e1f22; }
+.a-f0 { color: #6e7681; } .a-f1 { color: #ff7b72; } .a-f2 { color: #7ee787; } .a-f3 { color: #e3b341; } .a-f4 { color: #79c0ff; } .a-f5 { color: #d2a8ff; } .a-f6 { color: #56d4dd; } .a-f7 { color: #d8d8d8; }
+.a-f8 { color: #8b949e; } .a-f9 { color: #ffa198; } .a-f10 { color: #56d364; } .a-f11 { color: #f2cc60; } .a-f12 { color: #a5d6ff; } .a-f13 { color: #e2c5ff; } .a-f14 { color: #b3f0ff; } .a-f15 { color: #ffffff; }
+.a-b { font-weight: 700; } .a-d { opacity: .65; } .a-i { font-style: italic; } .a-u { text-decoration: underline; }
+.md .fmt-json { padding: 8px 12px; font: 12.5px/1.65 ui-monospace, SFMono-Regular, Menlo, monospace; }
+.fmt-json summary { cursor: pointer; list-style: none; }
+.fmt-json summary::-webkit-details-marker { display: none; }
+.fmt-json summary::before { content: '▸'; display: inline-block; width: 1em; color: #888; }
+.fmt-json details[open] > summary::before { content: '▾'; }
+.fmt-json summary::after { content: ' ' attr(data-n); color: #999; font-size: 11px; } /* 個数は、文字でなく、ここで出す（引用・AI に届く文字に、入らない） */
+.fmt-json .jl { padding-left: 1em; }
+.fmt-json .jc { margin-left: 0.4em; padding-left: 0.6em; border-left: 1px dotted var(--line); }
+.fmt-json .jk { color: #8c2a8f; } .fmt-json .js { color: #1a7f3c; } .fmt-json .jn { color: #0b57d0; } .fmt-json .jb { color: #b45309; } .fmt-json .jp { color: #888; }
+.fmt-json .js, .fmt-json .jk { white-space: pre-wrap; } /* 文字列・キーの中の、連続した空白を、つぶさない（書かれたとおり） */
+.md .fmt-trace { padding: 8px 12px; }
+.fmt-trace .tr { display: grid; grid-template-columns: minmax(80px, 170px) minmax(120px, 1fr) 56px 64px minmax(0, 1.2fr); gap: 10px; align-items: center; padding: 3px 0; font-size: 12.5px; }
+.fmt-trace .tt { position: relative; height: 12px; background: #f3f1ea; border-radius: 3px; }
+.fmt-trace .tb { position: absolute; top: 0; bottom: 0; min-width: 2px; background: var(--accent); border-radius: 3px; }
+.fmt-trace .ts, .fmt-trace .td { text-align: right; color: var(--muted); font-variant-numeric: tabular-nums; }
+.fmt-trace .ts { font-size: 11px; }
+.fmt-trace .tm { color: var(--muted); }
+.fmt-trace .tz .tt { background: transparent; height: 14px; }
+.fmt-trace .tz .tt::before { content: '0'; position: absolute; top: 0; left: 0; font-size: 10px; color: var(--muted); }
+.fmt-trace .tz .tt::after { content: attr(data-total); position: absolute; top: 0; right: 0; font-size: 10px; color: var(--muted); }
 mark.hl { background: var(--hl-live); color: inherit; border-radius: 2px; cursor: pointer; padding: 1px 0; }
 mark.hl.resolved { background: var(--hl-done); }
 mark.hl.active { outline: 2px solid var(--accent); outline-offset: 1px; }

@@ -105,7 +105,7 @@ async function handler(req, res) {
       return serveFile(res, path.join(PUBLIC, 'index.html'), { 'Content-Security-Policy': INDEX_CSP });
     }
 
-    if (req.method === 'GET' && (p === '/app.js' || p === '/anchor.js' || p === '/diff.js' || p === '/progress.js' || p === '/style.css' || p === '/favicon.svg' || p.startsWith('/vendor/'))) {
+    if (req.method === 'GET' && (p === '/app.js' || p === '/anchor.js' || p === '/diff.js' || p === '/progress.js' || p === '/fmt.js' || p === '/style.css' || p === '/favicon.svg' || p.startsWith('/vendor/'))) {
       const file = path.resolve(PUBLIC, '.' + p);
       if (!file.startsWith(PUBLIC + path.sep)) return send(res, 403, 'forbidden');
       return serveFile(res, file);

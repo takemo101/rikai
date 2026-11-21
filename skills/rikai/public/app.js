@@ -84,8 +84,11 @@
     gfm: true,
     renderer: {
       code({ text, lang }) {
-        if ((lang || '').trim() === 'mermaid') return `<div class="mermaid-block" data-mermaid="${encSrc(text)}"></div>`;
-        return false;
+        const kind = (lang || '').trim().split(/\s+/)[0].toLowerCase();
+        if (kind === 'mermaid') return `<div class="mermaid-block" data-mermaid="${encSrc(text)}"></div>`;
+        // diff・json・terminal（ANSI）・trace：決まった形の HTML にする（文字は escape 済み。読めないものは、ふつうのコードブロック）
+        const fmt = window.RikaiFmt ? window.RikaiFmt.render(kind, text) : null; // fmt.js が読めないとき（古いサーバー）は、ふつうのコードブロック
+        return fmt || false;
       },
     },
   });
@@ -95,6 +98,11 @@
     const tpl = document.createElement('template');
     tpl.innerHTML = clean;
     const root = tpl.content;
+    // trace の棒の位置・長さ：`style` 属性は無害化で消えるので、無害化のあとに、数だけから、ここで設定する
+    for (const b of $$('.fmt-trace .tb', root)) {
+      const s = Number(b.dataset.s), w = Number(b.dataset.w);
+      if (Number.isFinite(s) && Number.isFinite(w)) { b.style.left = `${Math.min(Math.max(s, 0), 100)}%`; b.style.width = `${Math.min(Math.max(w, 0.4), 100)}%`; }
+    }
     for (const a of $$('a[href]', root)) {
       const href = a.getAttribute('href');
       if (href.startsWith('page:')) {
@@ -192,6 +200,7 @@
 
   function blockLabel(el) {
     if (el.classList.contains('mermaid-block')) return '図';
+    if (el.dataset && el.dataset.fmt) return window.RikaiFmt ? window.RikaiFmt.labelOf(el.dataset.fmt) : '図表';
     const img = el.querySelector && el.querySelector('img');
     if (img) return `画像: ${img.alt || ''}`.trim();
     if (el.tagName === 'TABLE') return '表';
@@ -337,6 +346,7 @@
     if (el.classList.contains('mermaid-block')) return safeDecode(el.dataset.mermaid || '');
     if (el.tagName === 'TABLE') return [...el.rows].map((r) => [...r.cells].map((c) => c.textContent.trim()).join(' | ')).join('\n');
     if (el.tagName === 'PRE') return (el.textContent || '').replace(/\n$/, '');
+    if (el.dataset && el.dataset.fmt) return (el.textContent || '').replace(/\n+$/, ''); // 形式の各行・各項目は、改行で終わる（fmt.js）。行を、つなげない
     return (el.textContent || '').replace(/\s+/g, ' ').trim();
   }
 
