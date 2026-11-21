@@ -726,7 +726,7 @@
     r.readAsDataURL(file);
   });
   // 付けられた画像の名前の一覧を返す（付けなかったものは、入らない）
-  async function attachFiles(key, files) {
+  async function attachFiles(key, files, stillValid) { // stillValid：付ける直前に、まだ付けてよいか（範囲の切り出しが、別の対象に付かないように）
     const added = [];
     for (const f of files) {
       if (!IMG_TYPES.includes(f.type)) { toast('画像は、png・jpeg・gif・webp だけ付けられます', true); continue; }
@@ -739,7 +739,7 @@
       try { r = await act(async () => api('/api/attach', { topic: slug, data: await readBase64(f) })); } finally { S.uploading--; }
       // 終わるまでに、入力欄をやめた・送った・別のトピックへ移った、なら、この画像は、付けない（別の入力欄に、出ないように）。
       // 続けて何枚も貼ると、上の枚数の検査は、完了を待たずに通るので、付ける直前に、もう一度、上限を見る
-      if (r && slug === S.slug && gen === (S.imgGen[key] || 0) && !draftImgs(key).includes(r.name) && draftImgs(key).length < IMG_MAX_N) { draftImgs(key).push(r.name); added.push(r.name); }
+      if (r && slug === S.slug && gen === (S.imgGen[key] || 0) && (!stillValid || stillValid()) && !draftImgs(key).includes(r.name) && draftImgs(key).length < IMG_MAX_N) { draftImgs(key).push(r.name); added.push(r.name); }
     }
     renderThreads();
     return added;
@@ -866,10 +866,10 @@
 
   function startComposer(anchor) {
     if (!isLatest()) { toast('コメントは最新版にだけ付けられます', true); return; }
-    // 前の入力欄が、範囲の切り出し画像を、自動で付けていたら、外す（対象が変わるので、別の範囲の画像を、送らない）。まだ終わっていないアップロードは、捨てる
+    // 前の入力欄が、範囲の切り出し画像を、自動で付けていたら、外す（対象が変わるので、別の範囲の画像を、送らない）。
+    // 切り出しのアップロードが、まだ終わっていないときは、finishRegion が、入力欄が同じものかを確かめて、捨てる（ユーザー自身の画像は、捨てない）
     const prevCrop = S.composer && S.composer.regionImg;
     if (prevCrop) S.drafts.imgs.composer = draftImgs('composer').filter((n) => n !== prevCrop);
-    S.imgGen.composer = (S.imgGen.composer || 0) + 1;
     S.composer = { anchor };
     renderThreads();
     const ta = $('[data-key="composer"]');
@@ -1123,13 +1123,17 @@
     startComposer({ ...blockAnchor(blk), label: `${regionLabel(blk, media)}の一部`, rect: rect4 });
     const comp = S.composer;
     if (!comp) return; // 最新版でないとき、startComposer が断った
+    // 切り出し（写真は、2 秒ほどかかる）の間も、「アップロード中」にして、その間の送信を断る（切り出しが、送られずに消えないように）
+    S.uploading++;
+    renderThreads();
     cropMedia(media, rect4)
       .then(async (file) => {
         if (!file || S.composer !== comp) return; // 切り出している間に、入力欄をやめた・別の対象へ移ったなら、付けない
-        const names = await attachFiles('composer', [file]);
+        const names = await attachFiles('composer', [file], () => S.composer === comp);
         if (names[0] && S.composer === comp) comp.regionImg = names[0]; // 対象を選び直したとき、この画像だけを外すため
       })
-      .catch(() => toast('この範囲の画像を作れませんでした（このブラウザでは、図の切り出しができないことがあります）。位置だけで、コメントできます', true));
+      .catch(() => toast('この範囲の画像を作れませんでした（このブラウザでは、図の切り出しができないことがあります）。位置だけで、コメントできます', true))
+      .finally(() => { S.uploading--; renderThreads(); });
   }
   // 範囲を、画像にする。画像は、元の解像度から。図（svg）と、ベクターの画像（SVG の img）は、表示の大きさの最大 2 倍で描く。
   // 出力は、長い辺が 2400px まで（写真の元の解像度は、5MB を超えるため）。PNG が大きすぎるときは、JPEG にする。
@@ -1138,11 +1142,15 @@
     const isImg = media.tagName.toLowerCase() === 'img';
     const b = media.getBoundingClientRect();
     const vectorScale = Math.min(2, 2400 / Math.max(b.width, b.height));
+    const vector = isImg && /^data:image\/svg|\.svg(?:[?#]|$)/i.test(media.currentSrc || media.src);
     let src, sw, sh; // 描く元と、それを画像にしたときの大きさ（切り出しの座標は、この大きさで測る）
-    if (isImg && !/^data:image\/svg|\.svg(?:[?#]|$)/i.test(media.currentSrc || media.src)) {
+    let fit = null; // ベクターの img は、箱の中に、縦横比を保って収まる（表示と同じに、中央にそろえる）
+    if (isImg && !vector) {
       src = media; sw = media.naturalWidth; sh = media.naturalHeight;
     } else if (isImg) {
       src = media; sw = Math.round(b.width * vectorScale); sh = Math.round(b.height * vectorScale);
+      const nw = media.naturalWidth, nh = media.naturalHeight;
+      if (nw && nh) { const s = Math.min(sw / nw, sh / nh); fit = { w: nw * s, h: nh * s, x: (sw - nw * s) / 2, y: (sh - nh * s) / 2 }; }
     } else {
       sw = Math.round(b.width * vectorScale); sh = Math.round(b.height * vectorScale);
       const clone = media.cloneNode(true);
@@ -1166,7 +1174,8 @@
     const ctx = cv.getContext('2d');
     ctx.fillStyle = '#fff'; // 透明な図は、PNG にしたとき、見えなくならないよう、白地に
     ctx.fillRect(0, 0, cv.width, cv.height);
-    ctx.drawImage(src, -sx * k, -sy * k, sw * k, sh * k); // 全体を、ずらして描く（はみ出す所は、切れる）。k が 1 なら、切り出しと同じ
+    const f = fit || { x: 0, y: 0, w: sw, h: sh };
+    ctx.drawImage(src, (f.x - sx) * k, (f.y - sy) * k, f.w * k, f.h * k); // 全体を、ずらして描く（はみ出す所は、切れる）。k が 1 なら、切り出しと同じ
     const toBlob = (type, q) => new Promise((resolve) => cv.toBlob(resolve, type, q));
     let blob = await toBlob('image/png');
     let name = 'region.png';
@@ -1188,7 +1197,11 @@
     const t = regionTidAt(e.clientX, e.clientY);
     if (t) return t;
     const el = e.target.closest('[data-tid]:not([data-tid="pending"])'); // 入力中の強調（pending）の下にある、コメントの印を選ぶ
-    return el ? el.dataset.tid : null;
+    if (!el) return null;
+    // 範囲のコメントだけのブロックは、範囲の外では、どのコメントにも当てない（最後の範囲に、飛ばない）
+    const badges = S.blkBadges && S.blkBadges.get(el);
+    if (badges && badges.every((bd) => S.regions.some((g) => g.tid === bd.tid))) return null;
+    return el.dataset.tid;
   }
   $('#article').addEventListener('click', (e) => {
     const a = e.target.closest('a[data-page]');
@@ -1229,6 +1242,7 @@
       });
       layer.append(rb);
     }
+    if (linkedTid) for (const e of $$(`[data-tid="${linkedTid}"]`, layer)) e.classList.add('linked'); // 描き直しても、いま光らせているものは、光ったまま
   }
   let badgeFrame = 0;
   const scheduleBadges = () => { if (!badgeFrame) badgeFrame = requestAnimationFrame(() => { badgeFrame = 0; placeBadges(); }); };
