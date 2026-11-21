@@ -134,3 +134,37 @@ test('存在しないスレッド・メッセージは 404', () => {
   const id = addComment();
   assert.throws(() => A.edit({ topic: 'demo', thread: id, msg: 'm99', text: 'x' }), httpError(404));
 });
+
+test('AI が「解決」と知っているスレッドへの返信は、再開として AI に届く。返信を消しても、再開は届く', () => {
+  const id = addComment();
+  submit();
+  rikai.cmdApply('demo', { replies: [{ thread: id, body: '返信' }] });
+  A.resolve({ topic: 'demo', thread: id, resolved: true });
+  submit(); // AI は「解決」と知っている
+  rikai.cmdApply('demo', {});
+
+  A.reply({ topic: 'demo', thread: id, text: 'やっぱり質問' });
+  const followup = thread(id).messages.find((m) => m.kind === 'followup' && !m.sent);
+  A.delete({ topic: 'demo', thread: id, msg: followup.id });
+  assert.equal(rikai.peek('demo').unsent, 1, '返信を消しても、再開は、AI に伝えていない');
+  assert.equal(submit(), 3);
+  const round = JSON.parse(fs.readFileSync(path.join(dir, '.rikai', 'demo', 'rounds', '003.json'), 'utf8'));
+  assert.equal(round.items[0].userMarked, 'reopened');
+  assert.deepEqual(round.items[0].new, []);
+});
+
+test('AI が「解決」と知っているスレッドへ返信してから、また「解決」にすると、解決の通知は要らない（返信だけが届く）', () => {
+  const id = addComment();
+  submit();
+  rikai.cmdApply('demo', { replies: [{ thread: id, body: '返信' }] });
+  A.resolve({ topic: 'demo', thread: id, resolved: true });
+  submit();
+  rikai.cmdApply('demo', {});
+
+  A.reply({ topic: 'demo', thread: id, text: '補足の質問' });
+  A.resolve({ topic: 'demo', thread: id, resolved: true });
+  assert.equal(submit(), 3);
+  const round = JSON.parse(fs.readFileSync(path.join(dir, '.rikai', 'demo', 'rounds', '003.json'), 'utf8'));
+  assert.equal(round.items[0].userMarked, undefined, 'AI は、すでに「解決」と知っている');
+  assert.deepEqual(round.items[0].new.map((m) => m.text), ['補足の質問']);
+});
