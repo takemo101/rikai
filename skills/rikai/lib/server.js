@@ -32,6 +32,9 @@ function parseCookies(req) {
   }
   return o;
 }
+// 合言葉の Cookie の名前に、ポートを入れる。ブラウザの Cookie は、ポートで分かれない（127.0.0.1 で共有）ので、
+// 名前が固定だと、別のプロジェクトの rikai サーバーを開いたとき、先に開いていた画面の Cookie が上書きされて 403 になる
+const cookieName = () => `rikai_t_${PORT}`;
 function tokenOk(given) {
   const g = String(given || '');
   return g.length === TOKEN.length && crypto.timingSafeEqual(Buffer.from(g), Buffer.from(TOKEN));
@@ -41,7 +44,7 @@ function denyReason(req, url) {
   if (host !== `127.0.0.1:${PORT}` && host !== `localhost:${PORT}`) return 'ホスト名が違います';
   const origin = req.headers.origin;
   if (origin && origin !== `http://127.0.0.1:${PORT}` && origin !== `http://localhost:${PORT}`) return '別のページからは操作できません';
-  const given = req.headers['x-rikai-token'] || parseCookies(req).rikai_t || '';
+  const given = req.headers['x-rikai-token'] || parseCookies(req)[cookieName()] || '';
   if (!tokenOk(given)) return '合言葉が違います';
   return null;
 }
@@ -94,9 +97,9 @@ async function handler(req, res) {
       if (host !== `127.0.0.1:${PORT}` && host !== `localhost:${PORT}`) return send(res, 403, 'forbidden');
       const t = url.searchParams.get('t');
       if (t && tokenOk(t)) {
-        return send(res, 302, '', { Location: '/', 'Set-Cookie': `rikai_t=${TOKEN}; HttpOnly; SameSite=Strict; Path=/` });
+        return send(res, 302, '', { Location: '/', 'Set-Cookie': `${cookieName()}=${TOKEN}; HttpOnly; SameSite=Strict; Path=/` });
       }
-      if (!tokenOk(parseCookies(req).rikai_t)) return send(res, 403, 'rikai の URL から開き直してください（合言葉が必要です）');
+      if (!tokenOk(parseCookies(req)[cookieName()])) return send(res, 403, 'rikai の URL から開き直してください（合言葉が必要です）');
       return serveFile(res, path.join(PUBLIC, 'index.html'), { 'Content-Security-Policy': INDEX_CSP });
     }
 
