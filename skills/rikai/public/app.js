@@ -155,6 +155,8 @@
     return out;
   }
   const blockText = (el) => el.dataset.mermaid || (el.textContent || '').replace(/\s+/g, ' ').trim();
+  // 範囲を選べる要素：ブロックの中の、画像（img）と図（svg。Mermaid・AI が書いたインラインの SVG）。最初の 1 つ
+  const mediaOf = (el) => (el.matches('img, svg') ? el : el.querySelector('img, svg'));
   function markBlocks(root) {
     blockEls(root).forEach((el, i) => { el.dataset.bid = `b${i}`; el.dataset.bhash = hash(blockText(el)); el.classList.add('blk'); });
   }
@@ -283,6 +285,7 @@
     // （コメントの位置づけに使う本文の文字を、変えない）
     S.nums = new Map();
     S.blkBadges = new Map();
+    S.regions = []; // 画像・図の中の範囲を、対象にしたコメントの枠（placeBadges が、層に出す）
     const located = threadsOnPage().filter((t) => S.locs.get(t.id)).sort(docOrder);
     located.forEach((t, i) => {
       const n = i + 1;
@@ -296,6 +299,7 @@
         const el = S.locs.get(t.id);
         if (!S.blkBadges.has(el)) S.blkBadges.set(el, []);
         S.blkBadges.get(el).push({ tid: t.id, n, resolved: !!t.resolved });
+        if (t.anchor && t.anchor.rect) S.regions.push({ tid: t.id, el, rect: t.anchor.rect, n, resolved: !!t.resolved });
       }
     });
     placeBadges();
@@ -314,7 +318,7 @@
     const art = $('#article');
     if (!S.composer && !art.querySelector('mark.hl.pending, .blk-pending')) return; // 何もなければ、本文に触らない
     clearPending();
-    if (!S.composer) return;
+    if (!S.composer) { scheduleBadges(); return; } // 入力中の範囲の枠を、消す
     const a = S.composer.anchor;
     if (a.quote) {
       const hit = findQuote(textIndex(art).text, a);
@@ -324,6 +328,7 @@
       const found = locateBlock(blocks.map((b) => ({ id: b.dataset.bid, hash: b.dataset.bhash, tag: b.tagName, text: blockText(b) })), a);
       if (found) { S.pendingEl = blocks[found.index]; S.pendingEl.classList.add('blk-pending'); }
     }
+    scheduleBadges(); // 入力中の範囲の枠（オレンジ）を、出す
   }
 
   // 差分に使う、ブロックの文字（表は、セルを「 | 」で、行を改行でつなぐ。図は、ソース）
@@ -865,7 +870,7 @@
     if (card) card.scrollIntoView({ block: 'center', behavior: 'smooth' });
     getSelection().removeAllRanges();
     $('#selbtn').hidden = true;
-    $('#blkbtn').hidden = true;
+    hideBlkBtns();
   }
 
   function focusThread(tid, scrollDoc) {
@@ -975,6 +980,7 @@
   // ------------------------------------------------------------ 選択・ブロックのコメント入口
   const selbtn = $('#selbtn');
   const blkbtn = $('#blkbtn');
+  const regbtn = $('#regbtn');
   let pendingAnchor = null;
   let blkTarget = null;
   let blkHide;
@@ -982,8 +988,11 @@
   selbtn.addEventListener('mousedown', (e) => e.preventDefault());
   selbtn.addEventListener('click', () => { if (pendingAnchor) startComposer(pendingAnchor); });
   blkbtn.addEventListener('click', () => { if (blkTarget) startComposer(blockAnchor(blkTarget)); });
-  blkbtn.addEventListener('mouseenter', () => clearTimeout(blkHide));
-  blkbtn.addEventListener('mouseleave', () => scheduleBlkHide());
+  regbtn.addEventListener('click', () => { if (blkTarget) startRegionSelect(blkTarget); });
+  for (const b of [blkbtn, regbtn]) {
+    b.addEventListener('mouseenter', () => clearTimeout(blkHide));
+    b.addEventListener('mouseleave', () => scheduleBlkHide());
+  }
 
   document.addEventListener('mouseup', (e) => {
     if (e.target === selbtn) return;
@@ -1005,7 +1014,7 @@
   // 帯の外でも、本文の箱の右の余白にいる間は、同じ高さにある本文のブロックを探す（左の余白は、探さない）。
   function scheduleBlkHide() {
     clearTimeout(blkHide);
-    blkHide = setTimeout(() => { blkbtn.hidden = true; }, 350);
+    blkHide = setTimeout(hideBlkBtns, 350);
   }
   function blockAt(x, y) {
     const art = $('#article').getBoundingClientRect();
@@ -1025,6 +1034,11 @@
     const top = $('#docscroll').getBoundingClientRect().top + 4; // 本文の領域の上端（上のバーに、重ねない）
     blkbtn.style.left = `${art.right - 34}px`;
     blkbtn.style.top = `${Math.min(Math.max(r.top, top), Math.max(r.bottom - 26, top))}px`;
+    // 画像・図には、範囲を選ぶボタンも、「＋」の左に出す（画像は、読み込めているものだけ）
+    const media = mediaOf(blk);
+    regbtn.hidden = !(media && (media.tagName.toLowerCase() !== 'img' || media.naturalWidth > 0));
+    regbtn.style.left = `${art.right - 34 - 58}px`;
+    regbtn.style.top = blkbtn.style.top;
   }
   $('#docscroll').addEventListener('mousemove', (e) => {
     if (!isLatest()) return;
@@ -1036,8 +1050,100 @@
     placeBlkBtn(blk);
     blkbtn.hidden = false;
   });
-  $('#docscroll').addEventListener('scroll', () => { blkbtn.hidden = true; });
+  $('#docscroll').addEventListener('scroll', hideBlkBtns);
   $('#docscroll').addEventListener('mouseleave', () => scheduleBlkHide());
+
+  // ------------------------------------------------------------ 画像・図の中の範囲を選んで、コメントする
+  // 範囲は、その画像・図の大きさに対する比率（左上が原点。{x,y,w,h}）で持つ。切り出した画像は、コメントの画像として添付する
+  // （AI には、画像のファイルの場所と、範囲の比率〔region〕が届く）。コメントの探し直しは、ブロックの位置づけと同じ（範囲は、ブロックの中の位置）
+  function hideBlkBtns() { blkbtn.hidden = true; regbtn.hidden = true; }
+  const regsel = $('#regsel');
+  let regState = null;
+  function cancelRegion() { regState = null; regsel.hidden = true; regsel.replaceChildren(); }
+  function startRegionSelect(blk) {
+    if (!isLatest()) { toast('コメントは最新版にだけ付けられます', true); return; }
+    const media = mediaOf(blk);
+    if (!media) return;
+    hideBlkBtns();
+    const ds = $('#docscroll'), dr = ds.getBoundingClientRect(), m = media.getBoundingClientRect();
+    regsel.replaceChildren(h('div', { class: 'hint', text: 'ドラッグして、範囲を選びます（Esc でやめる）' }));
+    Object.assign(regsel.style, { left: `${Math.round(m.left - dr.left + ds.scrollLeft)}px`, top: `${Math.round(m.top - dr.top + ds.scrollTop)}px`, width: `${m.width}px`, height: `${m.height}px` });
+    regsel.hidden = false;
+    regState = { blk, media, from: null, box: null };
+  }
+  // ドラッグ中の矩形（選択の枠の内側の座標。はみ出さない）
+  function regRect(e) {
+    const r = regsel.getBoundingClientRect();
+    const x = Math.min(Math.max(e.clientX - r.left, 0), r.width), y = Math.min(Math.max(e.clientY - r.top, 0), r.height);
+    const f = regState.from;
+    return { x: Math.min(f.x, x), y: Math.min(f.y, y), w: Math.abs(x - f.x), h: Math.abs(y - f.y), W: r.width, H: r.height };
+  }
+  regsel.addEventListener('pointerdown', (e) => {
+    if (!regState || e.button !== 0) return;
+    const r = regsel.getBoundingClientRect();
+    regState.from = { x: e.clientX - r.left, y: e.clientY - r.top };
+    regState.box = h('div', { class: 'box' });
+    regsel.append(regState.box);
+    regsel.setPointerCapture(e.pointerId);
+    e.preventDefault();
+  });
+  regsel.addEventListener('pointermove', (e) => {
+    if (!regState || !regState.from) return;
+    const q = regRect(e);
+    Object.assign(regState.box.style, { left: `${q.x}px`, top: `${q.y}px`, width: `${q.w}px`, height: `${q.h}px` });
+  });
+  regsel.addEventListener('pointerup', (e) => {
+    if (!regState || !regState.from) return;
+    const q = regRect(e), { blk, media } = regState;
+    cancelRegion();
+    if (q.w < 8 || q.h < 8) { toast('範囲が小さすぎます。ドラッグで、範囲を選んでください', true); return; }
+    finishRegion(blk, media, { x: q.x / q.W, y: q.y / q.H, w: q.w / q.W, h: q.h / q.H });
+  });
+  regsel.addEventListener('pointercancel', cancelRegion);
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && regState) cancelRegion(); });
+  document.addEventListener('pointerdown', (e) => { if (regState && !regsel.contains(e.target)) cancelRegion(); });
+  window.addEventListener('resize', cancelRegion);
+  function finishRegion(blk, media, rect) {
+    const r4 = (v) => Math.round(v * 10000) / 10000;
+    const rect4 = { x: r4(rect.x), y: r4(rect.y), w: r4(rect.w), h: r4(rect.h) };
+    startComposer({ ...blockAnchor(blk), label: `${blockLabel(blk)}の一部`, rect: rect4 });
+    cropMedia(media, rect4)
+      .then((file) => { if (file) attachFiles('composer', [file]); })
+      .catch(() => toast('この範囲の画像を作れませんでした（このブラウザでは、図の切り出しができないことがあります）。位置だけで、コメントできます', true));
+  }
+  // 範囲を、PNG にする。画像は、元の大きさ（自然な解像度）から切り出す。図（svg）は、画像にして（最大 2 倍）から切り出す。
+  // 画像は同じオリジン（/asset/・data:）なので、canvas が汚れない。svg は、外部のものを読まない（data: の画像にする）
+  async function cropMedia(media, rect) {
+    let src, sw, sh;
+    if (media.tagName.toLowerCase() === 'img') {
+      src = media; sw = media.naturalWidth; sh = media.naturalHeight;
+    } else {
+      const b = media.getBoundingClientRect();
+      const scale = Math.min(2, 2400 / Math.max(b.width, b.height));
+      sw = Math.round(b.width * scale); sh = Math.round(b.height * scale); // 画像にしたときの大きさ（切り出しの座標は、この大きさで測る）
+      const clone = media.cloneNode(true);
+      clone.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+      if (!clone.getAttribute('viewBox')) clone.setAttribute('viewBox', `0 0 ${b.width} ${b.height}`);
+      clone.setAttribute('width', sw);
+      clone.setAttribute('height', sh);
+      const im = new Image();
+      await new Promise((resolve, reject) => {
+        im.onload = resolve;
+        im.onerror = () => reject(new Error('svg を読めません'));
+        im.src = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(new XMLSerializer().serializeToString(clone))}`;
+      });
+      src = im;
+    }
+    const sx = Math.round(rect.x * sw), sy = Math.round(rect.y * sh);
+    const cw = Math.max(1, Math.min(sw - sx, Math.round(rect.w * sw))), ch = Math.max(1, Math.min(sh - sy, Math.round(rect.h * sh)));
+    const cv = document.createElement('canvas');
+    cv.width = cw; cv.height = ch;
+    const ctx = cv.getContext('2d');
+    ctx.fillStyle = '#fff'; // 透明な図は、PNG にしたとき、見えなくならないよう、白地に
+    ctx.fillRect(0, 0, cw, ch);
+    ctx.drawImage(src, sx, sy, cw, ch, 0, 0, cw, ch);
+    return new Promise((resolve) => cv.toBlob((blob) => resolve(blob ? new File([blob], 'region.png', { type: 'image/png' }) : null), 'image/png'));
+  }
 
   $('#article').addEventListener('click', (e) => {
     const a = e.target.closest('a[data-page]');
@@ -1062,6 +1168,21 @@
       box.style.top = `${Math.round(r.top - dr.top + ds.scrollTop) + 2}px`;
       box.style.left = `${left}px`;
       layer.append(box);
+    }
+    // 画像・図の中の範囲を、対象にしたコメントの枠（その要素の大きさに対する比率で、位置を決める）。入力中のものは、オレンジ
+    const regions = [...(S.regions || [])];
+    if (S.composer && S.composer.anchor.rect && S.pendingEl) regions.push({ tid: 'pending', el: S.pendingEl, rect: S.composer.anchor.rect, n: '新', pending: true });
+    for (const g of regions) {
+      const media = g.el.isConnected ? mediaOf(g.el) : null;
+      if (!media) continue;
+      const m = media.getBoundingClientRect();
+      if (!m.width || !m.height) continue;
+      const rb = h('div', { class: `regionbox${g.resolved ? ' resolved' : ''}${g.pending ? ' pending' : ''}`, 'data-tid': g.tid }, h('span', { class: 'rn', text: String(g.n) }));
+      Object.assign(rb.style, {
+        left: `${Math.round(m.left - dr.left + ds.scrollLeft + g.rect.x * m.width)}px`, top: `${Math.round(m.top - dr.top + ds.scrollTop + g.rect.y * m.height)}px`,
+        width: `${Math.round(g.rect.w * m.width)}px`, height: `${Math.round(g.rect.h * m.height)}px`,
+      });
+      layer.append(rb);
     }
   }
   let badgeFrame = 0;
@@ -1162,7 +1283,7 @@
     $('#btn-side').setAttribute('aria-expanded', String(!!UI.sideOpen));
     const wb = $('#btn-wide');
     if (wb) wb.textContent = wideLabel();
-    $('#blkbtn').hidden = true; // 配置が変わるので、「＋」は、次にマウスを動かしたとき、出し直す
+    hideBlkBtns(); // 配置が変わるので、「＋」・「範囲」は、次にマウスを動かしたとき、出し直す
     scheduleBadges(); // 記事の大きさが変わらず、位置だけ動くとき（上限の幅で中央にそろえているときの、左の一覧のしまい・右の幅の変更）も、ブロックの印を合わせ直す
   }
   function toggleWide() {
@@ -1178,7 +1299,7 @@
   resizer.addEventListener('pointerdown', (e) => {
     if (e.button !== 0) return; // 左ボタン（またはタッチ・ペン）だけ。右ボタンの、メニューの途中で、離しを失わないように
     $('#selbtn').hidden = true; // 配置が変わるので、選択の「コメント」・「＋」は、古い位置に残さない
-    $('#blkbtn').hidden = true;
+    hideBlkBtns();
     resizer.setPointerCapture(e.pointerId);
     resizer.classList.add('drag');
     document.body.classList.add('resizing');

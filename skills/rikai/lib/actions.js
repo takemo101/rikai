@@ -149,7 +149,7 @@ const actions = {
         files[t.page] = { title: pg.title, version: pg.versions, file: pageFile(meta.slug, t.page, pg.versions) };
         items.push({
           thread: t.id, page: t.page, createdOnVersion: t.version, latestVersion: pg.versions,
-          anchor: t.anchor ? { quote: t.anchor.quote, label: t.anchor.label, prefix: t.anchor.prefix, suffix: t.anchor.suffix } : null,
+          anchor: t.anchor ? { quote: t.anchor.quote, label: t.anchor.label, prefix: t.anchor.prefix, suffix: t.anchor.suffix, ...(t.anchor.rect ? { region: t.anchor.rect } : {}) } : null,
           ...(resolveChange ? { userMarked: t.resolved ? 'resolved' : 'reopened' } : {}),
           history: t.messages.filter((m) => !fresh.includes(m)).map(compact),
           new: fresh.map(compact),
