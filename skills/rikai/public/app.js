@@ -722,7 +722,8 @@
     const scroll = panel.scrollTop;
     panel.replaceChildren();
     if (!S.topic) return;
-    const head = h('div', { class: 'side-h', text: 'コメント' });
+    const head = h('div', { class: 'side-h panel-h' }, 'コメント',
+      h('button', { id: 'btn-wide', class: 'link', title: 'コメントを広く見る／もとの幅に戻す（幅は、左の境目のドラッグでも変えられます）', onclick: toggleWide, text: wideLabel() }));
     panel.append(head);
     markPending(); // 入力中の対象を本文で強調し、その位置を決めてから、入力欄を並べる
     const list = threadsOnPage();
@@ -1014,6 +1015,61 @@
     const a = e.target.closest('a.pagecard, a.pagelink');
     if (a) S.composer = null;
   });
+
+  // ------------------------------------------------------------ 画面の広さ（左の一覧をしまう・右のコメントの幅）
+  // 設定は、このブラウザの localStorage に覚える（サーバーには送らない。資料・コメントとは別）
+  const UI = { sideOpen: true, panelW: 380, wide: false };
+  try { Object.assign(UI, JSON.parse(localStorage.getItem('rikai-ui') || '{}')); } catch (_) { /* 壊れていたら、既定のまま */ }
+  const PANEL_MIN = 280, PANEL_DEFAULT = 380, PANEL_WIDE = 720;
+  const panelMax = () => Math.max(PANEL_MIN, Math.floor(window.innerWidth * 0.7));
+  const saveUi = () => { try { localStorage.setItem('rikai-ui', JSON.stringify(UI)); } catch (_) { /* 保存できなくても、使える */ } };
+  const panelWidth = () => (UI.wide ? Math.min(PANEL_WIDE, panelMax()) : Math.min(Math.max(Number(UI.panelW) || PANEL_DEFAULT, PANEL_MIN), panelMax()));
+  function wideLabel() { return UI.wide ? '狭くする' : '広くする'; }
+  function applyUi() {
+    const app = $('#app');
+    app.classList.toggle('side-collapsed', !UI.sideOpen);
+    const w = panelWidth();
+    app.style.setProperty('--panel-w', `${w}px`);
+    $('#panel-resizer').setAttribute('aria-valuenow', String(w));
+    $('#btn-side').setAttribute('aria-expanded', String(!!UI.sideOpen));
+    const wb = $('#btn-wide');
+    if (wb) wb.textContent = wideLabel();
+    $('#blkbtn').hidden = true; // 配置が変わるので、「＋」は、次にマウスを動かしたとき、出し直す
+  }
+  function toggleWide() { UI.wide = !UI.wide; saveUi(); applyUi(); }
+  $('#btn-side').addEventListener('click', () => { UI.sideOpen = !UI.sideOpen; saveUi(); applyUi(); });
+  const resizer = $('#panel-resizer');
+  resizer.addEventListener('pointerdown', (e) => {
+    resizer.setPointerCapture(e.pointerId);
+    resizer.classList.add('drag');
+    document.body.classList.add('resizing');
+    e.preventDefault();
+  });
+  resizer.addEventListener('pointermove', (e) => {
+    if (!resizer.hasPointerCapture(e.pointerId)) return;
+    UI.wide = false;
+    UI.panelW = Math.round(Math.min(Math.max(window.innerWidth - e.clientX, PANEL_MIN), panelMax()));
+    applyUi();
+  });
+  const endResize = (e) => {
+    if (resizer.hasPointerCapture(e.pointerId)) resizer.releasePointerCapture(e.pointerId);
+    resizer.classList.remove('drag');
+    document.body.classList.remove('resizing');
+    saveUi();
+  };
+  resizer.addEventListener('pointerup', endResize);
+  resizer.addEventListener('pointercancel', endResize);
+  resizer.addEventListener('dblclick', () => { UI.wide = false; UI.panelW = PANEL_DEFAULT; saveUi(); applyUi(); });
+  resizer.addEventListener('keydown', (e) => {
+    if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
+    e.preventDefault();
+    UI.wide = false;
+    UI.panelW = Math.min(Math.max(panelWidth() + (e.key === 'ArrowLeft' ? 24 : -24), PANEL_MIN), panelMax());
+    saveUi();
+    applyUi();
+  });
+  window.addEventListener('resize', applyUi);
+  applyUi();
   window.addEventListener('hashchange', () => act(route));
 
   act(route);
