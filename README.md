@@ -1,6 +1,6 @@
 # rikai（/rikai）
 
-資料にコメントして Submit すると、AI が **返信** と **資料の修正（新しい版）** で答えるスキルです。このループを繰り返して理解を深めます。
+資料にコメントして Submit すると、AI が **返信** と **資料の修正（新しい版）** で答えるスキルです。このループを繰り返して理解を深めます。**試作**です（実装の状態は [SPEC §6](SPEC.md#6-実装の状態)。実際の Claude Code での通しは、まだ確かめていません）。
 
 - 文や図・表を選んでコメントを付けます（Google ドキュメントのように）。
 - AI は選択肢・複数選択・Yes/No・5段階・自由記述で質問を返せます。
@@ -18,10 +18,12 @@
 ## インストール
 
 ```bash
+git clone https://github.com/takemo101/rikai.git
+cd rikai
 bash install.sh      # ~/.claude/skills/rikai/ にコピーされる
 ```
 
-Claude Code を開き直すと `/rikai` が使えます。
+Claude Code を開き直すと `/rikai` が使えます。アンインストールは `rm -rf ~/.claude/skills/rikai`。
 
 ## 使い方
 
@@ -77,4 +79,12 @@ rikai stop                         サーバーを止める
 
 - 版どうしの行単位の差分表示（変更ブロックの印のみ）
 - 書き換えられて消えた文へのコメントの自動追従（見つからなければ「修正で文が変わりました」と表示します）
-- Windows での動作確認（macOS で確認）
+- Windows・Linux・Safari・Firefox での動作確認（macOS の Chromium 系で確認）
+
+## 開発する人へ
+
+続きの開発は [AGENTS.md](AGENTS.md)（規約）と [docs/README.md](docs/README.md)（文書の案内）から読んでください。製品要件の正本は [SPEC.md](SPEC.md)、確認した範囲は [検証手順と記録](docs/verification.md) です。
+
+## ライセンス
+
+MIT（[LICENSE](LICENSE)）。同梱しているライブラリは `skill/rikai/public/vendor/LICENSE-*` を参照してください。
