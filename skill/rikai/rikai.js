@@ -57,9 +57,9 @@ const now = () => new Date().toISOString();
 function readJSON(p, fallback) {
   try { return JSON.parse(fs.readFileSync(p, 'utf8')); } catch (e) { if (e.code === 'ENOENT') return fallback; throw e; }
 }
-function writeJSON(p, v) {
+function writeJSON(p, v, mode) {
   const tmp = `${p}.${process.pid}.tmp`;
-  fs.writeFileSync(tmp, JSON.stringify(v, null, 2));
+  fs.writeFileSync(tmp, JSON.stringify(v, null, 2), mode ? { mode } : undefined);
   fs.renameSync(tmp, p);
 }
 
@@ -110,6 +110,7 @@ const pageFile = (slug, page, v) => path.join(tdir(slug), 'pages', page, `v${v}.
 
 // 変更はすべてここを通す。fn が投げたら何も書かない
 function mutate(slug, fn) {
+  loadMeta(slug); // 存在しないトピックは、ロックのフォルダを作る前に 404（作ろうとすると、内部エラーの 500 になる）
   return withLock(slug, () => {
     const meta = loadMeta(slug);
     const th = loadThreads(slug);
@@ -238,7 +239,7 @@ const str = (v, max = 20000) => String(v == null ? '' : v).slice(0, max);
 function normAnchor(a) {
   if (!a || typeof a !== 'object') return null;
   return {
-    blockId: str(a.blockId, 40), blockHash: str(a.blockHash, 40),
+    blockId: str(a.blockId, 40), blockHash: str(a.blockHash, 40), blockTag: str(a.blockTag, 16), blockText: str(a.blockText, 200),
     quote: str(a.quote, 2000), prefix: str(a.prefix, 64), suffix: str(a.suffix, 64), label: str(a.label, 120),
   };
 }
@@ -254,6 +255,9 @@ function findUnsentUserMsg(t, id) {
   if (m.sent) throw new HttpError(400, '送信済みのメッセージは変更できません');
   return m;
 }
+
+// 全トピックが閉じたときの動き。テストでは差し替える
+const hooks = { allClosed: () => setTimeout(shutdown, 800) };
 
 const actions = {
   comment(b) {
@@ -287,6 +291,7 @@ const actions = {
       const t = findThread(th, b.thread);
       const q = t.messages.find((m) => m.id === b.msg && m.author === 'ai' && m.ask);
       if (!q) throw new HttpError(404, '質問がありません');
+      if (t.messages.some((m) => m.kind === 'answer' && m.to === q.id && m.sent)) throw new HttpError(400, '送信済みの回答は変えられません');
       const old = t.messages.find((m) => m.kind === 'answer' && m.to === q.id && !m.sent);
       if (b.answer == null) {
         if (old) t.messages.splice(t.messages.indexOf(old), 1);
@@ -365,7 +370,7 @@ const actions = {
   },
   end(b) {
     const r = mutate(b.topic, (meta) => { meta.closed = true; return {}; });
-    if (listTopics().every((t) => t.closed)) setTimeout(shutdown, 800);
+    if (listTopics().every((t) => t.closed)) hooks.allClosed();
     return r;
   },
 };
@@ -378,13 +383,21 @@ function listRounds(slug) {
   return fs.readdirSync(dir).filter((f) => /^\d+\.json$/.test(f)).sort().map((f) => readJSON(path.join(dir, f), null)).filter(Boolean);
 }
 
+// Submit されたものがあるか。poll（待つ）と pull（待たない）が共有する。
+// 出力の status（feedback / closed / none）は、round のレコードの status（pending / handled）とは別の語なので、必ずレコードの後に置く
+function peek(slug) {
+  const meta = loadMeta(slug);
+  const pend = listRounds(slug).find((r) => r.status === 'pending');
+  if (pend) return { ...pend, status: 'feedback', nextStep: 'コメントごとに返信し、rikai apply で反映する。Claude Code は、そのあと、もう一度 rikai poll をバックグラウンドで起動する' };
+  if (meta.closed) return { status: 'closed', unsent: countUnsent(loadThreads(slug)) };
+  return { status: 'none', message: 'まだ Submit されたコメントはありません', unsent: countUnsent(loadThreads(slug)) };
+}
+
 async function cmdPoll(slug, flags) {
   const deadline = Date.now() + (Number(flags.timeout) || 43200) * 1000;
   for (;;) {
-    const meta = loadMeta(slug);
-    const pend = listRounds(slug).find((r) => r.status === 'pending');
-    if (pend) return out({ ...pend, status: 'feedback', nextStep: 'コメントごとに返信し、rikai apply で反映してから、もう一度 rikai poll を起動する' });
-    if (meta.closed) return out({ status: 'closed', unsent: countUnsent(loadThreads(slug)) });
+    const r = peek(slug);
+    if (r.status !== 'none') return out(r);
     if (Date.now() > deadline) return out({ status: 'timeout' });
     await sleep(500);
   }
@@ -392,10 +405,7 @@ async function cmdPoll(slug, flags) {
 
 // 待機しない版。poll を使えないエージェントが、ユーザーに「送った」と言われたあとに読みに行く
 function cmdPull(slug) {
-  const meta = loadMeta(slug);
-  const pend = listRounds(slug).find((r) => r.status === 'pending');
-  if (pend) return out({ ...pend, status: 'feedback', nextStep: 'コメントごとに返信し、rikai apply で反映する' });
-  return out({ status: meta.closed ? 'closed' : 'none', message: 'まだ Submit されたコメントはありません', unsentInBrowser: countUnsent(loadThreads(slug)) });
+  return out(peek(slug));
 }
 
 function cmdApply(slug, payload) {
@@ -441,7 +451,6 @@ function cmdApply(slug, payload) {
     const normNew = newThreads.map((r, i) => {
       const w = `threads[${i}]`;
       if (!hasPage(r.page)) errs.push(`${w}.page が存在しない: ${r.page}`);
-      if (created.has(r.page) && !known.has(r.page)) { /* 新規ページへの質問も可 */ }
       if (!String(r.body || '').trim()) errs.push(`${w}.body が空`);
       if (r.link != null && !hasPage(r.link)) errs.push(`${w}.link が存在しない: ${r.link}`);
       return { ...r, ask: normAsk(r.ask, w, errs) };
@@ -605,7 +614,7 @@ async function handler(req, res) {
       return serveFile(res, path.join(PUBLIC, 'index.html'), { 'Content-Security-Policy': INDEX_CSP });
     }
 
-    if (req.method === 'GET' && (p === '/app.js' || p === '/style.css' || p === '/favicon.svg' || p.startsWith('/vendor/'))) {
+    if (req.method === 'GET' && (p === '/app.js' || p === '/anchor.js' || p === '/style.css' || p === '/favicon.svg' || p.startsWith('/vendor/'))) {
       const file = path.resolve(PUBLIC, '.' + p);
       if (!file.startsWith(PUBLIC + path.sep)) return send(res, 403, 'forbidden');
       return serveFile(res, file);
@@ -676,13 +685,23 @@ function shutdown() {
   process.exit(0);
 }
 
-function cmdServe() {
+// サーバーを起こして、待ち受けを始める（ポートは空きポート）。テストも使う
+function startServer() {
   ensureBase();
   TOKEN = crypto.randomBytes(24).toString('hex');
   const server = http.createServer(handler);
-  server.listen(0, '127.0.0.1', () => {
-    PORT = server.address().port;
-    writeJSON(serverFile(), { pid: process.pid, port: PORT, token: TOKEN, root: ROOT, startedAt: now() });
+  return new Promise((resolve) => {
+    server.listen(0, '127.0.0.1', () => {
+      PORT = server.address().port;
+      resolve({ server, port: PORT, token: TOKEN });
+    });
+  });
+}
+
+function cmdServe() {
+  // 合言葉を含むので、自分だけが読める権限（0600）で置く
+  startServer().then(({ port, token }) => {
+    writeJSON(serverFile(), { pid: process.pid, port, token, root: ROOT, startedAt: now() }, 0o600);
   });
   process.on('SIGTERM', shutdown);
   process.on('SIGINT', shutdown);
@@ -755,11 +774,15 @@ const HELP = `rikai <command>
   stop                                           サーバーを止める
   共通: --root <dir>  プロジェクトルート（省略時は git のルート、なければ cwd）`;
 
+function setRoot(root) {
+  ROOT = root;
+  BASE = path.join(ROOT, '.rikai');
+}
+
 async function main() {
   const { pos, flags } = parseArgs(process.argv.slice(2));
   const cmd = pos[0];
-  ROOT = projectRoot(flags);
-  BASE = path.join(ROOT, '.rikai');
+  setRoot(projectRoot(flags));
   const slug = pos[1];
   try {
     switch (cmd) {
@@ -786,4 +809,9 @@ async function main() {
   }
 }
 
-main();
+if (require.main === module) main();
+
+module.exports = {
+  setRoot, HttpError, checkSlug, newTopic, mutate, loadMeta, loadThreads, listRounds, pageFile, tdir,
+  normAsk, normAnswer, actions, hooks, peek, cmdApply, cmdStatus, startServer,
+};

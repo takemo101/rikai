@@ -70,7 +70,23 @@ $RK stop; rm -rf /tmp/rk-dev
 
 ## 検証の入口
 
-**自動テストは、まだない。** 変更の確認は、次のとおり。結果は [検証手順と記録](verification.md) に、日付と環境つきで残す。
+変更の確認は、**自動テスト（`npm test`）と、手作業**で行う。結果は [検証手順と記録](verification.md) に、日付と環境つきで残す。
+
+```bash
+npm test        # node --test test/*.test.js。追加の依存なし（Node 18 以上）。ブラウザ・実際のエージェントは使わない
+```
+
+| テスト（`test/`） | 試すこと |
+|---|---|
+| `store.test.js` | トピックの作成と検査・`mutate` が失敗したら何も書かず、ロックを残さないこと・`rev` |
+| `actions.test.js` | 画面からの操作（コメント・返信・編集・削除・解決・Submit）の検査と、Submit の中身 |
+| `ask.test.js` | `ask` と回答の検査（5 つの型）・回答の流れ・送信済みの回答の拒否 |
+| `apply.test.js` | `apply` の検証（誤りを全部返して、何も書かない）・反映・`round` 指定・二重の改訂・未返信の通知 |
+| `poll.test.js` | `peek`（`poll`・`pull` の出力）・`closed`・全トピックが閉じたときの合図 |
+| `anchor.test.js` | `findQuote`・`locateBlock`・`similarity`（コメントの探し直し） |
+| `server.test.js` | 実際に待ち受けて、合言葉・`Host`・`Origin`・Cookie・CSP・配信のパス・`rikai open` の `.server.json` の権限（0600） |
+
+`test/helpers.js` が、一時のプロジェクト（`os.tmpdir()`）と、作り物の資料・コメントを用意する。利用者の `.rikai/` には触れない。**ブラウザの描画（DOMPurify・選択・パネル）は、DOM が要るので、自動テストの対象外**。次の手作業で確かめる。
 
 | 目的 | 方法 |
 |---|---|
@@ -81,7 +97,7 @@ $RK stop; rm -rf /tmp/rk-dev
 | 認証 | 合言葉なしの `GET /api/topics` が 403 になること |
 | インストール | `CLAUDE_SKILLS_DIR=/tmp/x bash install.sh`。実際の `~/.claude/skills` へは、依頼があるときだけ |
 
-自動テストを足すときの方針（まだ実施していない）：Node 標準の `node:test` と `node:assert`（依存を増やさない）。対象は、`apply` の検証・`normAnswer`・`mutate` の失敗時に何も書かないこと・`findQuote`・無害化（DOMPurify の設定）・パスの検査。`rikai.js` の関数を、サーバーを起こさずに試せるよう、`module.exports` を足す変更が、先に要る。
+自動テストを足すときは、`test/<領域>.test.js` に、Node 標準の `node:test` と `node:assert/strict` で書く（依存を増やさない）。**足したテストは、実装を壊して（たとえば、検査を外して）、落ちることを、一度確かめる**。
 
 ## 変更の進め方
 
@@ -126,6 +142,7 @@ npm audit          # 修正のある版を探す
 
 - `.mikan/` 全体は Git 管理外（`.git/info/exclude`）のローカル作業状態であり、別の clone へ Issue やボード設定は引き継がれない。配下を直接参照・編集せず、文書のリンク対象にも含めない。Issue の読取り、Status 更新、Report 追加は mikan MCP だけで行う（初期化だけが CLI の `mikan init`）。
 - 使える機能は、`search_tools` で発見し、`get_tool_details` で schema と分類を確認する。読取り専用と分類されたものだけを `call_read_tool`、更新または未分類を `call_write_tool` から呼ぶ。**`get_issue` は未分類で、`call_read_tool` に拒否される**（読むだけと確かめてから、`call_write_tool` を使う。2026-11-21 に確認）。
+- **Issue の ID の接頭辞（`RIK`）を、作るたびに確かめる**。2026-11-21 に、RIK-001 を `completed` へ移した直後に、プロジェクトのキーが `MIK`（既定）に戻り、次の Issue が `MIK-001` で作られた（原因は未特定。再現の手順も未確認）。`mikan init -k RIK -n rikai` を、もう一度実行すると、キーが戻る（既存の Issue は消えない。作業用のコピーで確認した）。誤った ID の Issue は、`archived` に移して、作り直した。
 - 実装 Issue は **`backlog → ready → active → completed`** の順で進める。各遷移の直前に、現在の Status を再読取りし、期待する前状態に一致することを確認する。
 
 | Status | 扱い |
