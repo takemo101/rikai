@@ -617,8 +617,8 @@
   }
   const cloneAns = (a) => (a ? JSON.parse(JSON.stringify(a)) : null);
 
-  // 答えないまま、会話が進んだ質問（あとに、利用者の発言がある）：もう、答えを求めない。小さく見せて、「答える」で開く（答えたければ、答えられる）
-  const askStale = (t, q) => !answerOf(t, q) && !t.resolved && t.messages.slice(t.messages.indexOf(q) + 1).some((m) => m.author === 'user' && !(m.kind === 'answer' && m.to === q.id));
+  // 答えないまま、会話が進んだ質問（あとに、**送信した**利用者の発言がある。別の質問への回答は、数えない）：もう、答えを求めない。小さく見せて、「答える」で開く（答えたければ、答えられる）
+  const askStale = (t, q) => !answerOf(t, q) && !t.resolved && t.messages.slice(t.messages.indexOf(q) + 1).some((m) => m.author === 'user' && m.sent && m.kind !== 'answer');
   function renderAsk(t, q) {
     const ask = q.ask;
     if (askStale(t, q) && !S.askOpen.has(q.id)) {
