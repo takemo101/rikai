@@ -165,8 +165,9 @@
   const blockText = (el) => el.dataset.mermaid || (el.textContent || '').replace(/\s+/g, ' ').trim();
   // 範囲を選べる要素：ブロックの中の、画像（img）と図（svg。Mermaid・AI が書いたインラインの SVG）。最初の 1 つ
   const mediaOf = (el) => (el.matches('img, svg') ? el : el.querySelector('img, svg'));
-  // 範囲の基準：ブロックの最初の画像・図（画像は、読み込めているものだけ）。なければ、ブロックそのもの。範囲の枠を出すときも、同じ基準を使う（保存した比率は、この基準に対するもの）
-  const frameOf = (el) => { const m = mediaOf(el); return m && (m.tagName.toLowerCase() !== 'img' || m.naturalWidth > 0) ? m : el; };
+  // 範囲の基準：ブロックの最初の画像・図。なければ、ブロックそのもの。**壊れた画像**（読み込みが終わって、大きさがない）だけは、ブロックを基準にする。
+  // 読み込み前の画像（遅延読み込み）は、画像のまま（大きさがないあいだは、枠を出さない。読み込まれたら、合わせ直す）。範囲の枠を出すときも、同じ基準を使う（保存した比率は、この基準に対するもの）
+  const frameOf = (el) => { const m = mediaOf(el); if (!m) return el; return m.tagName.toLowerCase() === 'img' && m.complete && !m.naturalWidth ? el : m; };
   function markBlocks(root) {
     blockEls(root).forEach((el, i) => { el.dataset.bid = `b${i}`; el.dataset.bhash = hash(blockText(el)); el.classList.add('blk'); });
   }
@@ -1139,8 +1140,10 @@
     const rect4 = { x: r4((vr.left - fr.left) / fr.width), y: r4((vr.top - fr.top) / fr.height), w: r4(vr.width / fr.width), h: r4(vr.height / fr.height) };
     if (!(fr.width && fr.height) || rect4.w < 0.0005 || rect4.h < 0.0005) { toast('範囲が小さすぎます。ドラッグで、範囲を選んでください', true); return; }
     // 範囲が、1 つの画像・図の中に収まるなら、元の解像度から切り出す。そうでなければ、表示されている本文を、画像にする
-    const inside = media && vr.left >= fr.left - 1 && vr.top >= fr.top - 1 && vx2 <= fr.right + 1 && vy2 <= fr.bottom + 1;
-    const text = blk.textContent.replace(/\s+/g, ' ').trim();
+    const inside = media && (media.tagName.toLowerCase() !== 'img' || media.naturalWidth > 0) && vr.left >= fr.left - 1 && vr.top >= fr.top - 1 && vx2 <= fr.right + 1 && vy2 <= fr.bottom + 1;
+    const plain = blk.cloneNode(true); // <style>・<script> の中身（図の CSS など）は、名前に入れない
+    for (const x of plain.querySelectorAll('style, script')) x.remove();
+    const text = blk.classList.contains('mermaid-block') ? '図' : plain.textContent.replace(/\s+/g, ' ').trim();
     const label = inside ? `${regionLabel(blk, media)}の一部` : `範囲：${trunc(text, 30) || blk.tagName.toLowerCase()}`; // 画像・図の外へ出る範囲は、画像の一部ではない
     // 画像にする作業は、入力欄を開く前に始める（入力中のオレンジの強調が、画像に写らないように。スタイルを写す所までは、同期で終わる）
     const job = inside ? cropMedia(media, rect4) : rasterRegion(vr);
@@ -1225,7 +1228,7 @@
     const targets = [...art.children].filter((el) => hit(el.getBoundingClientRect()));
     let count = 0;
     for (const el of targets) count += 1 + el.querySelectorAll('*').length;
-    if (count > 3000) throw userError('範囲の中の本文が大きすぎて、画像にできません（要素が 3000 を超えています）。小さい範囲を選んでください。位置だけで、コメントできます');
+    if (count > 3000) throw userError('範囲に重なるブロック（表・リストなど）が大きすぎて、画像にできません（要素の合計が 3000 を超えています）。位置だけで、コメントできます');
     // 入力中の強調（オレンジ）は、画像に写さない：スタイルを写す間だけ、外す（同期のうちに戻す）
     const pend = [...art.querySelectorAll('.pending, .blk-pending')].map((e) => [e, ['pending', 'blk-pending'].filter((c) => e.classList.contains(c))]);
     for (const [e, cl] of pend) e.classList.remove(...cl);
@@ -1371,9 +1374,13 @@
       if (!g.m) continue;
       const m = g.m;
       const rb = h('div', { class: `regionbox${g.resolved ? ' resolved' : ''}${g.pending ? ' pending' : ''}`, 'data-tid': g.tid });
+      // 範囲が、本文の領域の外（左右）へ出ても、領域の中に収める（枠のせいで、横にスクロールできるようにならない）
+      const x0 = Math.round(m.left - dr.left + ds.scrollLeft + g.rect.x * m.width), x1 = x0 + Math.round(g.rect.w * m.width);
+      const left = Math.max(0, x0), right = Math.min(ds.clientWidth, x1);
+      if (right <= left) continue;
       Object.assign(rb.style, {
-        left: `${Math.round(m.left - dr.left + ds.scrollLeft + g.rect.x * m.width)}px`, top: `${Math.round(m.top - dr.top + ds.scrollTop + g.rect.y * m.height)}px`,
-        width: `${Math.round(g.rect.w * m.width)}px`, height: `${Math.round(g.rect.h * m.height)}px`,
+        left: `${left}px`, top: `${Math.round(m.top - dr.top + ds.scrollTop + g.rect.y * m.height)}px`,
+        width: `${right - left}px`, height: `${Math.round(g.rect.h * m.height)}px`,
       });
       layer.append(rb);
     }
