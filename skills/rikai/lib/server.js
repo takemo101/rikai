@@ -98,34 +98,51 @@ const indexCsp = (host) => `default-src 'self'; img-src 'self' data:; style-src 
 //   読めるのは、文書の中のものだけ（インラインのスクリプト・スタイル・data: の画像・フォント）。eval は、使えない
 // - `frame-src 'none'`・`object-src 'none'`・`base-uri 'none'`・`form-action 'none'`・`frame-ancestors 'self'`（この画面の枠としてだけ、入れられる）
 // - `X-DNS-Prefetch-Control: off`：DNS の先読みを止める（枠の中の `<link rel=dns-prefetch>` など）
-// 止められないもの（既知の限界）：WebRTC・（DNS の先読みの、一部）。枠の中には、画面の秘密は渡らない（上のとおり、触れない）。枠の中で、利用者が入力した文字は、外へ出せるかもしれない（枠の見出しで、秘密を入れないよう伝える）
+// 止められないもの（既知の限界）：**WebRTC**（STUN・TURN への通信。CSP の `connect-src` の対象でなく、`webrtc` ディレクティブも、Chrome 150 では効かない〔実測〕。枠の中に、`srcdoc` の iframe を作ると、
+// 子の文書は、新しい realm で、元の RTCPeerConnection を持つ。`frame-src` は、`about:srcdoc`・`about:blank` を止めない。直接呼ぶ道だけを塞ぐ補助は、迂回できるので、置かない）・（DNS の先読みの、一部）。
+// 枠の中には、画面の秘密は渡らない（上のとおり、触れない）。枠の中で、利用者が入力した文字は、外へ出せる（枠の見出しで、秘密を入れないよう伝える）
 const APP_CSP = "sandbox allow-scripts; default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data:; font-src data:; media-src 'none'; connect-src 'none'; frame-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'self'";
 
 // 枠の中身の取り出し：資料の字句解析は、別のスレッドで、時間を切って行う（AI が書いた資料は、非信頼。入れ子の箇条書きなどで、解析が、とても遅くなりうる）。
-// 結果は、版ごとに覚える（版は変わらない。ファイルの更新時刻・大きさが変わったら、捨てる）。大きな結果は、覚えない
-const APP_CACHE = new Map(); // `${トピック}/${ページ}/${版}` → { mtimeMs, size, apps }
+// 結果は、版ごとに覚える（版は変わらない。ファイルの更新時刻・大きさが変わったら、捨てる）。大きな結果は、覚えない。失敗（時間切れ・例外）も、60 秒、覚える
+// （悪意のある資料が、枠を開くたびに、3 秒の worker を起こさないように）。同じ資料の、進行中の解析は、共有する。同時に動かす worker は、2 つまで
+const APP_CACHE = new Map(); // `${トピック}/${ページ}/${版}` → { mtimeMs, size, apps } か { mtimeMs, size, error, at }
+const APP_PENDING = new Map(); // `${鍵}#${更新時刻}/${大きさ}` → 進行中の解析（Promise）
+const APP_FAIL_MS = 60 * 1000;
+let appWorkers = 0;
+const appWaiters = [];
+async function withWorkerSlot(fn) {
+  while (appWorkers >= 2) await new Promise((resolve) => appWaiters.push(resolve));
+  appWorkers++;
+  try { return await fn(); } finally { appWorkers--; const next = appWaiters.shift(); if (next) next(); }
+}
 async function appsOfPage(slug, page, v) {
   const file = pageFile(slug, page, v);
   const st = fs.statSync(file);
   if (st.size > DOC_MAX) throw new HttpError(413, '資料が大きすぎて、枠を取り出せません');
   const key = `${slug}/${page}/${v}`;
   const hit = APP_CACHE.get(key);
-  if (hit && hit.mtimeMs === st.mtimeMs && hit.size === st.size) return hit.apps;
-  let apps;
-  try { apps = await appsOfAsync(fs.readFileSync(file, 'utf8')); } catch (e) {
-    throw new HttpError(422, e && e.reason === 'timeout' ? '資料が複雑すぎて、枠を取り出せません（時間切れ）' : '資料が複雑すぎて、枠を取り出せません');
+  if (hit && hit.mtimeMs === st.mtimeMs && hit.size === st.size) {
+    if (!hit.error) return hit.apps;
+    if (Date.now() - hit.at < APP_FAIL_MS) throw new HttpError(422, hit.error);
   }
-  if (apps.reduce((n, a) => n + a.length, 0) <= 1024 * 1024) {
+  const pendingKey = `${key}#${st.mtimeMs}/${st.size}`;
+  let job = APP_PENDING.get(pendingKey);
+  if (!job) {
+    job = withWorkerSlot(() => appsOfAsync(fs.readFileSync(file, 'utf8')))
+      .then((apps) => ({ apps }), (e) => ({ error: e && e.reason === 'timeout' ? '資料が複雑すぎて、枠を取り出せません（時間切れ）' : '資料が複雑すぎて、枠を取り出せません' }))
+      .finally(() => APP_PENDING.delete(pendingKey));
+    APP_PENDING.set(pendingKey, job);
+  }
+  const r = await job;
+  const small = r.error || r.apps.reduce((n, a) => n + a.length, 0) <= 1024 * 1024;
+  if (small) {
     if (APP_CACHE.size >= 32) APP_CACHE.delete(APP_CACHE.keys().next().value);
-    APP_CACHE.set(key, { mtimeMs: st.mtimeMs, size: st.size, apps });
+    APP_CACHE.set(key, { mtimeMs: st.mtimeMs, size: st.size, ...(r.error ? { error: r.error, at: Date.now() } : { apps: r.apps }) });
   }
-  return apps;
+  if (r.error) throw new HttpError(422, r.error);
+  return r.apps;
 }
-
-// 枠の文書の、先頭に置く（AI の中身より前）：WebRTC を、使えなくする。CSP では、WebRTC の通信（STUN・TURN）を止められないため（実測：待ち受けに、UDP が届いた）。
-// 枠の中には、iframe・ワーカー・ポップアップを作る道が、ない（frame-src・worker-src・sandbox）ので、別の窓から、元の RTCPeerConnection を取り出すことは、できない。
-// 変更できない（configurable: false）値にする。多重の防御：CSP の代わりではなく、それを補う
-const APP_PRELUDE = '<!doctype html>\n<meta charset="utf-8">\n<script>for (const n of ["RTCPeerConnection", "webkitRTCPeerConnection", "RTCDataChannel", "RTCSessionDescription", "RTCIceCandidate"]) { try { Object.defineProperty(window, n, { value: undefined, writable: false, configurable: false }); } catch (e) {} }</script>\n';
 
 async function handler(req, res) {
   const url = new URL(req.url, 'http://localhost');
@@ -185,7 +202,7 @@ async function handler(req, res) {
         'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff',
         'Referrer-Policy': 'no-referrer', 'X-DNS-Prefetch-Control': 'off', 'Content-Security-Policy': APP_CSP,
       });
-      return res.end(`${APP_PRELUDE}${app}`);
+      return res.end(`<!doctype html>\n<meta charset="utf-8">\n${app}`);
     }
 
     if (p.startsWith('/api/')) {

@@ -77,9 +77,6 @@ test('枠の中身は、資料から取り出して、隔離する CSP つきで
   assert.equal(r.headers['cache-control'], 'no-store');
   assert.equal(r.headers['referrer-policy'], 'no-referrer');
   assert.ok(r.body.startsWith('<!doctype html>\n<meta charset="utf-8">\n'));
-  const pre = r.body.indexOf('RTCPeerConnection'), mine = r.body.indexOf('document.title');
-  assert.ok(pre > 0 && pre < mine, 'WebRTC を使えなくする文が、資料の中身より前にある');
-  assert.ok(/configurable: false/.test(r.body.slice(0, mine)), '変更できない値にする');
   assert.ok(r.body.includes('document.title = "押された"'), '資料の中身が、そのまま入る');
   const second = await request('/appframe/demo/root/1/1', authed());
   assert.equal(second.status, 200);
@@ -113,18 +110,27 @@ test('解析が遅い・壊れる資料でも、別のスレッドで、時間�
   assert.deepEqual(await appsOfAsync('```html-app\n<b>x</b>\n```\n'), ['<b>x</b>'], '正しい資料は、取り出せる');
 });
 
-test('枠の配信：解析が遅い資料は 422。その間も、ほかの要求に答える。大きすぎる資料は 413', async () => {
-  rikai.newTopic('nasty', '遅い', '試験', `${NASTY}\n\n\`\`\`html-app\n<b>x</b>\n\`\`\`\n`);
+test('枠の配信：解析が遅い資料は 422。同時の要求は、解析を共有する。失敗は、少しの間、覚える。その間も、ほかの要求に答える。大きすぎる資料は 413', async () => {
+  const nasty = `${NASTY}\n\n\`\`\`html-app\n<b>x</b>\n\`\`\`\n`;
+  rikai.newTopic('nasty', '遅い', '試験', nasty);
+  rikai.newTopic('nasty2', '遅い 2', '試験', nasty);
   rikai.newTopic('huge', '巨大', '試験', `# 題\n\n${'あ'.repeat(DOC_MAX + 1)}\n`);
+  // 1 つだけの要求にかかる時間（解析は、時間切れか、メモリの上限で、2〜3 秒で終わる）
   const t0 = Date.now();
-  const slow = request('/appframe/nasty/root/1/0', authed());
+  assert.equal((await request('/appframe/nasty2/root/1/0', authed())).status, 422);
+  const single = Date.now() - t0;
+  // 同じ資料への、同時の 4 要求：1 つの解析を共有する（共有しないと、worker は 2 つずつで、single の 2 倍）。解析の間も、ほかの要求に答える
+  const t1 = Date.now();
+  const slow = [0, 1, 2, 3].map(() => request('/appframe/nasty/root/1/0', authed()));
   await new Promise((r) => setTimeout(r, 300));
-  const ping = await request('/api/ping', authed());
-  assert.equal(ping.status, 200);
-  assert.ok(Date.now() - t0 < 2500, '解析の間も、サーバーは、ほかの要求に答える');
-  const r = await slow;
-  assert.equal(r.status, 422);
-  assert.ok(Date.now() - t0 < 8000);
+  assert.equal((await request('/api/ping', authed())).status, 200);
+  assert.ok(Date.now() - t1 < single, '解析の間も、サーバーは、ほかの要求に答える');
+  assert.deepEqual((await Promise.all(slow)).map((r) => r.status), [422, 422, 422, 422]);
+  assert.ok(Date.now() - t1 < single * 1.7, `同時の 4 要求が、1 つの解析を共有する（${Date.now() - t1}ms。1 つだと ${single}ms）`);
+  // 失敗を覚えているので、解析し直さない
+  const t2 = Date.now();
+  assert.equal((await request('/appframe/nasty/root/1/0', authed())).status, 422);
+  assert.ok(Date.now() - t2 < 500, '失敗を覚えている');
   assert.equal((await request('/appframe/huge/root/1/0', authed())).status, 413);
 });
 

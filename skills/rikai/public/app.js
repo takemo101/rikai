@@ -93,9 +93,10 @@
         if (kind === 'html-app') {
           if (!appCtx) return false;
           const n = appCtx.n++;
+          appCtx.srcs[n] = text; // ソースは、ここで持つ（属性に入れない：資料の生の HTML で、偽の data-src を書かれても、ソースの表示・位置づけ・差分に、使わない）
           const m = /\bheight=(\d{2,4})(?:px)?\b/.exec(lang || '');
           const ht = m ? Math.min(1200, Math.max(120, Number(m[1]))) : 360;
-          return `<div class="htmlapp" data-n="${n}" data-h="${ht}" data-src="${encSrc(text)}"><div class="cap">実行できる枠 ${n + 1}（隔離されています。パスワードなどの秘密は、入力しないでください）</div></div>`;
+          return `<div class="htmlapp" data-n="${n}" data-h="${ht}"><div class="cap">実行できる枠 ${n + 1}（隔離されています。パスワードなどの秘密は、入力しないでください）</div></div>`;
         }
         // diff・json・terminal（ANSI）・trace：決まった形の HTML にする（文字は escape 済み。読めないものは、ふつうのコードブロック）
         const fmt = window.RikaiFmt ? window.RikaiFmt.render(kind, text) : null; // fmt.js が読めないとき（古いサーバー）は、ふつうのコードブロック
@@ -105,13 +106,19 @@
   });
 
   function mdToFragment(md, topic, withApps) {
-    appCtx = withApps ? { n: 0 } : null;
+    appCtx = withApps ? { n: 0, srcs: [] } : null;
+    const srcs = appCtx ? appCtx.srcs : [];
     let html;
     try { html = marked.parse(md || ''); } finally { appCtx = null; }
     const clean = DOMPurify.sanitize(html, PURIFY);
     const tpl = document.createElement('template');
     tpl.innerHTML = clean;
     const root = tpl.content;
+    // 実行できる枠のソース：無害化のあとに、表（srcs）から、ここで付ける。資料の生の HTML が持つ `data-src` は、上書き・削除する（偽のソースを、見せない）
+    for (const el of $$('.htmlapp', root)) {
+      const n = Number(el.dataset.n);
+      if (Number.isInteger(n) && srcs[n] !== undefined) el.dataset.src = encSrc(srcs[n]); else el.removeAttribute('data-src');
+    }
     // trace の棒の位置・長さ：`style` 属性は無害化で消えるので、無害化のあとに、数だけから、ここで設定する
     for (const b of $$('.fmt-trace .tb', root)) {
       const s = Number(b.dataset.s), w = Number(b.dataset.w);
