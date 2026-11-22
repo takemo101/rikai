@@ -66,6 +66,9 @@
     editing: null, seen: new Set(JSON.parse(localStorage.getItem('rikai-seen') || '[]')), offline: false, error: null,
     olderOpen: new Set(), // 「これまでのやり取り」を開いているスレッド（描き直しても、開いたまま）
     askOpen: new Set(), // 答えないまま会話が進んだ質問を、「答える」で開いたもの
+    tab: 'live', // 右のパネルの切り替え：'live'（進行中）・'done'（解決済み）・'all'（すべて）
+    rowOpen: new Set(), // 解決済みの 1 行を、押して開いたスレッド
+    solo: null, // 本文の番号を押して、そのカードだけを見ているスレッド
   };
   const svgCache = new Map();
   let mermaidSeq = 0;
@@ -580,6 +583,7 @@
       if (curVersion() > 1) {
         bar.append(h('label', { class: 'chk' }, h('input', { type: 'checkbox', 'data-key': 'chk-changes', checked: S.showChanges, onchange: (e) => { S.showChanges = e.target.checked; S.docSig = ''; loadPage(); } }), '前の版からの変更を表示'));
         if (S.diff && S.diff.key === `${S.slug}/${S.page}/${curVersion()}`) bar.append(h('span', { class: 'chip', title: '前の版との比較', text: `変更 ${S.diff.changed}・追加 ${S.diff.added}・削除 ${S.diff.removed}` }));
+        if (S.showChanges && S.diff && S.diff.key === `${S.slug}/${S.page}/${curVersion()}` && S.diff.changed + S.diff.added > 0) bar.append(h('span', { class: 'legend' }, h('i', { class: 'swatch' }), '緑の線：前の版から変えたところ'));
       }
     }
     if (!isLatest()) {
@@ -746,7 +750,7 @@
     return box;
   }
 
-  function renderThread(t) {
+  function renderThread(t, full) { // full：古いやり取りも、たたまない（番号を押して、そのカードだけを見るとき）
     const [stText, stCls] = threadStatus(t);
     const loc = S.locs.get(t.id);
     const orphan = !loc && t.anchor && t.version <= curVersion();
@@ -767,7 +771,7 @@
     // 答えていない質問・まだ見ていない AI の返信（最新の 4 件の中のもの）。**そのあいだの、続く 2 件以上**を、それぞれ「これまでのやり取り（N 件）」にたたむ（たたみが、複数、出ることがある）
     const shown = t.messages.filter((m) => m.kind !== 'answer');
     const lastAi = shown.map((m) => m.author).lastIndexOf('ai'), lastUser = shown.map((m) => m.author).lastIndexOf('user');
-    const keep = (m, i) => i >= shown.length - 2 || i === lastAi || i === lastUser || (m.author === 'user' && !m.sent) || (m.author === 'ai' && !S.seen.has(m.id) && i >= shown.length - 4) || S.editing === m.id || (m.ask && !answerOf(t, m) && !askStale(t, m));
+    const keep = (m, i) => full || i >= shown.length - 2 || i === lastAi || i === lastUser || (m.author === 'user' && !m.sent) || (m.author === 'ai' && !S.seen.has(m.id) && i >= shown.length - 4) || S.editing === m.id || (m.ask && !answerOf(t, m) && !askStale(t, m));
     let run = [];
     const flush = () => {
       if (run.length >= 2) {
@@ -891,6 +895,16 @@
     return i >= 0 ? i : live.filter((t) => S.locs.get(t.id)).length;
   }
 
+  // 解決済みのスレッドは、1 行（番号・対象・最後の発言のはじめ）で見せる。押すと、カードが開く
+  function renderDoneRow(t) {
+    const quote = t.anchor ? (t.anchor.quote || t.anchor.label) : 'AIからの質問';
+    const last = t.messages.filter((m) => m.kind !== 'answer' && m.text).pop();
+    return h('button', { type: 'button', class: 'donerow', 'data-tid': t.id, title: '押すと、このコメントが開きます', onclick: () => { S.rowOpen.add(t.id); renderThreads(); focusThread(t.id, false); } },
+      S.nums.has(t.id) ? h('span', { class: 'no resolved', text: String(S.nums.get(t.id)) }) : null,
+      h('span', { class: 'dr-q', text: trunc(quote, 30) }),
+      h('span', { class: 'dr-last', text: last ? `${last.author === 'ai' ? 'AI' : 'あなた'}：${trunc(last.text, 48)}` : '' }));
+  }
+
   function renderThreads() {
     const panel = $('#threads');
     // 入力中の欄を覚えておき、描き直したあとに戻す
@@ -906,15 +920,34 @@
     const list = threadsOnPage();
     const live = list.filter((t) => !t.resolved).sort(docOrder);
     const done = list.filter((t) => t.resolved).sort(docOrder);
-    if (!list.length && !S.composer) panel.append(h('div', { class: 'empty', text: '本文の文を選ぶと「コメント」が出ます。ブロックにマウスを置くと出るバーの「コメント」でも、付けられます。本文の好きな範囲は、右下の「範囲を選ぶ」から、ドラッグで選べます。' }));
-    // 入力欄は、対象の位置の順に、スレッドの間へ入れる（いつも一番上、にしない）
-    const slot = composerSlot(live);
-    live.forEach((t, i) => { if (i === slot) panel.append(renderComposer()); panel.append(renderThread(t)); });
-    if (S.composer && slot >= live.length) panel.append(renderComposer());
-    if (done.length) {
-      const det = h('details', { class: 'done' }, h('summary', { text: `解決済み (${done.length})` }));
-      for (const t of done) det.append(renderThread(t));
-      panel.append(det);
+    if (S.solo && !list.some((t) => t.id === S.solo)) S.solo = null; // 別のページ・版へ移った
+    if (S.solo) { // 本文の番号を押した：そのカードだけを、古いやり取りもたたまずに見せる
+      const t = list.find((x) => x.id === S.solo);
+      panel.append(h('div', { class: 'solobar' },
+        h('button', { class: 'link', type: 'button', text: '← すべてのコメントに戻る', onclick: () => { S.solo = null; renderThreads(); } }),
+        h('span', { class: 'hint', text: S.nums.has(t.id) ? `${S.nums.get(t.id)} 番のコメントだけを表示中` : 'このコメントだけを表示中' })));
+      if (S.composer) panel.append(renderComposer());
+      panel.append(renderThread(t, true));
+    } else {
+      if (!list.length && !S.composer) panel.append(h('div', { class: 'empty', text: '本文の文を選ぶと「コメント」が出ます。ブロックにマウスを置くと出るバーの「コメント」でも、付けられます。本文の好きな範囲は、右下の「範囲を選ぶ」から、ドラッグで選べます。' }));
+      if (list.length) { // 進行中・解決済み・すべて
+        panel.append(h('div', { class: 'tabs', role: 'tablist' }, [['live', '進行中', live.length], ['done', '解決済み', done.length], ['all', 'すべて', list.length]].map(([k, label, n]) =>
+          h('button', { type: 'button', role: 'tab', class: `tab${S.tab === k ? ' on' : ''}`, 'aria-selected': String(S.tab === k), onclick: () => { S.tab = k; renderThreads(); } }, label, h('span', { class: 'n', text: String(n) })))));
+      }
+      const showLive = S.tab !== 'done', showDone = S.tab !== 'live';
+      // 入力欄は、対象の位置の順に、スレッドの間へ入れる（いつも一番上、にしない）。進行中を出さない切り替えのときは、一番上
+      const slot = composerSlot(live);
+      if (showLive) {
+        live.forEach((t, i) => { if (i === slot) panel.append(renderComposer()); panel.append(renderThread(t)); });
+        if (S.composer && slot >= live.length) panel.append(renderComposer());
+        if (!live.length && list.length && S.tab === 'live') panel.append(h('div', { class: 'empty', text: '進行中のコメントは、ありません。' }));
+      } else if (S.composer) panel.append(renderComposer());
+      if (showDone) {
+        for (const t of done) panel.append(S.rowOpen.has(t.id)
+          ? h('div', { class: 'rowopen' }, renderThread(t), h('button', { class: 'link', type: 'button', text: '一覧の 1 行に戻す', onclick: () => { S.rowOpen.delete(t.id); renderThreads(); } }))
+          : renderDoneRow(t));
+        if (!done.length && S.tab === 'done') panel.append(h('div', { class: 'empty', text: '解決済みのコメントは、ありません。' }));
+      }
     }
     panel.scrollTop = scroll;
     if (keep) {
@@ -971,6 +1004,12 @@
   }
 
   function focusThread(tid, scrollDoc) {
+    const t0 = S.topic.threads.find((t) => t.id === tid);
+    if (t0 && t0.resolved && !S.solo && (S.tab === 'live' || !S.rowOpen.has(tid))) { // 解決済みを、本文から選んだ：一覧の中で、開いて見せる
+      if (S.tab === 'live') S.tab = 'all';
+      S.rowOpen.add(tid);
+      renderThreads();
+    }
     S.active = tid;
     for (const m of (S.topic.threads.find((t) => t.id === tid) || { messages: [] }).messages) if (m.author === 'ai') S.seen.add(m.id);
     localStorage.setItem('rikai-seen', JSON.stringify([...S.seen].slice(-2000)));
@@ -1489,7 +1528,7 @@
   $('#article').addEventListener('error', scheduleBadges, true);
   $('#badges').addEventListener('click', (e) => {
     const el = e.target.closest('[data-tid]:not([data-tid="pending"])'); // 入力中の「新」は、押しても、選ぶカードがない
-    if (el) focusThread(el.dataset.tid, false);
+    if (el) { S.solo = el.dataset.tid; renderThreads(); focusThread(el.dataset.tid, false); } // 本文の番号を押すと、そのカードだけを見せる
   });
   // 入力中の範囲の枠を、ドラッグで動かし・角と辺で大きさを変える。離したら、その範囲で、入力欄の対象と画像を、作り直す（finishRegion。書きかけの文字は、残る）
   $('#badges').addEventListener('pointerdown', (e) => {
