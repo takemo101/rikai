@@ -64,6 +64,7 @@
     drafts: { reply: {}, ask: {}, edit: {}, composer: '', imgs: {} }, // imgs：入力欄ごとの、添付した画像の名前（'composer'・`reply-<スレッド>`）。送るまで、画面だけが持つ
     imgGen: {}, uploading: 0, // 入力欄ごとの世代（やめる・送る・移るで進める。終わりが遅れたアップロードを、捨てるため）と、アップロード中の数
     editing: null, seen: new Set(JSON.parse(localStorage.getItem('rikai-seen') || '[]')), offline: false, error: null,
+    olderOpen: new Set(), // 「これまでのやり取り」を開いているスレッド（描き直しても、開いたまま）
   };
   const svgCache = new Map();
   let mermaidSeq = 0;
@@ -388,7 +389,7 @@
     } else {
       const blocks = blockEls(art);
       const found = locateBlock(blocks.map((b) => ({ id: b.dataset.bid, hash: b.dataset.bhash, tag: b.tagName, text: blockText(b) })), a);
-      if (found) { S.pendingEl = blocks[found.index]; S.pendingEl.classList.add('blk-pending'); }
+      if (found) { S.pendingEl = blocks[found.index]; if (!a.rect) S.pendingEl.classList.add('blk-pending'); } // 範囲は、範囲の枠だけ（ブロックの枠を重ねない）
     }
     scheduleBadges(); // 入力中の範囲の枠（オレンジ）を、出す
   }
@@ -754,7 +755,18 @@
       future ? h('span', { class: 'chip small', text: '後の版のコメント' }) : null,
       h('div', { class: 'quote', text: trunc(quote, 90) })));
     // 回答（kind が answer）は、質問の下の入力欄で見せるので、メッセージとしては描かない（null）。null を append すると、文字「null」が出る
-    for (const m of t.messages) { const el = renderMessage(t, m); if (el) card.append(el); }
+    // 会話が長くなっても、最新のやり取りが、すぐ見えるように：古いやり取りは、折りたたむ（時間の順に、続く範囲を、まとめて）。
+    // 折りたたまないもの：最新の 2 件・未送信・編集中・答えていない質問・まだ見ていない AI の返信（最新の 4 件の中のもの）。これらの、いちばん古いものより前を、たたむ
+    const shown = t.messages.filter((m) => m.kind !== 'answer');
+    const keep = (m, i) => i >= shown.length - 2 || (m.author === 'user' && !m.sent) || (m.author === 'ai' && !S.seen.has(m.id) && i >= shown.length - 4) || S.editing === m.id || (m.ask && !answerOf(t, m));
+    const firstKept = Math.max(0, shown.findIndex((m, i) => keep(m, i)));
+    const older = firstKept >= 2 ? shown.slice(0, firstKept) : [];
+    if (older.length) {
+      card.append(h('details', { class: 'older', open: S.olderOpen.has(t.id), ontoggle: (e) => { if (e.target.open) S.olderOpen.add(t.id); else S.olderOpen.delete(t.id); } },
+        h('summary', { text: `これまでのやり取り（${older.length} 件）` }),
+        older.map((m) => renderMessage(t, m))));
+    }
+    for (const m of shown.slice(older.length)) { const el = renderMessage(t, m); if (el) card.append(el); }
     const foot = h('div', { class: 'th-foot' });
     if (!t.resolved) {
       foot.append(
@@ -1116,7 +1128,7 @@
     showActbar('blk', art.right - 8, Math.max(r.top - 30, top));
   }
   $('#docscroll').addEventListener('mousemove', (e) => {
-    if (!isLatest() || regState || actMode === 'sel') return;
+    if (!isLatest() || regState || actMode === 'sel' || S.composer) return; // 入力欄を開いている間は、ブロックのバーを出さない（入力欄・選んだ範囲の上に、重ならないように）
     if (blkTarget && actMode === 'blk' && inBand(blkTarget, e.clientX, e.clientY)) { clearTimeout(blkHide); return; }
     const blk = blockAt(e.clientX, e.clientY);
     if (!blk) { scheduleBlkHide(); return; }
