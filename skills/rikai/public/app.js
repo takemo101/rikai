@@ -379,7 +379,7 @@
   }
   function markPending() {
     const art = $('#article');
-    if (!S.composer && !art.querySelector('mark.hl.pending, .blk-pending')) return; // 何もなければ、本文に触らない
+    if (!S.composer && !S.pendingEl && !art.querySelector('mark.hl.pending, .blk-pending')) return; // 何もなければ、本文に触らない（範囲の入力中は、.blk-pending を付けないので、pendingEl も見る）
     clearPending();
     if (!S.composer) { scheduleBadges(); return; } // 入力中の範囲の枠を、消す
     const a = S.composer.anchor;
@@ -755,18 +755,23 @@
       future ? h('span', { class: 'chip small', text: '後の版のコメント' }) : null,
       h('div', { class: 'quote', text: trunc(quote, 90) })));
     // 回答（kind が answer）は、質問の下の入力欄で見せるので、メッセージとしては描かない（null）。null を append すると、文字「null」が出る
-    // 会話が長くなっても、最新のやり取りが、すぐ見えるように：古いやり取りは、折りたたむ（時間の順に、続く範囲を、まとめて）。
-    // 折りたたまないもの：最新の 2 件・未送信・編集中・答えていない質問・まだ見ていない AI の返信（最新の 4 件の中のもの）。これらの、いちばん古いものより前を、たたむ
+    // 会話が長くなっても、最新のやり取りが、すぐ見えるように：古いやり取りは、折りたたむ。**たたまないもの**：最新の 2 件・最新の AI の発言・最新のユーザーの発言・未送信・編集中・
+    // 答えていない質問・まだ見ていない AI の返信（最新の 4 件の中のもの）。**そのあいだの、続く 2 件以上**を、それぞれ「これまでのやり取り（N 件）」にたたむ（たたみが、複数、出ることがある）
     const shown = t.messages.filter((m) => m.kind !== 'answer');
-    const keep = (m, i) => i >= shown.length - 2 || (m.author === 'user' && !m.sent) || (m.author === 'ai' && !S.seen.has(m.id) && i >= shown.length - 4) || S.editing === m.id || (m.ask && !answerOf(t, m));
-    const firstKept = Math.max(0, shown.findIndex((m, i) => keep(m, i)));
-    const older = firstKept >= 2 ? shown.slice(0, firstKept) : [];
-    if (older.length) {
-      card.append(h('details', { class: 'older', open: S.olderOpen.has(t.id), ontoggle: (e) => { if (e.target.open) S.olderOpen.add(t.id); else S.olderOpen.delete(t.id); } },
-        h('summary', { text: `これまでのやり取り（${older.length} 件）` }),
-        older.map((m) => renderMessage(t, m))));
-    }
-    for (const m of shown.slice(older.length)) { const el = renderMessage(t, m); if (el) card.append(el); }
+    const lastAi = shown.map((m) => m.author).lastIndexOf('ai'), lastUser = shown.map((m) => m.author).lastIndexOf('user');
+    const keep = (m, i) => i >= shown.length - 2 || i === lastAi || i === lastUser || (m.author === 'user' && !m.sent) || (m.author === 'ai' && !S.seen.has(m.id) && i >= shown.length - 4) || S.editing === m.id || (m.ask && !answerOf(t, m));
+    let run = [];
+    const flush = () => {
+      if (run.length >= 2) {
+        const key = `${t.id}:${run[0].id}`; // 開いた状態の鍵：スレッドと、その続きの、最初のメッセージ
+        card.append(h('details', { class: 'older', open: S.olderOpen.has(key), ontoggle: (e) => { if (e.target.open) S.olderOpen.add(key); else S.olderOpen.delete(key); } },
+          h('summary', { text: `これまでのやり取り（${run.length} 件）` }),
+          run.map((m) => renderMessage(t, m))));
+      } else for (const m of run) { const el = renderMessage(t, m); if (el) card.append(el); }
+      run = [];
+    };
+    shown.forEach((m, i) => { if (keep(m, i)) { flush(); const el = renderMessage(t, m); if (el) card.append(el); } else run.push(m); });
+    flush();
     const foot = h('div', { class: 'th-foot' });
     if (!t.resolved) {
       foot.append(
