@@ -1,0 +1,6 @@
+/* Tailwind v4：theme と utilities だけ。preflight は入れない（旧 CSS の legacy.css が崩れるため）。
+   utilities を探すのは、src/web の中だけ（server・test の文字を、クラス名と見なして、拾わないように）。
+   legacy.css は、layer に入れない（layer のないスタイルが、いつも勝つので、旧の見た目が、そのまま保たれる） */
+@layer theme, utilities;
+@import "tailwindcss/theme.css" layer(theme);
+@import "tailwindcss/utilities.css" layer(utilities) source("..");

@@ -2,8 +2,10 @@ import { defineConfig } from 'vitest/config';
 
 export default defineConfig({
   test: {
-    include: ['test/**/*.test.ts'],
+    include: ['test/**/*.test.{ts,tsx}'],
     environment: 'node',
     globalSetup: ['test/setup/htmlapp-worker.ts', 'test/setup/cli.ts'],
+    // 画面（test/web）は、ファイルごとに `// @vitest-environment jsdom`。その環境でだけ、DOM の掃除・jest-dom を入れる
+    setupFiles: ['test/setup/web.ts'],
   },
 });

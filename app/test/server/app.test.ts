@@ -7,7 +7,7 @@ import { hc } from 'hono/client';
 import { afterEach, beforeEach, test } from 'vitest';
 import { type AppType, createApp } from '../../src/server/app';
 import { makeTopic, type Project, removeProject, tempProject } from './helpers';
-import { PUBLIC_DIR } from './http-helpers';
+import { builtAsset, PUBLIC_DIR } from './http-helpers';
 
 const PORT = 4321;
 const TOKEN = 'a'.repeat(48);
@@ -135,15 +135,16 @@ test('画面：URL の合言葉を Cookie に移す（属性・名前）。画�
 });
 
 test('静的ファイル・画像：パスの外へ出ない。画像は sandbox', async () => {
-  assert.equal((await call('/app.js')).status, 200);
-  assert.equal((await call('/vendor/marked.min.js')).status, 200);
-  assert.equal((await call('/vendor/')).status, 404);
-  assert.equal((await call('/vendor/..%2F..%2Frikai.js')).status, 404);
+  assert.equal((await call(builtAsset())).status, 200);
+  assert.equal((await call('/favicon.svg')).status, 200);
+  assert.equal((await call('/assets/')).status, 404);
+  assert.equal((await call('/assets/..%2F..%2Frikai.js')).status, 404);
   assert.equal(
-    (await call('/vendor/../../rikai.js')).status,
+    (await call('/assets/../../rikai.js')).status,
     404,
     'URL の正規化のあとは、public の外のパス（配らない）',
   );
+  assert.equal((await call('/app.js')).status, 404, '旧 UI のファイルは、もう配らない');
   assert.equal((await call('/rikai.js')).status, 404);
   assert.equal((await call('/SKILL.md')).status, 404);
 

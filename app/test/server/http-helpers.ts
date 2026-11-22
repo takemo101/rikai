@@ -1,11 +1,12 @@
 // HTTP の試験の道具。実際に待ち受けて（startServer。127.0.0.1 の空きポート）要求を送る。
+import fs from 'node:fs';
 import http from 'node:http';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { startServer } from '../../src/server/serve';
 import type { Project } from './helpers';
 
-/** 旧 UI（index.html・app.js・vendor/）の置き場。新しいサーバーも、そのまま配る */
+/** 画面（Vite のビルド：index.html・favicon.svg・assets/）の置き場。サーバーが、そのまま配る */
 export const PUBLIC_DIR = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
   '..',
@@ -15,6 +16,13 @@ export const PUBLIC_DIR = path.resolve(
   'rikai',
   'public',
 );
+
+/** ビルドした、画面の本体（assets/index-<ハッシュ>.js）のパス。ハッシュは、ビルドのたびに変わるので、探す */
+export function builtAsset(): string {
+  const name = fs.readdirSync(path.join(PUBLIC_DIR, 'assets')).find((f) => /^index-.*\.js$/.test(f));
+  if (!name) throw new Error('skills/rikai/public/assets/index-*.js がない（pnpm run build:web）');
+  return `/assets/${name}`;
+}
 
 export interface TestServer {
   port: number;
