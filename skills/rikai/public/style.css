@@ -150,9 +150,8 @@ mark.hl.active { outline: 2px solid var(--accent); outline-offset: 1px; }
 .blk-thread.resolved { outline-color: #cfc9ac; }
 .blk-thread.active { outline: 2px solid var(--accent); }
 
-/* コメントの番号（本文の、その印の右上）。右のパネルのカードの番号と対応する。::after なので、本文の文字は変わらない */
-mark.hl[data-no]::after { content: attr(data-no); display: inline-block; margin-left: 2px; padding: 0 4px; min-width: 15px; font-size: 10px; font-weight: 700; line-height: 15px; text-align: center; vertical-align: super; border-radius: 999px; background: var(--accent); color: #fff; cursor: pointer; }
-mark.hl.resolved[data-no]::after { background: #9c9784; }
+/* 入力中（まだ送っていない）の対象の番号の印「新」：ほかの番号と同じ形で、色だけ、オレンジ */
+.bno.pending { background: #e8590c; }
 /* ブロックの番号は、要素の外の層（#badges）に、絶対位置で出す（要素の中だと、箱の overflow で切れる・横スクロールで流れる・行末の文字に重なる）。位置は app.js の placeBadges */
 #docscroll { position: relative; }
 #badges { position: absolute; top: 0; left: 0; width: 0; height: 0; z-index: 2; }
@@ -183,9 +182,6 @@ mark.hl.pending { background: #ffd8a8; outline: 2px dashed #e8590c; outline-offs
 .regionbox.resolved { border-color: #cfc9ac; background: rgba(207, 201, 172, .12); }
 .regionbox.pending { border-color: #e8590c; background: rgba(232, 89, 12, .14); }
 .regionbox.linked { border: 2px solid var(--accent); background: rgba(47, 93, 138, .18); }
-.regionbox .rn { position: absolute; top: -10px; left: -10px; min-width: 18px; padding: 0 5px; font-size: 11px; font-weight: 700; line-height: 18px; text-align: center; border-radius: 999px; background: var(--accent); color: #fff; box-shadow: 0 0 0 2px var(--paper); }
-.regionbox.resolved .rn { background: #9c9784; }
-.regionbox.pending .rn { background: #e8590c; }
 
 /* 右 */
 #threads { background: #faf9f5; border-left: 1px solid var(--line); overflow: auto; padding: 4px 12px 60px; }
