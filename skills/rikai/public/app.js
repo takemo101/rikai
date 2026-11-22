@@ -695,7 +695,7 @@
     const card = h('div', { class: `thread ${stCls}${S.active === t.id ? ' active' : ''}${fresh ? ' fresh' : ''}${linkedTid === t.id ? ' linked' : ''}`, 'data-tid': t.id });
     card.append(h('div', { class: 'th-head', onclick: () => focusThread(t.id, true) },
       S.nums.has(t.id) ? h('span', { class: 'no', title: '本文の、同じ番号の印の所へのコメントです', text: String(S.nums.get(t.id)) }) : null,
-      stCls === 'wait' ? null : h('span', { class: `chip ${stCls} small`, text: stText }), // 既定の状態（AI の確認待ち）は、札を出さない（上のバーに「AIの返信待ち」がある）
+      stCls === 'wait' ? null : h('span', { class: `chip ${stCls} small`, text: stText }), // 既定の状態（AI の確認待ち）は、札を出さない
       t.version === curVersion() ? null : h('span', { class: 'chip small', text: `v${t.version}` }), // 版は、いまの版と違うときだけ
       orphan ? h('span', { class: 'chip warn small', text: '修正で文が変わりました' }) : null,
       S.approx.has(t.id) ? h('span', { class: 'chip warn small', text: S.approx.get(t.id) === 'similar' ? '近い内容のブロックに表示' : '同じ位置のブロックに表示' }) : null,
@@ -1052,7 +1052,10 @@
   function inBand(blk, x, y) {
     const r = blk.getBoundingClientRect();
     const art = $('#article').getBoundingClientRect();
-    return y >= r.top - 34 && y <= r.bottom + 4 && x >= r.left - 8 && x <= art.right + 8; // 上の 34px は、ブロックの上に出るバーへ向かう道
+    if (y >= r.top - 4 && y <= r.bottom + 4 && x >= r.left - 8 && x <= art.right + 8) return true;
+    // バーの上（と、そのまわり 6px）も、同じブロック。バーは、前のブロックの右端に少し重なるので、バーの外側の、前のブロックには、移れる
+    const b = actbar.getBoundingClientRect();
+    return actMode === 'blk' && x >= b.left - 6 && x <= b.right + 6 && y >= b.top - 6 && y <= b.bottom + 6;
   }
   function placeBlkBtn(blk) {
     const r = blk.getBoundingClientRect();

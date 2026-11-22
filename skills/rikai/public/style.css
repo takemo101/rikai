@@ -168,7 +168,7 @@ mark.hl.pending { background: #ffd8a8; outline: 2px dashed #e8590c; outline-offs
 
 /* コメントの入口：1 つのバー（「コメント」・「範囲」）。文を選ぶと、選んだ文の上に・ブロックにマウスを置くと、そのブロックの右上に出る */
 #actbar { position: fixed; z-index: 20; display: flex; background: #222; border-radius: 6px; box-shadow: 0 2px 8px rgba(0, 0, 0, .25); overflow: hidden; }
-#actbar button { background: transparent; color: #fff; border: 0; padding: 5px 12px; font-size: 12.5px; }
+#actbar button { background: transparent; color: #fff; border: 0; padding: 3px 10px; font-size: 12px; }
 #actbar button + button { border-left: 1px solid rgba(255, 255, 255, .28); }
 #actbar button:hover { background: var(--accent); }
 #actbar[hidden], #regsel[hidden], #toast[hidden], #ended[hidden] { display: none; }
