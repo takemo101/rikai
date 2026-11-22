@@ -186,8 +186,18 @@ mark.hl.pending { background: #ffd8a8; outline: 2px dashed #e8590c; outline-offs
 /* 範囲を対象にしたコメントの枠（#badges の中。押せない：下の画像・図に、マウスが届くように） */
 .regionbox { position: absolute; border: 2px dashed #e0b400; background: rgba(224, 180, 0, .12); border-radius: 2px; pointer-events: none; }
 .regionbox.resolved { border-color: #cfc9ac; background: rgba(207, 201, 172, .12); }
-.regionbox.pending { border-color: #e8590c; background: rgba(232, 89, 12, .14); }
+.regionbox.pending { border-color: #e8590c; background: rgba(232, 89, 12, .14); pointer-events: auto; cursor: move; touch-action: none; }
+.regionbox .rh { position: absolute; width: 10px; height: 10px; box-sizing: border-box; background: #fff; border: 2px solid #e8590c; border-radius: 2px; }
+.rh-nw { top: -6px; left: -6px; cursor: nwse-resize; } .rh-n { top: -6px; left: calc(50% - 5px); cursor: ns-resize; } .rh-ne { top: -6px; right: -6px; cursor: nesw-resize; }
+.rh-e { top: calc(50% - 5px); right: -6px; cursor: ew-resize; } .rh-se { bottom: -6px; right: -6px; cursor: nwse-resize; } .rh-s { bottom: -6px; left: calc(50% - 5px); cursor: ns-resize; }
+.rh-sw { bottom: -6px; left: -6px; cursor: nesw-resize; } .rh-w { top: calc(50% - 5px); left: -6px; cursor: ew-resize; }
+/* 添付の画像を、押すと、画面の中に、大きく出す */
+#lightbox { position: fixed; inset: 0; z-index: 50; display: flex; align-items: center; justify-content: center; background: rgba(20, 20, 20, .78); cursor: zoom-out; }
+#lightbox[hidden] { display: none; }
+#lightbox img { max-width: 92vw; max-height: 90vh; background: #fff; border-radius: 6px; box-shadow: 0 8px 32px rgba(0, 0, 0, .4); }
+.thumb img, .msg .imgs img { cursor: zoom-in; }
 .regionbox.linked { border: 2px solid var(--accent); background: rgba(47, 93, 138, .18); }
+.regionbox.pending.linked { border: 2px dashed #e8590c; background: rgba(232, 89, 12, .14); } /* 入力中の枠は、マウスを置いても（つかんでいる間も）、オレンジの破線 */
 
 /* 右 */
 #threads { background: #faf9f5; border-left: 1px solid var(--line); overflow: auto; padding: 4px 12px 60px; }
@@ -250,7 +260,7 @@ details.done summary { cursor: pointer; color: var(--muted); font-size: 12.5px; 
 /* コメント・返信に添付する画像（入力欄の下のサムネイルと、送ったあとのメッセージの中の画像） */
 .imgbar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 4px 0 2px; }
 .thumb { position: relative; display: inline-block; }
-.thumb img { display: block; height: 56px; max-width: 96px; object-fit: cover; border: 1px solid var(--line); border-radius: 4px; background: #fff; }
+.thumb img { display: block; height: 72px; max-width: 128px; object-fit: cover; border: 1px solid var(--line); border-radius: 4px; background: #fff; }
 .thumb .x { position: absolute; top: -7px; right: -7px; width: 18px; height: 18px; padding: 0; border-radius: 50%; line-height: 16px; font-size: 12px; background: #222; color: #fff; border: 2px solid #fff; cursor: pointer; }
 .msg .imgs { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
 .msg .imgs img { display: block; max-width: 100%; max-height: 220px; border: 1px solid var(--line); border-radius: 4px; background: #fff; }
