@@ -67,7 +67,7 @@ test('画面は、URL の合言葉を Cookie に移して、URL から外す。C
   const page = await request('GET', '/', { headers: { Cookie: cookie.split(';')[0] } });
   assert.equal(page.status, 200);
   assert.match(page.headers['content-security-policy'], /script-src 'self'/);
-  assert.match(page.headers['content-security-policy'], /frame-src 'none'/);
+  assert.match(page.headers['content-security-policy'], /frame-src 'self'/, '枠（html-app）は、同じサーバーのものだけ。外のページは入れない');
   assert.match(page.body, /<title>rikai<\/title>/);
 });
 
