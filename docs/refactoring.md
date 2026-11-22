@@ -6,7 +6,7 @@
 
 ## 進め方
 
-1. **範囲を決める**：1 つのファイル、または 1 つの責務（例：`app/src/server/store.ts`、旧 UI の `app.js` のコメントの位置づけ）。全体を一度に見ない。
+1. **範囲を決める**：1 つのファイル、または 1 つの責務（例：`app/src/server/store.ts`、`app/src/web/doc/render/highlights.ts` のコメントの位置づけ）。全体を一度に見ない。
 2. **観察**：下の観点ごとに、コードを**直接読んで**、根拠（ファイルと行）を集める。`grep` の件数・警告は、**見る場所の目印**で、根拠ではない。
 3. **判断**：観点ごとに、「読む人・変える人を助けているか」を言葉で判断する。件数や点数を、目標にしない。
 4. **優先**：影響（波及する範囲・誤りの起きやすさ・安全）が大きく、直しやすいものから。
@@ -19,8 +19,8 @@
 | **責務と所有** | データを書く場所が `mutate` に集まっているか。同じ情報を 2 か所で持っていないか（サーバーの正本とブラウザの写し）。`app/src/server/` のモジュールの依存が、層の順（`util` → `store` → `ask` → `actions`・`agent` → `app` → `serve` → `cli/main`。後ろだけが、前を `import` する）に沿っているか。逆向き・循環がないか。状態がモジュールの変数になっていないか（引数で渡す） | 意図した窓口 |
 | **抽象の見合い** | 中継するだけで、検査・変換を足さない関数。1 回しか使わない抽象。呼び出し側が、本来の入口（`mutate`・`normAsk`）を迂回していないか | |
 | **失敗の扱いの一貫性** | `HttpError`・`{ok:false}`・例外の混在。`catch {}` の理由。部分的な反映が残る経路。見せ方を、境界以外が決めていないか | 意図した、最上位の受け口（`app.ts` の `onError`・`main`） |
-| **信頼の境界** | 外から来た値（AI の JSON・資料・HTTP・ファイル）が、検査なしに、保存・表示・パスの結合に届いていないか。`innerHTML` に入る文字。`PURIFY`・CSP・Mermaid の設定が緩んでいないか。`/api/`・`/asset/` の入口で `denyReason` を通っているか | |
-| **並行と順序** | ロックの外で `meta.json`・`threads.json` を書いていないか。`mutate` の中に `await` がないか。描画が非同期の途中で状態が変わる経路（`renderTok`）。ポーリングと、ユーザーの入力の競合（入力欄の復元） | 実機・実際のマウスでしか起きない競合を、手作業で再現できないこと（理由と確かめた方法を残す） |
+| **信頼の境界** | 外から来た値（AI の JSON・資料・HTTP・ファイル）が、検査なしに、保存・表示・パスの結合に届いていないか。`innerHTML`・`dangerouslySetInnerHTML` に入る文字。`PURIFY`・CSP・Mermaid の設定が緩んでいないか。`/api/`・`/asset/` の入口で `denyReason` を通っているか | |
+| **並行と順序** | ロックの外で `meta.json`・`threads.json` を書いていないか。`mutate` の中に `await` がないか。描画が非同期の途中で状態が変わる経路（`renderDoc` の世代：`nextEpoch`・`isCurrent()`）。ポーリングと、ユーザーの入力の競合（入力欄の保持） | 実機・実際のマウスでしか起きない競合を、手作業で再現できないこと（理由と確かめた方法を残す。e2e で試せるものは、e2e） |
 | **コメントの位置づけ** | `textIndex`・`boundaryOffset`・`findQuote`・`applyHighlights` の整合（描画と選択で、同じ文字列の並びを使っているか）。ブロックの識別（`blockHash`・`blockId`）の安定性 | |
 | **名前と契約** | 名前と振る舞いの不一致。SPEC の用語（トピック・ページ・版・スレッド・ask・round）とのずれ。`status` のように、同じ語が別の意味で重なっていないか（round の `status` と、コマンドの出力の `status` で実際に踏んだ） | 慣習として一貫した短い名前 |
 | **論理の明快さ** | 到達しない分岐・何もしない分岐・常に真（偽）の条件。深い入れ子。1 つの関数が複数の理由で長くなっていないか | 単一の責務で長い関数。**細かく割ること自体を目的にしない** |
@@ -33,11 +33,11 @@
 
 ```sh
 grep -n "catch" -r app/src   # 握りつぶしの候補（理由が分かる所だけのはず）
-grep -n "innerHTML" skills/rikai/public/app.js   # 無害化を通した結果だけのはず
+grep -rn "innerHTML\|dangerouslySetInnerHTML" app/src/web   # 無害化を通した結果だけのはず（markdown.ts・mermaid.ts）
 grep -n "writeJSON\|writeFileSync" -r app/src   # mutate・new・apply・submit 以外で書いていないか
-grep -n "TODO\|FIXME" -r app/src skills/rikai/public --exclude-dir=vendor   # 保留
-grep -n "await" -r app/src   # mutate の中に await がないか（読んで確かめる）
-wc -l app/src/*/*.ts skills/rikai/public/app.js   # 大きくなりすぎていないか（責務から読む）
+grep -rn "TODO\|FIXME" app/src app/e2e   # 保留
+grep -n "await" -r app/src/server   # mutate の中に await がないか（読んで確かめる）
+wc -l app/src/*/*.ts app/src/web/*/*.ts* app/src/web/*/*/*.ts   # 大きくなりすぎていないか（責務から読む）
 ```
 
 ## このリポジトリの見直し候補

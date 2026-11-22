@@ -24,7 +24,7 @@ export interface AppOptions {
   token: string;
   /** 待ち受けているポート。Host・Origin の検査と、Cookie の名前に使う */
   port: number;
-  /** 旧 UI の置き場（index.html・app.js・vendor/ ほか）。この下だけを配る */
+  /** 画面（Vite のビルド：index.html・favicon.svg・assets/）の置き場。この下の、`/assets/*` と `/favicon.svg` だけを配る */
   publicDir: string;
   actions: Actions;
 }
@@ -45,8 +45,9 @@ const MIME: Record<string, string> = {
   '.json': 'application/json; charset=utf-8',
 };
 
-// 画面が配る、public/ の中の、決まったファイル（それ以外は、配らない）
-const STATIC_PATHS = ['/app.js', '/anchor.js', '/diff.js', '/progress.js', '/fmt.js', '/style.css', '/favicon.svg'];
+// 画面が配る、public/ の中のもの：`/favicon.svg` と、Vite のハッシュつきの `/assets/*`（それ以外は、配らない。index.html は、別の経路）
+const FAVICON_PATH = '/favicon.svg';
+const ASSETS_PREFIX = '/assets/';
 
 // 画面の CSP。枠（html-app）は、この画面のサーバーの `/appframe/` のものだけ、入れられる（同じオリジンの、ほかの URL〔/api・/asset など〕は、入れられない）。host は、検査済み（127.0.0.1:PORT か localhost:PORT）
 const indexCsp = (host: string): string =>
@@ -270,9 +271,11 @@ export function createApp(opts: AppOptions) {
 
   const staticFile = (c: Context): Response => {
     const p = c.req.path;
-    if (!STATIC_PATHS.includes(p) && !p.startsWith('/vendor/')) return notFoundText();
-    const file = path.resolve(publicDir, `.${p}`);
-    if (!file.startsWith(publicDir + path.sep)) return textResponse(403, 'forbidden');
+    if (p === FAVICON_PATH) return serveFile(path.join(publicDir, 'favicon.svg'));
+    if (!p.startsWith(ASSETS_PREFIX)) return notFoundText();
+    const dir = path.join(publicDir, 'assets');
+    const file = path.resolve(dir, p.slice(ASSETS_PREFIX.length));
+    if (file !== dir && !file.startsWith(dir + path.sep)) return textResponse(403, 'forbidden'); // `/assets/` 自体は、パスの外ではない（ディレクトリなので、配らない：404）
     return serveFile(file);
   };
 
@@ -319,8 +322,8 @@ export function createApp(opts: AppOptions) {
 
   app.get('/', indexPage);
   app.get('/index.html', indexPage);
-  for (const p of STATIC_PATHS) app.get(p, staticFile);
-  app.get('/vendor/*', staticFile);
+  app.get(FAVICON_PATH, staticFile);
+  app.get(`${ASSETS_PREFIX}*`, staticFile);
 
   // 画像：assets の中だけ。直接開かれても、中のスクリプトを動かさない（sandbox）
   app.get('/asset/*', (c) => {

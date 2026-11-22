@@ -6,7 +6,7 @@ import path from 'node:path';
 import { afterAll, beforeAll, test } from 'vitest';
 import { SCHEMA } from '../../src/server/store';
 import { makeTopic, type Project, removeProject, tempProject } from './helpers';
-import { request as rawRequest, startTestServer, type TestServer } from './http-helpers';
+import { builtAsset, request as rawRequest, startTestServer, type TestServer } from './http-helpers';
 
 let p: Project;
 let srv: TestServer;
@@ -139,11 +139,12 @@ test('画像の配信：assets の中だけ。外へ出る名前は断る。直�
 });
 
 test('静的ファイルは、public の外へ出ない。知らないファイルは配らない', async () => {
-  assert.equal((await request('GET', '/anchor.js')).status, 200);
-  assert.equal((await request('GET', '/diff.js')).status, 200);
-  assert.equal((await request('GET', '/progress.js')).status, 200);
-  assert.equal((await request('GET', '/vendor/marked.min.js')).status, 200);
-  assert.notEqual((await request('GET', '/vendor/..%2F..%2Frikai.js')).status, 200);
+  assert.equal((await request('GET', builtAsset())).status, 200);
+  assert.equal((await request('GET', '/favicon.svg')).status, 200);
+  assert.equal((await request('GET', '/assets/..%2F..%2Frikai.js')).status, 404);
+  assert.notEqual((await request('GET', '/assets/..%2F..%2Frikai.js')).status, 200);
+  assert.equal((await request('GET', '/assets//etc/hosts')).status, 403, '絶対パスで、public の外へ出ない');
+  assert.equal((await request('GET', '/app.js')).status, 404);
   assert.equal((await request('GET', '/rikai.js')).status, 404);
   assert.equal((await request('GET', '/SKILL.md')).status, 404);
 });

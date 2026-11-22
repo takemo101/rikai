@@ -5,75 +5,10 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>rikai</title>
   <link rel="icon" href="/favicon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="/style.css">
+  <script type="module" crossorigin src="/assets/index-YiBtzgdj.js"></script>
+  <link rel="stylesheet" crossorigin href="/assets/index-CllILwTX.css">
 </head>
 <body>
-  <div id="app">
-    <header id="top">
-      <button id="btn-side" class="ghost small" title="左の一覧を、しまう／出す" aria-label="左の一覧を、しまう／出す" aria-expanded="true">☰</button>
-      <div class="brand">rikai</div>
-      <div id="top-title"></div>
-      <div class="spacer"></div>
-      <div id="top-status"></div>
-      <button id="btn-submit" class="primary" disabled>Submit</button>
-      <button id="btn-end" class="ghost">終了</button>
-    </header>
-    <aside id="side"></aside>
-    <main id="doc">
-      <div id="docbar"></div>
-      <div id="docscroll">
-        <article id="article" class="md"></article>
-        <div id="badges" aria-hidden="true"></div>
-        <div id="regsel" hidden aria-label="範囲を選ぶ"></div>
-      </div>
-      <button id="regbtn" type="button" hidden title="本文の、好きな範囲を、ドラッグで選んで、コメントします（もう一度押すか、Esc で、やめます）"><span class="ico" aria-hidden="true">▭</span><span class="lbl">範囲を選ぶ</span></button>
-    </main>
-    <aside id="threads"></aside>
-    <div id="panel-resizer" role="separator" aria-orientation="vertical" aria-label="コメントの幅（ドラッグ、または左右の矢印キーで変える。ダブルクリックでもとの幅）" title="ドラッグで、コメントの幅を変える（ダブルクリックで、もとの幅）" tabindex="0" aria-valuemin="280"></div>
-  </div>
-
-  <div id="lightbox" hidden><img alt="添付の画像（大きく）"></div>
-  <div id="actbar" hidden>
-    <button id="act-comment" type="button" title="この文・ブロックに、コメントします">コメント</button>
-  </div>
-  <div id="toast" hidden></div>
-
-  <dialog id="submitdlg">
-    <form method="dialog">
-      <h3>AI に送信</h3>
-      <p id="submitdlg-summary"></p>
-      <label class="note-label">全体へのメモ（任意）
-        <textarea id="submitdlg-note" rows="3" placeholder="特定の箇所に紐づかない伝言があれば"></textarea>
-      </label>
-      <div class="dlg-actions">
-        <button value="cancel" class="ghost">キャンセル</button>
-        <button id="submitdlg-ok" value="ok" class="primary">送信する</button>
-      </div>
-    </form>
-  </dialog>
-
-  <dialog id="enddlg">
-    <form method="dialog">
-      <h3>レビューを終了します</h3>
-      <p>未送信のコメントは残りますが、AI には届きません。</p>
-      <div class="dlg-actions">
-        <button value="cancel" class="ghost">キャンセル</button>
-        <button id="enddlg-ok" value="ok" class="primary">終了する</button>
-      </div>
-    </form>
-  </dialog>
-
-  <div id="ended" hidden>
-    <div class="ended-box" id="ended-box"></div>
-  </div>
-
-  <script src="/vendor/marked.min.js"></script>
-  <script src="/vendor/purify.min.js"></script>
-  <script src="/vendor/mermaid.min.js"></script>
-  <script src="/anchor.js"></script>
-  <script src="/diff.js"></script>
-  <script src="/progress.js"></script>
-  <script src="/fmt.js"></script>
-  <script src="/app.js"></script>
+  <div id="root"></div>
 </body>
 </html>

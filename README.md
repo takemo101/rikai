@@ -19,7 +19,7 @@
 
 ## 必要なもの
 
-- Node.js 22 以上（追加の npm パッケージは不要。サーバー・CLI は依存を含めて 1 ファイルにまとめてあり、画面の表示ライブラリ〔marked / DOMPurify / mermaid〕も同梱）
+- Node.js 22 以上（追加の npm パッケージは不要。サーバー・CLI も、画面〔React・marked・DOMPurify・mermaid ほか〕も、依存を含めて、ビルド済みのものを `skills/rikai/` に同梱している）
 - Claude Code・omp・pi・grok・agy・codex・opencode など、スキル（`SKILL.md`）を読めるエージェント
 
 ## インストール
@@ -112,11 +112,13 @@ rikai stop                         サーバーを止める
 続きの開発は [AGENTS.md](AGENTS.md)（規約）と [docs/README.md](docs/README.md)（文書の案内）から読んでください。製品要件の正本は [SPEC.md](SPEC.md)、確認した範囲は [検証手順と記録](docs/verification.md) です。
 
 ```bash
-pnpm install   # 開発の依存（Node 22.12 以上と pnpm。利用者には要らない）
-pnpm test      # 自動テスト（Vitest。ブラウザは使わない）
-pnpm run build # サーバー・CLI を skills/rikai/ にバンドルする（コミットする）
+pnpm install          # 開発の依存（Node 22.12 以上と pnpm。利用者には要らない）
+pnpm test             # 自動テスト（Vitest。サーバー・CLI・画面〔jsdom〕・配布物が古くないこと）
+pnpm run test:e2e     # 実際の Chrome での確認（Playwright。先に pnpm run build）
+pnpm run build        # サーバー・CLI・画面を skills/rikai/ にビルドする（コミットする）
+pnpm --dir app dev    # 画面の開発サーバー（RIKAI_SERVER が要る。docs/development.md）
 ```
 
 ## ライセンス
 
-MIT（[LICENSE](LICENSE)）。同梱しているライブラリは、サーバー・CLI の依存が `skills/rikai/THIRD-PARTY-LICENSES.txt`、画面の表示ライブラリが `skills/rikai/public/vendor/LICENSE-*` を参照してください。
+MIT（[LICENSE](LICENSE)）。同梱しているライブラリは、サーバー・CLI の依存が `skills/rikai/THIRD-PARTY-LICENSES.txt`、画面の依存が `skills/rikai/public/THIRD-PARTY-LICENSES.txt` を参照してください。

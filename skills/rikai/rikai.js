@@ -25421,7 +25421,8 @@ var MIME = {
   ".webp": "image/webp",
   ".json": "application/json; charset=utf-8"
 };
-var STATIC_PATHS = ["/app.js", "/anchor.js", "/diff.js", "/progress.js", "/fmt.js", "/style.css", "/favicon.svg"];
+var FAVICON_PATH = "/favicon.svg";
+var ASSETS_PREFIX = "/assets/";
 var indexCsp = (host) => `default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self'; connect-src 'self'; frame-src http://${host}/appframe/; object-src 'none'; base-uri 'none'; form-action 'none'`;
 var APP_CSP = "sandbox allow-scripts; default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data:; font-src data:; media-src 'none'; connect-src 'none'; frame-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'self'";
 var BASE_HEADERS = { "Cache-Control": "no-store", "X-Content-Type-Options": "nosniff" };
@@ -25607,9 +25608,11 @@ function createApp(opts) {
   };
   const staticFile = (c) => {
     const p = c.req.path;
-    if (!STATIC_PATHS.includes(p) && !p.startsWith("/vendor/")) return notFoundText();
-    const file2 = import_node_path5.default.resolve(publicDir, `.${p}`);
-    if (!file2.startsWith(publicDir + import_node_path5.default.sep)) return textResponse(403, "forbidden");
+    if (p === FAVICON_PATH) return serveFile(import_node_path5.default.join(publicDir, "favicon.svg"));
+    if (!p.startsWith(ASSETS_PREFIX)) return notFoundText();
+    const dir = import_node_path5.default.join(publicDir, "assets");
+    const file2 = import_node_path5.default.resolve(dir, p.slice(ASSETS_PREFIX.length));
+    if (file2 !== dir && !file2.startsWith(dir + import_node_path5.default.sep)) return textResponse(403, "forbidden");
     return serveFile(file2);
   };
   const app = new Hono3({
@@ -25645,8 +25648,8 @@ function createApp(opts) {
   });
   app.get("/", indexPage);
   app.get("/index.html", indexPage);
-  for (const p of STATIC_PATHS) app.get(p, staticFile);
-  app.get("/vendor/*", staticFile);
+  app.get(FAVICON_PATH, staticFile);
+  app.get(`${ASSETS_PREFIX}*`, staticFile);
   app.get("/asset/*", (c) => {
     const m = /^\/asset\/([^/]+)\/(.+)$/.exec(c.req.path);
     if (!m) return notFoundText();

@@ -1,0 +1,186 @@
+// スレッドのカード（`.thread`）：札・対象の引用・発言（古いやり取りは折りたたむ：F29）・返信の入力・「理解できた（解決）」／「再開する」。
+import { type ReactNode, useRef } from 'react';
+import type { Thread } from '../../shared/types';
+import { useMutations } from '../api/mutations';
+import { trunc } from '../lib/dom';
+import type { View } from '../lib/view';
+import type { DocModel } from '../store/doc';
+import { useUi } from '../store/ui';
+import { caretAtEnd } from './caret';
+import { ImageBar } from './ImageBar';
+import { foldMessages, quoteOf, threadStatus } from './logic';
+import { MessageView } from './Message';
+import { usePanel } from './panelContext';
+import { useDraftImgs, useImageAttach } from './useImageAttach';
+
+interface Props {
+  view: View;
+  thread: Thread;
+  /** 番号を押して、そのカードだけを見るとき：古いやり取りも、たたまない */
+  full?: boolean;
+  /** 本文の位置・番号・近似（見つかっているとき。別のページの古いものは、渡さない） */
+  model: DocModel | null;
+  /**
+   * 折りたたみと、発言の「新着」の印（●）に使う、見たものの一覧。**パネルを描き直したときの値**（旧と同じ）：
+   * カードを押して、見たことになっても、いま読んでいる発言が、すぐには、たたまれない。次に、パネルが描き直されるとき（切り替え・1 枚だけ見る・データの更新）に、反映される
+   */
+  seen: ReadonlySet<string>;
+  /** 編集中のメッセージ ID（編集中の発言は、たたまない） */
+  editing: string | null;
+}
+
+export function ThreadCard({ view, thread: t, full = false, model, seen, editing }: Props) {
+  const { focusThread } = usePanel();
+  const active = useUi((s) => s.active === t.id);
+  const linked = useUi((s) => s.linkedTid === t.id);
+  // カードの縁の印は、見たらすぐ消える（旧は、DOM を直接。折りたたみは、上の `seen`）
+  const fresh = useUi((s) => t.messages.some((m) => m.author === 'ai' && !s.seen.has(m.id)));
+
+  const [stText, stCls] = threadStatus(t);
+  const loc = model?.locs.get(t.id);
+  // 位置が「見つからない」と分かっているものだけ（まだ、本文を描いていないものは、印を出さない）
+  const orphan = loc?.kind === 'none' && !!t.anchor && t.version <= view.version;
+  const future = t.version > view.version;
+  const num = model?.nums.get(t.id);
+  const approx = model?.approx.get(t.id);
+
+  const cls = ['thread', stCls, active && 'active', fresh && 'fresh', linked && 'linked'].filter(Boolean).join(' ');
+  const segments = foldMessages(t, { full, seen, editing });
+
+  return (
+    <div className={cls} data-tid={t.id}>
+      {/* biome-ignore lint/a11y/useKeyWithClickEvents: 旧と同じ DOM（見出しの押下は、マウスの近道。キーボードは、カード内のボタン） */}
+      {/* biome-ignore lint/a11y/noStaticElementInteractions: 同上 */}
+      <div className="th-head" onClick={() => focusThread(t.id, true)}>
+        {num !== undefined ? (
+          <span className={`no${t.resolved ? ' resolved' : ''}`} title="本文の、同じ番号の印の所へのコメントです">
+            {String(num)}
+          </span>
+        ) : null}
+        {stCls === 'wait' ? null : <span className={`chip ${stCls} small`}>{stText}</span>}
+        {t.version === view.version ? null : <span className="chip small">v{t.version}</span>}
+        {orphan ? <span className="chip warn small">修正で文が変わりました</span> : null}
+        {approx ? (
+          <span className="chip warn small">
+            {approx === 'similar' ? '近い内容のブロックに表示' : '同じ位置のブロックに表示'}
+          </span>
+        ) : null}
+        {future ? <span className="chip small">後の版のコメント</span> : null}
+        <div className="quote">{trunc(quoteOf(t), 90)}</div>
+      </div>
+      {segments.map((s) =>
+        s.kind === 'msg' ? (
+          <MessageView key={s.m.id} view={view} thread={t} m={s.m} seen={seen} />
+        ) : (
+          <Older key={s.key} id={s.key} count={s.items.length}>
+            {s.items.map((m) => (
+              <MessageView key={m.id} view={view} thread={t} m={m} seen={seen} />
+            ))}
+          </Older>
+        ),
+      )}
+      <ThreadFoot view={view} thread={t} />
+    </div>
+  );
+}
+
+/** 「これまでのやり取り（N 件）」。開いた状態は、ストア（`olderOpen`）：描き直しても、画面の更新を挟んでも、開いたまま */
+function Older({ id, count, children }: { id: string; count: number; children: ReactNode }) {
+  const open = useUi((s) => s.olderOpen.has(id));
+  const setOlderOpen = useUi((s) => s.setOlderOpen);
+  return (
+    <details className="older" open={open} onToggle={(e) => setOlderOpen(id, e.currentTarget.open)}>
+      <summary>{`これまでのやり取り（${count} 件）`}</summary>
+      {children}
+    </details>
+  );
+}
+
+/** 返信の入力と、解決・再開 */
+function ThreadFoot({ view, thread: t }: { view: View; thread: Thread }) {
+  const slug = view.slug;
+  const key = `reply-${t.id}`;
+  const draft = useUi((s) => s.drafts.reply[t.id] ?? '');
+  const setReplyDraft = useUi((s) => s.setReplyDraft);
+  const setRowOpen = useUi((s) => s.setRowOpen);
+  const resetImgs = useUi((s) => s.resetImgs);
+  const { reply, resolve } = useMutations();
+  const imgs = useDraftImgs(key);
+  const { handlers } = useImageAttach(key, slug);
+  const busy = useRef(false);
+
+  const sendReply = async (): Promise<void> => {
+    if (busy.current) return;
+    const text = draft.trim();
+    const state = useUi.getState();
+    if (state.uploading) {
+      state.showToast('画像のアップロード中です。終わってから、送ってください', true);
+      return;
+    }
+    if (!text && !imgs.length) return;
+    busy.current = true; // 送っている間の、2 回押し（同じ返信が 2 件になる）を防ぐ
+    try {
+      await reply(
+        { topic: slug, thread: t.id, text, images: [...imgs] },
+        {
+          onOk: () => {
+            setReplyDraft(t.id, '');
+            resetImgs(key);
+          },
+        },
+      );
+    } finally {
+      busy.current = false;
+    }
+  };
+
+  if (t.resolved) {
+    return (
+      <div className="th-foot">
+        <button
+          type="button"
+          className="ghost small"
+          onClick={() =>
+            void resolve({ topic: slug, thread: t.id, resolved: false }, { onOk: () => setRowOpen(t.id, false) })
+          }
+        >
+          再開する
+        </button>
+      </div>
+    );
+  }
+  return (
+    <div className="th-foot">
+      <textarea
+        rows={2}
+        ref={caretAtEnd}
+        data-key={key}
+        placeholder="返信・追加の質問（⌘/Ctrl+Enter で追加。画像は、貼り付け・ドラッグでも）"
+        value={draft}
+        onChange={(e) => setReplyDraft(t.id, e.target.value)}
+        onKeyDown={(e) => {
+          if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
+            e.preventDefault();
+            void sendReply();
+          }
+        }}
+        {...handlers}
+      />
+      <ImageBar imgKey={key} slug={slug} />
+      <div className="row">
+        <button type="button" className="primary small" onClick={() => void sendReply()}>
+          返信を追加
+        </button>
+        <button
+          type="button"
+          className="ghost small"
+          onClick={() =>
+            void resolve({ topic: slug, thread: t.id, resolved: true }, { onOk: () => setRowOpen(t.id, false) })
+          }
+        >
+          理解できた（解決）
+        </button>
+      </div>
+    </div>
+  );
+}

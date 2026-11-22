@@ -76,8 +76,8 @@ test('startServer：Host がない・おかしくても、旧と同じ 403（ラ
       assert.equal(r.line.split(' ')[1], '403', head);
       assert.match(r.body, /ホスト名が違います/);
     }
-    // 旧実装は、`new URL(req.url, 'http://localhost')` で読んだ。`//app.js` は、ホストの付いた URL として、パス `/` になる
-    const r = await rawGet(s.port, `GET //app.js HTTP/1.1\r\nHost: 127.0.0.1:${s.port}\r\n`);
+    // 旧実装は、`new URL(req.url, 'http://localhost')` で読んだ。`//favicon.svg` は、ホストの付いた URL として、パス `/` になる
+    const r = await rawGet(s.port, `GET //favicon.svg HTTP/1.1\r\nHost: 127.0.0.1:${s.port}\r\n`);
     assert.equal(r.line.split(' ')[1], '403');
     assert.match(r.body, /合言葉が必要です/);
   } finally {
