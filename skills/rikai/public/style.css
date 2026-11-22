@@ -99,8 +99,8 @@ label.chk { font-size: 12.5px; color: var(--muted); display: flex; gap: 4px; ali
 .mm-err { color: var(--warn); font-size: 12.5px; text-align: left; }
 
 #article .blk { position: relative; border-radius: 4px; }
-#article .blk.changed { box-shadow: -10px 0 0 -7px #8cc9a3; } /* 前の版から変えたブロック：細い緑の線だけ（背景は付けない。凡例は、上のバー） */
-#article .blk.changed.added { box-shadow: -10px 0 0 -7px #4fa779; }
+#article .blk.changed { box-shadow: 6px 0 0 -3px #8cc9a3; } /* 前の版から変えたブロック：右端の細い緑の線だけ（左は、コメントの番号が出る。背景は付けない。凡例は、上のバー） */
+#article .blk.changed.added { box-shadow: 6px 0 0 -3px #4fa779; }
 #article .diffbox { margin: 4px 0 12px; font-size: 12.5px; color: var(--muted); }
 #article li.diffbox { list-style: none; display: block; } /* list-item のままだと、番号つきの並びで、番号を 1 つ使う */
 #article .diffbox summary { cursor: pointer; user-select: none; }
@@ -207,6 +207,8 @@ mark.hl.pending { background: #ffd8a8; outline: 2px dashed #e8590c; outline-offs
 #threads { background: #faf9f6; border-left: 1px solid var(--line); overflow: auto; padding: 6px 14px 60px; }
 #threads .side-h { padding-left: 4px; }
 .panel-h { display: flex; align-items: center; justify-content: space-between; }
+.panel-top { position: sticky; top: -6px; z-index: 4; margin: -6px -14px 0; padding: 6px 14px 4px; background: #faf9f6; } /* 見出し・切り替えは、スクロールしても、右パネルの上に固定する（上に -6px：#threads の上の余白の分） */
+.thread, .donerow, .rowopen { scroll-margin-top: 100px; } /* 固定の部分に、隠れないように */
 .empty { color: var(--muted); font-size: 12.5px; padding: 8px 4px; }
 .thread { background: #fff; border: 1px solid #ebe8e1; border-radius: 10px; margin: 10px 0; padding: 12px 14px; box-shadow: 0 1px 2px rgba(30, 30, 30, .04); }
 .thread.active { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
@@ -259,7 +261,7 @@ mark.hl.pending { background: #ffd8a8; outline: 2px dashed #e8590c; outline-offs
 .sl { font-size: 12px; color: var(--muted); }
 .ask-foot { display: flex; gap: 8px; align-items: center; margin-top: 8px; }
 /* 右のパネルの切り替え（進行中・解決済み・すべて）と、解決済みの 1 行、番号を押して 1 枚だけ見るときの帯、変更ブロックの凡例 */
-.tabs { display: flex; gap: 2px; margin: 4px 0 6px; padding: 3px; background: #eeece6; border-radius: 9px; }
+.tabs { display: flex; gap: 2px; margin: 4px 0 2px; padding: 3px; background: #eeece6; border-radius: 9px; }
 .tab { flex: 1; border: 0; background: transparent; color: var(--muted); font-size: 12.5px; padding: 4px 8px; border-radius: 7px; }
 .tab:hover { color: var(--ink); }
 .tab.on { background: #fff; color: var(--ink); font-weight: 600; box-shadow: 0 1px 2px rgba(30, 30, 30, .08); }

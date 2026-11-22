@@ -583,7 +583,7 @@
       if (curVersion() > 1) {
         bar.append(h('label', { class: 'chk' }, h('input', { type: 'checkbox', 'data-key': 'chk-changes', checked: S.showChanges, onchange: (e) => { S.showChanges = e.target.checked; S.docSig = ''; loadPage(); } }), '前の版からの変更を表示'));
         if (S.diff && S.diff.key === `${S.slug}/${S.page}/${curVersion()}`) bar.append(h('span', { class: 'chip', title: '前の版との比較', text: `変更 ${S.diff.changed}・追加 ${S.diff.added}・削除 ${S.diff.removed}` }));
-        if (S.showChanges && S.diff && S.diff.key === `${S.slug}/${S.page}/${curVersion()}` && S.diff.changed + S.diff.added > 0) bar.append(h('span', { class: 'legend' }, h('i', { class: 'swatch' }), '緑の線：前の版から変えたところ'));
+        if (S.showChanges && S.diff && S.diff.key === `${S.slug}/${S.page}/${curVersion()}` && S.diff.changed + S.diff.added > 0) bar.append(h('span', { class: 'legend' }, h('i', { class: 'swatch' }), '右端の緑の線：前の版から変えたところ'));
       }
     }
     if (!isLatest()) {
@@ -917,8 +917,8 @@
     panel.replaceChildren();
     regbtn.hidden = !S.topic || !isLatest(); // 範囲を選ぶボタンは、最新版を開いているときだけ
     if (!S.topic) return;
-    const head = h('div', { class: 'side-h panel-h' }, 'コメント');
-    panel.append(head);
+    const top = h('div', { class: 'panel-top' }, h('div', { class: 'side-h panel-h' }, 'コメント')); // 上に固定する部分（見出し・切り替え・1 枚だけ見る帯）
+    panel.append(top);
     markPending(); // 入力中の対象を本文で強調し、その位置を決めてから、入力欄を並べる
     const list = threadsOnPage();
     const live = list.filter((t) => !t.resolved).sort(docOrder);
@@ -926,7 +926,7 @@
     if (S.solo && !list.some((t) => t.id === S.solo)) S.solo = null; // 別のページ・版へ移った
     if (S.solo) { // 本文の番号を押した：そのカードだけを、古いやり取りもたたまずに見せる
       const t = list.find((x) => x.id === S.solo);
-      panel.append(h('div', { class: 'solobar' },
+      top.append(h('div', { class: 'solobar' },
         h('button', { class: 'link', type: 'button', text: '← すべてのコメントに戻る', onclick: () => { S.solo = null; renderThreads(); } }),
         h('span', { class: 'hint', text: S.nums.has(t.id) ? `${S.nums.get(t.id)} 番のコメントだけを表示中` : 'このコメントだけを表示中' })));
       if (S.composer) panel.append(renderComposer());
@@ -934,7 +934,7 @@
     } else {
       if (!list.length && !S.composer) panel.append(h('div', { class: 'empty', text: '本文の文を選ぶと「コメント」が出ます。ブロックにマウスを置くと出るバーの「コメント」でも、付けられます。本文の好きな範囲は、右下の「範囲を選ぶ」から、ドラッグで選べます。' }));
       if (list.length) { // 進行中・解決済み・すべて
-        panel.append(h('div', { class: 'tabs', role: 'tablist' }, [['live', '進行中', live.length], ['done', '解決済み', done.length], ['all', 'すべて', list.length]].map(([k, label, n]) =>
+        top.append(h('div', { class: 'tabs', role: 'tablist' }, [['live', '進行中', live.length], ['done', '解決済み', done.length], ['all', 'すべて', list.length]].map(([k, label, n]) =>
           h('button', { type: 'button', role: 'tab', class: `tab${S.tab === k ? ' on' : ''}`, 'aria-selected': String(S.tab === k), onclick: () => { S.tab = k; renderThreads(); } }, label, h('span', { class: 'n', text: String(n) })))));
       }
       const showLive = S.tab !== 'done', showDone = S.tab !== 'live';
