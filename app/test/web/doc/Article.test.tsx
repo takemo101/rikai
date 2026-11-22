@@ -269,3 +269,23 @@ test('位置が見つからないスレッド（引用なし・anchor なし・�
   expect(m?.locs.get('ok')?.kind).toBe('text');
   expect([...(m?.nums.keys() ?? [])]).toEqual(['ok']);
 });
+
+test('別のページ・版（view.key が変わる）へ移ったら、直前のスクロール位置を引き継がず、先頭で開く。同じページの描き直しでは、保つ', async () => {
+  const t1 = on('t1', 'ここを選びます');
+  const { again } = mount([t1], MD, null, 2);
+  await settle();
+  const scroller = document.getElementById('docscroll') as HTMLElement;
+  let top = 2000;
+  Object.defineProperty(scroller, 'scrollTop', { get: () => top, set: (v: number) => (top = v), configurable: true });
+  // 取得済みの v1 へ（本文は、すぐ届く）
+  again([t1], '# 別の版\n\n本文。\n', null, 1);
+  top = 1479; // 描き直しで、中身が縮んで、ブラウザが、位置を詰める
+  await settle();
+  expect(top).toBe(0);
+  // そのページの中の、描き直し（スレッドが変わる）は、位置を保つ
+  top = 300;
+  again([{ ...t1, resolved: true }], '# 別の版\n\n本文。\n', null, 1);
+  top = 0;
+  await settle();
+  expect(top).toBe(300);
+});

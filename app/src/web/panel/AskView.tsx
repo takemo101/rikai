@@ -15,6 +15,12 @@ interface Props {
   q: Message & { ask: Ask };
 }
 
+/** 通信中の回答の操作：内容の鍵と、そのあとに送るもの（あれば） */
+interface Flight {
+  key: string;
+  next: { payload: AskDraft | null } | null;
+}
+
 export function AskView({ slug, thread, q }: Props) {
   const ask = q.ask;
   const opened = useUi((s) => s.askOpen.has(q.id));
@@ -24,7 +30,7 @@ export function AskView({ slug, thread, q }: Props) {
   const setDraft = useUi((s) => s.setAskDraft);
   const clearDraft = useUi((s) => s.clearAskDraft);
   const { answer } = useMutations();
-  const busy = useRef(false);
+  const flight = useRef<Flight | null>(null);
 
   if (askStale(thread, q) && !opened) {
     return (
@@ -47,12 +53,22 @@ export function AskView({ slug, thread, q }: Props) {
   const d: AskDraft = draft ?? {};
   const name = `ask-${q.id}`;
 
+  // 回答の保存・取り消しは、順に送る：通信中に押されたものは、待たせて、終わってから送る（最後の押しが勝つ）。最後の押しが、通信中と同じ内容なら、待たせたものを捨てる（通信中のものが、最後の押し）
   const send = (payload: AskDraft | null): void => {
-    if (busy.current) return;
-    busy.current = true;
-    void answer({ topic: slug, thread: thread.id, msg: q.id, answer: payload }).finally(() => {
-      busy.current = false;
-    });
+    const key = JSON.stringify(payload);
+    if (flight.current !== null) {
+      flight.current.next = key === flight.current.key ? null : { payload };
+      return;
+    }
+    const run = (p: AskDraft | null): void => {
+      const f: Flight = { key: JSON.stringify(p), next: null };
+      flight.current = f;
+      void answer({ topic: slug, thread: thread.id, msg: q.id, answer: p }).finally(() => {
+        flight.current = null;
+        if (f.next) run(f.next.payload);
+      });
+    };
+    run(payload);
   };
 
   let input: ReactNode;

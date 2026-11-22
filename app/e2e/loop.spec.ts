@@ -1,6 +1,6 @@
 // 資料とコメントのループ（F1〜F8・F14・F21）：資料を開く → 文を選んでコメント → Submit → CLI の pull に届く → apply で返信 → 返信 → 理解できた（解決）
 import { expect, test } from './fixtures';
-import { addTextComment, submitAll, ui } from './ui';
+import { addTextComment, openComposerOnText, submitAll, ui } from './ui';
 
 test.describe('コメントのループ', () => {
   test('資料が開く：題名・本文・左の一覧・上のバー（F1・F2・F15）', async ({ page }) => {
@@ -117,6 +117,25 @@ test.describe('コメントのループ', () => {
     await u.threads.first().getByRole('button', { name: '再開する' }).click();
     await expect(u.top).toContainText('解決 0/1');
     await expect(tab('進行中')).toHaveText('進行中1');
+  });
+
+  test('コメントの追加が成功して、直後の取り直しだけ失敗しても、二重に保存されない（取り直しが届けば、入力欄が閉じる）', async ({
+    page,
+    app,
+  }) => {
+    const u = ui(page);
+    await openComposerOnText(page, '猫は朝によく鳴きます');
+    await u.composer.locator('textarea').fill('一度だけ');
+    let block = true;
+    await page.route('**/api/topic/**', (route) => (block ? route.abort() : route.continue()));
+    await u.composer.getByRole('button', { name: 'コメントを追加' }).click();
+    await expect(u.composer.locator('textarea')).toHaveValue(''); // 保存できた：書きかけは消える
+    await expect(u.toast).toBeHidden();
+    await u.composer.getByRole('button', { name: 'コメントを追加' }).click(); // 何も、送らない
+    block = false;
+    await expect(u.composer).toHaveCount(0); // 次のポーリングで追いつく
+    await expect(u.threads).toHaveCount(1);
+    expect((await app.status()).unsentInBrowser).toBe(1);
   });
 
   test('編集・削除は、送るまで（F5）', async ({ page }) => {

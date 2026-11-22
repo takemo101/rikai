@@ -4,6 +4,7 @@ import { useEffect, useRef } from 'react';
 import { useMutations } from '../api/mutations';
 import { trunc } from '../lib/dom';
 import type { View } from '../lib/view';
+import type { BlockEl } from '../store/doc';
 import { type ComposerState, useUi } from '../store/ui';
 import { caretAtEnd } from './caret';
 import { ImageBar } from './ImageBar';
@@ -14,7 +15,7 @@ interface Props {
   view: View;
   composer: ComposerState;
   /** 入力中の対象を、本文で強調した要素（DocModel.pending）。見つからなければ null */
-  pending: HTMLElement | null;
+  pending: BlockEl | null;
 }
 
 export function Composer({ view, composer, pending }: Props) {
@@ -48,15 +49,21 @@ export function Composer({ view, composer, pending }: Props) {
     if (!text && !imgs.length) return;
     busy.current = true;
     try {
-      const r = await comment({
-        topic: slug,
-        page: view.page,
-        version: view.version,
-        anchor: a,
-        text,
-        images: [...imgs],
-      });
-      if (r) afterComment(r.thread);
+      const composerId = composer.id;
+      await comment(
+        { topic: slug, page: view.page, version: view.version, anchor: a, text, images: [...imgs] },
+        {
+          // 保存できた：書きかけを消す（取り直しが遅れても、もう一度押して、二重に保存されない）。入力欄は、追加したカードが届いてから閉じる
+          onOk: (res) => {
+            const s = useUi.getState();
+            if (s.composer?.id === composerId) {
+              s.setComposerDraft('');
+              s.resetImgs('composer');
+            }
+            afterComment(res.thread, composerId);
+          },
+        },
+      );
     } finally {
       busy.current = false;
     }

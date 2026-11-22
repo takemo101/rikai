@@ -32,21 +32,23 @@
 
 ### 開発の土台（再開発〔Hono・React〕。2026-11-22〜。SPEC §8）
 
-サーバーと CLI は、**TypeScript（`app/src/{server,cli,shared}/`）に移した**（RIK-035）。**画面（`skills/rikai/public/`）は、まだ旧 UI**（素の JavaScript。ビルドしない）。段階：土台（RIK-034）→ サーバーと CLI（RIK-035。済）→ フロント（RIK-036）→ 仕上げ（RIK-037）。**画面を React にする段階で、画面に関わる節を、書き直す**。
+サーバー・CLI（`app/src/{server,cli,shared}/`。RIK-035）と、**画面（`app/src/web/`。RIK-036）も、TypeScript に移した**。画面は、React 19・Vite・Zustand・TanStack Query・Hono RPC の型（`hc`）・Tailwind v4（theme と utilities だけ。preflight なし。見た目は、`styles/legacy.css`）。旧 UI（`app.js`・`style.css`・`vendor/` ほか）と、ルートの `test/` は、なくなった。段階：土台（RIK-034）→ サーバーと CLI（RIK-035）→ フロント（RIK-036。済）→ 仕上げ（RIK-037）。
 
 - **`app/` が、開発用のワークスペース**（TypeScript のソース・テスト・設定・開発の依存）。**リポジトリのルートの `package.json` には、依存を書かない**：ルートは、プラグインの宣言（pi の `pi.skills`・各エージェントのマニフェスト）で、pi が、git から入れるとき、`npm install --omit=dev` を、ルートで実行する。開発の依存がルートにあると、そのたびに、npm のレジストリへ問い合わせて、オフラインでは失敗する（レビューで、9 秒・`ENOTCACHED` を確認）。
 - 開発の依存は **pnpm**（ルートで `pnpm install`。`pnpm-lock.yaml` をコミット。esbuild のビルドスクリプトは `pnpm-workspace.yaml` の `allowBuilds` で許可）。利用者の環境には、依存を要求しない（バンドルして `skills/rikai/` に同梱：SPEC N5）。
-- 言語は TypeScript（strict）。`app/src/shared/`：サーバー・CLI・（これからの）画面が共有する、DOM に触れない純粋な関数と型（`anchor.ts`・`diff.ts`・`progress.ts`・`types.ts`・`api.ts`）。**状態は、モジュールの変数にしない**：`createStore(root)`・`createApp` の引数・`createActions` の `hooks` で、渡す。
-- **配布物は、ビルドして `skills/rikai/` に置き、コミットする**：`pnpm run build` が、`skills/rikai/rikai.js`・`rikai-htmlapp-worker.js`・`THIRD-PARTY-LICENSES.txt` を書き換える。**`app/src/` を変えたら、`pnpm run build` をして、出力もコミットする**（`app/test/build.test.ts` が、ソースから作り直したものと、コミットしたものが同じか確かめる。古いと、`pnpm test` が落ちる）。これらは生成物なので、手で編集しない。
+- 言語は TypeScript（strict）。`app/src/shared/`：サーバー・CLI・画面が共有する、DOM に触れない純粋な関数と型（`anchor.ts`・`diff.ts`・`progress.ts`・`types.ts`・`api.ts`）。**状態は、モジュールの変数にしない**：`createStore(root)`・`createApp` の引数・`createActions` の `hooks` で、渡す。画面の状態は、`app/src/web/store/`（Zustand）と TanStack Query（`api/`）。
+- **配布物は、ビルドして `skills/rikai/` に置き、コミットする**：`pnpm run build`（= `build:server` + `build:web`）が、`skills/rikai/rikai.js`・`rikai-htmlapp-worker.js`・`THIRD-PARTY-LICENSES.txt`（サーバー・CLI）と、`skills/rikai/public/`（画面：`index.html`・`favicon.svg`・`assets/`・`THIRD-PARTY-LICENSES.txt`）を書き換える。**`app/src/` を変えたら、`pnpm run build` をして、出力もコミットする**（`app/test/build.test.ts` が、ソースから作り直したものと、コミットしたもの〔`public/` 全体を含む〕が同じか確かめる。古いと、`pnpm test` が落ちる）。これらは生成物なので、手で編集しない。`vite build` を単独で動かすと `skills/rikai/public/` を空にして書き換える（試すときは `--outDir /tmp/…`）。
+- **画面の依存**（react・vite・tailwind・tanstack・zustand・dompurify・mermaid・marked ほか）は、`app/package.json` の `devDependencies` に置き、ビルドで `public/assets/` に同梱する。ライセンスは、ビルドが `public/THIRD-PARTY-LICENSES.txt` に出す（手で書かない）。ルートの `package.json` に `dependencies` はない。`public/` は約 5.6MB（Mermaid の図の種類ごとの chunk が大半。必要になるまで読まない）。
 
 | コマンド（ルートで） | 内容 |
 |---|---|
-| `pnpm test` | Vitest（`app/test/**/*.test.ts`）と、旧 UI の `test/fmt.test.js`（`node --test test/*.test.js`）を、続けて動かす。`test/` には、`fmt.test.js` だけが残る（ほかの旧テストは、`app/test/` に移した） |
-| `pnpm run build` | `app/scripts/build.ts`：バンドルを、`skills/rikai/` に書く（上のとおり。コミットする） |
+| `pnpm test` | Vitest（`app/test/**/*.test.{ts,tsx}`）だけ（サーバー・CLI・共有・画面〔jsdom〕・配布物）。ルートの `test/` は、なくなった。`app/vitest.web.config.ts` は、画面（`app/test/web/`）だけを、サーバーのビルドなしで動かす設定（`pnpm --dir app exec vitest run -c vitest.web.config.ts`） |
+| `pnpm run build` | `build:server`（`app/scripts/build.ts`）と `build:web`（`app/vite.config.ts`）：バンドルを、`skills/rikai/` に書く（上のとおり。コミットする） |
+| `pnpm run test:e2e` | Playwright（実際の Chrome）の e2e。[e2e](#e2e実際の-chrome) |
 | `pnpm run typecheck` | `tsc --noEmit` |
 | `pnpm run lint` | `biome check`（整形・Lint。`pnpm run format` で直す。対象は `app/src/`・`app/test/**/*.ts`・`app/scripts/`・設定ファイル） |
 
-新しいテストは `app/test/` に `*.test.ts` で書く（Vitest。`node:assert/strict` も使える）。**足したテストは、実装を壊して、落ちることを、一度確かめる**（これまでと同じ）。
+新しいテストは `app/test/` に `*.test.ts`（画面の部品は `*.test.tsx`。`app/test/web/`。ファイルの先頭に `// @vitest-environment jsdom`）で書く（Vitest。`node:assert/strict` も使える）。**足したテストは、実装を壊して、落ちることを、一度確かめる**（これまでと同じ）。
 
 **プラグインの導入の確認（下の「プラグイン」の行）は、開発の複製ではなく、`/tmp` に新しく `git clone` したものから行う**：`pnpm install` 済みの複製から入れると、`node_modules`（180〜580MB。エージェントによる）まで、複製される（レビューで確認）。
 
@@ -71,6 +73,8 @@ JSON
 $RK stop; rm -rf /tmp/rk-dev
 ```
 
+**画面の開発サーバー**（`pnpm --dir app dev`。Vite。`http://127.0.0.1:5173/`）：rikai のサーバーを、別に起こし、`RIKAI_SERVER=http://127.0.0.1:<ポート>`（`.rikai/.server.json` の `port`）を付けて動かす（付けないと、起動時にエラー）。`/api`・`/asset`・`/appframe` だけ、そこへ proxy する。**先に、サーバーの URL（`http://127.0.0.1:<ポート>/?t=<合言葉>`）を、一度開いて、Cookie を付ける**。ホスト名は 127.0.0.1 にそろえる（詳しくは、`app/vite.config.ts` の先頭のコメント）。
+
 | コマンド | 内容 |
 |---|---|
 | `rikai new <topic> --title … [--source …]` | 標準入力の Markdown からトピックを作る |
@@ -93,10 +97,11 @@ $RK stop; rm -rf /tmp/rk-dev
 変更の確認は、**自動テスト（`pnpm test`）と、手作業**で行う。結果は [検証手順と記録](verification.md) に、日付と環境つきで残す。
 
 ```bash
-pnpm test        # Vitest（app/test/**/*.test.ts）と、node --test test/*.test.js（fmt だけ）。ブラウザ・実際のエージェントは使わない（Node 22.12 以上）
+pnpm test           # Vitest（app/test/**/*.test.{ts,tsx}）。ブラウザ・実際のエージェントは使わない（Node 22.12 以上）
+pnpm run test:e2e   # 実際の Chrome（Playwright。先に pnpm run build。下の「e2e」）
 ```
 
-| テスト（`app/test/server/`・`app/test/shared/`・`app/test/build.test.ts`） | 試すこと |
+| テスト（`app/test/server/`・`app/test/shared/`・`app/test/web/`・`app/test/build.test.ts`） | 試すこと |
 |---|---|
 | `server/store.test.ts` | トピックの作成と検査・`mutate` が失敗したら何も書かず、ロックを残さないこと・`rev` |
 | `server/actions.test.ts` | 画面からの操作（コメント・返信・編集・削除・解決・Submit）の検査と、Submit の中身 |
@@ -109,10 +114,10 @@ pnpm test        # Vitest（app/test/**/*.test.ts）と、node --test test/*.tes
 | `server/plugin.test.ts` | プラグインの宣言と配置の食い違い：スキルの場所・名前（ディレクトリ名と一致）・SKILL.md の frontmatter の項目（omp が、余計な項目のあるスキルを読み込まない）・`plugin.json` の項目と、`package.json` との名前・版の一致・各カタログの指す場所・pi の `skills`。各エージェントの検証コマンドは、含めない（手元の CLI に依存するため。上の表） |
 | `server/server.test.ts`・`app.test.ts`・`serve.test.ts`・`cli.test.ts` | 合言葉・`Host`・`Origin`・Cookie・CSP・配信のパス（`app.request()`、または実際に待ち受けて）・`rikai open` の `.server.json` の権限（0600）・`rikai serve` が、すべてのトピックが閉じたら自分で終わること（バンドルした CLI を子プロセスで動かす。`serve` が終了の処理を取りつける経路） |
 | `server/attach.test.ts`・`region.test.ts`・`htmlapp.test.ts`・`image.test.ts` | 添付の画像（保存・検査）・範囲（`region`）・`html-app` の取り出しと `/appframe` の応答 |
-| `build.test.ts` | コミットした配布物（`skills/rikai/` のバンドル・worker・ライセンス表）が、ソースから作り直したものと同じこと（古いと落ちる。`pnpm run build`） |
-| `test/fmt.test.js`（旧 UI。`node --test`） | `public/fmt.js` の escape・形式ごとの HTML |
+| `build.test.ts` | コミットした配布物（`skills/rikai/` のバンドル・worker・ライセンス表と、画面〔`skills/rikai/public/` 全体〕）が、ソースから作り直したものと同じこと（古いと落ちる。`pnpm run build`。画面は、別プロセス・本番の環境で `vite build` して比べる） |
+| `web/`（`app/test/web/`。jsdom） | 画面：本文の描画（`doc/markdown.test.ts`：無害化・リンク・画像・形式・html-app の置き場・返信）・番号の層の位置の計算・パネル・入力のロジック・ask・入口のバーと範囲の計算・API の呼び出し（`queries`・`mutations`）・ルート・localStorage・ストア |
 
-`app/test/server/helpers.ts` が、一時のプロジェクト（`os.tmpdir()`）と、作り物の資料・コメントを用意する。利用者の `.rikai/` には触れない。**ブラウザの描画（DOMPurify・選択・パネル）は、DOM が要るので、自動テストの対象外**。次の手作業で確かめる。
+`app/test/server/helpers.ts` が、一時のプロジェクト（`os.tmpdir()`）と、作り物の資料・コメントを用意する。利用者の `.rikai/` には触れない。**jsdom では、位置・大きさの測定が要るもの（番号の層の置き直し・範囲の選択のドラッグ・実際の描画の見た目）は、試せない**。それは、次の e2e と、手作業で確かめる。
 
 | 目的 | 方法 |
 |---|---|
@@ -124,7 +129,15 @@ pnpm test        # Vitest（app/test/**/*.test.ts）と、node --test test/*.tes
 | インストール | `CLAUDE_SKILLS_DIR=/tmp/x bash install.sh`。実際の `~/.claude/skills` へは、依頼があるときだけ |
 | プラグイン | 各エージェントの検証コマンド：`claude plugin validate .`・`grok plugin validate .`・`agy plugin validate .`。入れる確認は、**`HOME=/tmp/x` を付けて**（`~/.claude` などを変えない）：`claude plugin marketplace add <リポジトリ> && claude plugin install rikai@rikai`・`codex plugin marketplace add <リポジトリ> && codex plugin add rikai@rikai`・`grok plugin install <リポジトリ> --trust`・`agy plugin install <リポジトリ>`・`omp plugin marketplace add <リポジトリ> && omp plugin install rikai@rikai`・`pi install <リポジトリ>`。実際のエージェントでの確認は、`claude --plugin-dir`・`omp --plugin-dir`・`pi -e` で、その実行の間だけ読み込ませる |
 
-自動テストを足すときは、`app/test/server/<領域>.test.ts`（`anchor`・`diff` のような、共有の純粋な関数は `app/test/shared/`）に、Vitest と `node:assert/strict` で書く。**足したテストは、実装を壊して（たとえば、検査を外して）、落ちることを、一度確かめる**。
+自動テストを足すときは、`app/test/server/<領域>.test.ts`（`anchor`・`diff` のような、共有の純粋な関数は `app/test/shared/`、画面は `app/test/web/`）に、Vitest と `node:assert/strict` で書く。**足したテストは、実装を壊して（たとえば、検査を外して）、落ちることを、一度確かめる**。
+
+### e2e（実際の Chrome）
+
+`pnpm run test:e2e`（ルートで。Playwright。`app/e2e/` の 9 ファイル 83 件：`shell`・`loop`・`select`・`region`・`panel`・`ask`・`versions`・`formats`・`security`）。**実際の Chrome**（headless）で、画面を、本物のマウス・キーで操作する。ブラウザは、ダウンロードしない。
+
+- 環境変数：`RIKAI_CHROME`（Chrome の実行ファイル。なければ、`app/e2e/env.ts` の既定の場所。どちらにもなければ、skip）・`RIKAI_CLI`（試す `rikai.js`。既定は、`skills/rikai/rikai.js`。画面は、その隣の `public/` から配られる。**先に `pnpm run build`**）。
+- 1 つのテストにつき、使い捨てのプロジェクトを `os.tmpdir()` に作り、サーバーを起こす。終わりに stop して消す（利用者の `.rikai/` には触れない）。順番に（workers 1）流す。各テストは、127.0.0.1 以外への通信が 0 件であることも確かめる。
+- 画面を変えたら流す（約 2 分）。自動テスト（jsdom）で試せない、選択・範囲・出方を守る。**足したテストは、実装を壊して、落ちることを、確かめる**。
 
 ## 変更の進め方
 
@@ -143,7 +156,7 @@ pnpm test        # Vitest（app/test/**/*.test.ts）と、node --test test/*.tes
 ### ask の型を足す
 
 1. `app/src/server/ask.ts`：`ASK_TYPES`・`normAsk`（AI の入力の検査）・`normAnswer`（人間の回答の検査）。型は `app/src/shared/types.ts`（`Ask`・`AskAnswer`）。
-2. `app.js`：`askDraftValid`・`renderAsk`（入力の描画・下書き）。
+2. `app/src/web/panel/AskView.tsx`・`panel/logic.ts`：`askDraftValid`・ask の入力の描画・下書き。
 3. `SKILL.md` の `ask` の表と、SPEC F10 を直す。
 
 ## データの形を変えるとき
@@ -158,22 +171,18 @@ pnpm test        # Vitest（app/test/**/*.test.ts）と、node --test test/*.tes
   4. SPEC N7・構成説明・この節を更新する。
 - 新しい rikai で作られたトピックを、古い rikai が開くと、409 で断る（何も書き換えない）。古い rikai を使い続ける人は、`rikai` を更新する。
 
-## 同梱ライブラリの更新（旧 UI の `vendor/`）
+## 同梱ライブラリの更新
 
-`skills/rikai/public/vendor/`（**旧 UI の**ブラウザ側）に、固定した版を置いている（オフラインで動かすため）。そのぶん、脆弱性の修正が自動では入らない。ときどき確かめる。**サーバー側の marked（`html-app` の取り出し）は、これとは別で、npm の版（`app/package.json`）を、バンドルに入れている**（依存の更新は、`pnpm` で行い、`pnpm run build` して、コミットする）。
-
-| ライブラリ | 版（2026-11-21 に取得） | 写すファイル | 置き名 |
-|---|---|---|---|
-| marked | 18.2.1 | `lib/marked.umd.js` | `marked.min.js` |
-| DOMPurify | 3.4.18 | `dist/purify.min.js` | `purify.min.js` |
-| mermaid | 12.3.0 | `dist/mermaid.min.js` | `mermaid.min.js` |
+画面の依存（marked・DOMPurify・mermaid・react ほか）は、`app/package.json` の `devDependencies` にあり、ビルドで `skills/rikai/public/assets/` に同梱される（オフラインで動かすため）。サーバー側の marked（`html-app` の取り出し）も、同じ npm の版を、`rikai.js` にバンドルしている。**脆弱性の修正は、自動では入らない**：ときどき確かめる。
 
 ```bash
-mkdir /tmp/rv && cd /tmp/rv && npm init -y && npm i marked dompurify mermaid
-npm audit          # 修正のある版を探す
+pnpm audit                 # 修正のある版を探す（ルートで）
+pnpm --dir app update      # 依存を更新（pnpm-lock.yaml が変わる）
+pnpm run build             # skills/rikai/ の配布物を作り直す（ライセンス表も、自動で更新される）
+pnpm test && pnpm run test:e2e
 ```
 
-写したら、ライセンス（`node_modules/<名前>/LICENSE` → `vendor/LICENSE-<名前>`）も更新し、画面で、Mermaid の図・表・無害化（[検証の入口](#検証の入口)）を確かめる。marked の描画 API（`renderer.code({text, lang})`）が変わると、`app.js` の `marked.use` を直す必要がある。DOMPurify の設定（`PURIFY`）の挙動も、版で変わりうる。
+更新したら、配布物（`skills/rikai/`）と `pnpm-lock.yaml` を、一緒にコミットする。画面で、Mermaid の図・表・無害化（[検証の入口](#検証の入口)）を確かめる。marked の描画 API（`renderer.code({text, lang})`）が変わると、`app/src/web/doc/render/markdown.ts` の `renderer` を直す必要がある。DOMPurify の設定（`PURIFY`）の挙動も、版で変わりうる。
 
 ## mikan の Issue 進行
 

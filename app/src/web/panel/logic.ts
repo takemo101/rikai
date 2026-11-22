@@ -54,7 +54,8 @@ export function askDraftValid(ask: Ask, d: AskDraft | null | undefined): boolean
  */
 export function askStale(t: Pick<Thread, 'resolved' | 'messages'>, q: Message): boolean {
   if (answerOf(t, q) || t.resolved) return false;
-  return t.messages.slice(t.messages.indexOf(q) + 1).some((m) => m.author === 'user' && m.sent && m.kind !== 'answer');
+  const i = t.messages.findIndex((x) => x.id === q.id);
+  return t.messages.slice(i + 1).some((m) => m.author === 'user' && m.sent && m.kind !== 'answer');
 }
 
 // ---- 回答の下書きの更新（保存した回答や、前の下書きを、書き換えず、作り直す） ----

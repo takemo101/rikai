@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 // Markdown → 無害化。資料は AI が書いた非信頼のデータ（N1〜N3・F28）：スクリプト・イベント属性・危険なリンク・外部画像・フォーム・style を、本文に入れない。
 import { expect, test } from 'vitest';
-import { blockText, markBlocks } from '../../../src/web/doc/render/blocks';
+import { blockAnchor, blockEls, blockText, markBlocks, mediaOf } from '../../../src/web/doc/render/blocks';
 import { mdToFragment } from '../../../src/web/doc/render/markdown';
 import { hash } from '../../../src/web/lib/dom';
 
@@ -233,4 +233,23 @@ test('返信（kind: reply）：形式・リンク・画像・Mermaid の置き�
   const doc = document.createElement('div');
   doc.append(mdToFragment(md, { slug: 'demo', kind: 'doc' }));
   expect(doc.querySelector('.htmlapp')).not.toBeNull();
+});
+
+test('本文の直下のインライン <svg> も、ブロック（data-bid・blk）。後ろのブロックの番号が、ずれない', () => {
+  const frag = mdToFragment(
+    '前の段落。\n\n<svg width="200" height="80" viewBox="0 0 200 80">\n<rect width="200" height="80" fill="#eee"/>\n<text x="10" y="40">図</text>\n</svg>\n\n後ろの段落。\n',
+    { slug: 'demo', kind: 'doc' },
+  );
+  markBlocks(frag);
+  const els = blockEls(frag);
+  expect(els.map((e) => [e.tagName.toLowerCase(), e.dataset.bid])).toEqual([
+    ['p', 'b0'],
+    ['svg', 'b1'],
+    ['p', 'b2'],
+  ]);
+  const svg = els[1] as SVGElement;
+  expect(svg.classList.contains('blk')).toBe(true);
+  expect(svg.dataset.bhash).toBe(hash('図'));
+  expect(blockAnchor(svg)).toMatchObject({ blockId: 'b1', blockTag: 'svg', blockText: '図' });
+  expect(mediaOf(svg)).toBe(svg);
 });

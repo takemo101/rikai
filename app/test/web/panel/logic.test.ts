@@ -56,6 +56,15 @@ test('answerOf：質問への、いちばん新しい回答。別の質問への
 });
 
 // ---- F30：答えないまま会話が進んだ質問 ----
+test('askStale：ユーザーのコメントから始まるスレッドの、AI の質問は、小さくしない。質問のメッセージは、id で探す（複製でも、同じ）', () => {
+  const q = ask('q');
+  const t = T([me('コメント'), q]);
+  expect(askStale(t, q)).toBe(false);
+  expect(askStale(t, { ...q })).toBe(false);
+  const t2 = T([me('コメント'), q, me('続き')]);
+  expect(askStale(t2, { ...q })).toBe(true);
+});
+
 test('askStale：答えがなく、あとに、送信した利用者の発言があるとき（F30）', () => {
   const q = ask('q');
   expect(askStale(T([q, me('u1')]), q)).toBe(true);

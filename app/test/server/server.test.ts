@@ -143,6 +143,7 @@ test('静的ファイルは、public の外へ出ない。知らないファイ�
   assert.equal((await request('GET', '/favicon.svg')).status, 200);
   assert.equal((await request('GET', '/assets/..%2F..%2Frikai.js')).status, 404);
   assert.notEqual((await request('GET', '/assets/..%2F..%2Frikai.js')).status, 200);
+  assert.equal((await request('GET', '/assets//etc/hosts')).status, 403, '絶対パスで、public の外へ出ない');
   assert.equal((await request('GET', '/app.js')).status, 404);
   assert.equal((await request('GET', '/rikai.js')).status, 404);
   assert.equal((await request('GET', '/SKILL.md')).status, 404);

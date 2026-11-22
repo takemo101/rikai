@@ -78,3 +78,10 @@ test('画面にバンドルした依存の、ライセンスが添えてある',
     assert.match(text, new RegExp(`^### ${name} `, 'm'));
   assert.doesNotMatch(text, /ライセンス：（不明）/);
 });
+
+test('画面のライセンス：同じ名前の別の版も、版ごとに載る（marked が 2 つの版で入っている）', () => {
+  const text = fs.readFileSync(path.join(skillDir, 'public', 'THIRD-PARTY-LICENSES.txt'), 'utf8');
+  const marked = [...text.matchAll(/^### marked (\S+)$/gm)].map((m) => m[1]);
+  assert.ok(marked.length >= 2, `marked の版が 1 つしかない: ${marked.join(', ')}`);
+  assert.equal(new Set(marked).size, marked.length);
+});

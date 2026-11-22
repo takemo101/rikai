@@ -230,7 +230,7 @@ test('コメントに、画像だけでも送れる（文が空でも）。送�
   await waitFor(() => expect(q('.thread[data-tid="t9"]')).not.toBeNull());
   expect(view.posts.at(-1)).toMatchObject({ path: '/api/comment', body: { text: '', images: [name] } });
   expect(useUi.getState().drafts.imgs.composer).toEqual([]);
-  expect(useUi.getState().imgGen.composer).toBe(gen + 1);
+  expect(useUi.getState().imgGen.composer).toBeGreaterThan(gen);
   // 送った画像：リンク（新しい窓）・遅延読み込み
   const a = q('.msg.user .imgs a') as HTMLAnchorElement;
   expect([a.target, a.rel, a.getAttribute('href')]).toEqual(['_blank', 'noopener', `/asset/demo/${name}`]);

@@ -79,3 +79,16 @@ test('attach は、トピックを取り直さない。delete・resolve・edit�
   expect(paths.filter((p) => p === 'GET /api/topic/demo')).toHaveLength(5);
   expect(paths).toContain('POST /api/submit');
 });
+
+test('操作（POST）が成功して、直後の取り直しだけが失敗しても、操作は成功：結果を返す・onOk を呼ぶ・トーストを出さない（次のポーリングで追いつく）', async () => {
+  mockFetch((req) => {
+    if (req.method === 'POST') return { body: { ok: true, thread: 't9' } };
+    throw new TypeError('Failed to fetch');
+  });
+  const onOk = vi.fn();
+  const { result } = renderHook(() => useMutations(), { wrapper });
+  const r = await result.current.comment({ topic: 'demo', page: 'root', version: 1, text: 'x' }, { onOk });
+  expect(r).toMatchObject({ ok: true, thread: 't9' });
+  expect(onOk).toHaveBeenCalledTimes(1);
+  expect(useUi.getState().toast).toBeNull();
+});

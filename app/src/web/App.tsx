@@ -45,10 +45,21 @@ export function App() {
   useUpdateToast(view, route?.version ?? null);
 
   // ページの読み込みの失敗（版が範囲外・サーバーのエラー）は、トーストで知らせる
-  const pageError = pageQ.error ?? prevQ.error;
+  // 同じ内容の失敗が、取り直しのたびに、続けて出ないよう、メッセージが変わったときだけ
+  const pageErrorMsg = (pageQ.error ?? prevQ.error)?.message;
   useEffect(() => {
-    if (pageError) toast(pageError.message, true);
-  }, [pageError]);
+    if (pageErrorMsg) toast(pageErrorMsg, true);
+  }, [pageErrorMsg]);
+
+  // 本文の取得は、失敗したら、そのままになる（版の本文は変わらないので、`staleTime: Infinity`）。トピックの更新が来る度（1.5 秒ごと）に、取り直す（旧は、次の更新で、戻った）
+  const { refetch: refetchPage, isError: pageFailed } = pageQ;
+  const { refetch: refetchPrev, isError: prevFailed } = prevQ;
+  const topicUpdatedAt = topicQ.dataUpdatedAt;
+  // biome-ignore lint/correctness/useExhaustiveDependencies: トピックの更新（dataUpdatedAt）が契機。失敗の印は、そのときの値を読む
+  useEffect(() => {
+    if (pageFailed) void refetchPage();
+    if (prevFailed) void refetchPrev();
+  }, [topicUpdatedAt]);
 
   // ルートがないとき：最初の読めるトピックへ移る
   const firstSupported = topics?.find((t) => !t.unsupported);
@@ -102,7 +113,8 @@ export function App() {
             {body}
             <Overlays view={view} scrollRef={scrollRef} />
           </div>
-          <Interact view={view} scrollRef={scrollRef} />
+          {/* 見せている本文が、いまのページ・版のものでない間（取得中・取得に失敗）は、コメントの入口を出さない：食い違う本文に、コメントを付けないため */}
+          <Interact view={held.current?.view.key === view?.key ? view : null} scrollRef={scrollRef} />
         </main>
         <ThreadsPanel view={view} />
         <Resizer />

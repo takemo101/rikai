@@ -3,6 +3,7 @@
 import { act, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
+import { queryClient } from '../../../src/web/api/queryClient';
 import { useUi } from '../../../src/web/store/ui';
 import { resetAll } from '../helpers';
 import { ai, anchor, renderPanel, stubScroll, thread, user } from './fixtures';
@@ -126,6 +127,81 @@ test('コメントの追加が失敗したら、トースト・入力欄と書�
   expect(q('.thread.composer')).not.toBeNull();
   expect(useUi.getState().drafts.composer).toBe('書きかけ');
   expect(view.posts).toHaveLength(0);
+});
+
+test('追加の POST が成功して、直後の取り直しだけ失敗しても：下書きは消え、もう一度押しても、二重に保存されない。取り直しが届いたら、入力欄が閉じる', async () => {
+  const a = anchor('選んだ文');
+  let failRefresh = true;
+  const view = renderPanel([], {
+    onPost: (path, _body, server) => {
+      if (path !== '/api/comment') return undefined;
+      server.threads = [thread({ id: 't9', anchor: a, messages: [user('新しい質問', { sent: false })] })];
+      return { thread: 't9' };
+    },
+  });
+  const real = fetch;
+  vi.stubGlobal(
+    'fetch',
+    vi.fn(async (u: RequestInfo | URL, init?: RequestInit) => {
+      if (init?.method !== 'POST' && failRefresh) throw new TypeError('Failed to fetch');
+      return real(u, init);
+    }),
+  );
+  act(() => {
+    useUi.getState().startComposer(a);
+  });
+  await userEvent.type(q('textarea[data-key="composer"]') as HTMLElement, '新しい質問');
+  await userEvent.click(screen.getByRole('button', { name: 'コメントを追加' }));
+  await waitFor(() => expect(view.posts).toHaveLength(1));
+  await waitFor(() => expect(useUi.getState().drafts.composer).toBe(''));
+  expect(useUi.getState().toast).toBeNull();
+  await userEvent.click(screen.getByRole('button', { name: 'コメントを追加' }));
+  expect(view.posts).toHaveLength(1);
+  // 取り直しが届く（次のポーリング）：入力欄が閉じて、カードが出る
+  failRefresh = false;
+  await act(async () => {
+    await queryClient.refetchQueries({ queryKey: ['topic', 'demo'] });
+  });
+  await waitFor(() => expect(q('.thread[data-tid="t9"]')).not.toBeNull());
+  await waitFor(() => expect(q('.thread.composer')).toBeNull());
+  expect(useUi.getState().active).toBe('t9');
+});
+
+test('追加の取り直しを待つ間に、別の入力欄（対象の選び直し）が開いたら、それは閉じない', async () => {
+  const a = anchor('選んだ文');
+  let failRefresh = true;
+  renderPanel([], {
+    onPost: (path, _body, server) => {
+      if (path !== '/api/comment') return undefined;
+      server.threads = [thread({ id: 't9', anchor: a, messages: [user('x', { sent: false })] })];
+      return { thread: 't9' };
+    },
+  });
+  const real = fetch;
+  vi.stubGlobal(
+    'fetch',
+    vi.fn(async (u: RequestInfo | URL, init?: RequestInit) => {
+      if (init?.method !== 'POST' && failRefresh) throw new TypeError('Failed to fetch');
+      return real(u, init);
+    }),
+  );
+  act(() => {
+    useUi.getState().startComposer(a);
+  });
+  await userEvent.type(q('textarea[data-key="composer"]') as HTMLElement, 'x');
+  await userEvent.click(screen.getByRole('button', { name: 'コメントを追加' }));
+  await waitFor(() => expect(useUi.getState().drafts.composer).toBe(''));
+  act(() => {
+    useUi.getState().startComposer(anchor('別の文'));
+  });
+  const second = useUi.getState().composer?.id;
+  failRefresh = false;
+  await act(async () => {
+    await queryClient.refetchQueries({ queryKey: ['topic', 'demo'] });
+  });
+  await waitFor(() => expect(q('.thread[data-tid="t9"]')).not.toBeNull());
+  expect(useUi.getState().composer?.id).toBe(second);
+  expect(q('.thread.composer')).not.toBeNull();
 });
 
 test('「やめる」：入力欄・書きかけの文・画像が消える（画像の世代が進む）', async () => {

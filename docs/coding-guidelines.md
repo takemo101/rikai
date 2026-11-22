@@ -5,9 +5,9 @@
 ## 構成と依存
 
 - 利用者の環境で動くもの（配布物 `skills/rikai/rikai.js`）は、**依存を含めて 1 ファイルにバンドルしてある**（`pnpm run build`。利用者に `npm install` を要求しない。SPEC N5）。ソース（`app/src/`）の実行時の依存は、必要なものだけ（Hono・zod・marked。`app/package.json`）。**足すときは、バンドルに入るので、ライセンス表（`THIRD-PARTY-LICENSES.txt`）が、ビルドで更新されることも、確かめる**。
-- ブラウザ側（旧 UI）の依存は、`public/vendor/` に**同梱した**ものだけ（marked・DOMPurify・mermaid）。CDN・外部のスクリプト・外部の画像・外部のフォントを読み込まない（CSP でも禁じている）。
-- 旧 UI の `public/` は、ビルドしない：そのまま配信する素の HTML・CSS・JavaScript（画面を React にする段階までの扱い）。サーバー・CLI（`app/src/`）は、TypeScript の **strict**（`pnpm run typecheck`）で、ビルドして配布物にする。
-- 置き場所は、変わる理由で決める：コマンドの入口 → `app/src/cli/main.ts`、データの読み書き → `app/src/server/store.ts`、検査 → `server/ask.ts`（と各操作の中）、画面からの操作 → `server/actions.ts`、AI 向け（`poll`・`pull`・`apply`・`status`） → `server/agent.ts`、HTTP → `server/app.ts`（待ち受けは `server/serve.ts`）、共有の純粋な関数・型 → `app/src/shared/`、描画・操作 → 旧 UI の `app.js`、AI への指示 → `SKILL.md`。**依存は一方向**：層の順 `server/util` → `store` → `ask` → `actions`・`agent` → `app` → `serve` → `cli/main` で、**後ろのモジュールだけが、前のモジュールを `import` できる**（逆向き・循環をさせない。前のすべてを、import するとは限らない：例えば `ask` は `util` だけ）。`shared/` は、`server/` を import しない。
+- 画面（`app/src/web/`）の依存（react・tailwind・tanstack・zustand・dompurify・mermaid・marked ほか）は、`app/package.json` の `devDependencies` に置き、ビルドで `public/assets/` に同梱する（ライセンスは、ビルドが `public/THIRD-PARTY-LICENSES.txt` に出す）。CDN・外部のスクリプト・外部の画像・外部のフォントを読み込まない（CSP でも禁じている。e2e が、127.0.0.1 以外への通信 0 件を確かめる）。**ルートの `package.json` に `dependencies` を書かない**。
+- ソース（`app/src/`）は、TypeScript の **strict**（`pnpm run typecheck`）。`any`・`@ts-ignore`・`@ts-expect-error` は、使っていない。整形・Lint は biome（`pnpm run lint`）。配布物は、ビルドして `skills/rikai/` に置き、コミットする（手で編集しない）。
+- 置き場所は、変わる理由で決める：コマンドの入口 → `app/src/cli/main.ts`、データの読み書き → `app/src/server/store.ts`、検査 → `server/ask.ts`（と各操作の中）、画面からの操作 → `server/actions.ts`、AI 向け（`poll`・`pull`・`apply`・`status`） → `server/agent.ts`、HTTP → `server/app.ts`（待ち受けは `server/serve.ts`）、共有の純粋な関数・型 → `app/src/shared/`、画面 → `app/src/web/`（通信 `api/`・ブラウザの状態 `store/`・本文 `doc/`・番号の層 `overlay/`・パネル `panel/`・入口 `interact/`・枠組み `layout/`）、AI への指示 → `SKILL.md`。**依存は一方向**：層の順 `server/util` → `store` → `ask` → `actions`・`agent` → `app` → `serve` → `cli/main` で、**後ろのモジュールだけが、前のモジュールを `import` できる**（逆向き・循環をさせない。前のすべてを、import するとは限らない：例えば `ask` は `util` だけ）。`shared/` は、`server/` を import しない。`web/` は、`server/` の**型だけ**（`AppType`）を import する。
 - **状態は、モジュールの変数に置かない**：ストアは `createStore(root)`、アプリは `createApp` の引数（ストア・合言葉・ポート・操作）、操作は `createActions(store, hooks)` で、**引数で渡す**（DI）。テストが、互いに干渉せず、ポートを開かずに試せる。
 - 「util」「helper」に、無関係なものを集めない。
 
@@ -24,7 +24,7 @@
 
 ## 失敗
 
-- 失敗は `HttpError(status, message)` を**投げる**。HTTP では `handler` が、コマンドでは `main` が、見せ方（状態コード・`{ok:false,…}`・終了コード）を決める（守っている）。それ以外の場所で、`process.exit`・`res.end` で失敗を終わらせない（`main`・`shutdown` 以外）。
+- 失敗は `HttpError(status, message)` を**投げる**。HTTP では `app.ts` の `onError` が、コマンドでは `main` が、見せ方（状態コード・`{ok:false,…}`・終了コード）を決める（守っている）。それ以外の場所で、`process.exit`・`res.end` で失敗を終わらせない（`main`・`shutdown` 以外）。
 - **握りつぶさない**。`catch (_) {}` は、失敗しても意味が変わらない所だけ（ロックの残骸の削除・片付け・ブラウザを開く・pid の `kill`・`unlink`）。`git rev-parse` の失敗は、cwd に戻す（`projectRoot`）。`readJSON` は、ファイルがないとき（`ENOENT`）だけ既定値を返し、ほかの失敗は投げる。
 - 失敗を、成功に見える代用品に置き換えない。**部分的な反映をしない**：`mutate` は、`fn` が投げたら何も書かない。`apply` は、検証をすべて終えてから書く。
 - ユーザーに見せる失敗の文は、**何が悪くて、どう直せばよいか**を書く（例：「最新版にだけコメントできます」）。
@@ -34,17 +34,20 @@
 - ファイルの変更は、**`mutate(slug, fn)` を通す**（ロック・読み込み・保存・`rev` の更新を 1 か所に集める）。`fn` の中は**同期だけ**。`await` を入れない。
 - 他の場所（`submit`・`actions`・`cmdApply`）が、`meta.json`・`threads.json` を、`mutate` なしで書かない。
 - JSON を書くときは `writeJSON`（一時ファイル → `rename`）。
-- ブラウザの描画は、**非同期の途中で状態が変わりうる**。`renderDoc` は、世代（`renderTok`）を覚えて、古い描画を捨てる。非同期の後に DOM を触るときは、同じ確認をする。
+- ブラウザの描画は、**非同期の途中で状態が変わりうる**。`renderDoc` は、描くたびに世代（`nextEpoch`・`isCurrent()`）を付けて、古い描画を捨てる。非同期の後に DOM を触るときは、同じ確認をする。
 
-## 画面（DOM・安全）
+## 画面（React・DOM・安全）
 
-- DOM は、`h(tag, attrs, …children)` で作る（文字は `textContent`・テキストノード）。**検査していない文字を `innerHTML` に入れない**（守っている）。
-- 例外は、**無害化を通した結果**を入れるときだけ：AI の Markdown は `mdToFragment`（marked → DOMPurify → 後処理）の戻り値（`DocumentFragment`）を使う。Mermaid の SVG は、`securityLevel: 'strict'` で描いたものだけ（`fillMermaid`）。
-- 人間のコメント・返信・編集の文は、**常に文字として**（`textContent`）。
+- **サーバーの状態は TanStack Query（`web/api/`）、ブラウザの状態は Zustand（`web/store/ui.ts`・`store/doc.ts`）だけが持つ**。部品が、状態を直接書き換えない：`store` の関数を通す。値は、書き換えず、作り直す。コンポーネントに、サーバーの写しを別に持たない。
+- サーバーとの通信は、`api/client.ts`（Hono RPC の `hc<AppType>`。型は、サーバーの `AppType` から）と `queries.ts`・`mutations.ts` だけ。部品から `fetch` を直接呼ばない。操作が失敗しても、例外にせず、トーストで知らせる（`mutations.ts`）。
+- **本文は、命令的な「島」**：`Article` は、子を持たない要素で、中身を `renderDoc` が DOM で作って差し替える（React は中身に触れない）。島の DOM は、`lib/dom.ts` の `h`・`$`・`$$` で作る（文字は `textContent`・テキストノード）。React の部品では、使わない（JSX で書く）。島を描いたあとの「どこに何があるか」は、`DocModel`（`store/doc.ts`）に入れる。**書くのは `Article` だけ**。
+- **検査していない文字を、`innerHTML`・`dangerouslySetInnerHTML` に入れない**。`dangerouslySetInnerHTML` は、使っていない。`innerHTML` は、無害化を通した文字列（`markdown.ts` の DOMPurify のあと）と、Mermaid の出力（`securityLevel: 'strict'`。`mermaid.ts`）だけ。
+- AI の Markdown（本文・返信）は、同じ `mdToFragment`（marked → DOMPurify → 後処理）を通す。人間のコメント・返信・編集の文は、**常に文字として**（React の子）。
 - リンク・画像は、`mdToFragment` の後処理で限定する（`page:`・`http(s)`・`mailto`・`assets/` の相対パス・`data:image/`）。許可を広げるときは、SPEC §7 の判断が先。
 - 属性値に**任意の文字列**を入れない（DOMPurify が、属性ごと消すことがある。Mermaid のソースは、URI エンコードして属性に持つ）。
-- 状態は `S` に集める。描画関数は、`S` から描く（`renderTop`・`renderSide`・`renderDocbar`・`renderThreads`・`renderDoc`）。入力中の下書きは、`S.drafts` に持ち、描き直しで消さない。
-- 描き直しで、入力中の欄を壊さない（`data-key` を付けて、`renderThreads` が復元する）。
+- 入力中の下書きは、`store/ui.ts` の `drafts` に持ち、描き直しで消さない。カードは、キーで同じ DOM を使い回し、入力欄のフォーカス・選択範囲を壊さない。
+- 位置・大きさの測定が要る処理（番号の層）は、**測定（`place.ts`）と、計算（`layout.ts`。純粋）を分ける**。計算だけを、jsdom で試す。
+- 見た目は、`styles/legacy.css`（旧と同じクラス名）と、Tailwind v4（theme と utilities だけ。preflight は入れない。utilities は `tw:` の接頭辞つき：`tw:flex` のように書く。接頭辞がないと、AI が書いた HTML の class に効いてしまう）。Tailwind のクラスを足すときは、`legacy.css` の見た目を崩さない（preflight を足さない）。
 
 ## サーバー
 
@@ -62,7 +65,7 @@
 
 ## テスト
 
-`pnpm test`（Vitest。旧 UI の `test/fmt.test.js` だけは `node --test`）。範囲と一覧は、[開発手順](development.md#検証の入口)。守っている規則：
+`pnpm test`（Vitest。サーバー・共有は node、画面は jsdom〔ファイルの先頭に `// @vitest-environment jsdom`〕）。実際のブラウザは、`pnpm run test:e2e`（Playwright）。範囲と一覧は、[開発手順](development.md#検証の入口)。守っている規則：
 
 - 利用者に見える不具合を捕まえる：状態遷移・境界・失敗・安全（認証・パスの検査・失敗したら何も書かないこと）。
 - 書かないテスト：配線・転記・文言の固定、実装の細部に縛られるもの、「例外が出ない」だけのもの、常に真になるもの。
@@ -88,6 +91,6 @@
 
 ## ファイルとコミット
 
-- 1 ファイル 1 つの責務。500 行を超えたら、責務を見直す（いまは、`app.js` だけが超えている。[構成説明の負債](architecture.md#既知の構造上の負債)）。
+- 1 ファイル 1 つの責務。500 行を超えたら、責務を見直す（いまは、`app/src/` に、超えるものはない。最大は `server/app.ts` の 378 行。[構成説明の負債](architecture.md#既知の構造上の負債)）。
 - 生成物・同梱ライブラリ以外のバイナリ・個人の情報を、コミットしない。
 - コミットは、利用者に見える一つの変更（実装・文書）。無関係な変更を混ぜない。

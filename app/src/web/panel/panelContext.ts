@@ -9,9 +9,9 @@ export interface PanelActions {
   focusThread: (tid: string, scrollDoc: boolean) => void;
   /**
    * コメントを追加した（サーバーが受けて、スレッドの取り直しも済んだ）。入力欄を閉じ・追加したカードを選び・1 枚だけ見ていても、一覧へ戻す（旧と同じ）。
-   * **追加したカードが、画面に届いたとき**に、まとめてする：先に入力欄を閉じると、パネルが、一瞬、短くなって、スクロールの位置が、詰められる
+   * `composerId`：追加した入力欄（別の入力欄を開いていたら、それは閉じない）。**追加したカードが、画面に届いたとき**に、まとめてする：先に入力欄を閉じると、パネルが、一瞬、短くなって、スクロールの位置が、詰められる
    */
-  afterComment: (tid: string) => void;
+  afterComment: (tid: string, composerId: number) => void;
 }
 
 export const PanelContext = createContext<PanelActions | null>(null);

@@ -9,7 +9,7 @@ import type { OverlaysProps } from '../contracts';
 import { $ } from '../lib/dom';
 import { useDoc } from '../store/doc';
 import { useUi } from '../store/ui';
-import { markLinked, placeBadges } from './place';
+import { forgetShown, markLinked, placeBadges } from './place';
 import {
   adjustEdges,
   dispatchAdjust,
@@ -53,6 +53,9 @@ export function Overlays({ view, scrollRef }: OverlaysProps) {
       layer.textContent = '';
       return;
     }
+    // 本文を描き直している途中（古い DocModel の要素が、本文から外れている）：新しい DocModel が届くまで、いまの層を、そのままにする（空にしない）
+    const first = m.blocks[0];
+    if (first && !first.el.isConnected) return;
     const ui = useUi.getState();
     placeBadges({
       layer,
@@ -186,6 +189,7 @@ export function Overlays({ view, scrollRef }: OverlaysProps) {
       const d = drag.current;
       if (!d) return;
       drag.current = null;
+      forgetShown(layer); // ドラッグで、枠の位置を、書き換えた：次の配置で、入力欄の対象の位置へ、戻す（同じ内容でも、作り直す）
       useUi.getState().setRegDrag(false);
       if (apply && d.vr) dispatchAdjust(d.vr);
       schedule.current(); // 断られた（小さすぎ・本文なし）ときも、枠を、入力欄の対象の位置へ戻す

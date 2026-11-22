@@ -221,6 +221,15 @@ test('本文から選ばれたとき（ストアの focusThread。番号・強�
   expect(Element.prototype.scrollIntoView).toHaveBeenCalledWith({ block: 'nearest', behavior: 'smooth' });
 });
 
+test('選んでいるスレッドを、本文から、もう一度選んでも（同じ強調を、もう一度押す）、カードを、パネルの見える所へ戻す', () => {
+  const t = thread({ id: 't2', anchor: anchor('x'), messages: [user('q')] });
+  renderPanel([thread({ id: 't1' }), t]);
+  act(() => useUi.getState().focusThread(t));
+  vi.mocked(Element.prototype.scrollIntoView).mockClear();
+  act(() => useUi.getState().focusThread(t));
+  expect(Element.prototype.scrollIntoView).toHaveBeenCalledWith({ block: 'nearest', behavior: 'smooth' });
+});
+
 test('光り：linkedTid のカードに .linked。選んだカードに .active', () => {
   renderPanel([thread({ id: 't1' }), thread({ id: 't2' })]);
   act(() => {

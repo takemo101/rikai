@@ -429,3 +429,21 @@ test('番号を押す：solo を決めて、描き直してから、選ぶ（旧
   unsub();
   expect(seenAtFocus).toBe('t2');
 });
+
+test('枠のドラッグを Esc でやめる：枠は、入力欄の対象の位置へ戻る（同じ内容の再配置で、要素を残す工夫が、ドラッグで書き換えた位置を、残さない）', async () => {
+  const { box, layer, off } = withPendingBox();
+  const at = () => {
+    const e = layer().querySelector<HTMLElement>('.regionbox.pending') as HTMLElement;
+    return [e.style.left, e.style.top, e.style.width, e.style.height];
+  };
+  const original = at();
+  ptr('pointerdown', 400, 340, box);
+  ptr('pointermove', 460, 380, document);
+  expect(at()).not.toEqual(original);
+  act(() => {
+    document.body.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+  });
+  await act(() => new Promise<void>((r) => requestAnimationFrame(() => r())));
+  expect(at()).toEqual(original);
+  off();
+});

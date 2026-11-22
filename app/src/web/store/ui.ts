@@ -57,6 +57,8 @@ export interface UiState {
   composer: ComposerState | null;
   /** 選んでいる（光らせている）スレッド */
   active: string | null;
+  /** `focusThread` が呼ばれるたびに増える連番（同じスレッドを、もう一度選んでも、パネルが、カードを見える所へ戻すため） */
+  focusSeq: number;
   /** カードと本文の印が、お互いに光っているスレッド（マウスを置いたもの） */
   linkedTid: string | null;
   /** 「前の版からの変更を表示」 */
@@ -161,6 +163,7 @@ export function initialUi(): UiState {
   return {
     composer: null,
     active: null,
+    focusSeq: 0,
     linkedTid: null,
     showChanges: true,
     drafts: { composer: '', reply: {}, edit: {}, ask: {}, imgs: {} },
@@ -248,7 +251,7 @@ export const useUi = create<UiStore>()((set, get) => {
     setLinked: (linkedTid) => set({ linkedTid }),
     focusThread: (thread) => {
       const s = get();
-      const patch: Partial<UiState> = { active: thread.id };
+      const patch: Partial<UiState> = { active: thread.id, focusSeq: s.focusSeq + 1 };
       // 解決済みを、本文から選んだ：一覧の中で、開いて見せる
       if (thread.resolved && !s.solo && (s.tab === 'live' || !s.rowOpen.has(thread.id))) {
         if (s.tab === 'live') patch.tab = 'all';

@@ -1,10 +1,6 @@
 // 資料の形式（```diff・```json・```terminal・```trace）：色分け・木・タイムラインの作り方と、安全（資料の文字が、タグ・属性にならない）、
 // 書かれたとおりに見せること（JSON の数・キー）。旧 test/fmt.test.js の 8 件を、名前・期待値を変えずに移した。
 // 資料は、AI が書いた非信頼のデータ。ここで、escape を取りこぼすと、画面に、タグ・イベントの属性が出る（画面の DOMPurify の手前の、1 つ目の防御）。
-import { existsSync } from 'node:fs';
-import { createRequire } from 'node:module';
-import path from 'node:path';
-import { fileURLToPath } from 'node:url';
 import { expect, test } from 'vitest';
 import * as fmt from '../../../src/web/doc/render/fmt';
 
@@ -238,108 +234,4 @@ test('render：決まった言語だけ。自分のプロパティ以外（__pro
   expect(fmt.labelOf('json')).toBe('JSON');
   for (const k of ['__proto__', 'constructor', 'toString', '', 'nope'])
     expect(fmt.labelOf(k), `${k}: 文字のラベルだけ`).toBe('図表');
-});
-
-// 旧 fmt.js（切り替えまでは、skills/rikai/public/ にある）と、同じ入力で、同じ戻り値になること。切り替え後は、旧がないので、飛ばす
-const OLD = path.join(path.dirname(fileURLToPath(import.meta.url)), '../../../../skills/rikai/public/fmt.js');
-type OldFmt = Record<'diffHtml' | 'ansiHtml' | 'jsonHtml' | 'traceHtml', (t: unknown) => string | null> &
-  Record<'render', (l: string, t: unknown) => string | null> & { esc: (s: unknown) => string };
-
-test.skipIf(!existsSync(OLD))('旧 fmt.js と、同じ乱数の入力で、戻り値が一致する', () => {
-  const old = createRequire(import.meta.url)(OLD) as OldFmt;
-  let seed = 20261122;
-  const rnd = (n: number): number => {
-    seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0;
-    return seed % n;
-  };
-  const pick = <T>(xs: readonly T[]): T => xs[rnd(xs.length)] as T;
-  const pieces = [
-    '+',
-    '-',
-    '@@ -1 +1 @@',
-    '--- a',
-    '+++ b',
-    'diff --git a b',
-    'index 1..2',
-    ' ',
-    '\\ No newline',
-    'x',
-    '<b>',
-    '"',
-    "'",
-    '&',
-    '\n',
-    '\r\n',
-    '\u001b[',
-    '31m',
-    '0m',
-    '1;',
-    '38;5;',
-    '38;2;',
-    '48;5;',
-    '48;2;',
-    '37m',
-    '\u001b[37m',
-    '\u001b[1;31m',
-    '\u001b[0m',
-    '\u001b[48;5;4m',
-    '47m',
-    '97m',
-    '22;',
-    '23;',
-    '24;',
-    '39;',
-    '49;',
-    '3;4;2;',
-    'm',
-    '\\e[',
-    '␛[',
-    '^[[',
-    '|',
-    ' | ',
-    '12',
-    '3.5',
-    '-1',
-    '#',
-    'a',
-    '日本語',
-    '{',
-    '}',
-    '[',
-    ']',
-    ',',
-    ':',
-    '"k"',
-    'true',
-    'null',
-    '1e5',
-    '\t',
-  ];
-  const gen = (): string => Array.from({ length: rnd(40) }, () => pick(pieces)).join('');
-  const jsons = [
-    () => JSON.stringify({ [gen()]: gen(), a: [rnd(100), null, true, [gen()], {}], n: { m: [] } }),
-    () => `[${Array.from({ length: rnd(20) }, () => rnd(1000) / 10).join(',')}]`,
-    () => `{"x":${rnd(10)},"x":"${gen().replace(/["\\\n\r]/g, '')}"}`,
-    gen,
-  ];
-  const traces = [
-    () =>
-      Array.from(
-        { length: rnd(8) },
-        () => `${gen().replace(/\|/g, '')} | ${rnd(500)} | ${rnd(500)}${rnd(2) ? ` | ${gen()}` : ''}`,
-      ).join('\n'),
-    gen,
-  ];
-  for (let i = 0; i < 1500; i++) {
-    const s = gen();
-    expect(fmt.esc(s)).toBe(old.esc(s));
-    expect(fmt.diffHtml(s)).toBe(old.diffHtml(s));
-    expect(fmt.ansiHtml(s)).toBe(old.ansiHtml(s));
-    const j = pick(jsons)();
-    expect(fmt.jsonHtml(j)).toBe(old.jsonHtml(j));
-    const t = pick(traces)();
-    expect(fmt.traceHtml(t)).toBe(old.traceHtml(t));
-    for (const lang of ['diff', 'patch', 'terminal', 'ansi', 'json', 'trace', 'x'])
-      expect(fmt.render(lang, s)).toBe(old.render(lang, s));
-  }
 });

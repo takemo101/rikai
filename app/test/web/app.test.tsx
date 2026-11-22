@@ -517,3 +517,37 @@ test('存在しない版（範囲外）は、トーストで知らせる', async
 test('キャッシュは、テスト間で持ち越さない（確認）', () => {
   expect(queryClient.getQueryCache().getAll()).toHaveLength(0);
 });
+
+test('本文の取得に失敗した：トピックの更新が来たら、取り直す。失敗している間は、前のトピックの本文の上に、コメントの入口（範囲を選ぶ）を出さない', async () => {
+  location.hash = '#/a/root';
+  let failB = 1;
+  mockFetch((req) => {
+    if (req.path === '/api/topics') return { body: [summary('a'), summary('b')] };
+    const t = /^\/api\/topic\/([^/]+)$/.exec(req.path);
+    if (t) return { body: topicState({ meta: meta({ slug: t[1] as string, title: `題 ${t[1]}` }) }) };
+    const p = /^\/api\/page\/([^/]+)\//.exec(req.path);
+    if (p?.[1] === 'b' && failB-- > 0) return { status: 500, body: { ok: false, error: '一時的な失敗' } };
+    return { body: { markdown: `本文 ${p?.[1]}` } };
+  });
+  vi.useFakeTimers({ shouldAdvanceTime: true });
+  try {
+    renderWithClient(<App />);
+    await waitFor(() => expect(byId('article')).toHaveTextContent('本文 a'));
+    await waitFor(() => expect(byId('regbtn')).not.toHaveAttribute('hidden'));
+    act(() => {
+      location.hash = '#/b/root';
+    });
+    await waitFor(() => expect(byId('top-title')).toHaveTextContent('題 b'));
+    await waitFor(() => expect(useUi.getState().toast?.msg).toContain('一時的な失敗'));
+    // 上のバーは b・本文は a のまま：食い違っている間は、入口を出さない
+    expect(byId('article')).toHaveTextContent('本文 a');
+    expect(byId('regbtn')).toHaveAttribute('hidden');
+    // 次のトピックの更新で、取り直す
+    await act(() => vi.advanceTimersByTimeAsync(1600));
+    await act(() => vi.advanceTimersByTimeAsync(100));
+    await waitFor(() => expect(byId('article')).toHaveTextContent('本文 b'));
+    await waitFor(() => expect(byId('regbtn')).not.toHaveAttribute('hidden'));
+  } finally {
+    vi.useRealTimers();
+  }
+});

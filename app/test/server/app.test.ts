@@ -138,6 +138,10 @@ test('静的ファイル・画像：パスの外へ出ない。画像は sandbox
   assert.equal((await call(builtAsset())).status, 200);
   assert.equal((await call('/favicon.svg')).status, 200);
   assert.equal((await call('/assets/')).status, 404);
+  // 絶対パス（`//` のあと）は、path.resolve が、public の外へ出す：403（検査を消すと、/etc/hosts が返る）
+  assert.equal((await call('/assets//etc/hosts')).status, 403);
+  assert.equal((await call('/assets//etc/passwd')).status, 403);
+  assert.equal((await call('/assets///etc/hosts')).status, 403);
   assert.equal((await call('/assets/..%2F..%2Frikai.js')).status, 404);
   assert.equal(
     (await call('/assets/../../rikai.js')).status,

@@ -35,32 +35,29 @@ SPEC.md                製品要件・状態・対象外・未決事項・利用
 AGENTS.md              開発規約・不変条件
 LICENSE                MIT
 install.sh             skills/rikai/ を ~/.claude/skills/rikai/ へ複製する（CLAUDE_SKILLS_DIR で変更）
-package.json           pnpm のスクリプト（`test`・`build`・`typecheck`・`lint`・`format`。`app/` へ渡す）と、pi のパッケージの宣言（`pi`）・版。依存は書かない
+package.json           pnpm のスクリプト（`test`・`test:e2e`・`build`・`typecheck`・`lint`・`format`。`app/` へ渡す）と、pi のパッケージの宣言（`pi`）・版。`dependencies` はない
 pnpm-workspace.yaml    pnpm のワークスペースの設定（`app/`）。`pnpm-lock.yaml`：依存の固定
 plugin.json            プラグインの宣言（codex・omp・agy。Agent Plugins 1.0.0）
 .claude-plugin/        Claude Code・grok のプラグインの宣言（plugin.json・marketplace.json）
 .agents/plugins/       codex のカタログ（marketplace.json）
-app/                   開発用のワークスペース（TypeScript）。依存・設定（`package.json`・`tsconfig.json`・`biome.json`・`vitest.config.ts`）はここ
+app/                   開発用のワークスペース（TypeScript）。依存・設定（`package.json`・`tsconfig.json`・`biome.json`・`vitest.config.ts`・`vitest.web.config.ts`・`vite.config.ts`・`playwright.config.ts`）はここ
   src/cli/             コマンドの入口（main.ts）と引数の解釈（args.ts）
   src/server/          util・store・ask・actions・agent・app（Hono）・appframe・serve・image・htmlapp・htmlapp-core・htmlapp-worker
   src/shared/          共有の純粋な関数・型：anchor・diff・progress・types・api
-  scripts/build.ts     ビルド（`pnpm run build`）：`skills/rikai/` にバンドルとライセンス表を書く
-  test/                自動テスト（Vitest）。server/・shared/・build.test.ts・setup/
-test/                  旧 UI の自動テスト（fmt.test.js だけ。node:test）
+  src/web/             画面（React）：api/・store/・doc/（本文の島。render/）・overlay/・panel/・interact/・layout/・lib/・styles/・public/（favicon）・index.html・main.tsx・App.tsx
+  scripts/             ビルド：build.ts（サーバー・CLI）・licenses-plugin.ts（画面のライセンス表。`vite.config.ts` が使う）
+  test/                自動テスト（Vitest）。server/・shared/・web/（jsdom）・build.test.ts・setup/
+  e2e/                 e2e（Playwright。実際の Chrome。`pnpm run test:e2e`）。*.spec.ts・fixtures.ts・env.ts
 skills/rikai/
   SKILL.md             エージェント向けの手順（/rikai）
   rikai.js             ビルドしたバンドル（コマンドの入口と、サーバー。依存を含めて 1 ファイル。`app/src/` から生成。コミットする）
   rikai-htmlapp-worker.js  ビルドした worker（html-app の取り出し。rikai.js の横に置く）
-  THIRD-PARTY-LICENSES.txt  バンドルに入った依存のライセンス（ビルドで生成）
-  public/
-    index.html         画面の骨組み
-    app.js             ビューア（描画・コメントの位置づけ・パネル・ask）
-    anchor.js          コメントの探し直し（DOM に触れない関数。ブラウザと Node のテストが共有）
-    diff.js            版どうしの差分（DOM に触れない関数。ブラウザと Node のテストが共有）
-    progress.js        理解の進み具合の数え方（DOM に触れない関数。ブラウザ・サーバー・Node のテストが共有）
-    style.css          見た目
+  THIRD-PARTY-LICENSES.txt  サーバー・CLI のバンドルに入った依存のライセンス（ビルドで生成）
+  public/              画面のビルド出力（Vite。`app/src/web/` から生成。コミットする。手で編集しない）
+    index.html         画面の入口
     favicon.svg
-    vendor/            同梱: marked・DOMPurify・mermaid と、各ライセンス（書き換えない）
+    assets/            ハッシュつきの JS・CSS（Mermaid の図の種類ごとの chunk を含む）
+    THIRD-PARTY-LICENSES.txt  画面のバンドルに入った依存のライセンス（ビルドで生成）
 docs/
   README.md            この索引
   development.md       実行・検証・インストール・ライブラリの更新・mikan の Issue 進行・GitButler・PR

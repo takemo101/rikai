@@ -1,7 +1,7 @@
 // AI の質問（ask。F10・F21・F30）：5 つの型 → 回答を保存・取り消し → Submit（pull に answer が届く）→ 固定 →「答えずに、会話が進みました」
 import type { Page } from '@playwright/test';
 import { expect, test } from './fixtures';
-import { submitAll, ui } from './ui';
+import { addTextComment, submitAll, ui } from './ui';
 
 const ASKS = {
   single: {
@@ -250,6 +250,28 @@ test.describe('AI の質問と回答', () => {
     await card.getByRole('button', { name: '答える' }).click();
     await expect(card.getByLabel('魚')).toBeVisible();
     await card.getByLabel('魚').check();
+    await card.getByRole('button', { name: '回答を保存' }).click();
+    await expect(u.submit).toHaveText('Submit (1)');
+  });
+
+  test('ユーザーのコメントから始まるスレッドへの、質問つきの返信は、答えられる形で出る（F10・F30）', async ({
+    page,
+    app,
+  }) => {
+    const u = ui(page);
+    await addTextComment(page, '猫は朝によく鳴きます', 'なぜ朝ですか');
+    await submitAll(page);
+    const tid = (await app.nextRound()).items[0].thread;
+    await app.apply({
+      round: 1,
+      replies: [
+        { thread: tid, body: '朝は活発です。', ask: { type: 'yes_no', question: '朝に鳴くのは分かりましたか' } },
+      ],
+    });
+    const card = u.threads.first();
+    await expect(card).toContainText('朝に鳴くのは分かりましたか');
+    await expect(card).not.toContainText('答えずに、会話が進みました');
+    await card.getByRole('button', { name: 'はい', exact: true }).click();
     await card.getByRole('button', { name: '回答を保存' }).click();
     await expect(u.submit).toHaveText('Submit (1)');
   });

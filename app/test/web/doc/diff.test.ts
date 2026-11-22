@@ -85,3 +85,17 @@ test('差分の計画は、同じ版（key）でも、中身（Markdown）が違
     removed: 1,
   });
 });
+
+test('本文の直下の <svg>：変更・追加を、ブロックとして数える。差分の箱は、svg の後ろに入る', () => {
+  const svg = (t: string) => `<svg width="200" height="80">\n<text x="10" y="40">${t}</text>\n</svg>`;
+  const { sum, box } = diffOf(
+    `# 題\n\n${svg('古い図の説明文です')}\n`,
+    `# 題\n\n${svg('新しい図の説明文です')}\n\n${svg('追加の図')}\n`,
+    'demo/root/11',
+  );
+  expect(sum).toEqual({ changed: 1, added: 1, removed: 0 });
+  const kids = [...box.children].map((e) => e.tagName.toLowerCase());
+  expect(kids).toEqual(['h1', 'svg', 'details', 'svg']);
+  expect(box.querySelectorAll('svg.blk.changed')).toHaveLength(2);
+  expect(box.querySelector('svg.added')?.textContent?.trim()).toBe('追加の図');
+});

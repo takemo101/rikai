@@ -1,7 +1,7 @@
 // スレッドの 1 件の発言。ユーザー：文字として出す（`textContent` と同じ。編集・削除は、未送信だけ）。AI：Markdown（無害化したもの）・資料の更新・ページへのカード・質問。
 // 回答（kind が answer）は、質問の下の入力欄（AskView）で見せるので、描かない。
 import { useLayoutEffect, useRef } from 'react';
-import type { Message, Thread } from '../../shared/types';
+import type { Ask, Message, Thread } from '../../shared/types';
 import { useMutations } from '../api/mutations';
 import { fillMermaid, mdToFragment } from '../doc/render';
 import type { View } from '../lib/view';
@@ -100,13 +100,15 @@ function UserMessage({ view, thread, m }: Omit<Props, 'seen'>) {
   );
 }
 
+/** 質問つきの発言（元のメッセージのまま渡す：`askStale` は、スレッドの中の位置で決める） */
+const hasAsk = (m: Message): m is Message & { ask: Ask } => !!m.ask;
+
 export function MessageView({ view, thread, m, seen }: Props) {
   if (m.kind === 'answer') return null;
   if (m.author === 'user') return <UserMessage view={view} thread={thread} m={m} />;
 
   const isNew = !seen.has(m.id);
   const page = m.page ? view.pages[m.page] : undefined;
-  const q = m.ask ? { ...m, ask: m.ask } : null;
   return (
     <div className={`msg ai${isNew ? ' fresh' : ''}`}>
       <div className="who">AI</div>
@@ -126,7 +128,7 @@ export function MessageView({ view, thread, m, seen }: Props) {
           <span className="pc-a">→</span>
         </a>
       ) : null}
-      {q ? <AskView slug={view.slug} thread={thread} q={q} /> : null}
+      {hasAsk(m) ? <AskView slug={view.slug} thread={thread} q={m} /> : null}
     </div>
   );
 }

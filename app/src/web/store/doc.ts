@@ -4,6 +4,9 @@
 import { create } from 'zustand';
 import type { Rect } from '../../shared/types';
 
+/** ブロックの要素：本文の直下の、HTML の要素と、インラインの `<svg>`（AI が書く図） */
+export type BlockEl = HTMLElement | SVGElement;
+
 /** 本文のブロック（`data-bid`・`data-bhash` を持つ要素）の、本文の順の一覧の 1 件 */
 export interface BlockRef {
   /** `data-bid` */
@@ -14,7 +17,7 @@ export interface BlockRef {
   tag: string;
   /** コメントの位置づけに使う本文の文字（`.diffbox`・Mermaid・html-app の中は除く） */
   text: string;
-  el: HTMLElement;
+  el: BlockEl;
 }
 
 /** スレッドが、本文のどこを指しているか */
@@ -22,9 +25,9 @@ export type ThreadLoc =
   /** 文：`mark.hl[data-tid]`（複数の要素にまたがることがある） */
   | { kind: 'text'; marks: HTMLElement[] }
   /** ブロック：`.blk-thread[data-tid]` */
-  | { kind: 'block'; el: HTMLElement }
+  | { kind: 'block'; el: BlockEl }
   /** 画像・図の中の範囲：基準の要素 `el`（ブロック）・比率の基準 `frame`（`frameOf`）・比率 `rect` */
-  | { kind: 'region'; el: HTMLElement; frame: Element; rect: Rect }
+  | { kind: 'region'; el: BlockEl; frame: Element; rect: Rect }
   /** 見つからない（修正で文が変わった） */
   | { kind: 'none' };
 
@@ -51,7 +54,7 @@ export interface DocModel {
   /** 近い内容・同じ位置のブロックに表示した（本文の文字が変わった）スレッド */
   approx: Map<string, Approx>;
   /** 入力中の対象（`composer.anchor`）を、本文で強調した要素（旧 `S.pendingEl`）。ないときは null */
-  pending: HTMLElement | null;
+  pending: HTMLElement | SVGElement | null;
   /** 差分の件数。差分を出していなければ null */
   diff: DiffSummary | null;
 }
@@ -82,7 +85,7 @@ export function docOrder(model: DocModel | null, a: string, b: string): number {
 }
 
 /** 位置の、先頭の要素（文は最初の mark）。見つからなければ null */
-export function locEl(loc: ThreadLoc | undefined): HTMLElement | null {
+export function locEl(loc: ThreadLoc | undefined): HTMLElement | SVGElement | null {
   if (!loc) return null;
   switch (loc.kind) {
     case 'text':

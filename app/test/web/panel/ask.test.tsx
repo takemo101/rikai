@@ -170,6 +170,17 @@ test('free_text：欄（placeholder・既定は「自分の言葉で」）→ �
   await waitFor(() => expect(view.posts[0]?.body.answer).toEqual({ text: '   自分の言葉' }));
 });
 
+test('ユーザーのコメントから始まるスレッドへの、AI の質問付きの返信は、小さくならない（F10・F30）', async () => {
+  const comment = say({ id: 'c1', author: 'user', kind: 'comment', text: '質問です', sent: true });
+  const qm = ai('質問です', { id: MID, ask: ASKS.yn });
+  useUi.setState({ seen: new Set([qm.id]) });
+  renderPanel([thread({ id: 't1', anchor: anchor('x'), messages: [comment, qm] })], saveAnswers);
+  expect(q('.ask')).not.toHaveClass('stale');
+  expect(qa('.ask .pill').map((b) => b.textContent)).toEqual(['はい', 'いいえ']);
+  await userEvent.click(screen.getByRole('button', { name: 'はい' }));
+  expect(save()).toBeEnabled();
+});
+
 test('下書き：選びかけ（保存していない）は、再描画・パネルの更新を挟んでも、残る', async () => {
   renderPanel([withAsk('yn')]);
   await userEvent.click(screen.getByRole('button', { name: 'いいえ' }));
@@ -226,6 +237,59 @@ test('回答の保存が失敗したら、トースト・選んだものは、�
   await waitFor(() => expect(useUi.getState().toast).toMatchObject({ err: true }));
   expect(vi.mocked(fetch)).toHaveBeenCalledTimes(1);
   expect(screen.getByRole('button', { name: 'はい' })).toHaveClass('on');
+});
+
+test('保存の通信中に押した「取り消す」は、捨てられない：保存のあとに、送られる（最後の押しが勝つ）', async () => {
+  let release: () => void = () => {};
+  const gate = new Promise<void>((r) => {
+    release = r;
+  });
+  const view = renderPanel([withAsk('yn', { answer: { value: true }, sent: false })], {
+    onPost: async (path, body, server) => {
+      if (path !== '/api/answer') return undefined;
+      if (body.answer && !gateOpened) await gate;
+      return saveAnswers.onPost?.(path, body, server);
+    },
+  });
+  let gateOpened = false;
+  await userEvent.click(screen.getByRole('button', { name: 'いいえ' }));
+  await userEvent.click(screen.getByRole('button', { name: '回答を保存' }));
+  await waitFor(() => expect(view.posts).toHaveLength(1));
+  await userEvent.click(screen.getByRole('button', { name: '取り消す' }));
+  expect(view.posts).toHaveLength(1); // 通信中：待つ
+  gateOpened = true;
+  release();
+  await waitFor(() => expect(view.posts).toHaveLength(2));
+  expect(view.posts[0]?.body.answer).toEqual({ value: false });
+  expect(view.posts[1]?.body.answer).toBeNull();
+  await waitFor(() => expect(screen.queryByRole('button', { name: '取り消す' })).toBeNull());
+  expect(qa('.ask .pill.on')).toHaveLength(0);
+});
+
+test('通信中に「取り消す」を押したあと、通信中と同じ内容をもう一度保存したら、取り消しは捨てる（最後の押しが勝つ）', async () => {
+  let release: () => void = () => {};
+  const gate = new Promise<void>((r) => {
+    release = r;
+  });
+  let gateOpened = false;
+  const view = renderPanel([withAsk('yn', { answer: { value: true }, sent: false })], {
+    onPost: async (path, body, server) => {
+      if (path !== '/api/answer') return undefined;
+      if (body.answer && !gateOpened) await gate;
+      return saveAnswers.onPost?.(path, body, server);
+    },
+  });
+  await userEvent.click(screen.getByRole('button', { name: 'いいえ' }));
+  await userEvent.click(screen.getByRole('button', { name: '回答を保存' }));
+  await waitFor(() => expect(view.posts).toHaveLength(1));
+  await userEvent.click(screen.getByRole('button', { name: '取り消す' }));
+  await userEvent.click(screen.getByRole('button', { name: 'いいえ' }));
+  await userEvent.click(screen.getByRole('button', { name: '回答を保存' }));
+  gateOpened = true;
+  release();
+  await waitFor(() => expect(qa('.ask .pill.on')).toHaveLength(1));
+  expect(view.posts).toHaveLength(1);
+  expect(view.posts[0]?.body.answer).toEqual({ value: false });
 });
 
 test('取り消しが失敗したら、下書きは、保存した回答に戻る（旧と同じ：下書きを消してから送る）', async () => {

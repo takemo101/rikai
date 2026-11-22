@@ -55,16 +55,17 @@ export function ThreadsPanel({ view }: ThreadsPanelProps) {
     setScrollReq(null);
   });
 
-  // 本文から選ばれた（番号・強調を押した：呼ぶ側は、ストアの focusThread だけ）ときも、カードを、見える所へ（旧の focusThread）。
-  // カードの見出しを押したときは、動かすのは、本文：カードは、動かさない
-  const active = useUi((s) => s.active);
+  // 本文から選ばれた（番号・強調を押した：呼ぶ側は、ストアの focusThread だけ）ときも、カードを、見える所へ（旧の focusThread は、押すたびに）。
+  // 連番で見る：選んでいるものを、もう一度選んでも、戻す。カードの見出しを押したときは、動かすのは、本文：カードは、動かさない
+  const focusSeq = useUi((s) => s.focusSeq);
   const docFocus = useRef<{ tid: string; at: number } | null>(null);
   useEffect(() => {
-    if (!active) return;
+    const active = useUi.getState().active;
+    if (!active || focusSeq === 0) return;
     const d = docFocus.current;
     if (d && d.tid === active && Date.now() - d.at < 1000) return;
     setScrollReq({ tid: active, until: Date.now() + 3000 });
-  }, [active]);
+  }, [focusSeq]);
 
   const slug = view?.slug ?? null;
   const focusThread = useCallback(
@@ -85,13 +86,14 @@ export function ThreadsPanel({ view }: ThreadsPanelProps) {
 
   // コメントを追加した：追加したカードが、画面に届いたときに、入力欄を閉じて、カードを選ぶ
   const [, rerender] = useState(0);
-  const added = useRef<string | null>(null);
+  const added = useRef<{ tid: string; composerId: number } | null>(null);
   const finishAdd = useCallback(
     (tid: string): void => {
-      if (added.current !== tid) return;
+      const a = added.current;
+      if (a?.tid !== tid) return;
       added.current = null;
       const s = useUi.getState();
-      s.closeComposer();
+      if (s.composer?.id === a.composerId) s.closeComposer(); // 通信中に開き直した入力欄は、閉じない
       s.closeSolo(); // 1 枚だけ見ていても、足したコメントが見えるように、一覧へ戻す
       if (s.tab === 'done') s.setTab('live');
       focusThread(tid, false);
@@ -101,17 +103,17 @@ export function ThreadsPanel({ view }: ThreadsPanelProps) {
   const actions = useMemo<PanelActions>(
     () => ({
       focusThread,
-      afterComment: (tid) => {
-        added.current = tid;
+      afterComment: (tid, composerId) => {
+        added.current = { tid, composerId };
         rerender((n) => n + 1);
         setTimeout(() => finishAdd(tid), 4000); // カードが、届かなくても（別のページへ移った）、入力欄は、閉じる
       },
     }),
     [focusThread, finishAdd],
   );
-  const arrived = added.current !== null && !!view?.topic.threads.some((t) => t.id === added.current);
+  const arrived = added.current !== null && !!view?.topic.threads.some((t) => t.id === added.current?.tid);
   useLayoutEffect(() => {
-    if (arrived && added.current) finishAdd(added.current);
+    if (arrived && added.current) finishAdd(added.current.tid);
   });
 
   return (

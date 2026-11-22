@@ -3,6 +3,7 @@
 import { EXCERPT } from '../../../shared/anchor';
 import type { Anchor } from '../../../shared/types';
 import { hash, trunc } from '../../lib/dom';
+import type { BlockEl } from '../../store/doc';
 import { labelOf } from './fmt';
 
 /** AI が書いた HTML の属性が、不正なことがある（読めないものは、そのまま返す） */
@@ -14,14 +15,18 @@ export function safeDecode(s: string): string {
   }
 }
 
+export type { BlockEl };
+
+const isBlockEl = (el: Element): el is BlockEl => el instanceof HTMLElement || el instanceof SVGElement;
+
 /**
  * ブロックの一覧（本文の順）。ul・ol は、li をブロックにする。
  * 差分の箱（.diffbox）は、ブロックではない（コメントの位置づけ・ブロックの番号に入れない）
  */
-export function blockEls(root: ParentNode): HTMLElement[] {
-  const out: HTMLElement[] = [];
+export function blockEls(root: ParentNode): BlockEl[] {
+  const out: BlockEl[] = [];
   for (const el of root.children) {
-    if (!(el instanceof HTMLElement) || el.classList.contains('diffbox')) continue;
+    if (!isBlockEl(el) || el.classList.contains('diffbox')) continue;
     if (el.tagName === 'UL' || el.tagName === 'OL') {
       for (const li of el.children)
         if (li instanceof HTMLElement && li.tagName === 'LI' && !li.classList.contains('diffbox')) out.push(li);
@@ -34,22 +39,22 @@ export function blockEls(root: ParentNode): HTMLElement[] {
  * ブロックの文字（位置づけ・版の差分に使う）。図は、ソース（URI エンコードのまま：ハッシュが、旧と同じになるように）。
  * **実行できる枠は、ソース**（置き場の見出しの文字は、番号で決まるので、使わない：枠を足す・消すと、コメントが別の枠に付く）
  */
-export function blockText(el: HTMLElement): string {
+export function blockText(el: BlockEl): string {
   if (el.dataset.mermaid) return el.dataset.mermaid;
   if (el.classList.contains('htmlapp')) return `html-app ${safeDecode(el.dataset.src || '')}`;
   return (el.textContent || '').replace(/\s+/g, ' ').trim();
 }
 
 /** 範囲を選べる要素：ブロックの中の、画像（img）と図（svg。Mermaid・AI が書いたインラインの SVG）。最初の 1 つ */
-export const mediaOf = (el: HTMLElement): HTMLElement | SVGElement | null =>
-  el.matches('img, svg') ? el : el.querySelector<HTMLElement | SVGElement>('img, svg');
+export const mediaOf = (el: BlockEl): BlockEl | null =>
+  el.matches('img, svg') ? el : el.querySelector<BlockEl>('img, svg');
 
 /**
  * 範囲の基準：ブロックの最初の画像・図。なければ、ブロックそのもの。**壊れた画像**（読み込みが終わって、大きさがない）だけは、ブロックを基準にする。
  * 読み込み前の画像（遅延読み込み）は、画像のまま（大きさがないあいだは、枠を出さない。読み込まれたら、合わせ直す）。
  * 範囲の枠を出すときも、同じ基準を使う（保存した比率は、この基準に対するもの）
  */
-export function frameOf(el: HTMLElement): HTMLElement | SVGElement {
+export function frameOf(el: BlockEl): BlockEl {
   const m = mediaOf(el);
   if (!m) return el;
   return m instanceof HTMLImageElement && m.complete && !m.naturalWidth ? el : m;
@@ -109,7 +114,7 @@ export function boundaryOffset(idx: TextIndex, node: Node, off: number): number 
 export const elOf = (n: Node): Element | null => (n.nodeType === 1 ? (n as Element) : n.parentElement);
 
 /** ブロックの名前（カードの見出し・AI に届く label） */
-export function blockLabel(el: HTMLElement): string {
+export function blockLabel(el: BlockEl): string {
   if (el.classList.contains('mermaid-block')) return '図';
   if (el.classList.contains('htmlapp')) return '実行できる枠';
   if (el.dataset.fmt) return labelOf(el.dataset.fmt);
@@ -121,7 +126,7 @@ export function blockLabel(el: HTMLElement): string {
 }
 
 /** ブロックへのコメントの対象（アンカー） */
-export function blockAnchor(el: HTMLElement): Anchor {
+export function blockAnchor(el: BlockEl): Anchor {
   return {
     blockId: el.dataset.bid || '',
     blockHash: el.dataset.bhash || '',
@@ -135,7 +140,7 @@ export function blockAnchor(el: HTMLElement): Anchor {
 }
 
 /** 差分に使う、ブロックの文字（表は、セルを「 | 」で、行を改行でつなぐ。図は、ソース） */
-export function plainText(el: HTMLElement): string {
+export function plainText(el: BlockEl): string {
   if (el.classList.contains('mermaid-block')) return safeDecode(el.dataset.mermaid || '');
   if (el.classList.contains('htmlapp')) return safeDecode(el.dataset.src || '');
   if (el instanceof HTMLTableElement)

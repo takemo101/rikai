@@ -197,3 +197,41 @@ test('入力中の強調は、コメントの強調と、文字を変えない�
   markPending(art, quoteAnchor('二つ目'), null);
   expect(textIndex(art).text).toBe(text);
 });
+
+// 開きタグだけの行から始まる HTML ブロック（marked は、1 行に収めた <svg> を、段落の中のインライン HTML にする）
+const SVG =
+  '<svg width="200" height="80" viewBox="0 0 200 80">\n<rect width="200" height="80" fill="#eee"/>\n<text x="10" y="40">図の文字</text>\n</svg>';
+
+test('本文の直下の <svg>：ブロックとして位置づけられる（.blk-thread・block）。後ろのブロックの番号は、ずれない。範囲は、svg 自身が基準', () => {
+  const art = article(`前の段落。\n\n${SVG}\n\n後ろの段落。\n`);
+  const els = art.querySelectorAll<HTMLElement | SVGElement>('[data-bid]');
+  expect([...els].map((e) => [e.tagName.toLowerCase(), e.dataset.bid])).toEqual([
+    ['p', 'b0'],
+    ['svg', 'b1'],
+    ['p', 'b2'],
+  ]);
+  const svg = els[1] as SVGElement;
+  const after = els[2] as HTMLElement;
+  const rect = { x: 0.1, y: 0.1, w: 0.5, h: 0.5 };
+  const r = applyHighlights(
+    art,
+    [on('t1', blockAnchor(after)), on('t2', blockAnchor(svg)), on('t3', { ...blockAnchor(svg), rect })],
+    1,
+  );
+  expect(r.blocks.map((b) => [b.id, b.tag])).toEqual([
+    ['b0', 'p'],
+    ['b1', 'svg'],
+    ['b2', 'p'],
+  ]);
+  expect(r.locs.get('t2')).toEqual({ kind: 'block', el: svg });
+  const reg = r.locs.get('t3');
+  expect(reg?.kind === 'region' && reg.frame === svg && reg.el === svg).toBe(true);
+  expect(svg.classList.contains('blk-thread')).toBe(true);
+  expect(svg.dataset.tid).toBe('t3'); // 同じブロックに複数：最後の 1 つ
+  expect(after.dataset.tid).toBe('t1');
+  expect([r.nums.get('t2'), r.nums.get('t3'), r.nums.get('t1')].sort()).toEqual([1, 2, 3]);
+  expect(r.nums.get('t1')).toBe(3);
+  // 入力中の対象にも、できる
+  expect(markPending(art, blockAnchor(svg), null)).toBe(svg);
+  expect(svg.classList.contains('blk-pending')).toBe(true);
+});

@@ -4,7 +4,7 @@
 import { findQuote, locateBlock } from '../../../shared/anchor';
 import type { Anchor, Thread } from '../../../shared/types';
 import { $$, h } from '../../lib/dom';
-import { type Approx, type BlockRef, type DocModel, docOrder, type ThreadLoc } from '../../store/doc';
+import { type Approx, type BlockEl, type BlockRef, type DocModel, docOrder, type ThreadLoc } from '../../store/doc';
 import { blockEls, blockText, frameOf, textIndex } from './blocks';
 
 const statusClass = (t: Pick<Thread, 'resolved'>): string => (t.resolved ? 'resolved' : 'live');
@@ -30,7 +30,7 @@ function wrapRange(art: ParentNode, start: number, end: number, tid: string, cls
 
 export type DocLayout = Pick<DocModel, 'blocks' | 'locs' | 'nums' | 'approx'>;
 
-const blockRefs = (blocks: HTMLElement[]): BlockRef[] =>
+const blockRefs = (blocks: BlockEl[]): BlockRef[] =>
   blocks.map((b) => ({
     id: b.dataset.bid ?? '',
     hash: b.dataset.bhash ?? '',
@@ -51,7 +51,7 @@ export function applyHighlights(art: HTMLElement, threads: readonly Thread[], ve
   const blocks = blockRefs(els);
   const infos = blocks.map((b) => ({ id: b.id, hash: b.hash, tag: b.el.tagName, text: b.text }));
   // 位置を決める（文は、強調を付ける。ブロックは、`.blk-thread`）。要素は、あとで、強調の mark を数えて決める
-  const kinds = new Map<string, { block: HTMLElement } | { text: true } | null>();
+  const kinds = new Map<string, { block: BlockEl } | { text: true } | null>();
   for (const t of threads) {
     const a = t.anchor;
     if (t.version > version || !a) {
@@ -109,11 +109,7 @@ export function clearPending(art: HTMLElement): void {
  * 強調した要素（文は、最初の mark・ブロックは、そのブロック）を返す。なければ null。
  * @param prevPending 前に強調していた要素（何もなければ、本文に触らない）
  */
-export function markPending(
-  art: HTMLElement,
-  anchor: Anchor | null,
-  prevPending: HTMLElement | null,
-): HTMLElement | null {
+export function markPending(art: HTMLElement, anchor: Anchor | null, prevPending: BlockEl | null): BlockEl | null {
   if (!anchor && !prevPending && !art.querySelector('mark.hl.pending, .blk-pending')) return null; // 何もなければ、本文に触らない
   clearPending(art);
   if (!anchor) return null;

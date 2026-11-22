@@ -160,6 +160,24 @@ test.describe('タブと解決済みの 1 行（F33）', () => {
     await expect(u.threads.filter({ hasText: '解決済みのタブから追加' })).toBeVisible();
   });
 
+  test('選んでいる強調を、もう一度押すと、パネルをスクロールしていても、カードが、見える所へ戻る（旧 focusThread）', async ({
+    page,
+    app,
+  }) => {
+    const u = ui(page);
+    await page.setViewportSize({ width: 1280, height: 420 }); // パネルが、スクロールするように、低くする
+    await seed(page, app);
+    const mark = u.article.locator('mark', { hasText: '猫は朝によく鳴きます' });
+    await mark.click();
+    const card = u.threads.filter({ hasText: '朝についての確認' });
+    await u.panel.evaluate((el) => {
+      el.scrollTop = el.scrollHeight;
+    });
+    await expect(card).not.toBeInViewport({ ratio: 0.5 });
+    await mark.click();
+    await expect(card).toBeInViewport({ ratio: 0.5 });
+  });
+
   test('見出し・タブは、スクロールしても、パネルの上に固定される（F33(2)）', async ({ page, app }) => {
     const u = ui(page);
     const paras = Array.from({ length: 14 }, (_, i) => `第${i + 1}の段落です。`);

@@ -5,7 +5,7 @@
 import type { Rect } from '../../shared/types';
 import { frameOf } from '../doc/render/blocks';
 import { h } from '../lib/dom';
-import type { DocModel } from '../store/doc';
+import type { BlockEl, DocModel } from '../store/doc';
 import {
   type BadgeItem,
   type Box,
@@ -34,7 +34,7 @@ export interface PlaceInput {
 
 interface Region {
   tid: string;
-  el: HTMLElement;
+  el: BlockEl;
   rect: Rect;
   resolved?: boolean;
   pending?: boolean;
@@ -43,9 +43,36 @@ interface Region {
 
 const boxOf = (r: DOMRect): Box => ({ left: r.left, top: r.top, width: r.width, height: r.height });
 
+// 層に、いま出している内容の署名（`linked` を除く）。置き直した結果が同じなら、いまの要素を、そのまま残す
+const shown = new WeakMap<HTMLElement, string>();
+
+/** 層の中身を、外から書き換えた（枠のドラッグ）：次の配置では、同じ内容でも、作り直す */
+export function forgetShown(layer: HTMLElement): void {
+  shown.delete(layer);
+}
+
+/**
+ * 層に、番号の丸と範囲の枠を置く。
+ * 内容が、いま出しているものと、同じなら、**DOM を取り替えない**（要素が、一瞬も、取り外されない：つかんでいる・測っている最中の要素が、消えない）。違うときは、新しいものを足してから、古いものを外す（空白の瞬間を作らない）
+ */
 export function placeBadges(input: PlaceInput): void {
-  const { layer, scroller: ds, article, model, resolved, linkedTid } = input;
-  layer.textContent = '';
+  const { layer } = input;
+  const old = [...layer.children];
+  const made = build(input);
+  const sig = made.map((e) => e.outerHTML).join('');
+  if (old.length === made.length && shown.get(layer) === sig) {
+    for (const e of made) e.remove();
+  } else {
+    for (const e of old) e.remove();
+    shown.set(layer, sig);
+  }
+  markLinked(layer, input.linkedTid);
+}
+
+/** 層の末尾に、新しい丸・枠を足す（古いものは、そのまま。丸の組の高さの実測が要るので、層の中で作る）。足したものを返す */
+function build(input: PlaceInput): HTMLElement[] {
+  const { layer, scroller: ds, article, model, resolved } = input;
+  const made: HTMLElement[] = [];
   const dr = ds.getBoundingClientRect();
   const ar = article.getBoundingClientRect();
   const left = badgeLeft(ar, dr, ds.scrollLeft);
@@ -106,6 +133,7 @@ export function placeBadges(input: PlaceInput): void {
     box.style.top = `${badgeTopIn(top, dr, ds.scrollTop)}px`;
     box.style.left = `${left}px`;
     layer.append(box);
+    made.push(box);
     return box.offsetHeight; // 折り返して背が高くなった組の、下に、次の組を出す
   });
 
@@ -121,8 +149,9 @@ export function placeBadges(input: PlaceInput): void {
     // 入力中の枠だけ、つかめる
     if (g.pending) for (const k of HANDLES) rb.append(h('span', { class: `rh rh-${k}`, 'data-h': k }));
     layer.append(rb);
+    made.push(rb);
   }
-  markLinked(layer, linkedTid);
+  return made;
 }
 
 /** 層の中で、`tid` のものだけを、光らせる（null なら、すべて消す） */

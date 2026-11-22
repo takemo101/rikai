@@ -1,7 +1,7 @@
 // 前の版との差分（旧 app.js の `diffPlan`・`addDiff`・`diffBox`）。ブロックの対応づけと、文字の差分は、`shared/diff.ts`。
 import { type DiffOp, diffText, type MatchStatus, matchBlocks } from '../../../shared/diff';
 import { h } from '../../lib/dom';
-import type { DiffSummary } from '../../store/doc';
+import type { BlockEl, DiffSummary } from '../../store/doc';
 import { blockEls, blockLabel, markBlocks, plainText } from './blocks';
 import { mdToFragment } from './markdown';
 
@@ -37,7 +37,7 @@ function diffPlan(frag: DocumentFragment, src: DiffSource): DiffPlan {
   markBlocks(prev);
   const pe = blockEls(prev);
   const ce = blockEls(frag);
-  const info = (els: HTMLElement[]) =>
+  const info = (els: BlockEl[]) =>
     els.map((e) => ({ hash: e.dataset.bhash ?? '', tag: e.tagName, text: plainText(e) }));
   const pi = info(pe);
   const ci = info(ce);
@@ -48,7 +48,8 @@ function diffPlan(frag: DocumentFragment, src: DiffSource): DiffPlan {
   });
   // 文字のないブロック（画像だけの段落・区切り線）は、ラベルで見せる
   const removed = m.removed.map((i) => {
-    const el = pe[i] as HTMLElement;
+    const el = pe[i];
+    if (!el) return '';
     return pi[i]?.text || blockLabel(el) || `（${el.tagName.toLowerCase()}）`;
   });
   const plan: DiffPlan = { statuses: m.cur.map((c) => c.status), ops, removed };
@@ -79,7 +80,8 @@ export function addDiff(frag: DocumentFragment, src: DiffSource): DiffSummary {
   // ブロックの後ろに箱を足すので、後ろのブロックから処理する（前から足すと、続くブロックの位置が動く）
   for (let j = ce.length - 1; j >= 0; j--) {
     const st = plan.statuses[j];
-    const el = ce[j] as HTMLElement;
+    const el = ce[j];
+    if (!el) continue;
     if (st === 'same') continue;
     el.classList.add('changed');
     if (st === 'added') {

@@ -1,5 +1,7 @@
 // 操作（コメント・返信・回答・編集・削除・解決・添付・Submit・終了）：POST /api/<操作>。旧 app.js の `api`＋`act`＋`refreshTopic(true)` と同じ振る舞い。
 //   - 成功：`onOk(結果)` を呼び（画面の下書き・編集中の解除など。旧は、取り直しの前に、していた）、そのあと、トピックを、すぐ取り直す
+//     **操作（POST）の成功と、取り直しの失敗は、分ける**：取り直しが失敗しても、操作は成功（結果を返す。画面の更新が、遅れるだけ。次のポーリングで追いつく）。
+//     失敗を、操作の失敗にすると、保存済みなのに「失敗」と見えて、もう一度押すと、二重に保存される
 //   - 失敗：トーストを出して、null を返す（例外にしない）
 // 使い方：`const { comment } = useMutations(); const r = await comment({ topic, … }, { onOk: (r) => … }); if (!r) return;`
 // attach（画像の保存）は、トピックの状態を変えないので、取り直さない。
@@ -29,16 +31,22 @@ function useAction<P extends Post>(
   const { mutateAsync } = useMutation({ mutationFn: call });
   return useCallback(
     async (body, opts) => {
+      let r: Result<P>;
       try {
-        const r = await mutateAsync(body);
-        opts?.onOk?.(r);
-        if (refresh && typeof body === 'object' && body !== null && 'topic' in body && typeof body.topic === 'string')
-          await refreshTopic(qc, body.topic);
-        return r;
+        r = await mutateAsync(body);
       } catch (e) {
         toast(e instanceof Error ? e.message : String(e), true);
         return null;
       }
+      opts?.onOk?.(r);
+      if (refresh && typeof body === 'object' && body !== null && 'topic' in body && typeof body.topic === 'string') {
+        try {
+          await refreshTopic(qc, body.topic);
+        } catch {
+          // 取り直しの失敗は、操作の失敗ではない（保存は済んでいる）。次のポーリングで、追いつく
+        }
+      }
+      return r;
     },
     [mutateAsync, qc, refresh],
   );
