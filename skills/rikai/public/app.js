@@ -1517,7 +1517,8 @@
     const d = S.regDrag;
     if (!d) return;
     S.regDrag = null;
-    if (apply && d.vr) finishRegion(d.vr); else scheduleBadges();
+    if (apply && d.vr) finishRegion(d.vr);
+    scheduleBadges(); // finishRegion が断った（小さすぎ・本文なし）ときも、枠を、入力欄の対象の位置へ戻す
   };
   document.addEventListener('pointerup', () => endRegDrag(true));
   document.addEventListener('pointercancel', () => endRegDrag(false));
@@ -1531,7 +1532,11 @@
     lightbox.hidden = false;
   });
   lightbox.addEventListener('click', () => { lightbox.hidden = true; });
-  document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !lightbox.hidden) lightbox.hidden = true; });
+  document.addEventListener('keydown', (e) => {
+    if (e.key !== 'Escape') return;
+    if (S.regDrag) endRegDrag(false); // 範囲の枠をつかんでいる間の Esc：動かすのをやめる（元に戻す）
+    else if (!lightbox.hidden) lightbox.hidden = true;
+  });
   $('#badges').addEventListener('mouseover', (e) => {
     const el = e.target.closest('[data-tid]');
     const tid = el ? el.dataset.tid : null;

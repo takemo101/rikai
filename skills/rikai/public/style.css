@@ -197,6 +197,7 @@ mark.hl.pending { background: #ffd8a8; outline: 2px dashed #e8590c; outline-offs
 #lightbox img { max-width: 92vw; max-height: 90vh; background: #fff; border-radius: 6px; box-shadow: 0 8px 32px rgba(0, 0, 0, .4); }
 .thumb img, .msg .imgs img { cursor: zoom-in; }
 .regionbox.linked { border: 2px solid var(--accent); background: rgba(47, 93, 138, .18); }
+.regionbox.pending.linked { border: 2px dashed #e8590c; background: rgba(232, 89, 12, .14); } /* 入力中の枠は、マウスを置いても（つかんでいる間も）、オレンジの破線 */
 
 /* 右 */
 #threads { background: #faf9f5; border-left: 1px solid var(--line); overflow: auto; padding: 4px 12px 60px; }
