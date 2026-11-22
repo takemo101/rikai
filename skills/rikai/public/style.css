@@ -1,5 +1,5 @@
 :root {
-  --bg: #f5f4f0; --paper: #fff; --ink: #2b2e33; --muted: #767a80; --line: #e8e6df;
+  --bg: #f5f4f0; --paper: #fff; --ink: #2b2e33; --muted: #6c7076; --line: #e8e6df;
   --accent: #3f6485; --accent-soft: #edf1f5; --hl: #f6e8b0; --hl-live: #f4e3a0; --hl-done: #efebde;
   --ok: #3f7d5a; --warn: #a65a1f; --wait: #6f6196; --draft: #86701f; --new: #b8507c;
   --font: -apple-system, BlinkMacSystemFont, "Hiragino Sans", "Noto Sans JP", sans-serif;
@@ -268,7 +268,7 @@ mark.hl.pending { background: #ffd8a8; outline: 2px dashed #e8590c; outline-offs
 .donerow:hover { border-color: var(--accent); color: var(--ink); }
 .donerow .dr-q { flex: 0 1 auto; max-width: 45%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--ink); }
 .donerow .dr-last { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.no.resolved { background: #a8a493; }
+.no.resolved { background: #9c9784; }
 .solobar { display: flex; align-items: center; gap: 10px; margin: 6px 0 2px; }
 .rowopen { margin: 6px 0; }
 .rowopen > button.link { display: block; margin: -4px 0 4px 4px; }

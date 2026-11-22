@@ -759,7 +759,7 @@
     const quote = t.anchor ? (t.anchor.quote || t.anchor.label) : 'AIからの質問';
     const card = h('div', { class: `thread ${stCls}${S.active === t.id ? ' active' : ''}${fresh ? ' fresh' : ''}${linkedTid === t.id ? ' linked' : ''}`, 'data-tid': t.id });
     card.append(h('div', { class: 'th-head', onclick: () => focusThread(t.id, true) },
-      S.nums.has(t.id) ? h('span', { class: 'no', title: '本文の、同じ番号の印の所へのコメントです', text: String(S.nums.get(t.id)) }) : null,
+      S.nums.has(t.id) ? h('span', { class: `no${t.resolved ? ' resolved' : ''}`, title: '本文の、同じ番号の印の所へのコメントです', text: String(S.nums.get(t.id)) }) : null,
       stCls === 'wait' ? null : h('span', { class: `chip ${stCls} small`, text: stText }), // 既定の状態（AI の確認待ち）は、札を出さない
       t.version === curVersion() ? null : h('span', { class: 'chip small', text: `v${t.version}` }), // 版は、いまの版と違うときだけ
       orphan ? h('span', { class: 'chip warn small', text: '修正で文が変わりました' }) : null,
@@ -796,9 +796,9 @@
         imageBar(`reply-${t.id}`),
         h('div', { class: 'row' },
           h('button', { class: 'primary small', text: '返信を追加', onclick: () => sendReply(t) }),
-          h('button', { class: 'ghost small', text: '理解できた（解決）', onclick: () => act(async () => { await api('/api/resolve', { topic: S.slug, thread: t.id, resolved: true }); await refreshTopic(true); }) })));
+          h('button', { class: 'ghost small', text: '理解できた（解決）', onclick: () => act(async () => { await api('/api/resolve', { topic: S.slug, thread: t.id, resolved: true }); S.rowOpen.delete(t.id); await refreshTopic(true); }) })));
     } else {
-      foot.append(h('button', { class: 'ghost small', text: '再開する', onclick: () => act(async () => { await api('/api/resolve', { topic: S.slug, thread: t.id, resolved: false }); await refreshTopic(true); }) }));
+      foot.append(h('button', { class: 'ghost small', text: '再開する', onclick: () => act(async () => { await api('/api/resolve', { topic: S.slug, thread: t.id, resolved: false }); S.rowOpen.delete(t.id); await refreshTopic(true); }) }));
     }
     card.append(foot);
     return card;
@@ -898,11 +898,14 @@
   // 解決済みのスレッドは、1 行（番号・対象・最後の発言のはじめ）で見せる。押すと、カードが開く
   function renderDoneRow(t) {
     const quote = t.anchor ? (t.anchor.quote || t.anchor.label) : 'AIからの質問';
-    const last = t.messages.filter((m) => m.kind !== 'answer' && m.text).pop();
+    const lastM = t.messages.filter((m) => m.kind !== 'answer').pop();
+    // AI の発言は Markdown なので、コード・図を略し、記号を外した文字にしてから、切り詰める。画像だけの発言は「（画像）」
+    const plain = (s) => String(s || '').replace(/```[\s\S]*?```/g, ' （コード・図） ').replace(/[`*_#>|~]+/g, ' ').replace(/\s+/g, ' ').trim();
+    const lastText = lastM ? (plain(lastM.text) || (lastM.images && lastM.images.length ? '（画像）' : '')) : '';
     return h('button', { type: 'button', class: 'donerow', 'data-tid': t.id, title: '押すと、このコメントが開きます', onclick: () => { S.rowOpen.add(t.id); renderThreads(); focusThread(t.id, false); } },
       S.nums.has(t.id) ? h('span', { class: 'no resolved', text: String(S.nums.get(t.id)) }) : null,
       h('span', { class: 'dr-q', text: trunc(quote, 30) }),
-      h('span', { class: 'dr-last', text: last ? `${last.author === 'ai' ? 'AI' : 'あなた'}：${trunc(last.text, 48)}` : '' }));
+      h('span', { class: 'dr-last', text: lastM && lastText ? `${lastM.author === 'ai' ? 'AI' : 'あなた'}：${trunc(lastText, 48)}` : '' }));
   }
 
   function renderThreads() {
@@ -969,6 +972,8 @@
       S.drafts.composer = '';
       resetImgs('composer');
       S.active = r.thread;
+      S.solo = null; // 1 枚だけ見ていても、足したコメントが見えるように、一覧へ戻す
+      if (S.tab === 'done') S.tab = 'live';
       await refreshTopic(true);
       focusThread(r.thread, false);
     };
@@ -1444,7 +1449,7 @@
     const a = e.target.closest('a[data-page]');
     if (a) return; // ハッシュで遷移する
     const tid = articleTid(e);
-    if (tid) focusThread(tid, false);
+    if (tid) { if (S.solo) { S.solo = null; renderThreads(); } focusThread(tid, false); } // 本文の強調を押したときは、1 枚だけ見る状態を解く
   });
 
   // 番号の印は、文・ブロック・範囲の、すべて、同じ見た目（丸）・同じ位置（記事の左の余白。対象の上端）に、要素の外の層（#badges。#docscroll の中の絶対位置）に出す。
