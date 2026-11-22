@@ -898,6 +898,7 @@
     const keep = ae && ae.dataset && ae.dataset.key ? { key: ae.dataset.key, s: ae.selectionStart, e: ae.selectionEnd } : null;
     const scroll = panel.scrollTop;
     panel.replaceChildren();
+    regbtn.hidden = !S.topic || !isLatest(); // 範囲を選ぶボタンは、最新版を開いているときだけ
     if (!S.topic) return;
     const head = h('div', { class: 'side-h panel-h' }, 'コメント');
     panel.append(head);
@@ -905,7 +906,7 @@
     const list = threadsOnPage();
     const live = list.filter((t) => !t.resolved).sort(docOrder);
     const done = list.filter((t) => t.resolved).sort(docOrder);
-    if (!list.length && !S.composer) panel.append(h('div', { class: 'empty', text: '本文の文を選ぶと「コメント」が出ます。ブロックにマウスを置くと出るバーの「コメント」「範囲」でも、付けられます。' }));
+    if (!list.length && !S.composer) panel.append(h('div', { class: 'empty', text: '本文の文を選ぶと「コメント」が出ます。ブロックにマウスを置くと出るバーの「コメント」でも、付けられます。本文の好きな範囲は、右下の「範囲を選ぶ」から、ドラッグで選べます。' }));
     // 入力欄は、対象の位置の順に、スレッドの間へ入れる（いつも一番上、にしない）
     const slot = composerSlot(live);
     live.forEach((t, i) => { if (i === slot) panel.append(renderComposer()); panel.append(renderThread(t)); });
@@ -1080,7 +1081,7 @@
   let blkTarget = null;
   let blkHide;
 
-  // 入口は、1 つのバー（「コメント」・「範囲」）。文を選ぶと、選んだ文の上に・ブロックにマウスを置くと、そのブロックの右上に出る
+  // 入口は、バーの「コメント」。文を選ぶと、選んだ文の上に・ブロックにマウスを置くと、そのブロックの右上に出る（範囲は、右下に浮かぶ「範囲を選ぶ」）
   function showActbar(mode, right, top) { // right：バーの右端・top：上端（画面の座標）
     actMode = mode;
     actbar.hidden = false;
@@ -1095,7 +1096,10 @@
     hideActbar();
     if (a) startComposer(a);
   });
-  $('#act-region').addEventListener('click', () => { hideActbar(); startRegionSelect(); });
+  // 範囲を選ぶ入口は、本文の右下に浮かぶボタン（いつも同じ場所。押すと選ぶ状態になり、もう一度押すと、やめる）
+  const regbtn = $('#regbtn');
+  regbtn.addEventListener('mousedown', (e) => e.preventDefault()); // 押しても、文の選択を外さない
+  regbtn.addEventListener('click', () => { hideActbar(); if (regState) cancelRegion(); else startRegionSelect(); });
   actbar.addEventListener('mouseenter', () => clearTimeout(blkHide));
   actbar.addEventListener('mouseleave', () => { if (actMode === 'blk') scheduleBlkHide(); });
 
@@ -1153,13 +1157,13 @@
   $('#docscroll').addEventListener('mouseleave', () => scheduleBlkHide());
 
   // ------------------------------------------------------------ 本文の、好きな範囲を選んで、コメントする
-  // 入口のバーの「範囲」を押すと、本文の上のどこでも、ドラッグで範囲を選べる（文・表・コード・図・画像・複数のブロックにまたがってもよい）。
+  // 右下の「範囲を選ぶ」を押すと、本文の上のどこでも、ドラッグで範囲を選べる（文・表・コード・図・画像・複数のブロックにまたがってもよい）。
   // 範囲は、**左上にあるブロック**（画像・図があれば、その最初の画像・図）の大きさに対する比率（{x,y,w,h}。左上が原点）で持つ。範囲が、そのブロックの外へ出れば、0〜1 を超える。
   // 切り出した画像は、コメントの画像として添付する（AI には、画像のファイルの場所と、範囲の比率〔region〕が届く）。コメントの探し直しは、ブロックの位置づけと同じ（範囲は、ブロックの中の位置）
   function hideBlkBtns() { if (actMode === 'blk') hideActbar(); }
   const regsel = $('#regsel');
   let regState = null;
-  function cancelRegion() { regState = null; regsel.hidden = true; regsel.replaceChildren(); }
+  function cancelRegion() { regState = null; regsel.hidden = true; regsel.replaceChildren(); regbtn.classList.remove('on'); regbtn.querySelector('.lbl').textContent = '範囲を選ぶ'; }
   function startRegionSelect() {
     if (regState) return;
     if (!isLatest()) { toast('コメントは最新版にだけ付けられます', true); return; }
@@ -1170,6 +1174,8 @@
     regsel.replaceChildren(h('div', { class: 'hint', text: 'ドラッグして、範囲を選びます（Esc か、枠の外を押すと、やめます）' }));
     Object.assign(regsel.style, { left: `${Math.round(a.left - dr.left + ds.scrollLeft)}px`, top: `${Math.round(a.top - dr.top + ds.scrollTop)}px`, width: `${a.width}px`, height: `${a.height}px` });
     regsel.hidden = false;
+    regbtn.classList.add('on');
+    regbtn.querySelector('.lbl').textContent = 'やめる';
     regState = { from: null, box: null };
   }
   // ドラッグ中の矩形（選択の枠の内側の座標。はみ出さない）
@@ -1202,7 +1208,7 @@
   });
   regsel.addEventListener('pointercancel', cancelRegion);
   document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && regState) cancelRegion(); });
-  document.addEventListener('pointerdown', (e) => { if (regState && !regsel.contains(e.target) && !actbar.contains(e.target)) cancelRegion(); });
+  document.addEventListener('pointerdown', (e) => { if (regState && !regsel.contains(e.target) && !regbtn.contains(e.target)) cancelRegion(); });
   window.addEventListener('resize', cancelRegion);
   // 範囲の名前（カードの見出し・AI に届く label）。画像の alt・図（Mermaid）・インラインの svg の文字
   function regionLabel(blk, media) {
