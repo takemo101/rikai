@@ -165,6 +165,9 @@
   const blockText = (el) => el.dataset.mermaid || (el.textContent || '').replace(/\s+/g, ' ').trim();
   // 範囲を選べる要素：ブロックの中の、画像（img）と図（svg。Mermaid・AI が書いたインラインの SVG）。最初の 1 つ
   const mediaOf = (el) => (el.matches('img, svg') ? el : el.querySelector('img, svg'));
+  // 範囲の基準：ブロックの最初の画像・図。なければ、ブロックそのもの。**壊れた画像**（読み込みが終わって、大きさがない）だけは、ブロックを基準にする。
+  // 読み込み前の画像（遅延読み込み）は、画像のまま（大きさがないあいだは、枠を出さない。読み込まれたら、合わせ直す）。範囲の枠を出すときも、同じ基準を使う（保存した比率は、この基準に対するもの）
+  const frameOf = (el) => { const m = mediaOf(el); if (!m) return el; return m.tagName.toLowerCase() === 'img' && m.complete && !m.naturalWidth ? el : m; };
   function markBlocks(root) {
     blockEls(root).forEach((el, i) => { el.dataset.bid = `b${i}`; el.dataset.bhash = hash(blockText(el)); el.classList.add('blk'); });
   }
@@ -998,7 +1001,6 @@
   // ------------------------------------------------------------ 選択・ブロックのコメント入口
   const selbtn = $('#selbtn');
   const blkbtn = $('#blkbtn');
-  const regbtn = $('#regbtn');
   let pendingAnchor = null;
   let blkTarget = null;
   let blkHide;
@@ -1006,11 +1008,8 @@
   selbtn.addEventListener('mousedown', (e) => e.preventDefault());
   selbtn.addEventListener('click', () => { if (pendingAnchor) startComposer(pendingAnchor); });
   blkbtn.addEventListener('click', () => { if (blkTarget) startComposer(blockAnchor(blkTarget)); });
-  regbtn.addEventListener('click', () => { if (blkTarget) startRegionSelect(blkTarget); });
-  for (const b of [blkbtn, regbtn]) {
-    b.addEventListener('mouseenter', () => clearTimeout(blkHide));
-    b.addEventListener('mouseleave', () => scheduleBlkHide());
-  }
+  blkbtn.addEventListener('mouseenter', () => clearTimeout(blkHide));
+  blkbtn.addEventListener('mouseleave', () => scheduleBlkHide());
 
   document.addEventListener('mouseup', (e) => {
     if (e.target === selbtn) return;
@@ -1052,11 +1051,6 @@
     const top = $('#docscroll').getBoundingClientRect().top + 4; // 本文の領域の上端（上のバーに、重ねない）
     blkbtn.style.left = `${art.right - 34}px`;
     blkbtn.style.top = `${Math.min(Math.max(r.top, top), Math.max(r.bottom - 26, top))}px`;
-    // 画像・図には、範囲を選ぶボタンも、「＋」の左に出す（画像は、読み込めているものだけ）
-    const media = mediaOf(blk);
-    regbtn.hidden = !(media && (media.tagName.toLowerCase() !== 'img' || media.naturalWidth > 0));
-    regbtn.style.left = `${art.right - 34 - 58}px`;
-    regbtn.style.top = blkbtn.style.top;
   }
   $('#docscroll').addEventListener('mousemove', (e) => {
     if (!isLatest()) return;
@@ -1071,30 +1065,35 @@
   $('#docscroll').addEventListener('scroll', hideBlkBtns);
   $('#docscroll').addEventListener('mouseleave', () => scheduleBlkHide());
 
-  // ------------------------------------------------------------ 画像・図の中の範囲を選んで、コメントする
-  // 範囲は、その画像・図の大きさに対する比率（左上が原点。{x,y,w,h}）で持つ。切り出した画像は、コメントの画像として添付する
-  // （AI には、画像のファイルの場所と、範囲の比率〔region〕が届く）。コメントの探し直しは、ブロックの位置づけと同じ（範囲は、ブロックの中の位置）
-  function hideBlkBtns() { blkbtn.hidden = true; regbtn.hidden = true; }
+  // ------------------------------------------------------------ 本文の、好きな範囲を選んで、コメントする
+  // 上のバーの「範囲を選ぶ」を押すと、本文の上のどこでも、ドラッグで範囲を選べる（文・表・コード・図・画像・複数のブロックにまたがってもよい）。
+  // 範囲は、**左上にあるブロック**（画像・図があれば、その最初の画像・図）の大きさに対する比率（{x,y,w,h}。左上が原点）で持つ。範囲が、そのブロックの外へ出れば、0〜1 を超える。
+  // 切り出した画像は、コメントの画像として添付する（AI には、画像のファイルの場所と、範囲の比率〔region〕が届く）。コメントの探し直しは、ブロックの位置づけと同じ（範囲は、ブロックの中の位置）
+  function hideBlkBtns() { blkbtn.hidden = true; }
   const regsel = $('#regsel');
+  const regmode = $('#btn-region');
   let regState = null;
-  function cancelRegion() { regState = null; regsel.hidden = true; regsel.replaceChildren(); }
-  function startRegionSelect(blk) {
+  function cancelRegion() { regState = null; regsel.hidden = true; regsel.replaceChildren(); regmode.classList.remove('on'); }
+  regmode.addEventListener('click', () => {
+    if (regState) { cancelRegion(); return; }
     if (!isLatest()) { toast('コメントは最新版にだけ付けられます', true); return; }
-    const media = mediaOf(blk);
-    if (!media) return;
+    const art = $('#article');
+    if (!art.querySelector('[data-bid]')) { toast('範囲を選べる本文がありません', true); return; }
     hideBlkBtns();
-    const ds = $('#docscroll'), dr = ds.getBoundingClientRect(), m = media.getBoundingClientRect();
-    regsel.replaceChildren(h('div', { class: 'hint', text: 'ドラッグして、範囲を選びます（Esc でやめる）' }));
-    Object.assign(regsel.style, { left: `${Math.round(m.left - dr.left + ds.scrollLeft)}px`, top: `${Math.round(m.top - dr.top + ds.scrollTop)}px`, width: `${m.width}px`, height: `${m.height}px` });
+    selbtn.hidden = true;
+    const ds = $('#docscroll'), dr = ds.getBoundingClientRect(), a = art.getBoundingClientRect();
+    regsel.replaceChildren(h('div', { class: 'hint', text: 'ドラッグして、範囲を選びます（もう一度押すか、Esc でやめる）' }));
+    Object.assign(regsel.style, { left: `${Math.round(a.left - dr.left + ds.scrollLeft)}px`, top: `${Math.round(a.top - dr.top + ds.scrollTop)}px`, width: `${a.width}px`, height: `${a.height}px` });
     regsel.hidden = false;
-    regState = { blk, media, from: null, box: null };
-  }
+    regmode.classList.add('on');
+    regState = { from: null, box: null };
+  });
   // ドラッグ中の矩形（選択の枠の内側の座標。はみ出さない）
   function regRect(e) {
     const r = regsel.getBoundingClientRect();
     const x = Math.min(Math.max(e.clientX - r.left, 0), r.width), y = Math.min(Math.max(e.clientY - r.top, 0), r.height);
     const f = regState.from;
-    return { x: Math.min(f.x, x), y: Math.min(f.y, y), w: Math.abs(x - f.x), h: Math.abs(y - f.y), W: r.width, H: r.height };
+    return { x: Math.min(f.x, x), y: Math.min(f.y, y), w: Math.abs(x - f.x), h: Math.abs(y - f.y) };
   }
   regsel.addEventListener('pointerdown', (e) => {
     if (!regState || e.button !== 0) return;
@@ -1112,37 +1111,55 @@
   });
   regsel.addEventListener('pointerup', (e) => {
     if (!regState || !regState.from) return;
-    const q = regRect(e), { blk, media } = regState;
+    const q = regRect(e), r = regsel.getBoundingClientRect();
     cancelRegion();
-    // 小さすぎる範囲は、断る。サーバーも、0.5% 未満の範囲は、捨てる（大きな画像で、枠が消えないように、同じ基準で）
-    if (q.w < 8 || q.h < 8 || q.w / q.W < 0.005 || q.h / q.H < 0.005) { toast('範囲が小さすぎます。ドラッグで、範囲を選んでください', true); return; }
-    finishRegion(blk, media, { x: q.x / q.W, y: q.y / q.H, w: q.w / q.W, h: q.h / q.H });
+    if (q.w < 8 || q.h < 8) { toast('範囲が小さすぎます。ドラッグで、範囲を選んでください', true); return; }
+    finishRegion({ left: r.left + q.x, top: r.top + q.y, width: q.w, height: q.h });
   });
   regsel.addEventListener('pointercancel', cancelRegion);
   document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && regState) cancelRegion(); });
-  document.addEventListener('pointerdown', (e) => { if (regState && !regsel.contains(e.target)) cancelRegion(); });
+  document.addEventListener('pointerdown', (e) => { if (regState && !regsel.contains(e.target) && !regmode.contains(e.target)) cancelRegion(); });
   window.addEventListener('resize', cancelRegion);
   // 範囲の名前（カードの見出し・AI に届く label）。画像の alt・図（Mermaid）・インラインの svg の文字
   function regionLabel(blk, media) {
     if (media.tagName.toLowerCase() === 'img') return `画像${media.alt ? `: ${media.alt}` : ''}`;
     return blk.classList.contains('mermaid-block') ? '図' : (trunc(blk.textContent, 40) || '図');
   }
-  function finishRegion(blk, media, rect) {
+  function finishRegion(vr) {
+    const vx2 = vr.left + vr.width, vy2 = vr.top + vr.height;
+    const box = (b) => b.getBoundingClientRect();
+    const hits = $$('#article [data-bid]').filter((b) => { const r = box(b); return (r.width || r.height) && r.right > vr.left && r.left < vx2 && r.bottom > vr.top && r.top < vy2; });
+    if (!hits.length) { toast('そこには本文がありません。本文の上で、範囲を選んでください', true); return; }
+    // 基準にするブロック：左上の点を含むもの（小さいほう）。左上が、ブロックの間の余白なら、最初に重なるもの
+    const holding = hits.filter((b) => { const r = box(b); return r.left <= vr.left && vr.left <= r.right && r.top <= vr.top && vr.top <= r.bottom; });
+    const blk = holding.length ? holding.reduce((a, b) => (box(b).width * box(b).height < box(a).width * box(a).height ? b : a)) : hits[0];
+    const frame = frameOf(blk);
+    const media = frame === blk ? null : frame;
+    const fr = box(frame);
     const r4 = (v) => Math.round(v * 10000) / 10000;
-    const rect4 = { x: r4(rect.x), y: r4(rect.y), w: r4(rect.w), h: r4(rect.h) };
-    startComposer({ ...blockAnchor(blk), label: `${regionLabel(blk, media)}の一部`, rect: rect4 });
+    const rect4 = { x: r4((vr.left - fr.left) / fr.width), y: r4((vr.top - fr.top) / fr.height), w: r4(vr.width / fr.width), h: r4(vr.height / fr.height) };
+    if (!(fr.width && fr.height) || rect4.w < 0.0005 || rect4.h < 0.0005) { toast('範囲が小さすぎます。ドラッグで、範囲を選んでください', true); return; }
+    // 範囲が、1 つの画像・図の中に収まるなら、元の解像度から切り出す。そうでなければ、表示されている本文を、画像にする
+    const inside = media && (media.tagName.toLowerCase() !== 'img' || media.naturalWidth > 0) && vr.left >= fr.left - 1 && vr.top >= fr.top - 1 && vx2 <= fr.right + 1 && vy2 <= fr.bottom + 1;
+    const plain = blk.cloneNode(true); // <style>・<script> の中身（図の CSS など）は、名前に入れない
+    for (const x of plain.querySelectorAll('style, script')) x.remove();
+    const text = blk.classList.contains('mermaid-block') ? '図' : plain.textContent.replace(/\s+/g, ' ').trim();
+    const label = inside ? `${regionLabel(blk, media)}の一部` : `範囲：${trunc(text, 30) || blk.tagName.toLowerCase()}`; // 画像・図の外へ出る範囲は、画像の一部ではない
+    // 画像にする作業は、入力欄を開く前に始める（入力中のオレンジの強調が、画像に写らないように。スタイルを写す所までは、同期で終わる）
+    const job = inside ? cropMedia(media, rect4) : rasterRegion(vr);
+    startComposer({ ...blockAnchor(blk), label, rect: rect4 });
     const comp = S.composer;
-    if (!comp) return; // 最新版でないとき、startComposer が断った
-    // 切り出し（写真は、2 秒ほどかかる）の間も、「アップロード中」にして、その間の送信を断る（切り出しが、送られずに消えないように）
+    if (!comp) { job.catch(() => {}); return; } // 最新版でないとき、startComposer が断った
+    // 画像にする（写真は 2 秒ほど、長い範囲はそれ以上かかる）間も、「アップロード中」にして、その間の送信を断る（画像が、送られずに消えないように）
     S.uploading++;
     renderThreads();
-    cropMedia(media, rect4)
+    job
       .then(async (file) => {
-        if (!file || S.composer !== comp) return; // 切り出している間に、入力欄をやめた・別の対象へ移ったなら、付けない
+        if (!file || S.composer !== comp) return; // 画像にしている間に、入力欄をやめた・別の対象へ移ったなら、付けない
         const names = await attachFiles('composer', [file], () => S.composer === comp);
         if (names[0] && S.composer === comp) comp.regionImg = names[0]; // 対象を選び直したとき、この画像だけを外すため
       })
-      .catch(() => toast('この範囲の画像を作れませんでした（このブラウザでは、図の切り出しができないことがあります）。位置だけで、コメントできます', true))
+      .catch((e) => toast(e && e.user ? e.message : 'この範囲の画像を作れませんでした（このブラウザでは、できないことがあります）。位置だけで、コメントできます', true))
       .finally(() => { S.uploading--; renderThreads(); });
   }
   // 範囲を、画像にする。画像は、元の解像度から。図（svg）と、ベクターの画像（SVG の img）は、表示の大きさの最大 2 倍で描く。
@@ -1186,12 +1203,93 @@
     ctx.fillRect(0, 0, cv.width, cv.height);
     const f = fit || { x: 0, y: 0, w: sw, h: sh };
     ctx.drawImage(src, (f.x - sx) * k, (f.y - sy) * k, f.w * k, f.h * k); // 全体を、ずらして描く（はみ出す所は、切れる）。k が 1 なら、切り出しと同じ
+    return canvasFile(cv);
+  }
+  async function canvasFile(cv) {
     const toBlob = (type, q) => new Promise((resolve) => cv.toBlob(resolve, type, q));
     let blob = await toBlob('image/png');
     let name = 'region.png';
     if (blob && blob.size > IMG_MAX_MB * 1024 * 1024 * 0.98) { blob = await toBlob('image/jpeg', 0.88); name = 'region.jpg'; }
     return blob ? new File([blob], name, { type: blob.type }) : null;
   }
+  // 本文の、任意の範囲（vr。画面の座標）を、画像にする。表示されている本文のブロックを、見た目（computed style）を写して複製し、SVG の foreignObject に入れて画像にし、canvas に描く。
+  // 複製は、画像として読むだけで、スクリプトは動かない（無害化した本文を、そのまま写す）。img は、先に data: にする（同じオリジンのものだけ。canvas は汚れない）。
+  // 番号・枠・強調の層は、入らない（本文だけ）。::before などの疑似要素は、写らない
+  async function rasterRegion(vr) {
+    const W = Math.max(1, Math.round(vr.width)), H = Math.max(1, Math.round(vr.height));
+    const k = Math.min(2, 2400 / Math.max(W, H));
+    const art = $('#article');
+    const paper = getComputedStyle(art).backgroundColor;
+    const root = document.createElement('div');
+    root.setAttribute('xmlns', 'http://www.w3.org/1999/xhtml');
+    root.style.cssText = `position:relative;width:${W}px;height:${H}px;overflow:hidden;background:${paper === 'rgba(0, 0, 0, 0)' ? '#fff' : paper}`;
+    const imgs = [];
+    const hit = (r) => (r.width || r.height) && r.right > vr.left && r.left < vr.left + vr.width && r.bottom > vr.top && r.top < vr.top + vr.height;
+    const targets = [...art.children].filter((el) => hit(el.getBoundingClientRect()));
+    let count = 0;
+    for (const el of targets) count += 1 + el.querySelectorAll('*').length;
+    if (count > 3000) throw userError('範囲に重なるブロック（表・リストなど）が大きすぎて、画像にできません（要素の合計が 3000 を超えています）。位置だけで、コメントできます');
+    // 入力中の強調（オレンジ）は、画像に写さない：スタイルを写す間だけ、外す（同期のうちに戻す）
+    const pend = [...art.querySelectorAll('.pending, .blk-pending')].map((e) => [e, ['pending', 'blk-pending'].filter((c) => e.classList.contains(c))]);
+    for (const [e, cl] of pend) e.classList.remove(...cl);
+    const pendingMarks = new Set(pend.map(([e]) => e).filter((e) => e.tagName === 'MARK')); // 入力中の文の強調は、背景も、写さない
+    try {
+      for (const el of targets) {
+        const r = el.getBoundingClientRect();
+        const c = el.cloneNode(true);
+        const src = [el, ...el.querySelectorAll('*')], dst = [c, ...c.querySelectorAll('*')];
+        for (let i = 0; i < src.length; i++) {
+          const cs = getComputedStyle(src[i]);
+          let css = '';
+          for (const p of cs) css += `${p}:${cs.getPropertyValue(p)};`;
+          dst[i].setAttribute('style', `${css}outline:none;${pendingMarks.has(src[i]) ? 'background:none;' : ''}`); // 選んでいるコメントの枠線（outline）・入力中の文の強調は、画像に入れない
+          if (src[i] instanceof HTMLImageElement) imgs.push([src[i], dst[i]]);
+        }
+        // 位置は、!important で決める（写した computed style の、論理プロパティ〔inset-inline-start など〕に、負けないように）
+        const place = { position: 'absolute', margin: '0', 'box-sizing': 'border-box', left: `${r.left - vr.left}px`, top: `${r.top - vr.top}px`, width: `${r.width}px`, height: `${r.height}px` };
+        for (const [name, value] of Object.entries(place)) c.style.setProperty(name, value, 'important');
+        root.append(c);
+      }
+    } finally {
+      for (const [e, cl] of pend) e.classList.add(...cl);
+    }
+    await Promise.all(imgs.map(([a, b]) => inlineImage(a, b))); // 画像は、あとで（スタイルを写し終えてから）data: にする
+    // XML として不正な文字（制御文字・対になっていないサロゲート）は、除く（画像として読めなくなるため）
+    const xml = new XMLSerializer().serializeToString(root).replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\uFFFE\uFFFF]|[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/g, '');
+    if (xml.length > 40e6) throw userError('範囲が大きすぎて、画像にできません。小さい範囲を選んでください。位置だけで、コメントできます');
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${Math.round(W * k)}" height="${Math.round(H * k)}" viewBox="0 0 ${W} ${H}"><foreignObject x="0" y="0" width="${W}" height="${H}">${xml}</foreignObject></svg>`;
+    const im = new Image();
+    await new Promise((resolve, reject) => {
+      im.onload = resolve;
+      im.onerror = () => reject(new Error('範囲を画像にできません'));
+      im.src = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
+    });
+    const cv = document.createElement('canvas');
+    cv.width = Math.round(W * k); cv.height = Math.round(H * k);
+    const ctx = cv.getContext('2d');
+    ctx.fillStyle = '#fff';
+    ctx.fillRect(0, 0, cv.width, cv.height);
+    ctx.drawImage(im, 0, 0, cv.width, cv.height);
+    return canvasFile(cv);
+  }
+  // 複製の img に、元の画像を、data: として入れる（SVG の中の画像は、外のファイルを読めないため）。表示の大きさの 2 倍まで
+  async function inlineImage(img, copy) {
+    copy.removeAttribute('srcset');
+    try {
+      const rc = img.getBoundingClientRect();
+      const nw = img.naturalWidth, nh = img.naturalHeight;
+      const cw = Math.max(1, Math.round(nw ? Math.min(nw, rc.width * 2) : rc.width * 2));
+      const ch = Math.max(1, Math.round(nw ? (cw * nh) / nw : rc.height * 2));
+      const cv = document.createElement('canvas');
+      cv.width = cw; cv.height = ch;
+      cv.getContext('2d').drawImage(img, 0, 0, cw, ch);
+      copy.setAttribute('src', cv.toDataURL('image/png'));
+    } catch (e) {
+      copy.removeAttribute('src'); // 壊れた画像（読み込めない）は、画像なしで写す（範囲全体の画像を、失敗させない）
+    }
+  }
+  // 利用者に見せる失敗（原因が分かるもの）
+  const userError = (message) => Object.assign(new Error(message), { user: true });
 
   // 範囲の枠（押せない）の下を、マウスが通っているとき、その範囲のコメントを返す（重なるときは、小さい枠）。
   // 枠は押せないので、1 つの画像に複数の範囲があっても、それぞれのコメントに、ホバー・クリックが届くように、位置で探す
@@ -1236,7 +1334,7 @@
     if (S.composer && S.composer.anchor.rect && S.pendingEl) regions.push({ tid: 'pending', el: S.pendingEl, rect: S.composer.anchor.rect, pending: true });
     const regionTop = new Map();
     for (const g of regions) {
-      const media = g.el.isConnected ? mediaOf(g.el) : null;
+      const media = g.el.isConnected ? frameOf(g.el) : null; // 保存した比率の基準（finishRegion と同じ）
       const m = media ? media.getBoundingClientRect() : null;
       if (!m || !m.width || !m.height) continue;
       g.m = m;
@@ -1276,9 +1374,13 @@
       if (!g.m) continue;
       const m = g.m;
       const rb = h('div', { class: `regionbox${g.resolved ? ' resolved' : ''}${g.pending ? ' pending' : ''}`, 'data-tid': g.tid });
+      // 範囲が、本文の領域の外（左右）へ出ても、領域の中に収める（枠のせいで、横にスクロールできるようにならない）
+      const x0 = Math.round(m.left - dr.left + ds.scrollLeft + g.rect.x * m.width), x1 = x0 + Math.round(g.rect.w * m.width);
+      const left = Math.max(0, x0), right = Math.min(ds.clientWidth, x1);
+      if (right <= left) continue;
       Object.assign(rb.style, {
-        left: `${Math.round(m.left - dr.left + ds.scrollLeft + g.rect.x * m.width)}px`, top: `${Math.round(m.top - dr.top + ds.scrollTop + g.rect.y * m.height)}px`,
-        width: `${Math.round(g.rect.w * m.width)}px`, height: `${Math.round(g.rect.h * m.height)}px`,
+        left: `${left}px`, top: `${Math.round(m.top - dr.top + ds.scrollTop + g.rect.y * m.height)}px`,
+        width: `${right - left}px`, height: `${Math.round(g.rect.h * m.height)}px`,
       });
       layer.append(rb);
     }
@@ -1290,6 +1392,9 @@
   const badgeObserver = new ResizeObserver(scheduleBadges);
   badgeObserver.observe($('#article'));
   badgeObserver.observe($('#docscroll'));
+  // 画像の読み込みが終わったとき（範囲の基準が、ブロックから画像に変わる。大きさが変わらない小さな画像でも、枠を合わせ直す）。load は、バブルしないので、捕まえる
+  $('#article').addEventListener('load', scheduleBadges, true);
+  $('#article').addEventListener('error', scheduleBadges, true);
   $('#badges').addEventListener('click', (e) => {
     const el = e.target.closest('[data-tid]:not([data-tid="pending"])'); // 入力中の「新」は、押しても、選ぶカードがない
     if (el) focusThread(el.dataset.tid, false);
