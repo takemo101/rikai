@@ -65,6 +65,7 @@
     imgGen: {}, uploading: 0, // 入力欄ごとの世代（やめる・送る・移るで進める。終わりが遅れたアップロードを、捨てるため）と、アップロード中の数
     editing: null, seen: new Set(JSON.parse(localStorage.getItem('rikai-seen') || '[]')), offline: false, error: null,
     olderOpen: new Set(), // 「これまでのやり取り」を開いているスレッド（描き直しても、開いたまま）
+    askOpen: new Set(), // 答えないまま会話が進んだ質問を、「答える」で開いたもの
   };
   const svgCache = new Map();
   let mermaidSeq = 0;
@@ -616,8 +617,15 @@
   }
   const cloneAns = (a) => (a ? JSON.parse(JSON.stringify(a)) : null);
 
+  // 答えないまま、会話が進んだ質問（あとに、**送信した**利用者の発言がある。別の質問への回答は、数えない）：もう、答えを求めない。小さく見せて、「答える」で開く（答えたければ、答えられる）
+  const askStale = (t, q) => !answerOf(t, q) && !t.resolved && t.messages.slice(t.messages.indexOf(q) + 1).some((m) => m.author === 'user' && m.sent && m.kind !== 'answer');
   function renderAsk(t, q) {
     const ask = q.ask;
+    if (askStale(t, q) && !S.askOpen.has(q.id)) {
+      return h('div', { class: 'ask stale' }, h('div', { class: 'ask-q', text: ask.question }),
+        h('div', { class: 'ask-foot' }, h('span', { class: 'chip small', text: '答えずに、会話が進みました' }),
+          h('button', { class: 'link', text: '答える', onclick: () => { S.askOpen.add(q.id); renderThreads(); } })));
+    }
     const saved = answerOf(t, q);
     const locked = !!(saved && saved.sent) || t.resolved;
     if (!(q.id in S.drafts.ask)) S.drafts.ask[q.id] = cloneAns(saved && saved.answer);
@@ -759,7 +767,7 @@
     // 答えていない質問・まだ見ていない AI の返信（最新の 4 件の中のもの）。**そのあいだの、続く 2 件以上**を、それぞれ「これまでのやり取り（N 件）」にたたむ（たたみが、複数、出ることがある）
     const shown = t.messages.filter((m) => m.kind !== 'answer');
     const lastAi = shown.map((m) => m.author).lastIndexOf('ai'), lastUser = shown.map((m) => m.author).lastIndexOf('user');
-    const keep = (m, i) => i >= shown.length - 2 || i === lastAi || i === lastUser || (m.author === 'user' && !m.sent) || (m.author === 'ai' && !S.seen.has(m.id) && i >= shown.length - 4) || S.editing === m.id || (m.ask && !answerOf(t, m));
+    const keep = (m, i) => i >= shown.length - 2 || i === lastAi || i === lastUser || (m.author === 'user' && !m.sent) || (m.author === 'ai' && !S.seen.has(m.id) && i >= shown.length - 4) || S.editing === m.id || (m.ask && !answerOf(t, m) && !askStale(t, m));
     let run = [];
     const flush = () => {
       if (run.length >= 2) {
