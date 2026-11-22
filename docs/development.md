@@ -30,6 +30,21 @@
 - OS：macOS で確認した。Linux・Windows は未確認。
 - `rsync`（`install.sh` が使う）。
 
+### 開発の土台（再開発〔Hono・React〕。2026-11-22〜。SPEC §8）
+
+再開発の途中は、**旧実装（`skills/rikai/` の JavaScript）と、新しい TypeScript（`src/`）が、並んで存在する**。段階：土台（RIK-034）→ サーバーと CLI（RIK-035）→ フロント（RIK-036）→ 仕上げ（RIK-037）。**切り替えのときに、この節と下の各節を、新しい構成に書き直す**。
+
+- 開発の依存は **pnpm**（`pnpm install`。`pnpm-lock.yaml` をコミット。esbuild のビルドスクリプトは `pnpm-workspace.yaml` の `allowBuilds` で許可）。利用者の環境には、依存を要求しない（バンドルして同梱：SPEC N5）。
+- 言語は TypeScript（strict）。`src/shared/`：サーバー・CLI・画面が共有する、DOM に触れない純粋な関数と型（いまは `anchor.ts`・`diff.ts`）。
+
+| コマンド | 内容 |
+|---|---|
+| `pnpm test` | Vitest（`test/**/*.test.ts`）と、旧実装のテスト（`node --test test/*.test.js`）を、続けて動かす。旧実装のテストは、そのモジュールを `src/` へ移したときに、Vitest へ移す |
+| `pnpm run typecheck` | `tsc --noEmit` |
+| `pnpm run lint` | `biome check`（整形・Lint。`pnpm run format` で直す。対象は `src/`・`test/*.ts`・`scripts/`・設定ファイル） |
+
+新しいテストは `test/` に `*.test.ts` で書く（Vitest。`node:assert/strict` も使える）。**足したテストは、実装を壊して、落ちることを、一度確かめる**（これまでと同じ）。
+
 ## 実行
 
 リポジトリのまま動かせる。**`--root` で、一時のプロジェクトを指す**（実際のプロジェクトの `.rikai/` を、触らない）。

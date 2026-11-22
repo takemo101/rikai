@@ -3,15 +3,34 @@
   "version": "0.13.2",
   "private": true,
   "description": "資料にコメントして Submit すると、AI が返信と資料の修正（版）で答える。理解できるまで回すスキル",
-  "keywords": ["pi-package"],
+  "keywords": [
+    "pi-package"
+  ],
   "pi": {
-    "skills": ["./skills"]
+    "skills": [
+      "./skills"
+    ]
   },
   "license": "MIT",
   "engines": {
-    "node": ">=18"
+    "node": ">=20"
   },
+  "packageManager": "pnpm@12.11.2",
   "scripts": {
-    "test": "node --test test/*.test.js"
+    "test": "vitest run && node --test test/*.test.js",
+    "typecheck": "tsc --noEmit",
+    "lint": "biome check",
+    "format": "biome check --write"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^2.6.8",
+    "@hono/node-server": "^2.1.11",
+    "@hono/zod-validator": "^0.9.1",
+    "@types/node": "^26.6.6",
+    "esbuild": "^0.28.2",
+    "hono": "^4.13.19",
+    "typescript": "^7.0.2",
+    "vitest": "^5.1.1",
+    "zod": "^4.6.7"
   }
 }
