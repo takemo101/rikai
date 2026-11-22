@@ -50,7 +50,7 @@ export function useImageAttach(key: string, slug: string): ImageAttach {
           continue;
         }
         const gen = ui().imgGen[key] ?? 0;
-        ui().beginUpload();
+        ui().beginUpload(key);
         let name: string | null = null;
         try {
           const r = await attach({ topic: slug, data: await readBase64(f) });
@@ -58,7 +58,7 @@ export function useImageAttach(key: string, slug: string): ImageAttach {
         } catch (e) {
           toast(e instanceof Error ? e.message : String(e), true);
         } finally {
-          ui().endUpload();
+          ui().endUpload(key);
         }
         // 終わるまでに、入力欄をやめた・送った・別のトピックへ移った、なら、この画像は、付けない（別の入力欄に、出ないように）。
         // 続けて何枚も貼ると、上の枚数の検査は、完了を待たずに通るので、付ける直前に、もう一度、上限を見る

@@ -87,3 +87,17 @@ export interface InteractProps {
   /** `#docscroll` */
   scrollRef: RefObject<HTMLElement | null>;
 }
+
+/**
+ * 関連の線（`<svg id="links" aria-hidden="true">`）。**W1**：`overlay/Connectors.tsx` が `export function Connectors(props: ConnectorsProps)` を出す。
+ * App は、`#app` の外（`#toast` の前）に置く。画面に固定・押せない。本文（`#article`）の DOM には、何も足さない。
+ *
+ * - 右のパネルに、カードとして出ているスレッド（`#threads .thread[data-tid]`・入力欄 `.thread.composer`）だけを、本文の対象と結ぶ。端点は、実測（`getBoundingClientRect`）。
+ * - 読む画面の状態（`useUi`）：`ui.links`（false なら、何も出さない・リスナーも張らない）・`active`・`linkedTid`・`tab`・`solo`・`composer`・`ui`（左の一覧・右の幅）。
+ * - `view` が null・DocModel が null・`model.key !== view.key` なら、線は 0 本。
+ */
+export interface ConnectorsProps {
+  view: View | null;
+  /** `#docscroll` */
+  scrollRef: RefObject<HTMLElement | null>;
+}

@@ -269,7 +269,7 @@ test('未送信のユーザーの発言だけ、「編集」「削除」が出�
     }),
   ]);
   const msgs = qa('.thread .msg');
-  expect(msgs.map((m) => [m.className, qa('.row.meta button', m).map(text)])).toEqual([
+  expect(msgs.map((m) => [m.className, qa('.row.meta button', m).map((b) => b.getAttribute('aria-label'))])).toEqual([
     ['msg user', []],
     ['msg ai fresh', []],
     ['msg user', ['編集', '削除']],
@@ -416,16 +416,17 @@ test('AI の返信：「資料を v2 に更新」と「v2 を見る」・ペー�
     { versions: 2 },
   );
   const [m1, m2] = qa('.msg.ai');
+  expect(q('.who svg', m1)).toBeNull(); // 発言者の「AI」には、アイコンを付けない（札の Sparkles と、重ねない）
   expect(text(q('.row.meta .chip.ok.small', m1))).toBe('資料を v2 に更新');
   const link = q('.row.meta a.btnlink', m1) as HTMLAnchorElement;
   expect(link.getAttribute('href')).toBe('#/demo/root/v2');
   expect(link.textContent).toBe('v2 を見る');
   const card = q('a.pagecard', m1) as HTMLAnchorElement;
   expect(card.getAttribute('href')).toBe('#/demo/sub');
-  expect([...card.children].map((c) => [c.className, c.textContent])).toEqual([
+  expect([...card.children].map((c) => [c.getAttribute('class'), c.textContent])).toEqual([
     ['pc-l', '詳しく見る'],
     ['pc-t', '子ページ'],
-    ['pc-a', '→'],
+    ['lucide lucide-arrow-right pc-a', ''], // 矢印は、アイコン（SVG）
   ]);
   expect(q('a.pagecard', m2)).toBeNull();
 });

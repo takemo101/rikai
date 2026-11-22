@@ -1,5 +1,6 @@
 // 「AI に送信」のダイアログ（`#submitdlg`）。未送信の件数と、全体へのメモ（任意）。「送信する」で POST /api/submit → 「第N回として送信しました」。
 // キャンセルしても、メモは残す（旧と同じ）。送信できたら、メモを空にする。
+import { Send } from 'lucide-react';
 import { type SyntheticEvent, useRef, useState } from 'react';
 import { useMutations } from '../api/mutations';
 import { useUi } from '../store/ui';
@@ -38,7 +39,10 @@ export function SubmitDialog({ slug, unsent }: SubmitDialogProps) {
   return (
     <dialog id="submitdlg" ref={ref} onClose={onClose}>
       <form method="dialog">
-        <h3>AI に送信</h3>
+        <h3>
+          <Send aria-hidden="true" focusable="false" />
+          AI に送信
+        </h3>
         <p id="submitdlg-summary">未送信のコメント・回答など {unsent} 件を AI に送ります。</p>
         <label className="note-label">
           全体へのメモ（任意）
@@ -55,6 +59,7 @@ export function SubmitDialog({ slug, unsent }: SubmitDialogProps) {
             キャンセル
           </button>
           <button type="submit" id="submitdlg-ok" value="ok" className="primary">
+            <Send aria-hidden="true" focusable="false" />
             送信する
           </button>
         </div>

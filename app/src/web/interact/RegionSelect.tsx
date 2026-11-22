@@ -1,6 +1,7 @@
 // 本文の、好きな範囲を選んで、コメントする：右下に浮かぶ「範囲を選ぶ」ボタン（`#regbtn`）と、本文の上に重ねる選択の枠（`#regsel`。`#docscroll` の中の絶対位置）。
 // ボタンを押すと、選ぶ状態（`regMode: 'selecting'`）になり、ボタンは「やめる」に変わる。本文の上のどこでも、ドラッグで範囲を選べる（Esc・枠の外を押す・もう一度ボタンを押す・8px 未満では、やめる）。
 // 範囲のあとの処理（基準のブロック・比率・画像）は、`finishRegion`（region.ts）。
+import { SquareDashed } from 'lucide-react';
 import { type PointerEvent, useCallback, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { $ } from '../lib/dom';
@@ -120,9 +121,7 @@ export function RegionSelect({ scroller, enabled, onFinish }: Props) {
         onMouseDown={(e) => e.preventDefault()}
         onClick={() => (selecting ? cancel() : start())}
       >
-        <span className="ico" aria-hidden="true">
-          ▭
-        </span>
+        <SquareDashed aria-hidden="true" focusable="false" />
         <span className="lbl">{selecting ? 'やめる' : '範囲を選ぶ'}</span>
       </button>
       {scroller

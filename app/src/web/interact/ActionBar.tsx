@@ -2,6 +2,7 @@
 // ブロックにマウスを置くと、入口のバーを、そのブロックの右上（ブロックの上）に出す。バーへ向かう間に消えない・別のブロックへ飛ばないように、
 // ポインターが「そのブロックの、バーの高さ上〜下端 × 箱の右端まで」の帯にいる間は、同じブロックのまま出し続ける（`inBand`）。
 // 帯の外でも、本文の箱の右の余白にいる間は、同じ高さにある本文のブロックを探す（左の余白は、探さない）。
+import { MessageSquarePlus } from 'lucide-react';
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import type { Anchor } from '../../shared/types';
 import { blockAnchor } from '../doc/render/blocks';
@@ -199,6 +200,7 @@ export function ActionBar({ scroller, latest }: Props) {
       }}
     >
       <button id="act-comment" type="button" title="この文・ブロックに、コメントします" onClick={onComment}>
+        <MessageSquarePlus aria-hidden="true" focusable="false" />
         コメント
       </button>
     </div>

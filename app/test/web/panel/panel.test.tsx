@@ -249,7 +249,7 @@ const longThread = () => {
   return thread({ id: 't2', anchor: anchor('長い会話'), messages: ms });
 };
 
-test('solo：そのカードだけ・古いやり取りも、たたまない・番号の案内・「← すべてのコメントに戻る」で戻る', async () => {
+test('solo：そのカードだけ・古いやり取りも、たたまない・番号の案内・「すべてのコメントに戻る」で戻る', async () => {
   const [b] = blocks(1);
   useDoc.setState({ model: docModel('demo/root/1', { t2: b ?? null }, { nums: { t2: 3 } }) });
   renderPanel([thread({ id: 't1' }), longThread()]);
@@ -261,7 +261,7 @@ test('solo：そのカードだけ・古いやり取りも、たたまない・�
   expect(qa('.thread[data-tid="t2"] .msg')).toHaveLength(8);
   expect(q('.panel-top .solobar .hint')?.textContent).toBe('3 番のコメントだけを表示中');
   expect(q('.panel-top .tabs')).toBeNull();
-  await userEvent.click(screen.getByRole('button', { name: '← すべてのコメントに戻る' }));
+  await userEvent.click(screen.getByRole('button', { name: 'すべてのコメントに戻る' }));
   expect(useUi.getState().solo).toBeNull();
   expect(cardIds()).toEqual(['t2', 't1']); // 本文に位置のあるもの（t2）が先
 });
@@ -432,14 +432,14 @@ test('入力欄：対象の位置の順に、スレッドの間へ入る（い�
   const order = () =>
     qa('#threads > .thread').map((c) => (c.classList.contains('composer') ? 'composer' : c.dataset.tid));
   expect(order()).toEqual(['t1', 't2', 'composer', 't3']);
-  expect(q('.thread.composer .hint')?.textContent).toBe('本文の、オレンジの部分へのコメントです');
+  expect(q('.thread.composer .hint')?.textContent).toBe('本文の、点線の部分へのコメントです');
 
   // 範囲の対象：枠の説明
   act(() => {
     useUi.getState().closeComposer();
     useUi.getState().startComposer(anchor('範囲', { rect: { x: 0, y: 0, w: 1, h: 1 } }));
   });
-  expect(q('.thread.composer .hint')?.textContent).toContain('オレンジの枠へのコメントです');
+  expect(q('.thread.composer .hint')?.textContent).toContain('点線の枠へのコメントです');
 
   // 解決済みだけの切り替え：一番上
   await userEvent.click(screen.getByRole('tab', { name: /解決済み/ }));

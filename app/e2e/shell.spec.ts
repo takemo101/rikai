@@ -7,7 +7,7 @@ const uiState = (page: Page) =>
   page.evaluate(() => JSON.parse(localStorage.getItem('rikai-ui') ?? '{}') as { sideOpen?: boolean; panelW?: number });
 
 test.describe('画面の広さ（F23）', () => {
-  test('「☰」で、左の一覧をしまう・出す。しまうと、本文の幅の上限が広がる。再読み込みしても残る（F23(1)(3)）', async ({
+  test('左の一覧の開閉ボタンで、左の一覧をしまう・出す。しまうと、本文の幅の上限が広がる。再読み込みしても残る（F23(1)(3)）', async ({
     page,
   }) => {
     const u = ui(page);

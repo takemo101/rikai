@@ -1,4 +1,5 @@
 // 画面の下のトースト（`#toast`）。通常は 2.8 秒・エラーは 6 秒で消える。出し直すと、消す時刻も、取り直す。押せない（CSS：pointer-events: none）
+import { CircleAlert, Info } from 'lucide-react';
 import { useEffect } from 'react';
 import { useUi } from '../store/ui';
 
@@ -15,6 +16,13 @@ export function Toast() {
 
   return (
     <div id="toast" className={toast?.err ? 'err' : ''} hidden={!toast}>
+      {toast ? (
+        toast.err ? (
+          <CircleAlert aria-hidden="true" focusable="false" />
+        ) : (
+          <Info aria-hidden="true" focusable="false" />
+        )
+      ) : null}
       {toast?.msg}
     </div>
   );

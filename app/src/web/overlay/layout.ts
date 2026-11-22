@@ -1,7 +1,7 @@
 // 番号の層の、位置の計算（旧 app.js の `placeBadges` の、測定を含まない部分）。純粋な関数だけ：jsdom で試せる。
 import type { Rect } from '../../shared/types';
 
-/** 番号の丸：文・ブロック・範囲の、すべて、同じ見た目。入力中の対象は、「新」（オレンジ） */
+/** 番号の丸：文・ブロック・範囲の、すべて、同じ見た目。入力中の対象は、「新」（濃いアクセント） */
 export interface BadgeItem {
   /** ビューポートでの、対象の上端 */
   top: number;

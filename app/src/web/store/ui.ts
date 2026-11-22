@@ -68,6 +68,8 @@ export interface UiState {
   imgGen: Record<string, number>;
   /** アップロード（と、範囲の画像化）の、実行中の数 */
   uploading: number;
+  /** 入力欄のキー → その入力欄に付けている最中のアップロードの数（「アップロード中」を、その入力欄だけに出す。範囲の画像化は `composer`） */
+  uploadingBy: Record<string, number>;
   /** 編集中のメッセージ ID */
   editing: string | null;
   /** 見た AI のメッセージの ID（localStorage `rikai-seen`） */
@@ -87,7 +89,7 @@ export interface UiState {
   /** 範囲の枠（入力中の対象）を、ドラッグでつかんでいる間 true（番号の層を、作り直さない） */
   regDrag: boolean;
   toast: ToastState | null;
-  /** 画面の広さ（左の一覧の開閉・右の幅。localStorage `rikai-ui`） */
+  /** 画面の広さ（左の一覧の開閉・右の幅・関連の線。localStorage `rikai-ui`） */
   ui: UiPrefs;
   /** 開いているダイアログ（`<dialog>`。`confirm()` は使わない：F34） */
   dialog: DialogKind | null;
@@ -126,8 +128,9 @@ export interface UiActions {
   removeDraftImg: (key: string, name: string) => void;
   /** 入力欄の画像を、空にして、世代を進める（やめる・送る・別の対象へ移る） */
   resetImgs: (key: string) => void;
-  beginUpload: () => void;
-  endUpload: () => void;
+  /** `key`：付けている入力欄（なければ、全体の数だけ） */
+  beginUpload: (key?: string) => void;
+  endUpload: (key?: string) => void;
   /** 別のトピックへ移った：添付した画像は、そのトピックの assets/ にあるので、持ち越さない */
   leaveTopic: () => void;
   // ---- パネル ----
@@ -151,6 +154,8 @@ export interface UiActions {
   closeLightbox: () => void;
   // ---- 画面の広さ ----
   toggleSide: () => void;
+  /** 関連の線（コメントと本文の対象を結ぶ線）の、出す・隠す */
+  toggleLinks: () => void;
   /** 右の幅を変える。save: false は、ドラッグの途中（離したとき、persistUi で保存する） */
   setPanelW: (w: number, opts?: { save?: boolean }) => void;
   persistUi: () => void;
@@ -169,6 +174,7 @@ export function initialUi(): UiState {
     drafts: { composer: '', reply: {}, edit: {}, ask: {}, imgs: {} },
     imgGen: {},
     uploading: 0,
+    uploadingBy: {},
     editing: null,
     seen: loadSeen(),
     olderOpen: new Set(),
@@ -285,8 +291,21 @@ export const useUi = create<UiStore>()((set, get) => {
         },
       })),
     resetImgs,
-    beginUpload: () => set((s) => ({ uploading: s.uploading + 1 })),
-    endUpload: () => set((s) => ({ uploading: Math.max(0, s.uploading - 1) })),
+    beginUpload: (key) =>
+      set((s) => ({
+        uploading: s.uploading + 1,
+        uploadingBy: key ? { ...s.uploadingBy, [key]: (s.uploadingBy[key] ?? 0) + 1 } : s.uploadingBy,
+      })),
+    endUpload: (key) =>
+      set((s) => {
+        const by = { ...s.uploadingBy };
+        if (key) {
+          const n = (by[key] ?? 0) - 1;
+          if (n > 0) by[key] = n;
+          else delete by[key];
+        }
+        return { uploading: Math.max(0, s.uploading - 1), uploadingBy: by };
+      }),
     leaveTopic: () => patchDrafts({ imgs: {} }),
 
     setTab: (tab) => set({ tab }),
@@ -308,6 +327,10 @@ export const useUi = create<UiStore>()((set, get) => {
 
     toggleSide: () => {
       set((s) => ({ ui: { ...s.ui, sideOpen: !s.ui.sideOpen } }));
+      saveUi(get().ui);
+    },
+    toggleLinks: () => {
+      set((s) => ({ ui: { ...s.ui, links: !s.ui.links } }));
       saveUi(get().ui);
     },
     setPanelW: (w, opts) => {

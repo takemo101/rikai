@@ -36,7 +36,7 @@ test('初期値：進行中のタブ・差分を表示・左の一覧は開い�
   const s = initialUi();
   expect(s.tab).toBe('live');
   expect(s.showChanges).toBe(true);
-  expect(s.ui).toEqual({ sideOpen: true, panelW: 380 });
+  expect(s.ui).toEqual({ sideOpen: true, panelW: 380, links: true });
   expect(s.regMode).toBe('idle');
   expect(s.composer).toBeNull();
   expect(s.solo).toBeNull();
@@ -191,13 +191,13 @@ test('closeComposer：対象・書きかけ・画像を消し、世代を進め�
 test('画面の広さ：開閉・幅を localStorage に保存する。ドラッグ中（save: false）は保存せず、persistUi で保存', () => {
   ui().toggleSide();
   expect(ui().ui.sideOpen).toBe(false);
-  expect(JSON.parse(localStorage.getItem(UI_KEY) ?? '{}')).toEqual({ sideOpen: false, panelW: 380 });
+  expect(JSON.parse(localStorage.getItem(UI_KEY) ?? '{}')).toEqual({ sideOpen: false, panelW: 380, links: true });
   ui().setPanelW(500, { save: false });
   expect(JSON.parse(localStorage.getItem(UI_KEY) ?? '{}').panelW).toBe(380);
   ui().persistUi();
-  expect(JSON.parse(localStorage.getItem(UI_KEY) ?? '{}')).toEqual({ sideOpen: false, panelW: 500 });
+  expect(JSON.parse(localStorage.getItem(UI_KEY) ?? '{}')).toEqual({ sideOpen: false, panelW: 500, links: true });
   ui().setPanelW(410);
-  expect(initialUi().ui).toEqual({ sideOpen: false, panelW: 410 });
+  expect(initialUi().ui).toEqual({ sideOpen: false, panelW: 410, links: true });
 });
 
 test('トースト：出すたびに id が変わる。古い id では消えない', () => {

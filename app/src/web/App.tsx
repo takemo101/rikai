@@ -17,6 +17,7 @@ import { Toast } from './layout/Toast';
 import { TopBar } from './layout/TopBar';
 import { navigate, type Route, useRoute } from './lib/route';
 import { buildView, type View } from './lib/view';
+import { Connectors } from './overlay/Connectors';
 import { Overlays } from './overlay/Overlays';
 import { ThreadsPanel } from './panel/ThreadsPanel';
 import { useDoc } from './store/doc';
@@ -119,6 +120,7 @@ export function App() {
         <ThreadsPanel view={view} />
         <Resizer />
       </div>
+      <Connectors view={view} scrollRef={scrollRef} />
       <Toast />
       <SubmitDialog slug={view?.slug ?? null} unsent={view?.topic.unsent ?? 0} />
       <EndDialog slug={view?.slug ?? null} />

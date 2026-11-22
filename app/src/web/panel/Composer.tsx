@@ -1,5 +1,6 @@
-// 新しいコメントの入力欄（`.thread.composer`）。対象（本文のオレンジの部分）の引用・書きかけの文・画像・「コメントを追加」・「やめる」。
+// 新しいコメントの入力欄（`.thread.composer`）。対象（本文の点線の部分）の引用・書きかけの文・画像・「コメントを追加」・「やめる」。
 // 開く（対象を選んだ・選び直した）たびに、欄にフォーカスを移し、カードを真ん中へ（旧 `startComposer`）。
+import { Send } from 'lucide-react';
 import { useEffect, useRef } from 'react';
 import { useMutations } from '../api/mutations';
 import { trunc } from '../lib/dom';
@@ -7,7 +8,7 @@ import type { View } from '../lib/view';
 import type { BlockEl } from '../store/doc';
 import { type ComposerState, useUi } from '../store/ui';
 import { caretAtEnd } from './caret';
-import { ImageBar } from './ImageBar';
+import { AttachButton, ImageBar } from './ImageBar';
 import { usePanel } from './panelContext';
 import { useDraftImgs, useImageAttach } from './useImageAttach';
 
@@ -72,15 +73,15 @@ export function Composer({ view, composer, pending }: Props) {
   return (
     <div className="thread composer" ref={card}>
       <div className="th-head">
-        <span className="no pending" title="本文の、オレンジの部分へのコメントです">
+        <span className="no pending" title="本文の、点線の部分へのコメントです">
           新
         </span>
         <div className="quote">{trunc(a.quote || a.label, 90)}</div>
         {pending ? (
           <div className="hint">
             {a.rect
-              ? '本文の、オレンジの枠へのコメントです（枠は、ドラッグで動かし、角・辺で大きさを変えられます）'
-              : '本文の、オレンジの部分へのコメントです'}
+              ? '本文の、点線の枠へのコメントです（枠は、ドラッグで動かし、角・辺で大きさを変えられます）'
+              : '本文の、点線の部分へのコメントです'}
           </div>
         ) : null}
       </div>
@@ -101,7 +102,9 @@ export function Composer({ view, composer, pending }: Props) {
       />
       <ImageBar imgKey="composer" slug={slug} />
       <div className="row">
+        <AttachButton imgKey="composer" slug={slug} />
         <button type="button" className="primary small" onClick={() => void submit()}>
+          <Send aria-hidden="true" focusable="false" />
           コメントを追加
         </button>
         <button type="button" className="ghost small" onClick={() => useUi.getState().closeComposer()}>

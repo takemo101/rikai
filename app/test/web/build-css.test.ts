@@ -59,7 +59,7 @@ const BARE = [
 ];
 
 test('ビルドした CSS に、utilities の、接頭辞なしのクラス（.hidden・.absolute・.container・.table・.resize など）が、残らない', () => {
-  expect(css.length).toBeGreaterThan(1000); // 画面の CSS（legacy.css）は、入っている
+  expect(css.length).toBeGreaterThan(1000); // 画面の CSS（app.css）は、入っている
   const found = BARE.filter((name) => new RegExp(`\\.${name}(?![\\w-])`).test(css));
   expect(found).toEqual([]);
 });

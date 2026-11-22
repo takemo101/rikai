@@ -147,11 +147,15 @@ test('multi_choice：チェックボックス（複数）・外せる・「そ�
 test('scale：min〜max のボタン・両端のラベル → { value: 3 }', async () => {
   const view = renderPanel([withAsk('scale')], saveAnswers);
   const row = q('.ask .scale') as HTMLElement;
-  expect([...row.children].map((c) => [c.tagName, c.className, c.textContent])).toEqual([
-    ['SPAN', 'sl', '難しい'],
-    ...[1, 2, 3, 4, 5].map((n) => ['BUTTON', 'pill', String(n)]),
-    ['SPAN', 'sl', '簡単'],
+  expect([...row.children].map((c) => [c.tagName, c.className])).toEqual([
+    ['SPAN', 'sl'],
+    ['DIV', 'seg'], // 連なったボタン
+    ['SPAN', 'sl'],
   ]);
+  expect([...row.querySelectorAll('.sl')].map((c) => c.textContent)).toEqual(['難しい', '簡単']);
+  expect([...row.querySelectorAll('.seg > button')].map((c) => [c.className, c.textContent])).toEqual(
+    [1, 2, 3, 4, 5].map((n) => ['pill', String(n)]),
+  );
   await userEvent.click(within(row).getByRole('button', { name: '3' }));
   expect(within(row).getByRole('button', { name: '3' })).toHaveClass('on');
   await userEvent.click(save());

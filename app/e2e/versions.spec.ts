@@ -223,7 +223,7 @@ test.describe('子ページ', () => {
     await expect(u.article.locator('h1')).toHaveText('詳細ページ');
     const crumbs = u.docbar.locator('.crumbs');
     await expect(crumbs).toContainText('猫の観察日記');
-    await expect(crumbs).toContainText('›');
+    await expect(crumbs.locator('.sep svg')).toHaveCount(1); // 区切りは、アイコン（›）
     await expect(crumbs).toContainText('詳細ページ');
     await expect(u.threads).toHaveCount(0); // 子ページには、まだコメントがない
 
@@ -244,6 +244,22 @@ test.describe('子ページ', () => {
     // 左の一覧で、本編へ
     await u.side.locator('.tree a', { hasText: '猫の観察日記' }).click();
     await expect(page).toHaveURL(/#\/demo\/root$/);
+  });
+
+  test('左のページの木：子・孫は、段をなして並ぶ（左端が、右へずれる）', async ({ page, app }) => {
+    const u = ui(page);
+    await withChild(page, app);
+    await app.apply({
+      pages: [{ id: 'grand', title: '孫ページ', parent: 'detail', markdown: '# 孫ページ\n\n孫の本文です。\n' }],
+    });
+    const left = async (title: string) => {
+      const link = u.side.locator('.tree a', { hasText: title });
+      await expect(link).toBeVisible();
+      return ((await link.boundingBox()) as { x: number }).x;
+    };
+    const [root, child, grand] = [await left('猫の観察日記'), await left('詳細ページ'), await left('孫ページ')];
+    expect(child).toBeGreaterThan(root + 8);
+    expect(grand).toBeGreaterThan(child + 8);
   });
 
   test('子ページも版を持つ：apply の revisions で v2 になり、左の一覧の版が変わる（F11・F13）', async ({
