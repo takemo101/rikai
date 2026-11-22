@@ -681,6 +681,14 @@
 
 **確認していない範囲**：**利用者の、実際の画面（Tern）で、終了できること**（人間の確認）。Tern・Safari・Firefox での `showModal()`（Submit のダイアログも、同じ前提）。
 
+### 再開発の土台（2026-11-22。RIK-034。SPEC §8 の「Hono・React」）
+
+**内容**：`app/`（開発用のワークスペース：TypeScript strict・Biome・Vitest・pnpm。ルートの `package.json` に、依存を書かない）。共有の純粋関数 `app/src/shared/anchor.ts`・`diff.ts` と、そのテスト（Vitest。13 件・9 件）を、旧 `public/anchor.js`・`diff.js`（旧 UI が使う。切り替えまで残す）から移植した。
+
+**確認**：`pnpm test`（Vitest 22 件＋旧 110 件）・`pnpm run typecheck`・`pnpm run lint` が通る。移したテストが、変異（アンカーの選び方・近さの閾値・共通の先頭の判定）で落ちる。**独立レビュー 1 回**：Blocker・Major なし。**移植の忠実さ**：旧 JS と新 TS に、同じ乱数の入力を、15 万件ずつ与え、戻り値・例外が、すべて一致した（`null`・`undefined`・空・数値・`{}` を含む。上限を超える経路も）。テストは、空白を除いて比べると、旧と同じ内容。変異 31 件のうち、落ちなかった 11 件は、旧テストでも落ちない（以前からのテストの穴）。**直した Minor**：①pi が git から入れるとき、ルートで `npm install --omit=dev` を実行するので、開発の依存がルートにあると、npm のレジストリに問い合わせる（9 秒・オフラインで `ENOTCACHED` で失敗し、clone が消える）→ **開発の依存を `app/` に分けた**（直したあと：オフラインで 0.2 秒）②開発の複製から入れると、`node_modules` が 180〜580MB 複製される → 手順に「新しい clone から」を明記 ③開発に Node 22.12 以上が要る（Vitest・Vite。20 では、ネイティブの部品が入らない）→ 文書に明記 ④Vite の CJS の警告 → `app/package.json` を `"type": "module"` に ⑤`@types/node` を 20 に固定（実行の下限に合わせる。vitest の peer の範囲は、`peerDependencyRules` で許す）。
+
+**確認していない範囲**：**直した分の、独立した再レビュー**。実際の pi・omp・codex・agy・Claude Code への、GitHub からの導入（切り替え〔RIK-037〕のあとに、確かめる）。`pnpm install --frozen-lockfile` は、レビューで確認（警告なし）。依存のライセンスは、確かめた記録がない（hono・zod は、まだ使っていない）。
+
 ### 人間の確認待ち
 
 AI は、これらを合格にしない。

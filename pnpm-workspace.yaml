@@ -1,0 +1,8 @@
+packages:
+  - app
+allowBuilds:
+  esbuild: true
+# 実行の下限は Node 20（型は @types/node 20）。vitest の peer の範囲（22 以上）は、型だけの話なので、許す
+peerDependencyRules:
+  allowedVersions:
+    '@types/node': '20'

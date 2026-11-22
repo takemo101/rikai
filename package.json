@@ -3,15 +3,23 @@
   "version": "0.13.2",
   "private": true,
   "description": "資料にコメントして Submit すると、AI が返信と資料の修正（版）で答える。理解できるまで回すスキル",
-  "keywords": ["pi-package"],
+  "keywords": [
+    "pi-package"
+  ],
   "pi": {
-    "skills": ["./skills"]
+    "skills": [
+      "./skills"
+    ]
   },
   "license": "MIT",
   "engines": {
-    "node": ">=18"
+    "node": ">=20"
   },
+  "packageManager": "pnpm@12.11.2",
   "scripts": {
-    "test": "node --test test/*.test.js"
+    "test": "pnpm --dir app test && node --test test/*.test.js",
+    "typecheck": "pnpm --dir app typecheck",
+    "lint": "pnpm --dir app lint",
+    "format": "pnpm --dir app format"
   }
 }
