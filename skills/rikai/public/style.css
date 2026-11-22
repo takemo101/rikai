@@ -204,11 +204,10 @@ mark.hl.pending { background: #ffd8a8; outline: 2px dashed #e8590c; outline-offs
 .regionbox.pending.linked { border: 2px dashed #e8590c; background: rgba(232, 89, 12, .14); } /* 入力中の枠は、マウスを置いても（つかんでいる間も）、オレンジの破線 */
 
 /* 右 */
-#threads { background: #faf9f6; border-left: 1px solid var(--line); overflow: auto; padding: 6px 14px 60px; }
+#threads { background: #faf9f6; border-left: 1px solid var(--line); overflow: auto; padding: 6px 14px 60px; scroll-padding-top: 100px; } /* 固定の部分（約 85px）に、スクロールで動かした先（カード・フォーカスしたボタン）が、隠れないように */
 #threads .side-h { padding-left: 4px; }
 .panel-h { display: flex; align-items: center; justify-content: space-between; }
 .panel-top { position: sticky; top: -6px; z-index: 4; margin: -6px -14px 0; padding: 6px 14px 4px; background: #faf9f6; } /* 見出し・切り替えは、スクロールしても、右パネルの上に固定する（上に -6px：#threads の上の余白の分） */
-.thread, .donerow, .rowopen { scroll-margin-top: 100px; } /* 固定の部分に、隠れないように */
 .empty { color: var(--muted); font-size: 12.5px; padding: 8px 4px; }
 .thread { background: #fff; border: 1px solid #ebe8e1; border-radius: 10px; margin: 10px 0; padding: 12px 14px; box-shadow: 0 1px 2px rgba(30, 30, 30, .04); }
 .thread.active { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
