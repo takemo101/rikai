@@ -12,6 +12,7 @@ const {
 } = require('./store.js');
 const { actions } = require('./actions.js');
 const { IMG_MAX } = require('./image.js');
+const { appsOf, APP_MAX } = require('./htmlapp.js');
 
 const PUBLIC = path.join(__dirname, '..', 'public');
 const MAX_BODY = 2 * 1024 * 1024;
@@ -87,7 +88,16 @@ function serveFile(res, file, extra = {}) {
   fs.createReadStream(file).pipe(res);
 }
 
-const INDEX_CSP = "default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self'; connect-src 'self'; frame-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'";
+const INDEX_CSP = "default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self'; connect-src 'self'; frame-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'";
+
+// 実行できる枠（html-app）：AI が書いた JavaScript を、**隔離して**動かす。画面（INDEX_CSP）とは、別の文書として配る。
+// - `sandbox allow-scripts`（allow-same-origin なし）：オリジンのない文書になり、画面の DOM・Cookie・合言葉・localStorage に、触れない。
+//   ポップアップ・上の画面の移動・フォームの送信・ダウンロード・ポインタのロックも、できない（枠の iframe 属性にも、同じ sandbox を付ける）
+// - `default-src 'none'`・`connect-src 'none'`：外への通信（fetch・XHR・WebSocket・画像・フォント・外のスクリプト）を、すべて止める。
+//   読めるのは、文書の中のものだけ（インラインのスクリプト・スタイル・data: の画像・フォント）。eval は、使えない
+// - `frame-src 'none'`・`object-src 'none'`・`base-uri 'none'`・`form-action 'none'`
+// 止められないもの（既知の限界）：WebRTC・DNS の先読み。枠の中には、画面の秘密は渡らない（上のとおり、触れない）
+const APP_CSP = "sandbox allow-scripts; default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data:; font-src data:; media-src 'none'; connect-src 'none'; frame-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'";
 
 async function handler(req, res) {
   const url = new URL(req.url, 'http://localhost');
@@ -124,6 +134,29 @@ async function handler(req, res) {
       if (!file.startsWith(dir + path.sep)) return send(res, 403, 'forbidden');
       // 直接開かれても中のスクリプトを動かさない
       return serveFile(res, file, { 'Content-Security-Policy': 'sandbox' });
+    }
+
+    // 実行できる枠の中身：同じ版の資料から、n 番目の html-app フェンスを取り出して、隔離する CSP つきで配る（クライアントが送った中身は、使わない）
+    if (req.method === 'GET' && p.startsWith('/appframe/')) {
+      const deny = denyReason(req, url);
+      if (deny) return send(res, 403, deny);
+      const m = /^\/appframe\/([^/]+)\/([^/]+)\/(\d+)\/(\d+)$/.exec(p);
+      if (!m) return send(res, 404, 'not found');
+      let slug, page;
+      try { slug = decodeURIComponent(m[1]); page = decodeURIComponent(m[2]); } catch (_) { return send(res, 404, 'not found'); }
+      const [v, n] = [Number(m[3]), Number(m[4])];
+      checkSlug(slug);
+      const meta = loadMeta(slug);
+      const pg = Object.prototype.hasOwnProperty.call(meta.pages, page) ? meta.pages[page] : null;
+      if (!pg || v < 1 || v > pg.versions) return send(res, 404, 'not found');
+      const app = appsOf(fs.readFileSync(pageFile(slug, page, v), 'utf8'))[n];
+      if (app === undefined) return send(res, 404, 'not found');
+      if (app.length > APP_MAX) return send(res, 413, '枠の中身が大きすぎます');
+      res.writeHead(200, {
+        'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff',
+        'Referrer-Policy': 'no-referrer', 'Content-Security-Policy': APP_CSP,
+      });
+      return res.end(`<!doctype html>\n<meta charset="utf-8">\n${app}`);
     }
 
     if (p.startsWith('/api/')) {

@@ -80,12 +80,23 @@
     FORBID_ATTR: ['style', 'srcset', 'formaction', 'ping'],
     ALLOWED_URI_REGEXP: /^(?:(?:https?|mailto|page):|[^a-z]|[a-z+.\-]+(?:[^a-z+.\-:]|$))/i,
   };
+  // 実行できる枠（html-app）：資料の ```html-app フェンスを、枠の置き場（div.htmlapp）にする。中身（JavaScript）は、ここでは、扱わない。
+  // サーバーが、同じ版の資料から、n 番目のフェンスを取り出して、隔離する CSP つきで配る（/appframe）。n は、資料の本文の描画だけが数える（appCtx）。
+  // 返信・前の版の差分では、枠にしない（ふつうのコードブロック）
+  let appCtx = null;
   marked.use({
     gfm: true,
     renderer: {
       code({ text, lang }) {
         const kind = (lang || '').trim().split(/\s+/)[0].toLowerCase();
         if (kind === 'mermaid') return `<div class="mermaid-block" data-mermaid="${encSrc(text)}"></div>`;
+        if (kind === 'html-app') {
+          if (!appCtx) return false;
+          const n = appCtx.n++;
+          const m = /\bheight=(\d{2,4})\b/.exec(lang || '');
+          const ht = m ? Math.min(1200, Math.max(120, Number(m[1]))) : 360;
+          return `<div class="htmlapp" data-n="${n}" data-h="${ht}"><div class="cap">実行できる枠 ${n + 1}（隔離されています。外へは通信しません）</div></div>`;
+        }
         // diff・json・terminal（ANSI）・trace：決まった形の HTML にする（文字は escape 済み。読めないものは、ふつうのコードブロック）
         const fmt = window.RikaiFmt ? window.RikaiFmt.render(kind, text) : null; // fmt.js が読めないとき（古いサーバー）は、ふつうのコードブロック
         return fmt || false;
@@ -93,8 +104,11 @@
     },
   });
 
-  function mdToFragment(md, topic) {
-    const clean = DOMPurify.sanitize(marked.parse(md || ''), PURIFY);
+  function mdToFragment(md, topic, withApps) {
+    appCtx = withApps ? { n: 0 } : null;
+    let html;
+    try { html = marked.parse(md || ''); } finally { appCtx = null; }
+    const clean = DOMPurify.sanitize(html, PURIFY);
     const tpl = document.createElement('template');
     tpl.innerHTML = clean;
     const root = tpl.content;
@@ -127,6 +141,20 @@
       img.loading = 'lazy';
     }
     return root;
+  }
+
+  // 枠の置き場に、隔離した iframe を入れる。**sandbox は allow-scripts だけ**（allow-same-origin を付けない：オリジンのない文書になり、この画面に触れない。
+  // ポップアップ・上の画面の移動・フォーム・ダウンロードも、できない）。allow は空（カメラ・位置情報・クリップボードなどを、渡さない）。src は、数だけから組み立てる
+  function fillApps(container) {
+    for (const box of $$('.htmlapp', container)) {
+      const n = Number(box.dataset.n);
+      if (!Number.isInteger(n) || n < 0) continue;
+      const ht = Math.min(1200, Math.max(120, Number(box.dataset.h) || 360));
+      box.append(h('iframe', {
+        class: 'appframe', title: `実行できる枠 ${n + 1}`, loading: 'lazy', referrerpolicy: 'no-referrer', sandbox: 'allow-scripts', allow: '',
+        src: `/appframe/${encodeURIComponent(S.slug)}/${encodeURIComponent(S.page)}/${curVersion()}/${n}`, height: String(ht),
+      }));
+    }
   }
 
   mermaid.initialize({ startOnLoad: false, securityLevel: 'strict', theme: 'neutral', fontFamily: 'inherit' });
@@ -203,6 +231,7 @@
 
   function blockLabel(el) {
     if (el.classList.contains('mermaid-block')) return '図';
+    if (el.classList.contains('htmlapp')) return '実行できる枠';
     if (el.dataset && el.dataset.fmt) return window.RikaiFmt ? window.RikaiFmt.labelOf(el.dataset.fmt) : '図表';
     const img = el.querySelector && el.querySelector('img');
     if (img) return `画像: ${img.alt || ''}`.trim();
@@ -407,12 +436,13 @@
     const scroll = scroller.scrollTop;
     const art = $('#article');
     const v = curVersion();
-    const frag = mdToFragment(S.md, S.slug);
+    const frag = mdToFragment(S.md, S.slug, true);
     markBlocks(frag);
     // 件数に、どの版のものかの印（key）を付ける（ページ・版を切り替えた直後に、前のページの件数を見せないため）
     S.diff = S.showChanges && v > 1 && S.prevMd != null ? { ...addDiff(frag), key: S.loaded } : null;
     cancelRegion(); // 範囲を選んでいる途中の枠が、消える要素を指さないように
     art.replaceChildren(frag);
+    fillApps(art);
     await fillMermaid(art);
     if (tok !== S.renderTok) return;
     applyHighlights(art);

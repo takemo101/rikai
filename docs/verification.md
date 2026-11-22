@@ -558,6 +558,18 @@
 
 **確認していない範囲**：**直した分の再レビュー**（直しは、合成した `mousemove` で確認しただけ。本物のマウスでの確認は、していない）。利用者の、実際の画面での確認。バーが、前のブロックの右端の文字に、少し重なること（バーの高さ 22px・ブロックの間が 16px の見た目で、約 6px）。文の選択のあとの、バーの位置（複数行・窓の端）。「広くする」をなくしたことの、利用者の了解。タッチ。自動テストは、ない（DOM のため）。
 
+### 実行できる枠（html-app）（2026-11-22。RIK-025。SPEC F28・N3）
+
+**きっかけ**：利用者の判断（2026-11-22。「やはり JS は入れる」）。AI が書いた JavaScript を動かす、初めての経路なので、**隔離を、いちばん厚く確認する**。
+
+**実装**：`lib/htmlapp.js`（フェンスの取り出し）・`server.js` の `GET /appframe/<topic>/<page>/<版>/<n>`（`APP_CSP`）・`app.js` の `renderer.code`（置き場）と `fillApps`（`sandbox="allow-scripts"` の iframe）・画面の CSP は `frame-src 'self'` だけ。枠の中身は、**サーバーが、同じ版の資料から取り出す**（ブラウザが送った中身を、配る経路は、ない）。
+
+**確認**（自動テスト）：`test/htmlapp.test.js` 4 件。実装を壊して、落ちることを確認した（5 通り）。
+
+**確認**（実際のブラウザ。headless Chrome 150・puppeteer。作り物の資料）：①枠の中のスクリプトが動く（ボタンのカウンタ・自分の `<style>`）。②**親に触れない**：`parent.document`・`top.location`・`document.cookie`・`localStorage` は `SecurityError`。親から見た `iframe.contentDocument` は `null`。`eval`・`new Function` は、止まる。③**外への通信**：127.0.0.1 の別のポートに待ち受け（HTTP）を置き、枠の中から 20 通り（fetch・XHR・`sendBeacon`・WebSocket・EventSource・画像・自分の移動・上の画面の移動・`window.open`・フォームの送信・ダウンロード・動的 `import`・Worker・iframe・フォント・背景画像・`<link rel=prefetch>`・外の CSS・外のスクリプト・`<meta refresh>`）を試した：**待ち受けに届いた要求は 0 件**。枠が自分で移動すると、枠が、エラーページになり、画面（上の文書）は、そのまま。④見た目：置き場の見出し・枠・ブロックのバーが、枠のブロックにも出る。
+
+**確認していない範囲**：**独立レビュー**（これから。安全性を厚く）。Chrome 以外（Safari・Firefox）。WebRTC・DNS の先読み（止められない既知の限界。試していない）。無限ループで画面が固まること（試していない）。本物のマウスでの枠の操作（puppeteer のクリックだけ）。利用者の、実際の画面。AI が、実際に枠を書くこと（SKILL.md の指示が、通じるか）。巨大な枠・多数の枠の速さ。
+
 ### 人間の確認待ち
 
 AI は、これらを合格にしない。
