@@ -940,7 +940,7 @@
     };
     return h('div', { class: 'thread composer' },
       h('div', { class: 'th-head' }, h('span', { class: 'no pending', title: '本文の、オレンジの部分へのコメントです', text: '新' }), h('div', { class: 'quote', text: trunc(a.quote || a.label, 90) }),
-        S.pendingEl ? h('div', { class: 'hint', text: '本文の、オレンジの部分へのコメントです' }) : null),
+        S.pendingEl ? h('div', { class: 'hint', text: a.rect ? '本文の、オレンジの枠へのコメントです（枠は、ドラッグで動かし、角・辺で大きさを変えられます）' : '本文の、オレンジの部分へのコメントです' }) : null),
       h('textarea', {
         rows: 3, 'data-key': 'composer', placeholder: 'わからない点・確認したい点・直してほしい点（⌘/Ctrl+Enter で追加。画像は、貼り付け・ドラッグでも）', value: S.drafts.composer,
         oninput: (e) => { S.drafts.composer = e.target.value; },
@@ -1407,6 +1407,7 @@
   // 近い高さ（4px 以内。同じ行）の印は、1 つの組にして、横に並べる。組が、上の組に重ならないよう、前の組の下端（実測）の 2px 下より上には、出さない。
   // 範囲のコメントの印は、範囲の上端の高さ（画像・図の中の位置）に出す
   function placeBadges() {
+    if (S.regDrag) return; // 範囲の枠を、ドラッグしている間は、描き直さない（つかんでいる枠が、消えないように）
     const layer = $('#badges');
     layer.textContent = '';
     if (!S.blkBadges) return;
@@ -1466,6 +1467,7 @@
         left: `${left}px`, top: `${Math.round(m.top - dr.top + ds.scrollTop + g.rect.y * m.height)}px`,
         width: `${right - left}px`, height: `${Math.round(g.rect.h * m.height)}px`,
       });
+      if (g.pending) for (const k of ['nw', 'n', 'ne', 'e', 'se', 's', 'sw', 'w']) rb.append(h('span', { class: `rh rh-${k}`, 'data-h': k })); // 入力中の枠だけ、つかめる
       layer.append(rb);
     }
     if (linkedTid) for (const e of $$(`[data-tid="${linkedTid}"]`, layer)) e.classList.add('linked'); // 描き直しても、いま光らせているものは、光ったまま
@@ -1483,6 +1485,53 @@
     const el = e.target.closest('[data-tid]:not([data-tid="pending"])'); // 入力中の「新」は、押しても、選ぶカードがない
     if (el) focusThread(el.dataset.tid, false);
   });
+  // 入力中の範囲の枠を、ドラッグで動かし・角と辺で大きさを変える。離したら、その範囲で、入力欄の対象と画像を、作り直す（finishRegion。書きかけの文字は、残る）
+  $('#badges').addEventListener('pointerdown', (e) => {
+    const box = e.target.closest('.regionbox.pending');
+    if (!box || e.button !== 0 || !S.composer) return;
+    S.regDrag = { box, mode: e.target.dataset.h || 'move', x0: e.clientX, y0: e.clientY, r0: box.getBoundingClientRect(), vr: null };
+    box.setPointerCapture(e.pointerId);
+    e.preventDefault();
+  });
+  document.addEventListener('pointermove', (e) => {
+    const d = S.regDrag;
+    if (!d) return;
+    const dx = e.clientX - d.x0, dy = e.clientY - d.y0, m = d.mode, MIN = 12;
+    let { left, top, right, bottom } = d.r0;
+    if (m === 'move') { left += dx; right += dx; top += dy; bottom += dy; } else {
+      if (m.includes('w')) left += dx;
+      if (m.includes('e')) right += dx;
+      if (m.includes('n')) top += dy;
+      if (m.includes('s')) bottom += dy;
+      if (right - left < MIN) { if (m.includes('w')) left = right - MIN; else right = left + MIN; }
+      if (bottom - top < MIN) { if (m.includes('n')) top = bottom - MIN; else bottom = top + MIN; }
+    }
+    const a = $('#article').getBoundingClientRect(); // 本文の外へは、出さない
+    const w = right - left, hgt = bottom - top;
+    if (m === 'move') { left = Math.min(Math.max(left, a.left), a.right - w); top = Math.min(Math.max(top, a.top), a.bottom - hgt); right = left + w; bottom = top + hgt; } else { left = Math.max(left, a.left); right = Math.min(right, a.right); top = Math.max(top, a.top); bottom = Math.min(bottom, a.bottom); }
+    d.vr = { left, top, width: right - left, height: bottom - top };
+    const ds = $('#docscroll'), dr = ds.getBoundingClientRect();
+    Object.assign(d.box.style, { left: `${left - dr.left + ds.scrollLeft}px`, top: `${top - dr.top + ds.scrollTop}px`, width: `${d.vr.width}px`, height: `${d.vr.height}px` });
+  });
+  const endRegDrag = (apply) => {
+    const d = S.regDrag;
+    if (!d) return;
+    S.regDrag = null;
+    if (apply && d.vr) finishRegion(d.vr); else scheduleBadges();
+  };
+  document.addEventListener('pointerup', () => endRegDrag(true));
+  document.addEventListener('pointercancel', () => endRegDrag(false));
+  // 添付の画像（サムネイル・送った画像）は、押すと、画面の中に、大きく出す（Esc・押すと閉じる）
+  const lightbox = $('#lightbox');
+  $('#threads').addEventListener('click', (e) => {
+    const img = e.target.closest('.thumb img, .msg .imgs img');
+    if (!img) return;
+    e.preventDefault();
+    lightbox.querySelector('img').src = img.src;
+    lightbox.hidden = false;
+  });
+  lightbox.addEventListener('click', () => { lightbox.hidden = true; });
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !lightbox.hidden) lightbox.hidden = true; });
   $('#badges').addEventListener('mouseover', (e) => {
     const el = e.target.closest('[data-tid]');
     const tid = el ? el.dataset.tid : null;
