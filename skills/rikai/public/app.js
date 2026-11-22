@@ -1222,48 +1222,59 @@
 
   // 番号の印は、文・ブロック・範囲の、すべて、同じ見た目（丸）・同じ位置（記事の左の余白。対象の上端）に、要素の外の層（#badges。#docscroll の中の絶対位置）に出す。
   // 要素の中に出すと、箱の overflow で切れる・横スクロールで流れる・行末の文字に重なる。大きさが変わる（図の描画・窓・幅の変更）と、合わせ直す。
-  // 近い高さ（20px 以内）の印は、1 つの組にして、横に並べる（重ならない）
+  // 近い高さ（4px 以内。同じ行）の印は、1 つの組にして、横に並べる。組が、上の組に重ならないよう、前の組の下端（実測）の 2px 下より上には、出さない。
+  // 範囲のコメントの印は、範囲の上端の高さ（画像・図の中の位置）に出す
   function placeBadges() {
     const layer = $('#badges');
     layer.textContent = '';
     if (!S.blkBadges) return;
     const ds = $('#docscroll'), dr = ds.getBoundingClientRect(), ar = $('#article').getBoundingClientRect();
     const left = Math.round(ar.left - dr.left + ds.scrollLeft) - 12;
+    // 画像・図の中の範囲（その要素の大きさに対する比率で、位置を決める）。入力中のものは、オレンジ
+    const regions = [];
+    for (const g of S.regions || []) regions.push(g);
+    if (S.composer && S.composer.anchor.rect && S.pendingEl) regions.push({ tid: 'pending', el: S.pendingEl, rect: S.composer.anchor.rect, pending: true });
+    const regionTop = new Map();
+    for (const g of regions) {
+      const media = g.el.isConnected ? mediaOf(g.el) : null;
+      const m = media ? media.getBoundingClientRect() : null;
+      if (!m || !m.width || !m.height) continue;
+      g.m = m;
+      regionTop.set(g.tid, m.top + g.rect.y * m.height);
+    }
     const items = [];
     for (const [el, list] of S.blkBadges) {
       if (!el.isConnected) continue;
       const r = el.getBoundingClientRect();
       if (!r.width && !r.height) continue; // 閉じた <details> の中など、見えない所には、出さない
-      for (const b of list) items.push({ top: r.top, ...b });
+      for (const b of list) items.push({ top: regionTop.has(b.tid) ? regionTop.get(b.tid) : r.top, ...b });
     }
     for (const b of S.txtBadges || []) {
       const rc = b.el.isConnected ? b.el.getClientRects()[0] : null;
       if (rc) items.push({ top: rc.top, tid: b.tid, n: b.n, resolved: b.resolved });
     }
     if (S.composer && S.pendingEl && S.pendingEl.isConnected) { // 入力中の対象も、同じ印（オレンジ。「新」）
-      const rc = S.pendingEl.getClientRects()[0];
+      const rc = regionTop.has('pending') ? { top: regionTop.get('pending') } : S.pendingEl.getClientRects()[0];
       if (rc) items.push({ top: rc.top, tid: 'pending', n: '新', pending: true });
     }
     items.sort((a, b) => a.top - b.top || (typeof a.n === 'number' ? a.n : 1e9) - (typeof b.n === 'number' ? b.n : 1e9));
     const groups = [];
     for (const it of items) {
       const g = groups[groups.length - 1];
-      if (g && it.top - g.top < 20) g.items.push(it); else groups.push({ top: it.top, items: [it] });
+      if (g && it.top - g.top < 4) g.items.push(it); else groups.push({ top: it.top, items: [it] });
     }
+    let floor = -Infinity;
     for (const g of groups) {
+      const top = Math.max(g.top, floor);
       const box = h('div', { class: 'bbadge' }, g.items.map((b) => h('span', { class: `bno${b.resolved ? ' resolved' : ''}${b.pending ? ' pending' : ''}`, 'data-tid': b.tid, text: String(b.n) })));
-      box.style.top = `${Math.round(g.top - dr.top + ds.scrollTop) + 2}px`;
+      box.style.top = `${Math.round(top - dr.top + ds.scrollTop) + 2}px`;
       box.style.left = `${left}px`;
       layer.append(box);
+      floor = top + box.offsetHeight + 2; // 折り返して背が高くなった組の、下に、次の組を出す
     }
-    // 画像・図の中の範囲を、対象にしたコメントの枠（その要素の大きさに対する比率で、位置を決める）。入力中のものは、オレンジ
-    const regions = [...(S.regions || [])];
-    if (S.composer && S.composer.anchor.rect && S.pendingEl) regions.push({ tid: 'pending', el: S.pendingEl, rect: S.composer.anchor.rect, n: '新', pending: true });
     for (const g of regions) {
-      const media = g.el.isConnected ? mediaOf(g.el) : null;
-      if (!media) continue;
-      const m = media.getBoundingClientRect();
-      if (!m.width || !m.height) continue;
+      if (!g.m) continue;
+      const m = g.m;
       const rb = h('div', { class: `regionbox${g.resolved ? ' resolved' : ''}${g.pending ? ' pending' : ''}`, 'data-tid': g.tid });
       Object.assign(rb.style, {
         left: `${Math.round(m.left - dr.left + ds.scrollLeft + g.rect.x * m.width)}px`, top: `${Math.round(m.top - dr.top + ds.scrollTop + g.rect.y * m.height)}px`,
