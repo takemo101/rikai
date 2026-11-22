@@ -36,19 +36,25 @@ flowchart LR
 
 | 場所 | 責務 | 持たないもの |
 | --- | --- | --- |
-| `skills/rikai/rikai.js` | **CLI の入口**：引数の解釈（`parseArgs`・`projectRoot`）と、各コマンド（`new`・`open`・`poll`・`pull`・`apply`・`status`・`stop`・内部の `serve`）の振り分け（`poll`・`pull`・`apply`・`status` の中身は、`lib/agent.js`）。**起動まわり**（サーバーの起動・疎通・ブラウザを開く・`serve` の終了処理の取りつけ）。**読み込むと動き出す**（`main()`）ので、テストは読み込まない | 画面の描画・資料の中身の解釈・データの検査（`lib/` の仕事） |
-| `skills/rikai/lib/util.js` | 共通の小さな道具：`HttpError`・`out`・`now`・`readJSON`・`writeJSON`・`sleep`・入力の整形（`str`・`normAnchor`）。ほかのモジュールに依存しない | |
-| `skills/rikai/lib/store.js` | **ストア**：`.rikai/<topic>/` の読み書き・ロック・`mutate`・データの形の版（`SCHEMA`）・トピックの一覧・`newTopic`・`progressOrNull`。**プロジェクトのルート（`ROOT`）と `.rikai`（`BASE`）の状態を持つ**（`setRoot`・`getRoot`・`getBase`） | HTTP・画面の操作・AI 向けの検査 |
-| `skills/rikai/lib/ask.js` | **ask の検査**：`normAsk`（AI が出す質問）・`normAnswer`（人の回答） | ファイルの読み書き |
-| `skills/rikai/lib/actions.js` | **画面からの操作**（`actions`：`comment`・`reply`・`answer`・`edit`・`delete`・`resolve`・`submit`・`end`）。全トピックが閉じたときの動き `hooks.allClosed`（既定は何もしない。`serve` のプロセスが、終了の処理を入れる） | HTTP |
-| `skills/rikai/lib/agent.js` | **AI 向けの操作**：`listRounds`・`peek`（`poll`・`pull` が共有）・`cmdPoll`・`cmdPull`・`cmdApply`（検証してから書く）・`cmdStatus`（出力するコマンドは、`out` で JSON を出す） | HTTP・画面の操作 |
-| `skills/rikai/lib/server.js` | **HTTP**：認証（合言葉・`Host`・`Origin`）・配信・ルーティング・`startServer`・`shutdown`。`PORT`・`TOKEN` の状態を持つ | データの検査（`actions` と `store` を呼ぶだけ） |
-| `skills/rikai/lib/image.js` | **添付の画像の検査**：形式を中身の先頭のバイトで見分ける（`decodeImage`。png・jpeg・gif・webp だけ。5MB まで）・名前を、中身のハッシュから決める（`c-<16 文字>.<拡張子>`）・名前の形（`IMG_NAME_RE`）・枚数の上限。保存・参照の検査は `actions.js`（`attach`・`normImages`） | ファイルの読み書き・HTTP |
-| `skills/rikai/lib/htmlapp.js` | **実行できる枠（`html-app`）の、中身の取り出し**：資料（Markdown）の ```` ```html-app ```` フェンスを、同梱の marked の字句解析で、文書の順に取り出す（`appsOf`）。数え方は、ブラウザ（`app.js` の `renderer.code`）と同じ。**何も実行しない**。配るのは `server.js` の `/appframe`（`APP_CSP`：`sandbox allow-scripts` ほか）。ブラウザ側は、`app.js` が、フェンスを枠の置き場（`div.htmlapp`）にし、`fillApps` が、`sandbox="allow-scripts"` の iframe を入れる | ファイルの読み書き・HTTP・枠の中身の実行 |
+| `app/src/cli/main.ts`（バンドル：`skills/rikai/rikai.js`） | **CLI の入口**：各コマンド（`new`・`open`・`poll`・`pull`・`apply`・`status`・`stop`・内部の `serve`）の振り分け（`poll`・`pull`・`apply`・`status` の中身は、`server/agent.ts` の `createAgent`）。**起動まわり**（サーバーの起動・疎通〔`ensureServer`〕・ブラウザを開く・`serve` の終了処理〔`hooks.allClosed` へ `shutdown`〕の取りつけ）・`HELP`。**読み込むと動き出す**（末尾の `main()`）ので、テストは読み込まず、バンドルを子プロセスで動かす（`app/test/setup/cli.ts`） | 画面の描画・資料の中身の解釈・データの検査（`server/` の仕事） |
+| `app/src/cli/args.ts` | **引数の解釈**：`parseArgs`・`projectRoot`。副作用がない | コマンドの実行 |
+| `app/src/server/util.ts` | 共通の小さな道具：`HttpError`・`out`・`now`・`readJSON`・`writeJSON`・`sleep`・`sleepSync`・入力の整形（`str`・`normAnchor`・`normRect`）。`server/` のほかのモジュールに依存しない（型の `shared/types` だけ） | |
+| `app/src/server/store.ts` | **ストア**：`createStore(root)` が返す `Store`（`.rikai/<topic>/` の読み書き・ロック〔`withLock`〕・`mutate`・`loadMeta`／`loadThreads`・トピックの一覧・`newTopic`・`progressOrNull`）と、データの形の版（`SCHEMA`・`isSupported`）・`checkSlug`。**プロジェクトのルートは、`createStore` の引数で持つ**（モジュールの変数を持たない。旧実装は、モジュールの変数 `ROOT`・`BASE`） | HTTP・画面の操作・AI 向けの検査 |
+| `app/src/server/ask.ts` | **ask の検査**：`normAsk`（AI が出す質問）・`normAnswer`（人の回答） | ファイルの読み書き |
+| `app/src/server/actions.ts` | **画面からの操作**（`createActions(store, hooks)` が返す `Actions`：`comment`・`reply`・`answer`・`edit`・`delete`・`resolve`・`submit`・`end`・`attach`）。全トピックが閉じたときの動き `hooks.allClosed`（既定は何もしない。`serve` のプロセスが、`createActions` の引数で、終了の処理を入れる） | HTTP |
+| `app/src/server/agent.ts` | **AI 向けの操作**：`createAgent(store)` が返す `Agent`（`listRounds`・`peek`〔`poll`・`pull` が共有〕・`cmdPoll`・`cmdPull`・`cmdApply`〔検証してから書く〕・`cmdStatus`。出力するコマンドは、`out` で JSON を出す） | HTTP・画面の操作 |
+| `app/src/server/app.ts` | **HTTP アプリ（Hono）**：`createApp({ store, token, port, publicDir, actions })`。認証（合言葉・`Host`・`Origin`）・配信・ルーティング・本体の検査（`shared/api.ts` の zod）。**ストア・合言葉・ポート・操作は、引数で渡す**（モジュールの状態を持たない）。ポートを開かず、`app.request()` で試せる | データの検査（`actions` と `store` を呼ぶだけ）・待ち受け |
+| `app/src/server/serve.ts` | **待ち受け**：`startServer(store, hooks, publicDir)`（127.0.0.1 の空きポート・起動のたびに合言葉を作り、`createApp` を Node の HTTP サーバーに載せる）・`shutdown`（`.server.json` が自分のものなら消して、プロセスを終える） | 経路・認証（`app.ts` の仕事） |
+| `app/src/server/image.ts` | **添付の画像の検査**：形式を中身の先頭のバイトで見分ける（`decodeImage`。png・jpeg・gif・webp だけ。5MB まで）・名前を、中身のハッシュから決める（`c-<16 文字>.<拡張子>`）・名前の形（`IMG_NAME_RE`）・枚数の上限。保存・参照の検査は `actions.ts`（`attach`・`normImages`） | ファイルの読み書き・HTTP |
+| `app/src/server/htmlapp-core.ts`・`htmlapp.ts`・`htmlapp-worker.ts`・`appframe.ts` | **実行できる枠（`html-app`）の、中身の取り出し**：資料（Markdown）の ```` ```html-app ```` フェンスを、marked の字句解析で、文書の順に取り出す。`htmlapp-core.ts`：`appsOf`・`kindOf`（純粋）。`htmlapp.ts`：`appsOfAsync`（別のスレッドで、3 秒で切る・上限 `APP_MAX`・`DOC_MAX`・`AppsError`）。`htmlapp-worker.ts`：worker の入口（バンドルが、別のファイル `rikai-htmlapp-worker.js` にする）。`appframe.ts`：`createAppFrames(store)` の `appsOfPage`（版ごとの結果・失敗・進行中の解析の覚え。状態は `createAppFrames` ごと）。**何も実行しない**。配るのは `app.ts` の `/appframe`（`APP_CSP`：`sandbox allow-scripts` ほか）。marked は、**npm の版をバンドルしている**（旧 UI の `vendor/` とは別）。ブラウザ側は、旧 UI の `app.js` が、フェンスを枠の置き場（`div.htmlapp`）にし、`fillApps` が、`sandbox="allow-scripts"` の iframe を入れる | ファイルの読み書き（`appframe.ts` の読み出しを除く）・HTTP・枠の中身の実行 |
+| `app/src/shared/anchor.ts`・`diff.ts`・`progress.ts` | サーバー・テストが共有する、**DOM に触れない純粋な関数**。`anchor.ts`：`findQuote`・`locateBlock`・`similarity`（コメントの探し直し）。`diff.ts`：`diffText`・`matchBlocks`（版どうしの差分。`anchor.ts` の `similarity` を使う）。`progress.ts`：`progressOf`（理解の進み具合の数。**数だけ**）。サーバーは `progressOf` を `store.ts`・`agent.ts` で使う。**旧 UI は、`public/anchor.js`・`diff.js`・`progress.js` を、まだ別に持つ**（画面を React にする段階で、これらを使う） | DOM・ネットワーク |
+| `app/src/shared/types.ts`・`api.ts` | 共有の型（`Thread`・`Meta`・`Round`・`Ask` ほか）・画面からの操作の本体の zod のスキーマ（`apiBodies`） | ロジック |
+| `app/scripts/build.ts` | **ビルド**（`pnpm run build`）：`app/src/cli/main.ts` と `htmlapp-worker.ts` を、**依存を含めて 1 ファイルずつ**にバンドルして（esbuild・CJS・Node 22）、`skills/rikai/rikai.js`・`rikai-htmlapp-worker.js` に置き、バンドルに入った依存の `THIRD-PARTY-LICENSES.txt` を生成する。**生成物は、コミットする**（`app/test/build.test.ts` が、ソースと違うと落ちる） | 実行時のロジック |
+| `skills/rikai/rikai.js`・`rikai-htmlapp-worker.js`・`THIRD-PARTY-LICENSES.txt` | **配布物（生成物。手で編集しない）**：上のビルドの出力。利用者の環境に、`npm install` は要らない（SPEC N5） | |
 | `skills/rikai/public/app.js` | ビューア。Markdown の描画（無害化）・コメントの位置づけ（選択→アンカー・アンカー→強調）・**コメントの入口：1 つのバー `#actbar`**（「コメント」。文を選ぶと選んだ文の上に〔`mode: 'sel'`〕・ブロックにマウスを置くとそのブロックの右上に〔`mode: 'blk'`〕、`showActbar`／`hideActbar` が出し入れする。状態は `actMode`・`pendingAnchor`・`blkTarget`）・**コメントの番号と、本文の印・右のカードの対応づけ**（**番号の印は、文・ブロック・範囲の、すべて、同じ見た目・同じ位置**：要素の外の層〔`#badges`。`#docscroll` の中の絶対位置〕に、`placeBadges` が、記事の左の余白へ、対象の上端にそろえて出す。要素の中だと、箱の overflow で切れる・横スクロールで流れる。記事の大きさが変わると、`ResizeObserver` で合わせ直す。マウスを置いたときの光り〔`.linked`〕・入力中の対象の強調〔`mark.pending`・`.blk-pending`。入力欄を閉じると外す〕・入力欄を、対象の位置の順に入れる〔`composerSlot`〕）・**本文の、好きな範囲の選択**（右下に浮かぶ「範囲を選ぶ」ボタン `#regbtn` → `startRegionSelect` → `#regsel`〔本文に重ねる枠〕のドラッグ → `finishRegion`。範囲は、左上にあるブロック〔画像・図があれば、その最初の画像・図〕の大きさに対する比率 `rect`。範囲の画像は、1 つの画像・図の中に収まれば `cropMedia`〔画像は元の解像度から・svg は画像にして〕、そうでなければ `rasterRegion`〔表示されている本文を、スタイルを写して複製し、SVG の `foreignObject` に入れて画像にする〕で、canvas から PNG にし、F24 の添付に流す。範囲の枠〔`.regionbox`〕も、`#badges` の層に出す。番号は、ほかと同じ丸。**入力中の枠は、ドラッグで動かし・角と辺で大きさを変えられ〔F31〕、離すと `finishRegion` が、対象と画像を作り直す**）・パネル・ask の入力・ルーティング（ハッシュ）・サーバーの変更の取り込み | データの正本（サーバーが持つ。ここは写しと下書き）。本文の要素・文字を足すこと（番号・強調は、位置づけに使う本文の文字を変えない形で） |
-| `skills/rikai/public/anchor.js` | コメントの探し直しの、**DOM に触れない純粋な関数**：`findQuote`（選んだ文）・`locateBlock`（ブロック）・`similarity`。ブラウザ（`window.RikaiAnchor`）と Node のテスト（`require`）の両方から使う | DOM・ネットワーク |
-| `skills/rikai/public/diff.js` | 版どうしの差分の、**DOM に触れない純粋な関数**：`diffText`（文字列のトークン単位の差分）・`matchBlocks`（ブロックの対応づけ）。`anchor.js` の `similarity` を使う。ブラウザ（`window.RikaiDiff`）と Node のテスト（`require`）の両方から使う | DOM・ネットワーク |
-| `skills/rikai/public/progress.js` | 理解の進み具合を数える、**DOM に触れない純粋な関数**（`progressOf`）：解決したスレッドの数・全スレッド・AI の質問の数・送信済みの回答がある数。**数だけ**で、理解の判定ではない。ブラウザ（`window.RikaiProgress`）・サーバー（`lib/store.js` の `progressOrNull`〔一覧〕と `rikai.js` の `status` が `require`）・Node のテストの 3 つが共有する | DOM・ネットワーク |
+| `skills/rikai/public/anchor.js` | **旧 UI の**、コメントの探し直しの、**DOM に触れない純粋な関数**：`findQuote`（選んだ文）・`locateBlock`（ブロック）・`similarity`。ブラウザ（`window.RikaiAnchor`）が読む。サーバー・自動テストは、`app/src/shared/anchor.ts` を使う（移植した別のコード） | DOM・ネットワーク |
+| `skills/rikai/public/diff.js` | **旧 UI の**、版どうしの差分の、**DOM に触れない純粋な関数**：`diffText`（文字列のトークン単位の差分）・`matchBlocks`（ブロックの対応づけ）。`anchor.js` の `similarity` を使う。ブラウザ（`window.RikaiDiff`）が読む。自動テストは、`app/src/shared/diff.ts` を使う | DOM・ネットワーク |
+| `skills/rikai/public/progress.js` | **旧 UI の**、理解の進み具合を数える、**DOM に触れない純粋な関数**（`progressOf`）：解決したスレッドの数・全スレッド・AI の質問の数・送信済みの回答がある数。**数だけ**で、理解の判定ではない。ブラウザ（`window.RikaiProgress`）が読む。サーバーは、`app/src/shared/progress.ts` の同じ数え方を使う（`store.ts` の `progressOrNull`〔一覧〕と `agent.ts` の `status`） | DOM・ネットワーク |
 | `skills/rikai/public/fmt.js` | 資料の「形式」の、**DOM に触れない純粋な関数**：コードブロックの種類（`diff`・`json`・`terminal`〔`ansi`〕・`trace`）から、HTML の文字列を作る（`render`）。**文字は、必ず、ここで escape して、決まったタグ・クラスの中に入れる**（資料の文字が、タグ・属性にならない）。`style` は使えない（無害化で消える）ので、trace の棒の位置・長さは、`data-s`・`data-w` の数で持ち、ビューア（`mdToFragment`）が、無害化のあとに設定する。ブラウザ（`window.RikaiFmt`）と Node のテストの両方から使う | DOM・ネットワーク |
 | `skills/rikai/public/index.html`・`style.css` | 画面の骨組みと見た目 | ロジック |
 | `skills/rikai/public/vendor/` | 同梱の marked・DOMPurify・mermaid と、ライセンス。**書き換えない** | |
@@ -56,7 +62,7 @@ flowchart LR
 | `install.sh` | `skills/rikai/` を `~/.claude/skills/rikai/` へ複製（`rsync --delete`） | |
 | `plugin.json`・`.claude-plugin/`・`.agents/plugins/marketplace.json`・`package.json`（`pi`） | **プラグインの宣言**（中身は、どれも同じ `skills/rikai/`。ルートがプラグインのルート）。`plugin.json`：codex・omp・agy（Agent Plugins 1.0.0）。`.claude-plugin/`：Claude Code・grok（plugin.json と marketplace.json）。`.agents/plugins/marketplace.json`：codex のカタログ。`package.json` の `pi`：pi。実行時のコードではない | ロジック・コマンドの実装。版は、`package.json` と `plugin.json` だけ（`.claude-plugin/` には書かない） |
 
-### サーバーの API（`lib/server.js`）
+### サーバーの API（`app/src/server/app.ts`）
 
 すべて、合言葉の Cookie（`rikai_t_<ポート>`。または `X-Rikai-Token` ヘッダー）が要る（`/` の最初の 1 回は `?t=`）。Cookie の名前にポートを入れるのは、ブラウザの Cookie が、ポートで分かれないため（別のプロジェクトのサーバーが、上書きしない）。
 
@@ -73,8 +79,8 @@ flowchart LR
 
 | 状態 | 所有者 | 場所・形 | 備考 |
 | --- | --- | --- | --- |
-| ページ木・版の数・題名・round の番号・未処理の round・閉じたか・`rev`・データの形の版（`schema`） | `lib/store.js`（`mutate`） | `.rikai/<topic>/meta.json` | 保存のたびに `rev` を 1 つ上げ、`schema` を書く（画面が、変更を見つける印）。このコードより新しい `schema` は、読み書きを断る（`loadMeta`。409） |
-| スレッド・メッセージ・解決・送信済みか | `lib/store.js`（`mutate`） | `.rikai/<topic>/threads.json`（`seq` で ID `t…`・`m…` を採番） | 人間の発言は `sent:false`（下書き）で入り、Submit で `true` になる |
+| ページ木・版の数・題名・round の番号・未処理の round・閉じたか・`rev`・データの形の版（`schema`） | `app/src/server/store.ts`（`mutate`。`createStore(root)` の `Store`） | `.rikai/<topic>/meta.json` | 保存のたびに `rev` を 1 つ上げ、`schema` を書く（画面が、変更を見つける印）。このコードより新しい `schema` は、読み書きを断る（`loadMeta`。409） |
+| スレッド・メッセージ・解決・送信済みか | `app/src/server/store.ts`（`mutate`） | `.rikai/<topic>/threads.json`（`seq` で ID `t…`・`m…` を採番） | 人間の発言は `sent:false`（下書き）で入り、Submit で `true` になる |
 | 資料の各版 | `rikai new`・`apply` だけが作る | `.rikai/<topic>/pages/<page>/v<N>.md` | **作ったあとは書き換えない** |
 | Submit の送信内容 | `submit`（作る）・`apply`（`handled` にする） | `.rikai/<topic>/rounds/NNN.json` | `pending` → `handled`。`poll`・`pull` は、`pending` の最初のものを出す |
 | 画像 | 資料の画像は、人（またはエージェント）が置く。**コメント・返信の添付は、`attach`（ロックの下）が書く** | `.rikai/<topic>/assets/` | 読むだけ（`/asset/`）。メッセージには、名前だけを持つ（`images`）。Submit の出力で、絶対パスにする。使われなかった画像は残る（掃除はしない） |
@@ -124,14 +130,14 @@ flowchart TB
 | 境界 | 何を検査するか | 場所 |
 | --- | --- | --- |
 | サーバーへの入口 | `Host`（127.0.0.1／localhost とポート）・`Origin`・合言葉（定数時間の比較）・本体の大きさ（2 MB）・`topic` の形（`SLUG_RE`） | `denyReason`・`readBody`・`checkSlug` |
-| ファイルの配信 | 解決したパスが、`public/`・`assets/` の中にあること | `handler` |
+| ファイルの配信 | 解決したパスが、`public/`・`assets/` の中にあること | `app.ts`（`serveFile` を使う経路） |
 | 画面からの操作 | ページの存在・版が最新か・空でないこと・スレッドとメッセージの存在・送信済みは変えない・アンカーと文字数の正規化・回答を ask に照らす | `actions`・`normAnchor`・`normAnswer` |
 | `apply` | すべてを検証してから書く：ID の形と重複・親や参照先の存在・`ask` の形・同じページの二重の改訂・round の存在。1 つでも誤りがあれば何も書かない | `cmdApply`・`normAsk` |
 | 資料の描画 | DOMPurify（`PURIFY`：HTML＋SVG の許可、`style`・`script`・`iframe`・フォーム部品・`on*` などを除く。URI は `https?`・`mailto`・`page:` だけ）→ リンク（`page:` は内部の遷移、`http(s)` は別タブ・`noopener`）→ 画像（`data:image/` と `assets/` の相対パスだけ。外部 URL は置き換え） | `mdToFragment` |
 | 図 | Mermaid `securityLevel: 'strict'`。図のソースは、属性に **URI エンコードして**持つ（DOMPurify は、`-->` を含む属性値を、属性ごと消す） | `marked.use` の `code`・`fillMermaid` |
 | 人間の文 | コメント・返信・編集の文は、`textContent`（HTML にしない） | `renderMessage` |
-| 画面の保護 | `Content-Security-Policy`（`script-src 'self'`・`connect-src 'self'`・`frame-src http://<host>/appframe/`…。枠〔`html-app`〕は、`/appframe/` のものだけ）。`/asset/` は `sandbox` | `indexCsp`・`handler` |
-| 実行できる枠（`html-app`） | **隔離**：iframe は `sandbox="allow-scripts"`（`allow-same-origin` なし）・`allow=""`。枠の文書は、別の応答（`/appframe/<topic>/<page>/<版>/<n>`）で、`APP_CSP`（`sandbox allow-scripts; default-src 'none'; connect-src 'none'; frame-ancestors 'self'` ほか）・`X-DNS-Prefetch-Control: off`・`nosniff`・`no-store`。**中身は、サーバーが資料から取り出す**（`appsOfAsync`：別のスレッドで、3 秒で切る。資料は 4MB まで。枠の中身は 200KB まで）。合言葉・`Host`・`Origin` の検査は、`/api` と同じ（`denyReason`） | `APP_CSP`・`appsOfPage`・`lib/htmlapp.js`・`fillApps` |
+| 画面の保護 | `Content-Security-Policy`（`script-src 'self'`・`connect-src 'self'`・`frame-src http://<host>/appframe/`…。枠〔`html-app`〕は、`/appframe/` のものだけ）。`/asset/` は `sandbox` | `app.ts`（`indexCsp`・`/asset/` の経路） |
+| 実行できる枠（`html-app`） | **隔離**：iframe は `sandbox="allow-scripts"`（`allow-same-origin` なし）・`allow=""`。枠の文書は、別の応答（`/appframe/<topic>/<page>/<版>/<n>`）で、`APP_CSP`（`sandbox allow-scripts; default-src 'none'; connect-src 'none'; frame-ancestors 'self'` ほか）・`X-DNS-Prefetch-Control: off`・`nosniff`・`no-store`。**中身は、サーバーが資料から取り出す**（`appsOfAsync`：別のスレッドで、3 秒で切る。資料は 4MB まで。枠の中身は 200KB まで）。合言葉・`Host`・`Origin` の検査は、`/api` と同じ（`denyReason`） | `app.ts`（`APP_CSP`・`denyReason`）・`appframe.ts`（`appsOfPage`）・`htmlapp.ts`・旧 UI の `fillApps` |
 
 ## コメントの位置づけ
 
@@ -158,8 +164,8 @@ flowchart TB
 
 見直しの候補。直したら、この節から消す。
 
-- **ファイルが大きい**：`app.js` は、500 行を超える（2026-11-21 の時点で、約 910 行）。ブラウザで、ビルドなしの script タグなので、分けるには、読み込み順とグローバルの扱いを決める必要があり、自動テストの保護もない（DOM を使うため）。**`rikai.js` は、`lib/` に分けた**（RIK-007。最大は `lib/server.js` の約 190 行・`lib/agent.js` の約 170 行・`lib/store.js` の約 160 行）。
-- **自動テストの範囲**：`npm test`（Node 標準の `node:test`）が、ストア・画面からの操作・`apply`・ask・`peek`・アンカーの探し直し・サーバーの入口を試す（[開発手順](development.md#検証の入口)）。**対象外**：ビューア（DOM）。無害化（DOMPurify）・描画・選択・パネルは、ブラウザでの手作業の確認だけ。ロックの競合（`sleepSync`）・`poll` の待ち（時間）も、試していない。
+- **ファイルが大きい**：旧 UI の `app.js` は、500 行を超える（2026-11-22 の時点で、1717 行）。ブラウザで、ビルドなしの script タグなので、分けるには、読み込み順とグローバルの扱いを決める必要があり、自動テストの保護もない（DOM を使うため）。**画面は、次の段階（RIK-036）で React にする**。サーバー・CLI は、`app/src/` に分けてある（最大は `server/app.ts` の 371 行・`server/agent.ts` の 274 行・`server/actions.ts` の 268 行・`server/store.ts` の 225 行）。
+- **自動テストの範囲**：`pnpm test`（Vitest。ほかに、旧 UI の `test/fmt.test.js` を `node --test` で）が、ストア・画面からの操作・`apply`・ask・`peek`・アンカーの探し直し・差分・サーバーの入口・CLI（バンドルを子プロセスで）・配布物が古くないことを試す（[開発手順](development.md#検証の入口)）。**対象外**：ビューア（DOM）。無害化（DOMPurify）・描画・選択・パネルは、ブラウザでの手作業の確認だけ。ロックの競合（`sleepSync`）・`poll` の待ち（時間）も、試していない。
 - **古いコメントは、ブロックの種類・抜粋を持たない**：`blockTag`・`blockText` を足した（2026-11-21）より前のブロックへのコメントは、それらを持たない。そのときは、種類を問わず、内容の抜粋なしで、同じ内容（`blockHash`）か、同じ位置（`blockId`）しか探せない。移行（版 2）は、まだない。
 - **ロックの待ちが、イベントループを止める**：`mutate` の同期の待ち（最大 8 秒）。通常はすぐ取れるが、CLI の `apply` が長く掴むと、サーバーが、その間、止まる。
 - **ブロックへのコメントの推定は、粗い**：2 つ組の Dice 係数の閾値（0.5）は、仮の値（試した範囲は、表の 1 か所の書き換え。単体テストと、ブラウザでの 1 例）。大きく書き換えた資料での当たり方は、測っていない。

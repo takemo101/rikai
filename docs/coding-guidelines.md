@@ -4,10 +4,11 @@
 
 ## 構成と依存
 
-- 実行時の依存は、**Node.js の標準モジュールだけ**（`fs`・`path`・`http`・`crypto`・`child_process`）。npm のパッケージを足さない（守っている）。
-- ブラウザ側の依存は、`public/vendor/` に**同梱した**ものだけ（marked・DOMPurify・mermaid）。CDN・外部のスクリプト・外部の画像・外部のフォントを読み込まない（CSP でも禁じている）。
-- ビルドしない：`public/` は、そのまま配信する素の HTML・CSS・JavaScript。変換・バンドルの手順を足さない。
-- 置き場所は、変わる理由で決める：コマンドの入口 → `rikai.js`、データの読み書き → `lib/store.js`、検査 → `lib/ask.js`（と各操作の中）、画面からの操作 → `lib/actions.js`、AI 向け（`poll`・`pull`・`apply`・`status`） → `lib/agent.js`、HTTP → `lib/server.js`、描画・操作 → `app.js`、AI への指示 → `SKILL.md`。**依存は一方向**：層の順 `util` → `store` → `ask` → `actions`・`agent` → `server` → `rikai.js` で、**後ろのモジュールだけが、前のモジュールを `require` できる**（逆向き・循環をさせない。前のすべてを、require するとは限らない：例えば `ask` は `util` だけ）。
+- 利用者の環境で動くもの（配布物 `skills/rikai/rikai.js`）は、**依存を含めて 1 ファイルにバンドルしてある**（`pnpm run build`。利用者に `npm install` を要求しない。SPEC N5）。ソース（`app/src/`）の実行時の依存は、必要なものだけ（Hono・zod・marked。`app/package.json`）。**足すときは、バンドルに入るので、ライセンス表（`THIRD-PARTY-LICENSES.txt`）が、ビルドで更新されることも、確かめる**。
+- ブラウザ側（旧 UI）の依存は、`public/vendor/` に**同梱した**ものだけ（marked・DOMPurify・mermaid）。CDN・外部のスクリプト・外部の画像・外部のフォントを読み込まない（CSP でも禁じている）。
+- 旧 UI の `public/` は、ビルドしない：そのまま配信する素の HTML・CSS・JavaScript（画面を React にする段階までの扱い）。サーバー・CLI（`app/src/`）は、TypeScript の **strict**（`pnpm run typecheck`）で、ビルドして配布物にする。
+- 置き場所は、変わる理由で決める：コマンドの入口 → `app/src/cli/main.ts`、データの読み書き → `app/src/server/store.ts`、検査 → `server/ask.ts`（と各操作の中）、画面からの操作 → `server/actions.ts`、AI 向け（`poll`・`pull`・`apply`・`status`） → `server/agent.ts`、HTTP → `server/app.ts`（待ち受けは `server/serve.ts`）、共有の純粋な関数・型 → `app/src/shared/`、描画・操作 → 旧 UI の `app.js`、AI への指示 → `SKILL.md`。**依存は一方向**：層の順 `server/util` → `store` → `ask` → `actions`・`agent` → `app` → `serve` → `cli/main` で、**後ろのモジュールだけが、前のモジュールを `import` できる**（逆向き・循環をさせない。前のすべてを、import するとは限らない：例えば `ask` は `util` だけ）。`shared/` は、`server/` を import しない。
+- **状態は、モジュールの変数に置かない**：ストアは `createStore(root)`、アプリは `createApp` の引数（ストア・合言葉・ポート・操作）、操作は `createActions(store, hooks)` で、**引数で渡す**（DI）。テストが、互いに干渉せず、ポートを開かずに試せる。
 - 「util」「helper」に、無関係なものを集めない。
 
 ## 型と境界
@@ -49,7 +50,7 @@
 
 - 待ち受けは、**127.0.0.1 のポート 0**（空きポート）。`0.0.0.0` にしない。
 - すべての `/api/` と `/asset/` は、`denyReason` を通す。**新しい経路を足したら、同じ検査を通す**。静的な配布の経路は、`public/` の外へ出ないことを確かめる（`path.resolve` と `startsWith`）。
-- 画面からの操作は、`actions` の関数として足す（`handler` が名前で引く）。`topic` の形は、`handler` が先に検査する。
+- 画面からの操作は、`actions` の関数として足し、本体の形を `app/src/shared/api.ts`（zod）に足す（`app.ts` の経路が、名前で引く）。`topic` の形は、`app.ts` が先に検査する。
 - 入力の大きさに上限を置く（本体 2 MB・文字列は `str(v, max)`）。
 
 ## コマンドとスキル
@@ -61,14 +62,14 @@
 
 ## テスト
 
-`npm test`（Node 標準の `node:test`）。範囲と一覧は、[開発手順](development.md#検証の入口)。守っている規則：
+`pnpm test`（Vitest。旧 UI の `test/fmt.test.js` だけは `node --test`）。範囲と一覧は、[開発手順](development.md#検証の入口)。守っている規則：
 
 - 利用者に見える不具合を捕まえる：状態遷移・境界・失敗・安全（認証・パスの検査・失敗したら何も書かないこと）。
 - 書かないテスト：配線・転記・文言の固定、実装の細部に縛られるもの、「例外が出ない」だけのもの、常に真になるもの。
 - 決まった入力と出力の関数（`normAsk`・`normAnswer`・`cmdApply`・`peek`・`findQuote`・`locateBlock`）と、実際に待ち受けたサーバー（127.0.0.1 の空きポート）で試す。ブラウザ・実際のエージェント・外部のネットワークに依存しない。
-- DOM に触れる処理（描画・選択・無害化）は、`public/anchor.js` のように、**DOM に触れない純粋な関数に分けて**から試す。分けられないものは、手で確かめ、[検証記録](verification.md) に残す。
-- 一時のディレクトリ（`test/helpers.js` の `tempProject`）を使い、利用者の `.rikai/` に触れない。作り物の資料・コメントだけを使う。
-- `lib/` のモジュールは、`require` されたときに何も実行しない。動き出すのは `rikai.js` だけ（`main()`）なので、テストは `rikai.js` を読み込まず、`lib/` を読む（`test/helpers.js` が束ねる）。**サーバーの終了のような、プロセスを終える動作は、`hooks` で差し替えられるようにする**（既定は何もしない。`rikai serve` が、終了の処理を入れる。テストのプロセスを落とさない）。
+- DOM に触れる処理（描画・選択・無害化）は、`app/src/shared/anchor.ts` のように、**DOM に触れない純粋な関数に分けて**から試す。分けられないものは、手で確かめ、[検証記録](verification.md) に残す。
+- 一時のディレクトリ（`app/test/server/helpers.ts` の `tempProject`）を使い、利用者の `.rikai/` に触れない。作り物の資料・コメントだけを使う。
+- `app/src/server/` のモジュールは、`import` されたときに何も実行しない。動き出すのは `cli/main.ts` だけ（末尾の `main()`）なので、テストは `main.ts` を読み込まず、`server/` を読む（`helpers.ts` が束ねる）。CLI の動きは、バンドルを子プロセスで動かして試す（`app/test/setup/cli.ts`）。**サーバーの終了のような、プロセスを終える動作は、`hooks` で差し替えられるようにする**（既定は何もしない。`rikai serve` が、終了の処理を入れる。テストのプロセスを落とさない）。
 - **足したテストが、実際に落ちることを確かめる**：検査を外す・順序を入れ替えるなどで、1 度は、赤にする。
 - 実際の画面でしか確かめられないことは、手で確かめ、[検証記録](verification.md) に残す。単体テストで、合格にしない。
 

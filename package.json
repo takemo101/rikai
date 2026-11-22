@@ -1,6 +1,6 @@
 {
   "name": "rikai",
-  "version": "0.13.2",
+  "version": "0.14.0",
   "private": true,
   "description": "資料にコメントして Submit すると、AI が返信と資料の修正（版）で答える。理解できるまで回すスキル",
   "keywords": [
@@ -13,13 +13,14 @@
   },
   "license": "MIT",
   "engines": {
-    "node": ">=20"
+    "node": ">=22"
   },
   "packageManager": "pnpm@12.11.2",
   "scripts": {
     "test": "pnpm --dir app test && node --test test/*.test.js",
     "typecheck": "pnpm --dir app typecheck",
     "lint": "pnpm --dir app lint",
-    "format": "pnpm --dir app format"
+    "format": "pnpm --dir app format",
+    "build": "pnpm --dir app build"
   }
 }

@@ -35,21 +35,23 @@ SPEC.md                製品要件・状態・対象外・未決事項・利用
 AGENTS.md              開発規約・不変条件
 LICENSE                MIT
 install.sh             skills/rikai/ を ~/.claude/skills/rikai/ へ複製する（CLAUDE_SKILLS_DIR で変更）
-package.json           npm test（`node --test test/*.test.js`）だけ。依存はない。pi のパッケージの宣言（`pi`）と版も持つ
+package.json           pnpm のスクリプト（`test`・`build`・`typecheck`・`lint`・`format`。`app/` へ渡す）と、pi のパッケージの宣言（`pi`）・版。依存は書かない
+pnpm-workspace.yaml    pnpm のワークスペースの設定（`app/`）。`pnpm-lock.yaml`：依存の固定
 plugin.json            プラグインの宣言（codex・omp・agy。Agent Plugins 1.0.0）
 .claude-plugin/        Claude Code・grok のプラグインの宣言（plugin.json・marketplace.json）
 .agents/plugins/       codex のカタログ（marketplace.json）
-test/                  自動テスト（node:test）。helpers.js・store・actions・ask・apply・poll・anchor・diff・progress・plugin・server
+app/                   開発用のワークスペース（TypeScript）。依存・設定（`package.json`・`tsconfig.json`・`biome.json`・`vitest.config.ts`）はここ
+  src/cli/             コマンドの入口（main.ts）と引数の解釈（args.ts）
+  src/server/          util・store・ask・actions・agent・app（Hono）・appframe・serve・image・htmlapp・htmlapp-core・htmlapp-worker
+  src/shared/          共有の純粋な関数・型：anchor・diff・progress・types・api
+  scripts/build.ts     ビルド（`pnpm run build`）：`skills/rikai/` にバンドルとライセンス表を書く
+  test/                自動テスト（Vitest）。server/・shared/・build.test.ts・setup/
+test/                  旧 UI の自動テスト（fmt.test.js だけ。node:test）
 skills/rikai/
   SKILL.md             エージェント向けの手順（/rikai）
-  rikai.js             コマンドの入口（new・open・poll・pull・apply・status・stop）と、サーバーの起動。Node 18+・依存なし
-  lib/
-    util.js            共通の小さな道具（エラー・時刻・JSON・入力の整形）
-    store.js           .rikai の読み書き・ロック・mutate・データの形の版（ルートの状態を持つ）
-    ask.js             ask の検査（質問・回答）
-    actions.js         画面からの操作（comment・reply・answer・edit・delete・resolve・submit・end）
-    agent.js           AI 向け（poll・pull・apply・status）
-    server.js          HTTP サーバー（認証・配信・API）
+  rikai.js             ビルドしたバンドル（コマンドの入口と、サーバー。依存を含めて 1 ファイル。`app/src/` から生成。コミットする）
+  rikai-htmlapp-worker.js  ビルドした worker（html-app の取り出し。rikai.js の横に置く）
+  THIRD-PARTY-LICENSES.txt  バンドルに入った依存のライセンス（ビルドで生成）
   public/
     index.html         画面の骨組み
     app.js             ビューア（描画・コメントの位置づけ・パネル・ask）
