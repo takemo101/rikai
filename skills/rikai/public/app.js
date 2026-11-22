@@ -1641,8 +1641,12 @@
     if (r) { $('#submitdlg-note').value = ''; toast(`第${r.round}回として送信しました`); await refreshTopic(true); }
     dlg.returnValue = '';
   });
-  $('#btn-end').addEventListener('click', async () => {
-    if (!confirm('レビューを終了します。未送信のコメントは残りますが、AI には届きません。')) return;
+  // 終了：ブラウザの confirm() は、組み込みのブラウザ（omp の Tern など）で、答えが返らず、押しても終わらないことがある。画面の中の <dialog> で確かめる
+  const enddlg = $('#enddlg');
+  $('#btn-end').addEventListener('click', () => enddlg.showModal());
+  enddlg.addEventListener('close', async () => {
+    if (enddlg.returnValue !== 'ok') return;
+    enddlg.returnValue = '';
     await act(async () => { await api('/api/end', { topic: S.slug }); await refreshTopic(true); });
   });
 

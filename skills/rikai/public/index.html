@@ -52,6 +52,17 @@
     </form>
   </dialog>
 
+  <dialog id="enddlg">
+    <form method="dialog">
+      <h3>レビューを終了します</h3>
+      <p>未送信のコメントは残りますが、AI には届きません。</p>
+      <div class="dlg-actions">
+        <button value="cancel" class="ghost">キャンセル</button>
+        <button id="enddlg-ok" value="ok" class="primary">終了する</button>
+      </div>
+    </form>
+  </dialog>
+
   <div id="ended" hidden>
     <div class="ended-box" id="ended-box"></div>
   </div>
