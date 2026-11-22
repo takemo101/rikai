@@ -23,14 +23,15 @@ function writeJSON(p, v, mode) {
 const str = (v, max = 20000) => String(v == null ? '' : v).slice(0, max);
 
 // 本文の、範囲（左上にあるブロック〔画像・図があれば、その最初の画像・図〕の大きさに対する比率。左上が原点）。
-// 範囲は、そのブロックの外へ出てよい（複数のブロックにまたがる）ので、左上は −1〜1・幅と高さは 100 まで。4 桁に丸める。数でない・小さすぎる（0.5% 未満）なら、範囲なし
+// 範囲は、その基準の外へ出てよい（複数のブロックにまたがる・小さな画像を含む段落の、広い範囲）ので、左上は −100〜100・幅と高さは 1000 まで。
+// 4 桁に丸める。数でない・小さすぎる（0.05% 未満。縦に長いブロックの中の、1 行の範囲を残すため、低くしてある）なら、範囲なし
 function normRect(r) {
   if (!r || typeof r !== 'object') return null;
   const raw = [r.x, r.y, r.w, r.h].map(Number);
   if (!raw.every(Number.isFinite)) return null;
   const c = (v, lo, hi) => Math.min(hi, Math.max(lo, Math.round(v * 10000) / 10000));
-  const w = c(raw[2], 0, 100), h = c(raw[3], 0, 100);
-  return w < 0.005 || h < 0.005 ? null : { x: c(raw[0], -1, 1), y: c(raw[1], -1, 1), w, h };
+  const w = c(raw[2], 0, 1000), h = c(raw[3], 0, 1000);
+  return w < 0.0005 || h < 0.0005 ? null : { x: c(raw[0], -100, 100), y: c(raw[1], -100, 100), w, h };
 }
 
 function normAnchor(a) {
