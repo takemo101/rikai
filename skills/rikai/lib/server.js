@@ -205,7 +205,7 @@ async function handler(req, res) {
           const since = Number(url.searchParams.get('since'));
           const meta = loadMeta(slug);
           if (since && since === meta.rev) return send(res, 200, { unchanged: true, rev: meta.rev });
-          return send(res, 200, topicState(slug));
+          return send(res, 200, { ...topicState(slug), appframe: true }); // appframe：この画面のサーバーが、実行できる枠（/appframe）を配れる（画面が、古いサーバーを見分ける）
         }
         m = /^\/api\/page\/([^/]+)\/([^/]+)\/(\d+)$/.exec(p);
         if (m) {
