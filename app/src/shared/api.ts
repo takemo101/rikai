@@ -37,6 +37,9 @@ export const apiBodies = {
   end: endBody,
 } as const;
 
+/** `GET /api/topic/<slug>` の問い合わせ：画面が前に受け取った rev（同じなら、`{ unchanged: true }` だけが返る） */
+export const topicQuery = z.object({ since: z.string().optional() });
+
 export type ApiName = keyof typeof apiBodies;
 export type AttachBody = z.infer<typeof attachBody>;
 export type CommentBody = z.infer<typeof commentBody>;

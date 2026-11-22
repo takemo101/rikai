@@ -23808,6 +23808,7 @@ var apiBodies = {
   submit: submitBody,
   end: endBody
 };
+var topicQuery = external_exports.object({ since: external_exports.string().optional() });
 
 // src/server/appframe.ts
 var import_node_fs5 = __toESM(require("node:fs"), 1);
@@ -25526,14 +25527,20 @@ function createApp(opts) {
       200,
       JSON_HEADERS
     )
-  ).get("/topic/:slug", (c) => {
-    const slug = decode3(c.req.path.slice("/api/topic/".length));
-    const since = Number(new URL(c.req.url).searchParams.get("since"));
-    const meta3 = store.loadMeta(slug);
-    if (since && since === meta3.rev) return c.json({ unchanged: true, rev: meta3.rev }, 200, JSON_HEADERS);
-    return c.json({ ...store.topicState(slug), appframe: true }, 200, JSON_HEADERS);
-  }).get("/page/:slug/:page/:v{\\d+}", (c) => {
-    const [slug, page, v2] = c.req.path.slice("/api/page/".length).split("/").map((s, i) => i === 2 ? Number(s) : decode3(s));
+  ).get(
+    "/topic/:slug",
+    zValidator("query", topicQuery, () => void 0),
+    (c) => {
+      const slug = decode3(c.req.path.slice("/api/topic/".length));
+      const since = Number(new URL(c.req.url).searchParams.get("since"));
+      const meta3 = store.loadMeta(slug);
+      if (since && since === meta3.rev) return c.json({ unchanged: true, rev: meta3.rev }, 200, JSON_HEADERS);
+      return c.json({ ...store.topicState(slug), appframe: true }, 200, JSON_HEADERS);
+    }
+  ).get("/page/:slug/:page/:v", (c) => {
+    const parts = c.req.path.slice("/api/page/".length).split("/");
+    if (parts.length !== 3 || !/^\d+$/.test(parts[2])) throw new HttpError(404, "not found");
+    const [slug, page, v2] = [decode3(parts[0]), decode3(parts[1]), Number(parts[2])];
     const meta3 = store.loadMeta(slug);
     const pg = meta3.pages[page];
     if (!pg || v2 < 1 || v2 > pg.versions) throw new HttpError(404, "\u30DA\u30FC\u30B8\u304C\u3042\u308A\u307E\u305B\u3093");

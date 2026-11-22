@@ -312,9 +312,9 @@ test('Hono RPC：hc<AppType> の型が通り、型どおりに呼べる', async 
   const { thread } = await made.json();
   assert.match(thread, /^t\d+$/);
 
-  const state = await client.api.topic[':slug'].$get({ param: { slug: 'demo' } });
+  const state = await client.api.topic[':slug'].$get({ param: { slug: 'demo' }, query: { since: '1' } });
   assert.equal(state.status, 200);
-  const page = await client.api.page[':slug'][':page'][':v{\\d+}'].$get({
+  const page = await client.api.page[':slug'][':page'][':v'].$get({
     param: { slug: 'demo', page: 'root', v: '1' },
   });
   assert.equal(page.status, 200);

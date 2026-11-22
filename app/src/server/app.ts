@@ -9,7 +9,7 @@ import { Readable } from 'node:stream';
 import { zValidator } from '@hono/zod-validator';
 import { type Context, Hono, type MiddlewareHandler } from 'hono';
 import { HTTPException } from 'hono/http-exception';
-import { apiBodies } from '../shared/api';
+import { apiBodies, topicQuery } from '../shared/api';
 import type { PageInfo } from '../shared/types';
 import type { Actions } from './actions';
 import { createAppFrames } from './appframe';
@@ -202,19 +202,23 @@ export function createApp(opts: AppOptions) {
         JSON_HEADERS,
       ),
     )
-    .get('/topic/:slug', (c) => {
-      const slug = decode(c.req.path.slice('/api/topic/'.length));
-      const since = Number(new URL(c.req.url).searchParams.get('since'));
-      const meta = store.loadMeta(slug);
-      if (since && since === meta.rev) return c.json({ unchanged: true as const, rev: meta.rev }, 200, JSON_HEADERS);
-      // appframe：この画面のサーバーが、実行できる枠（/appframe）を配れる（画面が、古いサーバーを見分ける）
-      return c.json({ ...store.topicState(slug), appframe: true as const }, 200, JSON_HEADERS);
-    })
-    .get('/page/:slug/:page/:v{\\d+}', (c) => {
-      const [slug, page, v] = c.req.path
-        .slice('/api/page/'.length)
-        .split('/')
-        .map((s, i) => (i === 2 ? Number(s) : decode(s))) as [string, string, number];
+    // since：画面が、前に受け取った rev。同じなら、`{ unchanged: true }` だけを返す（型のための Zod。読み取りは、下で、旧と同じに）
+    .get(
+      '/topic/:slug',
+      zValidator('query', topicQuery, () => undefined),
+      (c) => {
+        const slug = decode(c.req.path.slice('/api/topic/'.length));
+        const since = Number(new URL(c.req.url).searchParams.get('since'));
+        const meta = store.loadMeta(slug);
+        if (since && since === meta.rev) return c.json({ unchanged: true as const, rev: meta.rev }, 200, JSON_HEADERS);
+        // appframe：この画面のサーバーが、実行できる枠（/appframe）を配れる（画面が、古いサーバーを見分ける）
+        return c.json({ ...store.topicState(slug), appframe: true as const }, 200, JSON_HEADERS);
+      },
+    )
+    .get('/page/:slug/:page/:v', (c) => {
+      const parts = c.req.path.slice('/api/page/'.length).split('/');
+      if (parts.length !== 3 || !/^\d+$/.test(parts[2] as string)) throw new HttpError(404, 'not found'); // 版は、数字だけ（旧は、パスの形で振り分けた）
+      const [slug, page, v] = [decode(parts[0] as string), decode(parts[1] as string), Number(parts[2])];
       const meta = store.loadMeta(slug);
       const pg = meta.pages[page] as PageInfo | undefined;
       if (!pg || v < 1 || v > pg.versions) throw new HttpError(404, 'ページがありません');
