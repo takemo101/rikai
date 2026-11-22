@@ -172,12 +172,17 @@ mark.hl.linked { background: #ffd24d; outline: 2px solid var(--accent); outline-
 mark.hl.pending { background: #ffd8a8; outline: 2px dashed #e8590c; outline-offset: 1px; cursor: default; }
 .blk-pending { outline: 3px dashed #e8590c; outline-offset: 3px; background: rgba(232, 89, 12, .06); }
 
-/* コメントの入口：1 つのバー（「コメント」・「範囲」）。文を選ぶと、選んだ文の上に・ブロックにマウスを置くと、そのブロックの右上に出る */
+/* コメントの入口：バーの「コメント」（範囲は、右下に浮かぶ「範囲を選ぶ」ボタン）。文を選ぶと、選んだ文の上に・ブロックにマウスを置くと、そのブロックの右上に出る */
 #actbar { position: fixed; z-index: 20; display: flex; background: #222; border-radius: 6px; box-shadow: 0 2px 8px rgba(0, 0, 0, .25); overflow: hidden; }
 #actbar button { background: transparent; color: #fff; border: 0; padding: 3px 10px; font-size: 12px; }
 #actbar button + button { border-left: 1px solid rgba(255, 255, 255, .28); }
 #actbar button:hover { background: var(--accent); }
-#actbar[hidden], #regsel[hidden], #toast[hidden], #ended[hidden] { display: none; }
+#actbar[hidden], #regsel[hidden], #toast[hidden], #ended[hidden], #regbtn[hidden] { display: none; }
+/* 範囲を選ぶボタン：本文の右下に浮かぶ（スクロールしても、同じ場所）。ふだんは、控えめ。選んでいる間は、色が付く */
+#regbtn { position: absolute; right: 24px; bottom: 20px; z-index: 6; display: flex; align-items: center; justify-content: center; gap: 6px; min-width: 120px; padding: 7px 14px 7px 11px; font-size: 13px; background: #fff; color: var(--ink); border: 1px solid var(--line); border-radius: 999px; box-shadow: 0 2px 10px rgba(0, 0, 0, .14); cursor: pointer; } /* 幅は、「やめる」でも、変わらない（押している間に、ボタンが縮まないように） */
+#regbtn:hover { border-color: var(--accent); color: var(--accent); }
+#regbtn.on { background: var(--accent); border-color: var(--accent); color: #fff; }
+#regbtn .ico { font-size: 15px; line-height: 1; }
 
 /* 本文の、好きな範囲を選ぶ（ドラッグ）。#regsel は、本文の上に重ねる（#docscroll の中の絶対位置）。ヒントは、本文が長くても、見える所に付いてくる */
 #regsel { position: absolute; z-index: 3; cursor: crosshair; background: rgba(47, 93, 138, .08); outline: 2px dashed var(--accent); touch-action: none; user-select: none; }
@@ -265,7 +270,7 @@ details.done summary { cursor: pointer; color: var(--muted); font-size: 12.5px; 
 .msg .imgs { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
 .msg .imgs img { display: block; max-width: 100%; max-height: 220px; border: 1px solid var(--line); border-radius: 4px; background: #fff; }
 
-#toast { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); background: #222; color: #fff; padding: 8px 16px; border-radius: 8px; z-index: 50; max-width: 70vw; white-space: pre-wrap; }
+#toast { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); background: #222; color: #fff; padding: 8px 16px; border-radius: 8px; z-index: 50; max-width: 70vw; white-space: pre-wrap; pointer-events: none; } /* 押せない：下の「範囲を選ぶ」などの操作を、じゃましない */
 #toast.err { background: #a8321b; }
 
 dialog { border: 0; border-radius: 12px; padding: 20px 24px; width: 440px; box-shadow: 0 10px 40px rgba(0,0,0,.3); }
