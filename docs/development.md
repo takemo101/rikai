@@ -25,25 +25,28 @@
 
 ## 環境
 
-- Node.js 18 以上（作者の環境の確認は 24.15.0。[検証記録](verification.md#環境記録の前提)）。npm のパッケージは要らない。
+- **使う人**：Node.js 20 以上（SPEC N5。npm のパッケージは要らない。旧実装は、いまも、これだけで動く）。**開発する人**：Node.js **22.12 以上**（Vitest・Vite の要求。20 では、ネイティブの部品が入らず、`pnpm test` が落ちる）と pnpm。作者の環境の確認は 24.15.0（[検証記録](verification.md#環境記録の前提)）。
 - ブラウザ：Chromium 系で確認した。Safari・Firefox は未確認。
 - OS：macOS で確認した。Linux・Windows は未確認。
 - `rsync`（`install.sh` が使う）。
 
 ### 開発の土台（再開発〔Hono・React〕。2026-11-22〜。SPEC §8）
 
-再開発の途中は、**旧実装（`skills/rikai/` の JavaScript）と、新しい TypeScript（`src/`）が、並んで存在する**。段階：土台（RIK-034）→ サーバーと CLI（RIK-035）→ フロント（RIK-036）→ 仕上げ（RIK-037）。**切り替えのときに、この節と下の各節を、新しい構成に書き直す**。
+再開発の途中は、**旧実装（`skills/rikai/` の JavaScript）と、新しい TypeScript（`app/src/`）が、並んで存在する**。段階：土台（RIK-034）→ サーバーと CLI（RIK-035）→ フロント（RIK-036）→ 仕上げ（RIK-037）。**切り替えのときに、この節と下の各節を、新しい構成に書き直す**。
 
-- 開発の依存は **pnpm**（`pnpm install`。`pnpm-lock.yaml` をコミット。esbuild のビルドスクリプトは `pnpm-workspace.yaml` の `allowBuilds` で許可）。利用者の環境には、依存を要求しない（バンドルして同梱：SPEC N5）。
-- 言語は TypeScript（strict）。`src/shared/`：サーバー・CLI・画面が共有する、DOM に触れない純粋な関数と型（いまは `anchor.ts`・`diff.ts`）。
+- **`app/` が、開発用のワークスペース**（TypeScript のソース・テスト・設定・開発の依存）。**リポジトリのルートの `package.json` には、依存を書かない**：ルートは、プラグインの宣言（pi の `pi.skills`・各エージェントのマニフェスト）で、pi が、git から入れるとき、`npm install --omit=dev` を、ルートで実行する。開発の依存がルートにあると、そのたびに、npm のレジストリへ問い合わせて、オフラインでは失敗する（レビューで、9 秒・`ENOTCACHED` を確認）。
+- 開発の依存は **pnpm**（ルートで `pnpm install`。`pnpm-lock.yaml` をコミット。esbuild のビルドスクリプトは `pnpm-workspace.yaml` の `allowBuilds` で許可）。利用者の環境には、依存を要求しない（バンドルして `skills/rikai/` に同梱：SPEC N5）。
+- 言語は TypeScript（strict）。`app/src/shared/`：サーバー・CLI・画面が共有する、DOM に触れない純粋な関数と型（いまは `anchor.ts`・`diff.ts`）。
 
-| コマンド | 内容 |
+| コマンド（ルートで） | 内容 |
 |---|---|
-| `pnpm test` | Vitest（`test/**/*.test.ts`）と、旧実装のテスト（`node --test test/*.test.js`）を、続けて動かす。旧実装のテストは、そのモジュールを `src/` へ移したときに、Vitest へ移す |
+| `pnpm test` | Vitest（`app/test/**/*.test.ts`）と、旧実装のテスト（`node --test test/*.test.js`）を、続けて動かす。旧実装のテストは、**旧実装のコードを消すとき**に、Vitest へ移した分と入れ替わる |
 | `pnpm run typecheck` | `tsc --noEmit` |
-| `pnpm run lint` | `biome check`（整形・Lint。`pnpm run format` で直す。対象は `src/`・`test/*.ts`・`scripts/`・設定ファイル） |
+| `pnpm run lint` | `biome check`（整形・Lint。`pnpm run format` で直す。対象は `app/src/`・`app/test/**/*.ts`・`app/scripts/`・設定ファイル） |
 
-新しいテストは `test/` に `*.test.ts` で書く（Vitest。`node:assert/strict` も使える）。**足したテストは、実装を壊して、落ちることを、一度確かめる**（これまでと同じ）。
+新しいテストは `app/test/` に `*.test.ts` で書く（Vitest。`node:assert/strict` も使える）。**足したテストは、実装を壊して、落ちることを、一度確かめる**（これまでと同じ）。
+
+**プラグインの導入の確認（下の「プラグイン」の行）は、開発の複製ではなく、`/tmp` に新しく `git clone` したものから行う**：`pnpm install` 済みの複製から入れると、`node_modules`（180〜580MB。エージェントによる）まで、複製される（レビューで確認）。
 
 ## 実行
 
