@@ -230,6 +230,19 @@ test.describe('画像の添付（F24）', () => {
   test('ファイル選択で付く・サムネイル・「×」で外せる。同じ画像は 1 つ（F24）', async ({ page }) => {
     const c = await composer(page);
     await expect(c.getByRole('button', { name: '画像を付ける' })).toBeVisible();
+    // 「画像を付ける」（アイコンボタン）は、「コメントを追加」と、同じ行に並ぶ（1 行を、別に使わない）
+    const attach = (await c.getByRole('button', { name: '画像を付ける' }).boundingBox()) as {
+      x: number;
+      y: number;
+      height: number;
+    };
+    const add = (await c.getByRole('button', { name: 'コメントを追加' }).boundingBox()) as {
+      x: number;
+      y: number;
+      height: number;
+    };
+    expect(Math.abs(attach.y + attach.height / 2 - (add.y + add.height / 2))).toBeLessThanOrEqual(4);
+    expect(attach.x).toBeLessThan(add.x);
     await pickFiles(page, c, [png(40, 30)]);
     const thumb = c.locator('.thumb img');
     await expect(thumb).toHaveCount(1);
@@ -242,6 +255,33 @@ test.describe('画像の添付（F24）', () => {
     await expect(thumb).toHaveCount(2);
     await c.locator('.thumb .x').first().click();
     await expect(thumb).toHaveCount(1);
+  });
+
+  test('アップロード中、「アップロード中…」は、付けているカードだけ：ほかのカードの高さは、変わらない（F24）', async ({
+    page,
+  }) => {
+    const u = ui(page);
+    await addTextComment(page, '猫は朝によく鳴きます', '一つ目');
+    await addTextComment(page, '日向でよく丸くなります', '二つ目');
+    await expect(u.threads).toHaveCount(2);
+    const heights = () => u.threads.evaluateAll((cs) => cs.map((c) => Math.round(c.getBoundingClientRect().height)));
+    const before = await heights();
+    let release = () => {};
+    const gate = new Promise<void>((r) => {
+      release = r;
+    });
+    await page.route('**/api/attach', async (route) => {
+      await gate;
+      await route.continue();
+    });
+    await pickFiles(page, u.threads.first(), [png(40, 30)]);
+    await expect(u.threads.first()).toContainText('アップロード中');
+    await expect(u.threads.nth(1)).not.toContainText('アップロード中');
+    expect((await heights())[1]).toBe(before[1]); // 2 枚目の高さは、変わらない
+    release();
+    await expect(u.threads.first().locator('.thumb img')).toHaveCount(1);
+    await expect(u.threads.nth(1)).not.toContainText('アップロード中');
+    expect((await heights())[1]).toBe(before[1]);
   });
 
   test('貼り付け・ドラッグ＆ドロップで付く（F24）', async ({ page }) => {

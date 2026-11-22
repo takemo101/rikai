@@ -23,7 +23,7 @@ async function rangeRect(page: Page, needle: string) {
 }
 
 test.describe('文・ブロックの選択', () => {
-  test('文を選ぶと、選んだ文の上に「コメント」が出る。押すと入力欄が開き、対象がオレンジになる（F3・F22(3)・F27）', async ({
+  test('文を選ぶと、選んだ文の上に「コメント」が出る。押すと入力欄が開き、対象が、アクセントの破線になる（F3・F22(3)・F27）', async ({
     page,
   }) => {
     const u = ui(page);
@@ -40,14 +40,17 @@ test.describe('文・ブロックの選択', () => {
     await expect(u.composer).toBeVisible();
     await expect(u.composer.locator('textarea')).toBeFocused();
     await expect(u.composer.locator('.quote')).toContainText('猫は朝によく鳴きます');
-    // 入力中：本文の対象はオレンジ、番号の丸は「新」
+    // 入力中：本文の対象は、アクセント（青）の破線、番号の丸は「新」
     await expect(u.bno).toHaveText(['新']);
     const mark = u.article.locator('mark.pending');
     await expect(mark).toHaveText('猫は朝によく鳴きます');
-    const bg = await mark.evaluate((e) => getComputedStyle(e).backgroundColor);
-    const [r, g, b] = (bg.match(/\d+/g) ?? []).map(Number) as [number, number, number];
-    expect(r).toBeGreaterThan(g); // 青系でなく、オレンジ系
-    expect(g).toBeGreaterThan(b);
+    const st = await mark.evaluate((e) => {
+      const cs = getComputedStyle(e);
+      return { style: cs.outlineStyle, color: cs.outlineColor };
+    });
+    const [r, , b] = (st.color.match(/\d+/g) ?? []).map(Number) as [number, number, number];
+    expect(st.style).toBe('dashed');
+    expect(b).toBeGreaterThan(r + 60); // 青系（コメントの付いた文の、黄色の強調ではない）
 
     // やめる：強調・「新」が消える（F22(4)）
     await u.composer.getByRole('button', { name: 'やめる' }).click();
@@ -202,7 +205,7 @@ test.describe('文・ブロックの選択', () => {
     await expect(last).toHaveClass(/linked/);
   });
 
-  test('番号を押すと、そのカードだけを見られる。「← すべてのコメントに戻る」で戻る（F33(3)）', async ({ page }) => {
+  test('番号を押すと、そのカードだけを見られる。「すべてのコメントに戻る」で戻る（F33(3)）', async ({ page }) => {
     const u = ui(page);
     await addTextComment(page, '猫は朝によく鳴きます', '一つ目');
     await addTextComment(page, '日向でよく丸くなります', '二つ目');
@@ -213,12 +216,12 @@ test.describe('文・ブロックの選択', () => {
     const solobar = page.locator('.solobar');
     await expect(solobar).toBeVisible();
     await expect(solobar).toContainText('2 番のコメントだけを表示中');
-    await expect(solobar.getByRole('button', { name: '← すべてのコメントに戻る' })).toBeVisible();
+    await expect(solobar.getByRole('button', { name: 'すべてのコメントに戻る' })).toBeVisible();
     await expect(u.threads).toHaveCount(1);
     await expect(u.threads.first()).toContainText('三つ目'); // 本文の順で 2 番は「猫は一日に三回」
     await expect(page.locator('.tabs, .tab')).toHaveCount(0); // 切り替えは、出ない
 
-    await solobar.getByRole('button', { name: '← すべてのコメントに戻る' }).click();
+    await solobar.getByRole('button', { name: 'すべてのコメントに戻る' }).click();
     await expect(solobar).toHaveCount(0);
     await expect(u.threads).toHaveCount(3);
 

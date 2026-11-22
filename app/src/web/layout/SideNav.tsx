@@ -1,5 +1,6 @@
 // 左の一覧（`#side`）：理解の対象（トピック）と、開いているトピックのページの木。
 // 読めない新しい形式のトピックは、押せない（「新しい形式」の印）。ほかの印：解決/全スレッド・待ち・終了。
+import { CircleCheck, CornerDownRight, FileText, Hourglass, TriangleAlert } from 'lucide-react';
 import { progressOf } from '../../shared/progress';
 import type { TopicSummary } from '../api/queries';
 import { hrefOf } from '../lib/route';
@@ -23,22 +24,43 @@ export function SideNav({ topics, currentSlug, view }: SideNavProps) {
           const p = t.unsupported ? null : t.slug === currentSlug && view ? progressOf(view.topic.threads) : t.progress;
           return (
             <li key={t.slug} className={t.slug === currentSlug ? 'cur' : ''}>
-              {t.unsupported ? <span className="topic-off">{t.title}</span> : <a href={hrefOf(t.slug)}>{t.title}</a>}
+              {t.unsupported ? (
+                <span className="topic-off">
+                  <FileText aria-hidden="true" focusable="false" />
+                  <span className="t">{t.title}</span>
+                </span>
+              ) : (
+                <a href={hrefOf(t.slug)}>
+                  <FileText aria-hidden="true" focusable="false" />
+                  <span className="t">{t.title}</span>
+                </a>
+              )}
               {p?.threads.total ? (
                 <span className="chip small" title="解決したスレッド / 全スレッド">
                   {p.threads.resolved}/{p.threads.total}
                 </span>
               ) : null}
-              {!t.unsupported && t.pending ? <span className="chip wait small">待ち</span> : null}
+              {!t.unsupported && t.pending ? (
+                <span className="chip wait small">
+                  <Hourglass aria-hidden="true" focusable="false" />
+                  待ち
+                </span>
+              ) : null}
               {t.unsupported ? (
                 <span
                   className="chip warn small"
                   title="この rikai が読めない、新しい形式です。rikai を更新してください"
                 >
+                  <TriangleAlert aria-hidden="true" focusable="false" />
                   新しい形式
                 </span>
               ) : null}
-              {!t.unsupported && t.closed ? <span className="chip small">終了</span> : null}
+              {!t.unsupported && t.closed ? (
+                <span className="chip small">
+                  <CircleCheck aria-hidden="true" focusable="false" />
+                  終了
+                </span>
+              ) : null}
             </li>
           );
         })}
@@ -51,7 +73,7 @@ export function SideNav({ topics, currentSlug, view }: SideNavProps) {
 function PageTree({ view }: { view: View }) {
   const all = view.pages;
   const openCount = (id: string): number => view.topic.threads.filter((t) => t.page === id && !t.resolved).length;
-  const tree = (parent: string | null) => {
+  const tree = (parent: string | null, depth: number) => {
     const kids = Object.keys(all).filter((id) => (all[id]?.parent ?? null) === parent);
     if (!kids.length) return null;
     return (
@@ -61,11 +83,16 @@ function PageTree({ view }: { view: View }) {
           return (
             <li key={id}>
               <a href={hrefOf(view.slug, id)} className={id === view.page ? 'cur' : undefined}>
-                {all[id]?.title}
+                {depth ? (
+                  <CornerDownRight aria-hidden="true" focusable="false" />
+                ) : (
+                  <FileText aria-hidden="true" focusable="false" />
+                )}
+                <span className="t">{all[id]?.title}</span>
                 <span className="ver"> v{all[id]?.versions}</span>
                 {n ? <span className="badge">{n}</span> : null}
               </a>
-              {tree(id)}
+              {tree(id, depth + 1)}
             </li>
           );
         })}
@@ -75,7 +102,7 @@ function PageTree({ view }: { view: View }) {
   return (
     <>
       <div className="side-h">ページ</div>
-      {tree(null)}
+      {tree(null, 0)}
     </>
   );
 }

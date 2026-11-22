@@ -1,4 +1,5 @@
 // 終えたトピックは、全面の表示（`#ended`）で覆う。ほかに開いているトピックがあれば、そこへ移れるようにする。
+import { CircleCheck } from 'lucide-react';
 import type { TopicSummary } from '../api/queries';
 import { hrefOf } from '../lib/route';
 import type { View } from '../lib/view';
@@ -16,6 +17,7 @@ export function EndedScreen({ view, topics }: EndedScreenProps) {
       <div className="ended-box" id="ended-box">
         {closed ? (
           <>
+            <CircleCheck aria-hidden="true" focusable="false" />
             <h2>このトピックのレビューを終了しました</h2>
             {others.length ? (
               <>

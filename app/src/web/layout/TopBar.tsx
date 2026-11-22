@@ -1,4 +1,5 @@
 // 上のバー（`#top`）：左の一覧の開閉・題・状態（解決 N/M・回答 K/L・接続・AI の返信待ち）・Submit・終了。
+import { CircleCheck, Copy, Hourglass, LogOut, PanelLeft, Send, TriangleAlert } from 'lucide-react';
 import { progressOf } from '../../shared/progress';
 import { trunc } from '../lib/dom';
 import type { View } from '../lib/view';
@@ -32,13 +33,12 @@ export function TopBar({ view, status }: TopBarProps) {
       <button
         id="btn-side"
         type="button"
-        className="ghost small"
         title="左の一覧を、しまう／出す"
         aria-label="左の一覧を、しまう／出す"
         aria-expanded={sideOpen}
         onClick={() => useUi.getState().toggleSide()}
       >
-        ☰
+        <PanelLeft aria-hidden="true" focusable="false" />
       </button>
       <div className="brand">rikai</div>
       <div id="top-title">{topic ? topic.meta.title : ''}</div>
@@ -46,22 +46,31 @@ export function TopBar({ view, status }: TopBarProps) {
       <div id="top-status">
         {label ? (
           <span className="chip" title={PROGRESS_TITLE}>
+            <CircleCheck aria-hidden="true" focusable="false" />
             {label}
           </span>
         ) : null}
         {status.offline ? (
-          <span className="chip warn">サーバーに接続できません</span>
+          <span className="chip warn">
+            <TriangleAlert aria-hidden="true" focusable="false" />
+            サーバーに接続できません
+          </span>
         ) : status.error ? (
           <span className="chip warn" title={status.error}>
+            <TriangleAlert aria-hidden="true" focusable="false" />
             サーバーのエラー: {trunc(status.error, 40)}
           </span>
         ) : pending && view ? (
           <>
-            <span className="chip wait">AIの返信待ち</span>
+            <span className="chip wait">
+              <Hourglass aria-hidden="true" focusable="false" />
+              AIの返信待ち
+            </span>
             <span className="hint">Claude Code 以外は「rikai に送りました」と伝えてください</span>
             <button
               type="button"
               className="ghost small"
+              title="AI に伝える文を、コピーする"
               onClick={() => {
                 navigator.clipboard
                   .writeText(`rikai(${view.slug})に送りました。rikai pull ${view.slug} で読んで返信してください`)
@@ -69,6 +78,7 @@ export function TopBar({ view, status }: TopBarProps) {
                   .catch((e: unknown) => toast(e instanceof Error ? e.message : String(e), true));
               }}
             >
+              <Copy aria-hidden="true" focusable="false" />
               コピー
             </button>
           </>
@@ -83,9 +93,17 @@ export function TopBar({ view, status }: TopBarProps) {
           if (topic && unsent) useUi.getState().openDialog('submit');
         }}
       >
+        <Send aria-hidden="true" focusable="false" />
         {unsent ? `Submit (${unsent})` : 'Submit'}
       </button>
-      <button id="btn-end" type="button" className="ghost" onClick={() => useUi.getState().openDialog('end')}>
+      <button
+        id="btn-end"
+        type="button"
+        className="ghost"
+        title="レビューを終了する"
+        onClick={() => useUi.getState().openDialog('end')}
+      >
+        <LogOut aria-hidden="true" focusable="false" />
         終了
       </button>
     </header>

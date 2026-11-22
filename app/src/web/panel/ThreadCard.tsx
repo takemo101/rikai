@@ -1,4 +1,15 @@
 // スレッドのカード（`.thread`）：札・対象の引用・発言（古いやり取りは折りたたむ：F29）・返信の入力・「理解できた（解決）」／「再開する」。
+import {
+  Check,
+  ChevronRight,
+  CircleCheck,
+  CircleDot,
+  Clock,
+  RotateCcw,
+  Send,
+  Sparkles,
+  TriangleAlert,
+} from 'lucide-react';
 import { type ReactNode, useRef } from 'react';
 import type { Thread } from '../../shared/types';
 import { useMutations } from '../api/mutations';
@@ -7,7 +18,7 @@ import type { View } from '../lib/view';
 import type { DocModel } from '../store/doc';
 import { useUi } from '../store/ui';
 import { caretAtEnd } from './caret';
-import { ImageBar } from './ImageBar';
+import { AttachButton, ImageBar } from './ImageBar';
 import { foldMessages, quoteOf, threadStatus } from './logic';
 import { MessageView } from './Message';
 import { usePanel } from './panelContext';
@@ -29,6 +40,9 @@ interface Props {
   editing: string | null;
 }
 
+/** 札のアイコン（`threadStatus` のクラスごと） */
+const STATUS_ICON = { ok: CircleCheck, draft: CircleDot, new: Sparkles, wait: Clock } as const;
+
 export function ThreadCard({ view, thread: t, full = false, model, seen, editing }: Props) {
   const { focusThread } = usePanel();
   const active = useUi((s) => s.active === t.id);
@@ -37,6 +51,7 @@ export function ThreadCard({ view, thread: t, full = false, model, seen, editing
   const fresh = useUi((s) => t.messages.some((m) => m.author === 'ai' && !s.seen.has(m.id)));
 
   const [stText, stCls] = threadStatus(t);
+  const StatusIcon = STATUS_ICON[stCls];
   const loc = model?.locs.get(t.id);
   // 位置が「見つからない」と分かっているものだけ（まだ、本文を描いていないものは、印を出さない）
   const orphan = loc?.kind === 'none' && !!t.anchor && t.version <= view.version;
@@ -57,11 +72,22 @@ export function ThreadCard({ view, thread: t, full = false, model, seen, editing
             {String(num)}
           </span>
         ) : null}
-        {stCls === 'wait' ? null : <span className={`chip ${stCls} small`}>{stText}</span>}
+        {stCls === 'wait' ? null : (
+          <span className={`chip ${stCls} small`}>
+            <StatusIcon aria-hidden="true" focusable="false" />
+            {stText}
+          </span>
+        )}
         {t.version === view.version ? null : <span className="chip small">v{t.version}</span>}
-        {orphan ? <span className="chip warn small">修正で文が変わりました</span> : null}
+        {orphan ? (
+          <span className="chip warn small">
+            <TriangleAlert aria-hidden="true" focusable="false" />
+            修正で文が変わりました
+          </span>
+        ) : null}
         {approx ? (
           <span className="chip warn small">
+            <TriangleAlert aria-hidden="true" focusable="false" />
             {approx === 'similar' ? '近い内容のブロックに表示' : '同じ位置のブロックに表示'}
           </span>
         ) : null}
@@ -90,7 +116,10 @@ function Older({ id, count, children }: { id: string; count: number; children: R
   const setOlderOpen = useUi((s) => s.setOlderOpen);
   return (
     <details className="older" open={open} onToggle={(e) => setOlderOpen(id, e.currentTarget.open)}>
-      <summary>{`これまでのやり取り（${count} 件）`}</summary>
+      <summary>
+        <ChevronRight aria-hidden="true" focusable="false" />
+        {`これまでのやり取り（${count} 件）`}
+      </summary>
       {children}
     </details>
   );
@@ -144,6 +173,7 @@ function ThreadFoot({ view, thread: t }: { view: View; thread: Thread }) {
             void resolve({ topic: slug, thread: t.id, resolved: false }, { onOk: () => setRowOpen(t.id, false) })
           }
         >
+          <RotateCcw aria-hidden="true" focusable="false" />
           再開する
         </button>
       </div>
@@ -168,7 +198,9 @@ function ThreadFoot({ view, thread: t }: { view: View; thread: Thread }) {
       />
       <ImageBar imgKey={key} slug={slug} />
       <div className="row">
+        <AttachButton imgKey={key} slug={slug} />
         <button type="button" className="primary small" onClick={() => void sendReply()}>
+          <Send aria-hidden="true" focusable="false" />
           返信を追加
         </button>
         <button
@@ -178,6 +210,7 @@ function ThreadFoot({ view, thread: t }: { view: View; thread: Thread }) {
             void resolve({ topic: slug, thread: t.id, resolved: true }, { onOk: () => setRowOpen(t.id, false) })
           }
         >
+          <Check aria-hidden="true" focusable="false" />
           理解できた（解決）
         </button>
       </div>

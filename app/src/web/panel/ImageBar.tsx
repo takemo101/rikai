@@ -1,5 +1,7 @@
-// 入力欄の下の、添付の画像の帯（`.imgbar`）：サムネイル（×で外す）・「画像を付ける」・アップロード中の表示。
+// 添付の画像：入力欄の下の帯（`ImageBar`：`.imgbar`。サムネイル〔×で外す〕・アップロード中の表示。なければ出さない）と、
+// 操作の行に置く「画像を付ける」のアイコンボタン（`AttachButton`）。
 // サムネイルを押すと、ライトボックスで大きく出る（ThreadsPanel の、パネル全体のクリックの受け口）。
+import { ImagePlus, X } from 'lucide-react';
 import { useRef } from 'react';
 import { useUi } from '../store/ui';
 import { IMG_TYPES, imgUrl } from './logic';
@@ -13,10 +15,9 @@ interface Props {
 
 export function ImageBar({ imgKey, slug }: Props) {
   const names = useDraftImgs(imgKey);
-  const uploading = useUi((s) => s.uploading > 0);
+  const uploading = useUi((s) => (s.uploadingBy[imgKey] ?? 0) > 0); // この入力欄に付けている間だけ（ほかのカードは、伸びない）
   const removeDraftImg = useUi((s) => s.removeDraftImg);
-  const { attachFiles } = useImageAttach(imgKey, slug);
-  const input = useRef<HTMLInputElement>(null);
+  if (!names.length && !uploading) return null;
 
   return (
     <div className="imgbar">
@@ -30,19 +31,31 @@ export function ImageBar({ imgKey, slug }: Props) {
             aria-label="画像を外す"
             onClick={() => removeDraftImg(imgKey, n)}
           >
-            ×
+            <X aria-hidden="true" focusable="false" />
           </button>
         </span>
       ))}
+      {uploading ? <span className="sl">アップロード中…</span> : null}
+    </div>
+  );
+}
+
+/** 「画像を付ける」：ファイル選択（隠した `<input type=file>` つき）。貼り付け・ドラッグでも付けられる */
+export function AttachButton({ imgKey, slug }: Props) {
+  const { attachFiles } = useImageAttach(imgKey, slug);
+  const input = useRef<HTMLInputElement>(null);
+
+  return (
+    <>
       <button
         type="button"
-        className="ghost small attach"
-        title="ファイルを選ぶ。貼り付け（⌘/Ctrl+V）・ドラッグでも付けられます"
+        className="iconbtn attach"
+        title="画像を付ける（ファイルを選ぶ。貼り付け〔⌘/Ctrl+V〕・ドラッグでも付けられます）"
+        aria-label="画像を付ける"
         onClick={() => input.current?.click()}
       >
-        画像を付ける
+        <ImagePlus aria-hidden="true" focusable="false" />
       </button>
-      {uploading ? <span className="sl">アップロード中…</span> : null}
       <input
         ref={input}
         type="file"
@@ -55,6 +68,6 @@ export function ImageBar({ imgKey, slug }: Props) {
           void attachFiles(files);
         }}
       />
-    </div>
+    </>
   );
 }

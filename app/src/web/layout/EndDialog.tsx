@@ -1,4 +1,5 @@
 // 「レビューを終了します」のダイアログ（`#enddlg`）。「終了する」で POST /api/end → 取り直すと、終了の表示（`#ended`）が出る。
+import { LogOut } from 'lucide-react';
 import { type SyntheticEvent, useRef } from 'react';
 import { useMutations } from '../api/mutations';
 import { useUi } from '../store/ui';
@@ -21,7 +22,10 @@ export function EndDialog({ slug }: { slug: string | null }) {
   return (
     <dialog id="enddlg" ref={ref} onClose={onClose}>
       <form method="dialog">
-        <h3>レビューを終了します</h3>
+        <h3>
+          <LogOut aria-hidden="true" focusable="false" />
+          レビューを終了します
+        </h3>
         <p>未送信のコメントは残りますが、AI には届きません。</p>
         <div className="dlg-actions">
           <button type="submit" value="cancel" className="ghost">

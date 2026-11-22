@@ -47,7 +47,7 @@ test('貼り付け：画像だけの貼り付けは、受ける（POST /api/atta
   const thumb = q('.imgbar .thumb') as HTMLElement;
   expect(q('img', thumb)?.getAttribute('alt')).toBe('添付の画像');
   const x = q('button.x', thumb) as HTMLButtonElement;
-  expect([x.title, x.getAttribute('aria-label'), x.textContent]).toEqual(['外す', '画像を外す', '×']);
+  expect([x.title, x.getAttribute('aria-label'), x.textContent]).toEqual(['外す', '画像を外す', '']); // アイコンだけ（名前は aria-label）
   expect(useUi.getState().drafts.imgs.composer).toHaveLength(1);
   expect(useUi.getState().uploading).toBe(0);
 });
@@ -78,7 +78,7 @@ test('ドラッグ：ファイルのドラッグを受ける（dragover を許�
 test('ファイル選択：「画像を付ける」→ 選んだ複数のファイルが付く', async () => {
   renderPanel([], attachOk);
   openComposer();
-  const input = q('.imgbar input[type="file"]') as HTMLInputElement;
+  const input = q('input[type="file"]') as HTMLInputElement;
   expect(input.accept).toBe('image/png,image/jpeg,image/gif,image/webp');
   expect(input.multiple).toBe(true);
   expect(input.hidden).toBe(true);
@@ -135,6 +135,19 @@ test('続けて何枚も貼っても（完了を待たない）、付けるの�
   paste(ta, [png('y.png', 'same')], ['Files']);
   await new Promise((r) => setTimeout(r, 30));
   expect(thumbs()).toHaveLength(1);
+});
+
+test('「アップロード中…」は、その画像を付けている入力欄だけに出す（ほかのカードの高さを、変えない）。全体の数は、送るのを止めるために、数え続ける', () => {
+  renderPanel([thread({ id: 't1', messages: [user('質問')] }), thread({ id: 't2', messages: [user('質問')] })]);
+  const card = (tid: string) => q(`.thread[data-tid="${tid}"]`) as HTMLElement;
+  expect(q('.imgbar')).toBeNull();
+  act(() => useUi.getState().beginUpload('reply-t1'));
+  expect(q('.imgbar .sl', card('t1'))?.textContent).toBe('アップロード中…');
+  expect(q('.imgbar', card('t2'))).toBeNull();
+  expect(useUi.getState().uploading).toBe(1);
+  act(() => useUi.getState().endUpload('reply-t1'));
+  expect(q('.imgbar')).toBeNull();
+  expect(useUi.getState().uploadingBy).toEqual({});
 });
 
 test('アップロード中は「アップロード中…」。終わるまでに、入力欄をやめたら、その画像は、付けない（世代）。別の入力欄にも、出ない', async () => {

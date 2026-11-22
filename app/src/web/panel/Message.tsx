@@ -1,5 +1,6 @@
 // スレッドの 1 件の発言。ユーザー：文字として出す（`textContent` と同じ。編集・削除は、未送信だけ）。AI：Markdown（無害化したもの）・資料の更新・ページへのカード・質問。
 // 回答（kind が answer）は、質問の下の入力欄（AskView）で見せるので、描かない。
+import { ArrowRight, Check, Pencil, RefreshCw, Trash2 } from 'lucide-react';
 import { useLayoutEffect, useRef } from 'react';
 import type { Ask, Message, Thread } from '../../shared/types';
 import { useMutations } from '../api/mutations';
@@ -61,6 +62,7 @@ function UserMessage({ view, thread, m }: Omit<Props, 'seen'>) {
               void edit({ topic: slug, thread: thread.id, msg: m.id, text: draft ?? m.text }, { onOk: done })
             }
           >
+            <Check aria-hidden="true" focusable="false" />
             保存
           </button>
           <button type="button" className="ghost small" onClick={done}>
@@ -84,15 +86,17 @@ function UserMessage({ view, thread, m }: Omit<Props, 'seen'>) {
       ) : null}
       {m.sent ? null : (
         <div className="row meta">
-          <button type="button" className="link" onClick={() => setEditing(m.id)}>
-            編集
+          <button type="button" className="iconbtn" title="編集" aria-label="編集" onClick={() => setEditing(m.id)}>
+            <Pencil aria-hidden="true" focusable="false" />
           </button>
           <button
             type="button"
-            className="link"
+            className="iconbtn"
+            title="削除"
+            aria-label="削除"
             onClick={() => void remove({ topic: slug, thread: thread.id, msg: m.id })}
           >
-            削除
+            <Trash2 aria-hidden="true" focusable="false" />
           </button>
         </div>
       )}
@@ -115,9 +119,13 @@ export function MessageView({ view, thread, m, seen }: Props) {
       <ReplyBody text={m.text} slug={view.slug} />
       {m.revision ? (
         <div className="row meta">
-          <span className="chip ok small">資料を v{m.revision} に更新</span>
+          <span className="chip ok small">
+            <RefreshCw aria-hidden="true" focusable="false" />
+            資料を v{m.revision} に更新
+          </span>
           <a className="btnlink" href={`#/${view.slug}/${thread.page}/v${m.revision}`}>
             v{m.revision} を見る
+            <ArrowRight aria-hidden="true" focusable="false" />
           </a>
         </div>
       ) : null}
@@ -125,7 +133,7 @@ export function MessageView({ view, thread, m, seen }: Props) {
         <a className="pagecard" href={`#/${view.slug}/${m.page}`}>
           <span className="pc-l">詳しく見る</span>
           <span className="pc-t">{page.title}</span>
-          <span className="pc-a">→</span>
+          <ArrowRight className="pc-a" aria-hidden="true" focusable="false" />
         </a>
       ) : null}
       {hasAsk(m) ? <AskView slug={view.slug} thread={thread} q={m} /> : null}

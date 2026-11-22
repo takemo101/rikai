@@ -180,7 +180,7 @@ test('範囲の枠：.regionbox（解決済みは .resolved）。基準の画像
   expect(b.querySelector('.rh')).toBeNull();
 });
 
-test('入力中：対象が範囲なら、オレンジの枠（.regionbox.pending と 8 つのハンドル）と「新」。文・ブロックなら、「新」だけ', () => {
+test('入力中：対象が範囲なら、アクセントの破線の枠（.regionbox.pending と 8 つのハンドル）と「新」。文・ブロックなら、「新」だけ', () => {
   const w = world();
   const pendingRect: Rect = { x: 0.1, y: 0.1, w: 0.5, h: 0.5 };
   const { layer } = mount(w, modelOf(w, { pending: w.blocks[2] as HTMLElement }));

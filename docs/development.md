@@ -32,13 +32,13 @@
 
 ### 開発の土台（再開発〔Hono・React〕。2026-11-22〜。SPEC §8）
 
-サーバー・CLI（`app/src/{server,cli,shared}/`。RIK-035）と、**画面（`app/src/web/`。RIK-036）も、TypeScript に移した**。画面は、React 19・Vite・Zustand・TanStack Query・Hono RPC の型（`hc`）・Tailwind v4（theme と utilities だけ。preflight なし。見た目は、`styles/legacy.css`）。旧 UI（`app.js`・`style.css`・`vendor/` ほか）と、ルートの `test/` は、なくなった。段階：土台（RIK-034）→ サーバーと CLI（RIK-035）→ フロント（RIK-036。済）→ 仕上げ（RIK-037）。
+サーバー・CLI（`app/src/{server,cli,shared}/`。RIK-035）と、**画面（`app/src/web/`。RIK-036）も、TypeScript に移した**。画面は、React 19・Vite・Zustand・TanStack Query・Hono RPC の型（`hc`）・Tailwind v4（theme と utilities だけ。preflight なし。見た目は、`styles/app.css`。アイコンは lucide-react）。旧 UI（`app.js`・`style.css`・`vendor/` ほか）と、ルートの `test/` は、なくなった。段階：土台（RIK-034）→ サーバーと CLI（RIK-035）→ フロント（RIK-036。済）→ 仕上げ（RIK-037）。
 
 - **`app/` が、開発用のワークスペース**（TypeScript のソース・テスト・設定・開発の依存）。**リポジトリのルートの `package.json` には、依存を書かない**：ルートは、プラグインの宣言（pi の `pi.skills`・各エージェントのマニフェスト）で、pi が、git から入れるとき、`npm install --omit=dev` を、ルートで実行する。開発の依存がルートにあると、そのたびに、npm のレジストリへ問い合わせて、オフラインでは失敗する（レビューで、9 秒・`ENOTCACHED` を確認）。
 - 開発の依存は **pnpm**（ルートで `pnpm install`。`pnpm-lock.yaml` をコミット。esbuild のビルドスクリプトは `pnpm-workspace.yaml` の `allowBuilds` で許可）。利用者の環境には、依存を要求しない（バンドルして `skills/rikai/` に同梱：SPEC N5）。
 - 言語は TypeScript（strict）。`app/src/shared/`：サーバー・CLI・画面が共有する、DOM に触れない純粋な関数と型（`anchor.ts`・`diff.ts`・`progress.ts`・`types.ts`・`api.ts`）。**状態は、モジュールの変数にしない**：`createStore(root)`・`createApp` の引数・`createActions` の `hooks` で、渡す。画面の状態は、`app/src/web/store/`（Zustand）と TanStack Query（`api/`）。
 - **配布物は、ビルドして `skills/rikai/` に置き、コミットする**：`pnpm run build`（= `build:server` + `build:web`）が、`skills/rikai/rikai.js`・`rikai-htmlapp-worker.js`・`THIRD-PARTY-LICENSES.txt`（サーバー・CLI）と、`skills/rikai/public/`（画面：`index.html`・`favicon.svg`・`assets/`・`THIRD-PARTY-LICENSES.txt`）を書き換える。**`app/src/` を変えたら、`pnpm run build` をして、出力もコミットする**（`app/test/build.test.ts` が、ソースから作り直したものと、コミットしたもの〔`public/` 全体を含む〕が同じか確かめる。古いと、`pnpm test` が落ちる）。これらは生成物なので、手で編集しない。`vite build` を単独で動かすと `skills/rikai/public/` を空にして書き換える（試すときは `--outDir /tmp/…`）。
-- **画面の依存**（react・vite・tailwind・tanstack・zustand・dompurify・mermaid・marked ほか）は、`app/package.json` の `devDependencies` に置き、ビルドで `public/assets/` に同梱する。ライセンスは、ビルドが `public/THIRD-PARTY-LICENSES.txt` に出す（手で書かない）。ルートの `package.json` に `dependencies` はない。`public/` は約 5.6MB（Mermaid の図の種類ごとの chunk が大半。必要になるまで読まない）。
+- **画面の依存**（react・vite・tailwind・lucide-react〔アイコン。ISC〕・tanstack・zustand・dompurify・mermaid・marked ほか）は、`app/package.json` の `devDependencies` に置き、ビルドで `public/assets/` に同梱する。ライセンスは、ビルドが `public/THIRD-PARTY-LICENSES.txt` に出す（手で書かない）。ルートの `package.json` に `dependencies` はない。`public/` は約 5.6MB（Mermaid の図の種類ごとの chunk が大半。必要になるまで読まない）。
 
 | コマンド（ルートで） | 内容 |
 |---|---|
@@ -133,7 +133,7 @@ pnpm run test:e2e   # 実際の Chrome（Playwright。先に pnpm run build。�
 
 ### e2e（実際の Chrome）
 
-`pnpm run test:e2e`（ルートで。Playwright。`app/e2e/` の 9 ファイル 83 件：`shell`・`loop`・`select`・`region`・`panel`・`ask`・`versions`・`formats`・`security`）。**実際の Chrome**（headless）で、画面を、本物のマウス・キーで操作する。ブラウザは、ダウンロードしない。
+`pnpm run test:e2e`（ルートで。Playwright。`app/e2e/` の 10 ファイル 100 件：`shell`・`loop`・`select`・`region`・`panel`・`ask`・`versions`・`formats`・`security`・`links`）。**実際の Chrome**（headless）で、画面を、本物のマウス・キーで操作する。ブラウザは、ダウンロードしない。
 
 - 環境変数：`RIKAI_CHROME`（Chrome の実行ファイル。なければ、`app/e2e/env.ts` の既定の場所。どちらにもなければ、skip）・`RIKAI_CLI`（試す `rikai.js`。既定は、`skills/rikai/rikai.js`。画面は、その隣の `public/` から配られる。**先に `pnpm run build`**）。
 - 1 つのテストにつき、使い捨てのプロジェクトを `os.tmpdir()` に作り、サーバーを起こす。終わりに stop して消す（利用者の `.rikai/` には触れない）。順番に（workers 1）流す。各テストは、127.0.0.1 以外への通信が 0 件であることも確かめる。

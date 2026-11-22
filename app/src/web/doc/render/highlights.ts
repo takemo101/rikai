@@ -97,7 +97,7 @@ export function applyHighlights(art: HTMLElement, threads: readonly Thread[], ve
   return { blocks, locs, nums, approx };
 }
 
-/** 入力中の対象の強調（オレンジ）を、外す */
+/** 入力中の対象の強調（アクセントの破線）を、外す */
 export function clearPending(art: HTMLElement): void {
   for (const m of $$('mark.hl.pending', art)) m.replaceWith(...m.childNodes);
   for (const e of $$('.blk-pending', art)) e.classList.remove('blk-pending');
@@ -105,7 +105,7 @@ export function clearPending(art: HTMLElement): void {
 }
 
 /**
- * 入力中のコメントの対象を、本文で強調する（まだ送っていない。オレンジ）。入力欄を開いている間だけ。
+ * 入力中のコメントの対象を、本文で強調する（まだ送っていない。アクセントの破線）。入力欄を開いている間だけ。
  * 強調した要素（文は、最初の mark・ブロックは、そのブロック）を返す。なければ null。
  * @param prevPending 前に強調していた要素（何もなければ、本文に触らない）
  */

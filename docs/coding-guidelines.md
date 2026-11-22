@@ -47,7 +47,8 @@
 - 属性値に**任意の文字列**を入れない（DOMPurify が、属性ごと消すことがある。Mermaid のソースは、URI エンコードして属性に持つ）。
 - 入力中の下書きは、`store/ui.ts` の `drafts` に持ち、描き直しで消さない。カードは、キーで同じ DOM を使い回し、入力欄のフォーカス・選択範囲を壊さない。
 - 位置・大きさの測定が要る処理（番号の層）は、**測定（`place.ts`）と、計算（`layout.ts`。純粋）を分ける**。計算だけを、jsdom で試す。
-- 見た目は、`styles/legacy.css`（旧と同じクラス名）と、Tailwind v4（theme と utilities だけ。preflight は入れない。utilities は `tw:` の接頭辞つき：`tw:flex` のように書く。接頭辞がないと、AI が書いた HTML の class に効いてしまう）。Tailwind のクラスを足すときは、`legacy.css` の見た目を崩さない（preflight を足さない）。
+- 見た目は、`styles/app.css`（先頭の `:root` のトークン〔色・角丸・影・文字〕を使う。ベージュ・黄色・オレンジ・紫を、装飾に使わない：アクセントは青 1 色。状態の色は、文字・アイコンだけ）と、Tailwind v4（theme と utilities だけ。preflight は入れない。utilities は `tw:` の接頭辞つき：`tw:flex` のように書く。接頭辞がないと、AI が書いた HTML の class に効いてしまう）。Tailwind のクラスを足すときは、`app.css` の見た目を崩さない（preflight を足さない）。
+- アイコンは、`lucide-react` のコンポーネントを、直接 import して使う（ラッパーを作らない）。`aria-hidden="true"`・`focusable="false"` を付け、大きさ・線の太さは CSS（`svg.lucide`）で決める。**アイコンだけのボタンは、`aria-label`（名前）と `title`（ツールチップ）を付ける**。
 
 ## サーバー
 

@@ -25,13 +25,13 @@ test('seen：壊れていたら、空（配列でない・文字列でない要�
 
 test('ui：既定・保存・読み戻し・壊れていたら既定', () => {
   expect(loadUi()).toEqual(DEFAULT_UI);
-  expect(DEFAULT_UI).toEqual({ sideOpen: true, panelW: 380 });
-  saveUi({ sideOpen: false, panelW: 450 });
-  expect(loadUi()).toEqual({ sideOpen: false, panelW: 450 });
+  expect(DEFAULT_UI).toEqual({ sideOpen: true, panelW: 380, links: true });
+  saveUi({ sideOpen: false, panelW: 450, links: true });
+  expect(loadUi()).toEqual({ sideOpen: false, panelW: 450, links: true });
   localStorage.setItem(UI_KEY, 'not json');
   expect(loadUi()).toEqual(DEFAULT_UI);
   localStorage.setItem(UI_KEY, JSON.stringify({ sideOpen: 'yes', panelW: 'abc' }));
   expect(loadUi()).toEqual(DEFAULT_UI);
   localStorage.setItem(UI_KEY, JSON.stringify({ panelW: '420' }));
-  expect(loadUi()).toEqual({ sideOpen: true, panelW: 420 });
+  expect(loadUi()).toEqual({ sideOpen: true, panelW: 420, links: true });
 });

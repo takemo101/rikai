@@ -77,7 +77,7 @@ function build(input: PlaceInput): HTMLElement[] {
   const ar = article.getBoundingClientRect();
   const left = badgeLeft(ar, dr, ds.scrollLeft);
 
-  // 画像・図の中の範囲（その要素の大きさに対する比率で、位置を決める）。本文の順。入力中のものは、オレンジ
+  // 画像・図の中の範囲（その要素の大きさに対する比率で、位置を決める）。本文の順。入力中のものは、破線
   const ordered = [...model.nums.entries()].sort((a, b) => a[1] - b[1]);
   const regions: Region[] = [];
   for (const [tid] of ordered) {
@@ -113,7 +113,7 @@ function build(input: PlaceInput): HTMLElement[] {
     }
   }
   if (pendingEl?.isConnected) {
-    // 入力中の対象も、同じ印（オレンジ。「新」）
+    // 入力中の対象も、同じ印（濃いアクセント。「新」）
     const top = regionTop.get('pending') ?? pendingEl.getClientRects()[0]?.top;
     if (top !== undefined) items.push({ top, tid: 'pending', n: '新', pending: true });
   }

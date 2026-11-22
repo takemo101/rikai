@@ -1,4 +1,5 @@
 // 本文の上のバー（`#docbar`）：パンくず・版の選択・「前の版からの変更を表示」・変更の数・凡例・「過去の版」の警告。
+import { ArrowRight, ChevronRight, Clock, History } from 'lucide-react';
 import { Fragment } from 'react';
 import { hrefOf, navigate } from '../lib/route';
 import type { View } from '../lib/view';
@@ -21,7 +22,11 @@ export function DocBar({ view }: { view: View | null }) {
       <nav className="crumbs">
         {crumbs.map((id, i) => (
           <Fragment key={id}>
-            {i ? <span className="sep">›</span> : null}
+            {i ? (
+              <span className="sep">
+                <ChevronRight aria-hidden="true" focusable="false" />
+              </span>
+            ) : null}
             {id === page ? (
               <span className="here">{pages[id]?.title}</span>
             ) : (
@@ -33,21 +38,24 @@ export function DocBar({ view }: { view: View | null }) {
       <div className="spacer" />
       {latest > 1 ? (
         <>
-          <select
-            title="版"
-            value={version}
-            onChange={(e) => {
-              const v = Number(e.target.value);
-              navigate(slug, page, v === latest ? null : v);
-            }}
-          >
-            {Array.from({ length: latest }, (_, k) => latest - k).map((i) => (
-              <option key={i} value={i}>
-                v{i}
-                {i === latest ? '（最新）' : ''}
-              </option>
-            ))}
-          </select>
+          <span className="verpick">
+            <History aria-hidden="true" focusable="false" />
+            <select
+              title="版"
+              value={version}
+              onChange={(e) => {
+                const v = Number(e.target.value);
+                navigate(slug, page, v === latest ? null : v);
+              }}
+            >
+              {Array.from({ length: latest }, (_, k) => latest - k).map((i) => (
+                <option key={i} value={i}>
+                  v{i}
+                  {i === latest ? '（最新）' : ''}
+                </option>
+              ))}
+            </select>
+          </span>
           {version > 1 ? (
             <>
               <label className="chk">
@@ -76,9 +84,13 @@ export function DocBar({ view }: { view: View | null }) {
       ) : null}
       {!view.isLatest ? (
         <>
-          <span className="chip warn">過去の版 v{version} を表示中（コメントは最新版にだけ付けられます）</span>
+          <span className="chip warn">
+            <Clock aria-hidden="true" focusable="false" />
+            過去の版 v{version} を表示中（コメントは最新版にだけ付けられます）
+          </span>
           <a className="btnlink" href={hrefOf(slug, page)}>
             最新版へ
+            <ArrowRight aria-hidden="true" focusable="false" />
           </a>
         </>
       ) : null}

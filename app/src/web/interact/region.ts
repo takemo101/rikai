@@ -70,7 +70,7 @@ export function finishRegion(vr: ViewportRect, deps: RegionDeps): void {
   // 画像・図の外へ出る範囲は、画像の一部ではない
   const label =
     inside && media ? `${regionLabel(blk, media)}の一部` : `範囲：${trunc(text, 30) || blk.tagName.toLowerCase()}`;
-  // 画像にする作業は、入力欄を開く前に始める（入力中のオレンジの強調が、画像に写らないように。スタイルを写す所までは、同期で終わる）
+  // 画像にする作業は、入力欄を開く前に始める（入力中の強調が、画像に写らないように。スタイルを写す所までは、同期で終わる）
   const raster = deps.raster ?? rasterRegion;
   const crop = deps.crop ?? cropMedia;
   const job = inside && media ? crop(media, rect) : raster(vr, article);
@@ -81,7 +81,7 @@ export function finishRegion(vr: ViewportRect, deps: RegionDeps): void {
   }
   // 画像にする（写真は 2 秒ほど、長い範囲はそれ以上かかる）間も、「アップロード中」にして、その間の送信を断る（画像が、送られずに消えないように）
   const ui = useUi.getState();
-  ui.beginUpload();
+  ui.beginUpload('composer');
   job
     .then(async (file) => {
       // 画像にしている間に、入力欄をやめた・別の対象へ移ったなら、付けない
@@ -96,7 +96,7 @@ export function finishRegion(vr: ViewportRect, deps: RegionDeps): void {
         true,
       ),
     )
-    .finally(() => useUi.getState().endUpload());
+    .finally(() => useUi.getState().endUpload('composer'));
 }
 
 /** 切り出した画像を、入力欄（composerId）に付ける。付ける直前に、まだ同じ入力欄・同じトピックかを確かめる */
@@ -238,7 +238,7 @@ export async function rasterRegion(vr: ViewportRect, art: HTMLElement): Promise<
     throw new UserError(
       '範囲に重なるブロック（表・リストなど）が大きすぎて、画像にできません（要素の合計が 3000 を超えています）。位置だけで、コメントできます',
     );
-  // 入力中の強調（オレンジ）は、画像に写さない：スタイルを写す間だけ、外す（同期のうちに戻す）
+  // 入力中の強調（アクセントの破線）は、画像に写さない：スタイルを写す間だけ、外す（同期のうちに戻す）
   const pend = [...art.querySelectorAll('.pending, .blk-pending')].map(
     (e) => [e, ['pending', 'blk-pending'].filter((c) => e.classList.contains(c))] as const,
   );

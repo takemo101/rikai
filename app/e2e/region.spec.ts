@@ -98,7 +98,7 @@ test.describe('範囲を選ぶ', () => {
     await expect(u.toast).toContainText('範囲が小さすぎます');
   });
 
-  test('画像の一部をドラッグ → 入力欄・オレンジの枠・切り出しの画像が付く → 追加 → pull に region と画像が届く（F25・F22・F24）', async ({
+  test('画像の一部をドラッグ → 入力欄・アクセントの破線の枠・切り出しの画像が付く → 追加 → pull に region と画像が届く（F25・F22・F24）', async ({
     page,
     app,
   }) => {
@@ -125,7 +125,7 @@ test.describe('範囲を選ぶ', () => {
     expect(b2).toBeGreaterThan(r2 + 80);
     expect(b1).toBeLessThan(120);
     expect(g2).toBeLessThan(120);
-    // 入力中の枠（オレンジ）と、左の余白の丸「新」。枠は、ブロック全体のオレンジの破線を重ねない
+    // 入力中の枠（アクセントの破線）と、左の余白の丸「新」。枠は、ブロック全体の破線を重ねない
     const rb = u.badges.locator('.regionbox.pending');
     await expect(rb).toBeVisible();
     const rbb = await box(rb);

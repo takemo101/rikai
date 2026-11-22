@@ -3,6 +3,7 @@
 // 描き直しても、入力欄のフォーカス・選択範囲・パネルのスクロールは、そのまま：カードは、キーで、同じ DOM を使い回す（旧は、毎回、作り直して、戻していた）。
 // 入力欄が、並びの中で動いても、React が、フォーカスと選択範囲を、戻す。スクロールの位置は、ここ（useKeepScroll）が、戻す。
 
+import { ArrowLeft, ChevronRight, Spline } from 'lucide-react';
 import {
   type MouseEvent,
   memo,
@@ -171,6 +172,7 @@ const Threads = memo(function Threads({ view, panelRef }: { view: View; panelRef
   const setTab = useUi((s) => s.setTab);
   const closeSolo = useUi((s) => s.closeSolo);
   const editing = useUi((s) => s.editing);
+  const links = useUi((s) => s.ui.links);
   // 見たものの一覧は、ここで読む（購読しない）：見たことになっても、パネルは、描き直さない。描き直すときの値を、カードに渡す
   const seen = useUi.getState().seen;
 
@@ -192,6 +194,17 @@ const Threads = memo(function Threads({ view, panelRef }: { view: View; panelRef
   const top: ReactNode[] = [
     <div className="side-h panel-h" key="h">
       コメント
+      <button
+        id="links-toggle"
+        type="button"
+        className="iconbtn"
+        title="関連の線：コメントと、本文の対象を、線で結ぶ"
+        aria-label="関連の線を出す"
+        aria-pressed={links}
+        onClick={() => useUi.getState().toggleLinks()}
+      >
+        <Spline aria-hidden="true" focusable="false" />
+      </button>
     </div>,
   ];
   const body: ReactNode[] = [];
@@ -202,7 +215,8 @@ const Threads = memo(function Threads({ view, panelRef }: { view: View; panelRef
     top.push(
       <div className="solobar" key="solo">
         <button type="button" className="link" onClick={closeSolo}>
-          ← すべてのコメントに戻る
+          <ArrowLeft aria-hidden="true" focusable="false" />
+          すべてのコメントに戻る
         </button>
         <span className="hint">{n !== undefined ? `${n} 番のコメントだけを表示中` : 'このコメントだけを表示中'}</span>
       </div>,
@@ -327,6 +341,7 @@ function DoneRow({ thread: t, num }: { thread: Thread; num: number | undefined }
       {num !== undefined ? <span className="no resolved">{String(num)}</span> : null}
       <span className="dr-q">{trunc(quoteOf(t), 30)}</span>
       <span className="dr-last">{lastSpeech(t)}</span>
+      <ChevronRight aria-hidden="true" focusable="false" />
     </button>
   );
 }

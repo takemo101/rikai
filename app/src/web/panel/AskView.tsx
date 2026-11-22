@@ -1,6 +1,7 @@
 // AI の質問（ask）と、その回答の入力。5 つの型（単一選択・複数選択・Yes/No・目盛り・自由記述）・下書き・保存・取り消し・送信済みの固定。
 // F30：答えないまま会話が進んだ質問は、小さく見せる（質問の文と「答えずに、会話が進みました」・「答える」）。
 // 回答の下書きは、ストア（`drafts.ask[質問のメッセージ ID]`）。キーがなければ、保存した回答から作る（描くとき、書き込まない）。
+import { CircleCheck, MessageCircleQuestionMark, Save, Undo2 } from 'lucide-react';
 import { type ReactNode, useRef } from 'react';
 import type { Ask, Message, Thread } from '../../shared/types';
 import { useMutations } from '../api/mutations';
@@ -35,7 +36,10 @@ export function AskView({ slug, thread, q }: Props) {
   if (askStale(thread, q) && !opened) {
     return (
       <div className="ask stale">
-        <div className="ask-q">{ask.question}</div>
+        <div className="ask-q">
+          <MessageCircleQuestionMark aria-hidden="true" focusable="false" />
+          {ask.question}
+        </div>
         <div className="ask-foot">
           <span className="chip small">答えずに、会話が進みました</span>
           <button type="button" className="link" onClick={() => openAsk(q.id)}>
@@ -113,22 +117,24 @@ export function AskView({ slug, thread, q }: Props) {
   } else if (ask.type === 'yes_no') {
     input = (
       <div className="yn">
-        {(
-          [
-            [true, 'はい'],
-            [false, 'いいえ'],
-          ] as const
-        ).map(([val, label]) => (
-          <button
-            type="button"
-            className={`pill${d.value === val ? ' on' : ''}`}
-            disabled={locked}
-            key={label}
-            onClick={() => setDraft(q.id, { ...d, value: val })}
-          >
-            {label}
-          </button>
-        ))}
+        <div className="seg">
+          {(
+            [
+              [true, 'はい'],
+              [false, 'いいえ'],
+            ] as const
+          ).map(([val, label]) => (
+            <button
+              type="button"
+              className={`pill${d.value === val ? ' on' : ''}`}
+              disabled={locked}
+              key={label}
+              onClick={() => setDraft(q.id, { ...d, value: val })}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
       </div>
     );
   } else if (ask.type === 'scale') {
@@ -137,17 +143,19 @@ export function AskView({ slug, thread, q }: Props) {
     input = (
       <div className="scale">
         {ask.minLabel ? <span className="sl">{ask.minLabel}</span> : null}
-        {steps.map((i) => (
-          <button
-            type="button"
-            className={`pill${d.value === i ? ' on' : ''}`}
-            disabled={locked}
-            key={i}
-            onClick={() => setDraft(q.id, { ...d, value: i })}
-          >
-            {i}
-          </button>
-        ))}
+        <div className="seg">
+          {steps.map((i) => (
+            <button
+              type="button"
+              className={`pill${d.value === i ? ' on' : ''}`}
+              disabled={locked}
+              key={i}
+              onClick={() => setDraft(q.id, { ...d, value: i })}
+            >
+              {i}
+            </button>
+          ))}
+        </div>
         {ask.maxLabel ? <span className="sl">{ask.maxLabel}</span> : null}
       </div>
     );
@@ -167,13 +175,20 @@ export function AskView({ slug, thread, q }: Props) {
 
   let foot: ReactNode = null;
   if (locked) {
-    if (saved) foot = <span className="chip ok">{saved.sent ? '回答を送信済み' : '回答済み'}</span>;
+    if (saved)
+      foot = (
+        <span className="chip ok">
+          <CircleCheck aria-hidden="true" focusable="false" />
+          {saved.sent ? '回答を送信済み' : '回答済み'}
+        </span>
+      );
   } else {
     const valid = askDraftValid(ask, draft);
     const same = !!saved && JSON.stringify(saved.answer) === JSON.stringify(draft);
     foot = (
       <>
         <button type="button" className="primary small" disabled={!valid || same} onClick={() => send(draft)}>
+          {same ? <CircleCheck aria-hidden="true" focusable="false" /> : <Save aria-hidden="true" focusable="false" />}
           {same ? '保存済み（未送信）' : '回答を保存'}
         </button>
         {saved ? (
@@ -185,6 +200,7 @@ export function AskView({ slug, thread, q }: Props) {
               send(null);
             }}
           >
+            <Undo2 aria-hidden="true" focusable="false" />
             取り消す
           </button>
         ) : null}
@@ -194,7 +210,10 @@ export function AskView({ slug, thread, q }: Props) {
 
   return (
     <div className="ask">
-      <div className="ask-q">{ask.question}</div>
+      <div className="ask-q">
+        <MessageCircleQuestionMark aria-hidden="true" focusable="false" />
+        {ask.question}
+      </div>
       {input}
       <div className="ask-foot">{foot}</div>
     </div>
