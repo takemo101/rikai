@@ -12,7 +12,7 @@ const {
 } = require('./store.js');
 const { actions } = require('./actions.js');
 const { IMG_MAX } = require('./image.js');
-const { appsOf, APP_MAX } = require('./htmlapp.js');
+const { appsOfAsync, APP_MAX, DOC_MAX } = require('./htmlapp.js');
 
 const PUBLIC = path.join(__dirname, '..', 'public');
 const MAX_BODY = 2 * 1024 * 1024;
@@ -88,16 +88,44 @@ function serveFile(res, file, extra = {}) {
   fs.createReadStream(file).pipe(res);
 }
 
-const INDEX_CSP = "default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self'; connect-src 'self'; frame-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'";
+// 画面の CSP。枠（html-app）は、この画面のサーバーの `/appframe/` のものだけ、入れられる（同じオリジンの、ほかの URL〔/api・/asset など〕は、入れられない）。host は、検査済み（127.0.0.1:PORT か localhost:PORT）
+const indexCsp = (host) => `default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self'; connect-src 'self'; frame-src http://${host}/appframe/; object-src 'none'; base-uri 'none'; form-action 'none'`;
 
-// 実行できる枠（html-app）：AI が書いた JavaScript を、**隔離して**動かす。画面（INDEX_CSP）とは、別の文書として配る。
+// 実行できる枠（html-app）：AI が書いた JavaScript を、**隔離して**動かす。画面（indexCsp）とは、別の文書として配る。
 // - `sandbox allow-scripts`（allow-same-origin なし）：オリジンのない文書になり、画面の DOM・Cookie・合言葉・localStorage に、触れない。
 //   ポップアップ・上の画面の移動・フォームの送信・ダウンロード・ポインタのロックも、できない（枠の iframe 属性にも、同じ sandbox を付ける）
 // - `default-src 'none'`・`connect-src 'none'`：外への通信（fetch・XHR・WebSocket・画像・フォント・外のスクリプト）を、すべて止める。
 //   読めるのは、文書の中のものだけ（インラインのスクリプト・スタイル・data: の画像・フォント）。eval は、使えない
-// - `frame-src 'none'`・`object-src 'none'`・`base-uri 'none'`・`form-action 'none'`
-// 止められないもの（既知の限界）：WebRTC・DNS の先読み。枠の中には、画面の秘密は渡らない（上のとおり、触れない）
-const APP_CSP = "sandbox allow-scripts; default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data:; font-src data:; media-src 'none'; connect-src 'none'; frame-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'";
+// - `frame-src 'none'`・`object-src 'none'`・`base-uri 'none'`・`form-action 'none'`・`frame-ancestors 'self'`（この画面の枠としてだけ、入れられる）
+// - `X-DNS-Prefetch-Control: off`：DNS の先読みを止める（枠の中の `<link rel=dns-prefetch>` など）
+// 止められないもの（既知の限界）：WebRTC・（DNS の先読みの、一部）。枠の中には、画面の秘密は渡らない（上のとおり、触れない）。枠の中で、利用者が入力した文字は、外へ出せるかもしれない（枠の見出しで、秘密を入れないよう伝える）
+const APP_CSP = "sandbox allow-scripts; default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data:; font-src data:; media-src 'none'; connect-src 'none'; frame-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'self'";
+
+// 枠の中身の取り出し：資料の字句解析は、別のスレッドで、時間を切って行う（AI が書いた資料は、非信頼。入れ子の箇条書きなどで、解析が、とても遅くなりうる）。
+// 結果は、版ごとに覚える（版は変わらない。ファイルの更新時刻・大きさが変わったら、捨てる）。大きな結果は、覚えない
+const APP_CACHE = new Map(); // `${トピック}/${ページ}/${版}` → { mtimeMs, size, apps }
+async function appsOfPage(slug, page, v) {
+  const file = pageFile(slug, page, v);
+  const st = fs.statSync(file);
+  if (st.size > DOC_MAX) throw new HttpError(413, '資料が大きすぎて、枠を取り出せません');
+  const key = `${slug}/${page}/${v}`;
+  const hit = APP_CACHE.get(key);
+  if (hit && hit.mtimeMs === st.mtimeMs && hit.size === st.size) return hit.apps;
+  let apps;
+  try { apps = await appsOfAsync(fs.readFileSync(file, 'utf8')); } catch (e) {
+    throw new HttpError(422, e && e.reason === 'timeout' ? '資料が複雑すぎて、枠を取り出せません（時間切れ）' : '資料が複雑すぎて、枠を取り出せません');
+  }
+  if (apps.reduce((n, a) => n + a.length, 0) <= 1024 * 1024) {
+    if (APP_CACHE.size >= 32) APP_CACHE.delete(APP_CACHE.keys().next().value);
+    APP_CACHE.set(key, { mtimeMs: st.mtimeMs, size: st.size, apps });
+  }
+  return apps;
+}
+
+// 枠の文書の、先頭に置く（AI の中身より前）：WebRTC を、使えなくする。CSP では、WebRTC の通信（STUN・TURN）を止められないため（実測：待ち受けに、UDP が届いた）。
+// 枠の中には、iframe・ワーカー・ポップアップを作る道が、ない（frame-src・worker-src・sandbox）ので、別の窓から、元の RTCPeerConnection を取り出すことは、できない。
+// 変更できない（configurable: false）値にする。多重の防御：CSP の代わりではなく、それを補う
+const APP_PRELUDE = '<!doctype html>\n<meta charset="utf-8">\n<script>for (const n of ["RTCPeerConnection", "webkitRTCPeerConnection", "RTCDataChannel", "RTCSessionDescription", "RTCIceCandidate"]) { try { Object.defineProperty(window, n, { value: undefined, writable: false, configurable: false }); } catch (e) {} }</script>\n';
 
 async function handler(req, res) {
   const url = new URL(req.url, 'http://localhost');
@@ -112,7 +140,7 @@ async function handler(req, res) {
         return send(res, 302, '', { Location: '/', 'Set-Cookie': `${cookieName()}=${TOKEN}; HttpOnly; SameSite=Strict; Path=/` });
       }
       if (!tokenOk(parseCookies(req)[cookieName()])) return send(res, 403, 'rikai の URL から開き直してください（合言葉が必要です）');
-      return serveFile(res, path.join(PUBLIC, 'index.html'), { 'Content-Security-Policy': INDEX_CSP });
+      return serveFile(res, path.join(PUBLIC, 'index.html'), { 'Content-Security-Policy': indexCsp(host) });
     }
 
     if (req.method === 'GET' && (p === '/app.js' || p === '/anchor.js' || p === '/diff.js' || p === '/progress.js' || p === '/fmt.js' || p === '/style.css' || p === '/favicon.svg' || p.startsWith('/vendor/'))) {
@@ -149,14 +177,15 @@ async function handler(req, res) {
       const meta = loadMeta(slug);
       const pg = Object.prototype.hasOwnProperty.call(meta.pages, page) ? meta.pages[page] : null;
       if (!pg || v < 1 || v > pg.versions) return send(res, 404, 'not found');
-      const app = appsOf(fs.readFileSync(pageFile(slug, page, v), 'utf8'))[n];
+      const apps = await appsOfPage(slug, page, v);
+      const app = apps[n];
       if (app === undefined) return send(res, 404, 'not found');
       if (app.length > APP_MAX) return send(res, 413, '枠の中身が大きすぎます');
       res.writeHead(200, {
         'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff',
-        'Referrer-Policy': 'no-referrer', 'Content-Security-Policy': APP_CSP,
+        'Referrer-Policy': 'no-referrer', 'X-DNS-Prefetch-Control': 'off', 'Content-Security-Policy': APP_CSP,
       });
-      return res.end(`<!doctype html>\n<meta charset="utf-8">\n${app}`);
+      return res.end(`${APP_PRELUDE}${app}`);
     }
 
     if (p.startsWith('/api/')) {

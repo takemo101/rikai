@@ -95,7 +95,7 @@
           const n = appCtx.n++;
           const m = /\bheight=(\d{2,4})\b/.exec(lang || '');
           const ht = m ? Math.min(1200, Math.max(120, Number(m[1]))) : 360;
-          return `<div class="htmlapp" data-n="${n}" data-h="${ht}"><div class="cap">実行できる枠 ${n + 1}（隔離されています。外へは通信しません）</div></div>`;
+          return `<div class="htmlapp" data-n="${n}" data-h="${ht}" data-src="${encSrc(text)}"><div class="cap">実行できる枠 ${n + 1}（隔離されています。パスワードなどの秘密は、入力しないでください）</div></div>`;
         }
         // diff・json・terminal（ANSI）・trace：決まった形の HTML にする（文字は escape 済み。読めないものは、ふつうのコードブロック）
         const fmt = window.RikaiFmt ? window.RikaiFmt.render(kind, text) : null; // fmt.js が読めないとき（古いサーバー）は、ふつうのコードブロック
@@ -154,6 +154,10 @@
         class: 'appframe', title: `実行できる枠 ${n + 1}`, loading: 'lazy', referrerpolicy: 'no-referrer', sandbox: 'allow-scripts', allow: '',
         src: `/appframe/${encodeURIComponent(S.slug)}/${encodeURIComponent(S.page)}/${curVersion()}/${n}`, height: String(ht),
       }));
+      // 何が動くかを、見られるように（ソースは、文字として出す）。版が変わったときに、何が変わったか、確かめられる
+      let source = '';
+      try { source = decodeURIComponent(box.dataset.src || ''); } catch (_) { /* 読めないものは、出さない */ }
+      if (source) box.append(h('details', { class: 'appsrc' }, h('summary', { text: 'ソースを見る' }), h('pre', { text: source })));
     }
   }
 

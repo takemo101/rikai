@@ -130,7 +130,8 @@ flowchart TB
 | 資料の描画 | DOMPurify（`PURIFY`：HTML＋SVG の許可、`style`・`script`・`iframe`・フォーム部品・`on*` などを除く。URI は `https?`・`mailto`・`page:` だけ）→ リンク（`page:` は内部の遷移、`http(s)` は別タブ・`noopener`）→ 画像（`data:image/` と `assets/` の相対パスだけ。外部 URL は置き換え） | `mdToFragment` |
 | 図 | Mermaid `securityLevel: 'strict'`。図のソースは、属性に **URI エンコードして**持つ（DOMPurify は、`-->` を含む属性値を、属性ごと消す） | `marked.use` の `code`・`fillMermaid` |
 | 人間の文 | コメント・返信・編集の文は、`textContent`（HTML にしない） | `renderMessage` |
-| 画面の保護 | `Content-Security-Policy`（`script-src 'self'`・`connect-src 'self'`・`frame-src 'none'`…）。`/asset/` は `sandbox` | `INDEX_CSP`・`handler` |
+| 画面の保護 | `Content-Security-Policy`（`script-src 'self'`・`connect-src 'self'`・`frame-src http://<host>/appframe/`…。枠〔`html-app`〕は、`/appframe/` のものだけ）。`/asset/` は `sandbox` | `indexCsp`・`handler` |
+| 実行できる枠（`html-app`） | **隔離**：iframe は `sandbox="allow-scripts"`（`allow-same-origin` なし）・`allow=""`。枠の文書は、別の応答（`/appframe/<topic>/<page>/<版>/<n>`）で、`APP_CSP`（`sandbox allow-scripts; default-src 'none'; connect-src 'none'; frame-ancestors 'self'` ほか）・`X-DNS-Prefetch-Control: off`・`nosniff`・`no-store`。**中身は、サーバーが資料から取り出す**（`appsOfAsync`：別のスレッドで、3 秒で切る。資料は 4MB まで。枠の中身は 200KB まで）。合言葉・`Host`・`Origin` の検査は、`/api` と同じ（`denyReason`） | `APP_CSP`・`appsOfPage`・`lib/htmlapp.js`・`fillApps` |
 
 ## コメントの位置づけ
 
