@@ -689,6 +689,21 @@
 
 **確認していない範囲**：**直した分の、独立した再レビュー**。実際の pi・omp・codex・agy・Claude Code への、GitHub からの導入（切り替え〔RIK-037〕のあとに、確かめる）。`pnpm install --frozen-lockfile` は、レビューで確認（警告なし）。依存のライセンスは、確かめた記録がない（hono・zod は、まだ使っていない）。
 
+### サーバーと CLI を Hono・TypeScript に移した（2026-11-22。RIK-035。SPEC §8 の「Hono・React」。版 0.14.0）
+
+**内容**：旧 `skills/rikai/lib/*.js`・`rikai.js` を、`app/src/{shared,server,cli}/`（TypeScript strict。`Store`・`createApp`・`createActions` に、状態を引数で渡す DI）へ移し、`pnpm run build`（esbuild）で、依存を含む 1 ファイルの `skills/rikai/rikai.js`（約 1MB）・worker・ライセンス表にバンドルして、コミットした。旧 `lib/` と、移した旧テストは削除。画面（旧 UI）は、そのまま、新しいサーバーが配る。**API の形・`.rikai/` の形・CLI の出力・エラーの文言は、変えない**。
+
+**確認**（実際に動かした）：
+- 自動テスト：Vitest 131 件（旧 102 件を移植＋新規 29 件）＋旧 UI の `fmt` の 8 件。`typecheck`・`lint` が通る。ビルド済みが、ソースから作り直したものと同じこと（`build.test.ts`）は、ソースを 1 文字変えると落ちる。
+- **旧と新の突き合わせ**：(1) CLI：サーバーを使わないコマンド 29 ケース（ヘルプ・`status`・`pull`・`poll`・`apply` の各エラーと成功・複数 round・`new` の失敗・`open`・`stop`）と、通し（`new → open → HTTP でコメント・submit → pull → poll → apply → status → end → poll(closed) → stop`）を、旧と新に流し、標準出力・終了コード・`.rikai/` の中身が、一致（ポート・合言葉・パスだけ正規化）。(2) HTTP：旧 `server.js` と新 `app.ts` に、同じ生のソケットの要求 308 件（合言葉・Host・Origin・Cookie の変種・`/asset` と `/appframe` の各種・パスの外へ出す試み・不正な JSON・上限ちょうど・別メソッド）を送り、状態コード・ヘッダー・本文を比べた。違いは下の「旧と違う振る舞い」だけ。(3) コア：`normRect`・`normAnchor`・`normAsk`・`normAnswer`・`decodeImage` に、同じ乱数入力 8 万 5 千件：不一致 0。
+- **変異**（`/tmp` の複製）：コア 39（36 が落ちた。生き残りは、定数を参照するテスト・未実施・テストがなかった `progressOf` の条件〔追加で補強〕）・agent 17（16・残る 1 は no-op）・CLI 8（6）・サーバー 47（44。残る 3 は、到達しない冗長な防御）。
+- **実際のブラウザ**（headless Chrome・使い捨てのプロジェクト）：バンドルした CLI で `new → open --no-open`、旧 UI が、新しいサーバーから、読み込まれ、本文のブロック・Mermaid の図・diff の形式・`html-app` の枠（中のスクリプトが動く）が描かれ、範囲を選んでコメントを足し、スレッドが 1 つできて Submit が有効になる。コンソールのエラー 0・4xx/5xx の応答 0・画面の CSP が付く。
+- **配布**：`install.sh`（一時の場所）の複製（6.7MB）で、`node rikai.js` が動く。`pi` の git 導入と同じ `npm install --omit=dev`（ルート）が、オフラインで 0.2 秒。
+
+**旧と違う振る舞い**（意図したもの）：(1) 合言葉が、同じ文字数で、バイト数だけ違う（例：`é` を 48 個）とき、旧は `timingSafeEqual` が例外を投げて 500、新は 403（旧の不具合）。(2) JSON・文字の応答が、旧は chunked、新は Content-Length つき（ヘッダーの値は一致）。(3) 大きすぎる本文は、旧は接続を切って 413 か切断、新は 413。(4) 旧の `warnedThreads`（壊れた `threads.json` の警告を 1 回だけ出す記録）は、プロセス全体でなく、ストアごと。
+
+**確認していない範囲**：**独立レビュー**（これから）。実際の Claude Code・omp・pi・codex・agy・grok への、GitHub からの導入と、`/rikai` での通し。Safari・Firefox・Linux・Windows。HTTP/2・keep-alive の経路。Node 22 未満（下限を超えるものは、動かさない）。長時間の運用（`rikai serve` の寿命）。
+
 ### 人間の確認待ち
 
 AI は、これらを合格にしない。

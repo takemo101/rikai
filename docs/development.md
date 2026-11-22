@@ -25,22 +25,24 @@
 
 ## 環境
 
-- **使う人**：Node.js 20 以上（SPEC N5。npm のパッケージは要らない。旧実装は、いまも、これだけで動く）。**開発する人**：Node.js **22.12 以上**（Vitest・Vite の要求。20 では、ネイティブの部品が入らず、`pnpm test` が落ちる）と pnpm。作者の環境の確認は 24.15.0（[検証記録](verification.md#環境記録の前提)）。
+- **使う人**：Node.js 22 以上（SPEC N5。npm のパッケージは要らない：配布物は、依存を含めて 1 ファイルにバンドルしてある）。**開発する人**：Node.js **22.12 以上**（Vitest・Vite の要求。20 では、ネイティブの部品が入らず、`pnpm test` が落ちる）と pnpm。作者の環境の確認は 24.15.0（[検証記録](verification.md#環境記録の前提)）。
 - ブラウザ：Chromium 系で確認した。Safari・Firefox は未確認。
 - OS：macOS で確認した。Linux・Windows は未確認。
 - `rsync`（`install.sh` が使う）。
 
 ### 開発の土台（再開発〔Hono・React〕。2026-11-22〜。SPEC §8）
 
-再開発の途中は、**旧実装（`skills/rikai/` の JavaScript）と、新しい TypeScript（`app/src/`）が、並んで存在する**。段階：土台（RIK-034）→ サーバーと CLI（RIK-035）→ フロント（RIK-036）→ 仕上げ（RIK-037）。**切り替えのときに、この節と下の各節を、新しい構成に書き直す**。
+サーバーと CLI は、**TypeScript（`app/src/{server,cli,shared}/`）に移した**（RIK-035）。**画面（`skills/rikai/public/`）は、まだ旧 UI**（素の JavaScript。ビルドしない）。段階：土台（RIK-034）→ サーバーと CLI（RIK-035。済）→ フロント（RIK-036）→ 仕上げ（RIK-037）。**画面を React にする段階で、画面に関わる節を、書き直す**。
 
 - **`app/` が、開発用のワークスペース**（TypeScript のソース・テスト・設定・開発の依存）。**リポジトリのルートの `package.json` には、依存を書かない**：ルートは、プラグインの宣言（pi の `pi.skills`・各エージェントのマニフェスト）で、pi が、git から入れるとき、`npm install --omit=dev` を、ルートで実行する。開発の依存がルートにあると、そのたびに、npm のレジストリへ問い合わせて、オフラインでは失敗する（レビューで、9 秒・`ENOTCACHED` を確認）。
 - 開発の依存は **pnpm**（ルートで `pnpm install`。`pnpm-lock.yaml` をコミット。esbuild のビルドスクリプトは `pnpm-workspace.yaml` の `allowBuilds` で許可）。利用者の環境には、依存を要求しない（バンドルして `skills/rikai/` に同梱：SPEC N5）。
-- 言語は TypeScript（strict）。`app/src/shared/`：サーバー・CLI・画面が共有する、DOM に触れない純粋な関数と型（いまは `anchor.ts`・`diff.ts`）。
+- 言語は TypeScript（strict）。`app/src/shared/`：サーバー・CLI・（これからの）画面が共有する、DOM に触れない純粋な関数と型（`anchor.ts`・`diff.ts`・`progress.ts`・`types.ts`・`api.ts`）。**状態は、モジュールの変数にしない**：`createStore(root)`・`createApp` の引数・`createActions` の `hooks` で、渡す。
+- **配布物は、ビルドして `skills/rikai/` に置き、コミットする**：`pnpm run build` が、`skills/rikai/rikai.js`・`rikai-htmlapp-worker.js`・`THIRD-PARTY-LICENSES.txt` を書き換える。**`app/src/` を変えたら、`pnpm run build` をして、出力もコミットする**（`app/test/build.test.ts` が、ソースから作り直したものと、コミットしたものが同じか確かめる。古いと、`pnpm test` が落ちる）。これらは生成物なので、手で編集しない。
 
 | コマンド（ルートで） | 内容 |
 |---|---|
-| `pnpm test` | Vitest（`app/test/**/*.test.ts`）と、旧実装のテスト（`node --test test/*.test.js`）を、続けて動かす。旧実装のテストは、**旧実装のコードを消すとき**に、Vitest へ移した分と入れ替わる |
+| `pnpm test` | Vitest（`app/test/**/*.test.ts`）と、旧 UI の `test/fmt.test.js`（`node --test test/*.test.js`）を、続けて動かす。`test/` には、`fmt.test.js` だけが残る（ほかの旧テストは、`app/test/` に移した） |
+| `pnpm run build` | `app/scripts/build.ts`：バンドルを、`skills/rikai/` に書く（上のとおり。コミットする） |
 | `pnpm run typecheck` | `tsc --noEmit` |
 | `pnpm run lint` | `biome check`（整形・Lint。`pnpm run format` で直す。対象は `app/src/`・`app/test/**/*.ts`・`app/scripts/`・設定ファイル） |
 
@@ -53,7 +55,7 @@
 リポジトリのまま動かせる。**`--root` で、一時のプロジェクトを指す**（実際のプロジェクトの `.rikai/` を、触らない）。
 
 ```bash
-RK="node $PWD/skills/rikai/rikai.js --root /tmp/rk-dev"
+RK="node $PWD/skills/rikai/rikai.js --root /tmp/rk-dev"   # skills/rikai/rikai.js は、ビルドしたバンドル。app/src/ を変えたあとは、先に pnpm run build
 mkdir -p /tmp/rk-dev
 
 $RK new demo --title "試し" <<'MD'
@@ -88,26 +90,29 @@ $RK stop; rm -rf /tmp/rk-dev
 
 ## 検証の入口
 
-変更の確認は、**自動テスト（`npm test`）と、手作業**で行う。結果は [検証手順と記録](verification.md) に、日付と環境つきで残す。
+変更の確認は、**自動テスト（`pnpm test`）と、手作業**で行う。結果は [検証手順と記録](verification.md) に、日付と環境つきで残す。
 
 ```bash
-npm test        # node --test test/*.test.js。追加の依存なし（Node 18 以上）。ブラウザ・実際のエージェントは使わない
+pnpm test        # Vitest（app/test/**/*.test.ts）と、node --test test/*.test.js（fmt だけ）。ブラウザ・実際のエージェントは使わない（Node 22.12 以上）
 ```
 
-| テスト（`test/`） | 試すこと |
+| テスト（`app/test/server/`・`app/test/shared/`・`app/test/build.test.ts`） | 試すこと |
 |---|---|
-| `store.test.js` | トピックの作成と検査・`mutate` が失敗したら何も書かず、ロックを残さないこと・`rev` |
-| `actions.test.js` | 画面からの操作（コメント・返信・編集・削除・解決・Submit）の検査と、Submit の中身 |
-| `ask.test.js` | `ask` と回答の検査（5 つの型）・回答の流れ・送信済みの回答の拒否 |
-| `apply.test.js` | `apply` の検証（誤りを全部返して、何も書かない）・反映・`round` 指定・二重の改訂・未返信の通知 |
-| `poll.test.js` | `peek`（`poll`・`pull` の出力）・`closed`・全トピックが閉じたときの合図 |
-| `anchor.test.js` | `findQuote`・`locateBlock`・`similarity`（コメントの探し直し） |
-| `diff.test.js` | `diffText`（元に戻せること・変更箇所・大きな入力）・`matchBlocks`（同じ・変更・追加・削除・種類の違い・区間の制約・空・重複） |
-| `progress.test.js` | `progressOf`（空・解決・質問・送信済みと未送信の回答・別の質問への回答・AI 起点のスレッド）と、実際の操作の流れでの数 |
-| `plugin.test.js` | プラグインの宣言と配置の食い違い：スキルの場所・名前（ディレクトリ名と一致）・SKILL.md の frontmatter の項目（omp が、余計な項目のあるスキルを読み込まない）・`plugin.json` の項目と、`package.json` との名前・版の一致・各カタログの指す場所・pi の `skills`。各エージェントの検証コマンドは、含めない（手元の CLI に依存するため。上の表） |
-| `server.test.js` | 実際に待ち受けて、合言葉・`Host`・`Origin`・Cookie・CSP・配信のパス・`rikai open` の `.server.json` の権限（0600）・`rikai serve` が、すべてのトピックが閉じたら自分で終わること（子プロセス。`serve` が終了の処理を取りつける経路） |
+| `server/store.test.ts` | トピックの作成と検査・`mutate` が失敗したら何も書かず、ロックを残さないこと・`rev` |
+| `server/actions.test.ts` | 画面からの操作（コメント・返信・編集・削除・解決・Submit）の検査と、Submit の中身 |
+| `server/ask.test.ts` | `ask` と回答の検査（5 つの型）・回答の流れ・送信済みの回答の拒否 |
+| `server/apply.test.ts` | `apply` の検証（誤りを全部返して、何も書かない）・反映・`round` 指定・二重の改訂・未返信の通知 |
+| `server/poll.test.ts` | `peek`（`poll`・`pull` の出力）・`closed`・全トピックが閉じたときの合図 |
+| `shared/anchor.test.ts` | `findQuote`・`locateBlock`・`similarity`（コメントの探し直し） |
+| `shared/diff.test.ts` | `diffText`（元に戻せること・変更箇所・大きな入力）・`matchBlocks`（同じ・変更・追加・削除・種類の違い・区間の制約・空・重複） |
+| `server/progress.test.ts` | `progressOf`（空・解決・質問・送信済みと未送信の回答・別の質問への回答・AI 起点のスレッド）と、実際の操作の流れでの数 |
+| `server/plugin.test.ts` | プラグインの宣言と配置の食い違い：スキルの場所・名前（ディレクトリ名と一致）・SKILL.md の frontmatter の項目（omp が、余計な項目のあるスキルを読み込まない）・`plugin.json` の項目と、`package.json` との名前・版の一致・各カタログの指す場所・pi の `skills`。各エージェントの検証コマンドは、含めない（手元の CLI に依存するため。上の表） |
+| `server/server.test.ts`・`app.test.ts`・`serve.test.ts`・`cli.test.ts` | 合言葉・`Host`・`Origin`・Cookie・CSP・配信のパス（`app.request()`、または実際に待ち受けて）・`rikai open` の `.server.json` の権限（0600）・`rikai serve` が、すべてのトピックが閉じたら自分で終わること（バンドルした CLI を子プロセスで動かす。`serve` が終了の処理を取りつける経路） |
+| `server/attach.test.ts`・`region.test.ts`・`htmlapp.test.ts`・`image.test.ts` | 添付の画像（保存・検査）・範囲（`region`）・`html-app` の取り出しと `/appframe` の応答 |
+| `build.test.ts` | コミットした配布物（`skills/rikai/` のバンドル・worker・ライセンス表）が、ソースから作り直したものと同じこと（古いと落ちる。`pnpm run build`） |
+| `test/fmt.test.js`（旧 UI。`node --test`） | `public/fmt.js` の escape・形式ごとの HTML |
 
-`test/helpers.js` が、一時のプロジェクト（`os.tmpdir()`）と、作り物の資料・コメントを用意する。利用者の `.rikai/` には触れない。**ブラウザの描画（DOMPurify・選択・パネル）は、DOM が要るので、自動テストの対象外**。次の手作業で確かめる。
+`app/test/server/helpers.ts` が、一時のプロジェクト（`os.tmpdir()`）と、作り物の資料・コメントを用意する。利用者の `.rikai/` には触れない。**ブラウザの描画（DOMPurify・選択・パネル）は、DOM が要るので、自動テストの対象外**。次の手作業で確かめる。
 
 | 目的 | 方法 |
 |---|---|
@@ -119,7 +124,7 @@ npm test        # node --test test/*.test.js。追加の依存なし（Node 18 �
 | インストール | `CLAUDE_SKILLS_DIR=/tmp/x bash install.sh`。実際の `~/.claude/skills` へは、依頼があるときだけ |
 | プラグイン | 各エージェントの検証コマンド：`claude plugin validate .`・`grok plugin validate .`・`agy plugin validate .`。入れる確認は、**`HOME=/tmp/x` を付けて**（`~/.claude` などを変えない）：`claude plugin marketplace add <リポジトリ> && claude plugin install rikai@rikai`・`codex plugin marketplace add <リポジトリ> && codex plugin add rikai@rikai`・`grok plugin install <リポジトリ> --trust`・`agy plugin install <リポジトリ>`・`omp plugin marketplace add <リポジトリ> && omp plugin install rikai@rikai`・`pi install <リポジトリ>`。実際のエージェントでの確認は、`claude --plugin-dir`・`omp --plugin-dir`・`pi -e` で、その実行の間だけ読み込ませる |
 
-自動テストを足すときは、`test/<領域>.test.js` に、Node 標準の `node:test` と `node:assert/strict` で書く（依存を増やさない）。**足したテストは、実装を壊して（たとえば、検査を外して）、落ちることを、一度確かめる**。
+自動テストを足すときは、`app/test/server/<領域>.test.ts`（`anchor`・`diff` のような、共有の純粋な関数は `app/test/shared/`）に、Vitest と `node:assert/strict` で書く。**足したテストは、実装を壊して（たとえば、検査を外して）、落ちることを、一度確かめる**。
 
 ## 変更の進め方
 
@@ -130,32 +135,32 @@ npm test        # node --test test/*.test.js。追加の依存なし（Node 18 �
 
 ### コマンドを足す
 
-1. `rikai.js` の `main()` の `switch` に `case` を足す。引数の解釈は `parseArgs`（値を取るオプションは、`flags`。値を取らないものだけ、`no-open`・`force` の並びに足す）。中身が検査や書き込みなら、`lib/` に置く。
+1. `app/src/cli/main.ts` の `main()` の `switch` に `case` を足す。引数の解釈は `app/src/cli/args.ts` の `parseArgs`（値を取るオプションは、そのまま〔`--名前 値`〕。値を取らないものだけ、`no-open`・`force` の並びに足す）。中身が検査や書き込みなら、`app/src/server/` に置く。
 2. `HELP` に 1 行足す。
 3. 規則・検査は、コマンドの関数に置く（`main()` に書かない）。失敗は `HttpError` を投げる（`main()` が `{ok:false,errors}` と終了コード 1 にする）。
 4. `SKILL.md` の手順・`README.md` のコマンド表・`docs/development.md` の表を直す。
 
 ### ask の型を足す
 
-1. `lib/ask.js`：`ASK_TYPES`・`normAsk`（AI の入力の検査）・`normAnswer`（人間の回答の検査）。
+1. `app/src/server/ask.ts`：`ASK_TYPES`・`normAsk`（AI の入力の検査）・`normAnswer`（人間の回答の検査）。型は `app/src/shared/types.ts`（`Ask`・`AskAnswer`）。
 2. `app.js`：`askDraftValid`・`renderAsk`（入力の描画・下書き）。
 3. `SKILL.md` の `ask` の表と、SPEC F10 を直す。
 
 ## データの形を変えるとき
 
-`meta.json` の `schema`（`lib/store.js` の `SCHEMA`。いまは 1）が、データの形の版（SPEC N7）。版は `meta.json` にだけ書く。`threads.json`・`rounds/`・`pages/` の形の変更も、この版を上げて表す。**既存の `.rikai/` を、壊さない**。
+`meta.json` の `schema`（`app/src/server/store.ts` の `SCHEMA`。いまは 1）が、データの形の版（SPEC N7）。版は `meta.json` にだけ書く。`threads.json`・`rounds/`・`pages/` の形の変更も、この版を上げて表す。**既存の `.rikai/` を、壊さない**。
 
 - 形を**足すだけ**（古い形に、新しい項目がなくても読める）なら、版は上げない。読む側が、項目がなくても動くようにする。
 - 形を**変える・消す**（古い形のままでは読めない）ときは、次の順で行う。
   1. `SCHEMA` を 1 つ上げる。
-  2. 古い形を、新しい形へ読み替える移行を足す。`meta.json` の変更は `loadMeta`、`threads.json` の変更は `loadThreads`（**それぞれ、読む場所**。`loadMeta` を通らずに `loadThreads` を呼ぶ経路がある：`topicState`・`peek`・`cmdStatus`）で、版（`meta.json` から読む）を見て、1 つずつ上げる関数にする。**`meta.json` だけを読み替えて、`schema` を新しい版で保存すると、`threads.json` が古い形のまま、新しい版と書かれてしまう**。`mutate` が保存するのは、`meta.json` と `threads.json` だけなので、この 2 つは、同じ `mutate` の中で、まとめて読み替えて保存する。**`rounds/` の各ファイルは、`mutate` では保存されない**（`submit` が作り、`cmdApply` が `handled` にするときだけ書き換える）。`rounds/` の形を変えるときは、`meta.json` の版ではなく、**ファイル自身の形**（項目の有無）で判断して読み替えるか、`mutate` が、全部の round を書き換えるように広げる。移行は、読んだ値を直すだけにして、保存は、次の `mutate` に任せる（読むだけの操作が、ファイルを書き換えない）。
-  3. 古い形のデータを入れた自動テストを足す（`test/store.test.js` の「版のない古い形」を参考に）。
+  2. 古い形を、新しい形へ読み替える移行を足す。`meta.json` の変更は `Store.loadMeta`、`threads.json` の変更は `Store.loadThreads`（**それぞれ、読む場所**。`loadMeta` を通らずに `loadThreads` を呼ぶ経路がある：`topicState`・`peek`・`cmdStatus`）で、版（`meta.json` から読む）を見て、1 つずつ上げる関数にする。**`meta.json` だけを読み替えて、`schema` を新しい版で保存すると、`threads.json` が古い形のまま、新しい版と書かれてしまう**。`mutate` が保存するのは、`meta.json` と `threads.json` だけなので、この 2 つは、同じ `mutate` の中で、まとめて読み替えて保存する。**`rounds/` の各ファイルは、`mutate` では保存されない**（`submit` が作り、`cmdApply` が `handled` にするときだけ書き換える）。`rounds/` の形を変えるときは、`meta.json` の版ではなく、**ファイル自身の形**（項目の有無）で判断して読み替えるか、`mutate` が、全部の round を書き換えるように広げる。移行は、読んだ値を直すだけにして、保存は、次の `mutate` に任せる（読むだけの操作が、ファイルを書き換えない）。
+  3. 古い形のデータを入れた自動テストを足す（`app/test/server/store.test.ts` の「版のない古い形」を参考に）。
   4. SPEC N7・構成説明・この節を更新する。
 - 新しい rikai で作られたトピックを、古い rikai が開くと、409 で断る（何も書き換えない）。古い rikai を使い続ける人は、`rikai` を更新する。
 
-## 同梱ライブラリの更新
+## 同梱ライブラリの更新（旧 UI の `vendor/`）
 
-`skills/rikai/public/vendor/` に、固定した版を置いている（オフラインで動かすため）。そのぶん、脆弱性の修正が自動では入らない。ときどき確かめる。
+`skills/rikai/public/vendor/`（**旧 UI の**ブラウザ側）に、固定した版を置いている（オフラインで動かすため）。そのぶん、脆弱性の修正が自動では入らない。ときどき確かめる。**サーバー側の marked（`html-app` の取り出し）は、これとは別で、npm の版（`app/package.json`）を、バンドルに入れている**（依存の更新は、`pnpm` で行い、`pnpm run build` して、コミットする）。
 
 | ライブラリ | 版（2026-11-21 に取得） | 写すファイル | 置き名 |
 |---|---|---|---|
@@ -216,4 +221,4 @@ npm audit          # 修正のある版を探す
 
 ### 版（プラグインの更新）
 
-**利用者に見える変更（特に `skills/rikai/` の中身）を `main` に入れるときは、`package.json` と `plugin.json` の `version` を、同じ値に上げる**（`test/plugin.test.js` が、食い違いを検出する）。理由：omp・codex・agy は、この版で、入れた複製を管理する。**版を上げないと、更新しても、古い複製のまま**（レビューで、omp と codex で確認）。Claude Code は、`.claude-plugin/` に版がないので、git のコミットで更新される（`.claude-plugin/` に版を足さない：足すと、Claude Code も、上げるまで更新しなくなる）。
+**利用者に見える変更（特に `skills/rikai/` の中身）を `main` に入れるときは、`package.json` と `plugin.json` の `version` を、同じ値に上げる**（`app/test/server/plugin.test.ts` が、食い違いを検出する）。理由：omp・codex・agy は、この版で、入れた複製を管理する。**版を上げないと、更新しても、古い複製のまま**（レビューで、omp と codex で確認）。Claude Code は、`.claude-plugin/` に版がないので、git のコミットで更新される（`.claude-plugin/` に版を足さない：足すと、Claude Code も、上げるまで更新しなくなる）。

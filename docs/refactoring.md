@@ -6,19 +6,19 @@
 
 ## 進め方
 
-1. **範囲を決める**：1 つのファイル、または 1 つの責務（例：`lib/store.js`、`app.js` のコメントの位置づけ）。全体を一度に見ない。
+1. **範囲を決める**：1 つのファイル、または 1 つの責務（例：`app/src/server/store.ts`、旧 UI の `app.js` のコメントの位置づけ）。全体を一度に見ない。
 2. **観察**：下の観点ごとに、コードを**直接読んで**、根拠（ファイルと行）を集める。`grep` の件数・警告は、**見る場所の目印**で、根拠ではない。
 3. **判断**：観点ごとに、「読む人・変える人を助けているか」を言葉で判断する。件数や点数を、目標にしない。
 4. **優先**：影響（波及する範囲・誤りの起きやすさ・安全）が大きく、直しやすいものから。
-5. **直す**：小さな変更ごとに。**動作を変えない**。直す前に、守る振る舞いを確かめる方法があるか見る（`npm test` と、[開発手順](development.md#検証の入口) の手作業の確認〔ブラウザ〕。直す前と直したあとの両方で行い、同じ結果になることを確かめる。自動テストに無い領域〔DOM〕を触るなら、先に、純粋な関数へ分けられないか考える）。**機能の追加・仕様の変更を混ぜない**。
+5. **直す**：小さな変更ごとに。**動作を変えない**。直す前に、守る振る舞いを確かめる方法があるか見る（`pnpm test` と、[開発手順](development.md#検証の入口) の手作業の確認〔ブラウザ〕。直す前と直したあとの両方で行い、同じ結果になることを確かめる。自動テストに無い領域〔DOM〕を触るなら、先に、純粋な関数へ分けられないか考える）。`app/src/` を直したら、`pnpm run build` で配布物を作り直して、コミットする。**機能の追加・仕様の変更を混ぜない**。
 
 ## 観点
 
 | 観点 | 見るもの | 見ないもの |
 |---|---|---|
-| **責務と所有** | データを書く場所が `mutate` に集まっているか。同じ情報を 2 か所で持っていないか（サーバーの正本とブラウザの写し）。`lib/` のモジュールの依存が、層の順（`util` → `store` → `ask` → `actions`・`agent` → `server` → `rikai.js`。後ろだけが、前を `require` する）に沿っているか。逆向き・循環がないか | 意図した窓口 |
+| **責務と所有** | データを書く場所が `mutate` に集まっているか。同じ情報を 2 か所で持っていないか（サーバーの正本とブラウザの写し）。`app/src/server/` のモジュールの依存が、層の順（`util` → `store` → `ask` → `actions`・`agent` → `app` → `serve` → `cli/main`。後ろだけが、前を `import` する）に沿っているか。逆向き・循環がないか。状態がモジュールの変数になっていないか（引数で渡す） | 意図した窓口 |
 | **抽象の見合い** | 中継するだけで、検査・変換を足さない関数。1 回しか使わない抽象。呼び出し側が、本来の入口（`mutate`・`normAsk`）を迂回していないか | |
-| **失敗の扱いの一貫性** | `HttpError`・`{ok:false}`・例外の混在。`catch (_) {}` の理由。部分的な反映が残る経路。見せ方を、境界以外が決めていないか | 意図した、最上位の受け口（`handler`・`main`） |
+| **失敗の扱いの一貫性** | `HttpError`・`{ok:false}`・例外の混在。`catch {}` の理由。部分的な反映が残る経路。見せ方を、境界以外が決めていないか | 意図した、最上位の受け口（`app.ts` の `onError`・`main`） |
 | **信頼の境界** | 外から来た値（AI の JSON・資料・HTTP・ファイル）が、検査なしに、保存・表示・パスの結合に届いていないか。`innerHTML` に入る文字。`PURIFY`・CSP・Mermaid の設定が緩んでいないか。`/api/`・`/asset/` の入口で `denyReason` を通っているか | |
 | **並行と順序** | ロックの外で `meta.json`・`threads.json` を書いていないか。`mutate` の中に `await` がないか。描画が非同期の途中で状態が変わる経路（`renderTok`）。ポーリングと、ユーザーの入力の競合（入力欄の復元） | 実機・実際のマウスでしか起きない競合を、手作業で再現できないこと（理由と確かめた方法を残す） |
 | **コメントの位置づけ** | `textIndex`・`boundaryOffset`・`findQuote`・`applyHighlights` の整合（描画と選択で、同じ文字列の並びを使っているか）。ブロックの識別（`blockHash`・`blockId`）の安定性 | |
@@ -32,12 +32,12 @@
 目印に使える確認（読むための入口で、結論ではない）：
 
 ```sh
-grep -n "catch (_)" -r skills/rikai/rikai.js skills/rikai/lib   # 握りつぶしの候補（理由が分かる所だけのはず）
+grep -n "catch" -r app/src   # 握りつぶしの候補（理由が分かる所だけのはず）
 grep -n "innerHTML" skills/rikai/public/app.js   # 無害化を通した結果だけのはず
-grep -n "writeJSON\|writeFileSync" -r skills/rikai/rikai.js skills/rikai/lib   # mutate・new・apply・submit 以外で書いていないか
-grep -n "TODO\|FIXME" -r skills                  # 保留
-grep -n "await" -r skills/rikai/rikai.js skills/rikai/lib   # mutate の中に await がないか（読んで確かめる）
-wc -l skills/rikai/rikai.js skills/rikai/lib/*.js skills/rikai/public/app.js   # 大きくなりすぎていないか（責務から読む）
+grep -n "writeJSON\|writeFileSync" -r app/src   # mutate・new・apply・submit 以外で書いていないか
+grep -n "TODO\|FIXME" -r app/src skills/rikai/public --exclude-dir=vendor   # 保留
+grep -n "await" -r app/src   # mutate の中に await がないか（読んで確かめる）
+wc -l app/src/*/*.ts skills/rikai/public/app.js   # 大きくなりすぎていないか（責務から読む）
 ```
 
 ## このリポジトリの見直し候補
