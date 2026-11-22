@@ -662,7 +662,7 @@
         if (m.text) box.append(h('div', { class: 'body pre', text: m.text }));
         if (m.images && m.images.length) box.append(h('div', { class: 'imgs' }, m.images.map((n) => h('a', { href: imgUrl(n), target: '_blank', rel: 'noopener' }, h('img', { src: imgUrl(n), alt: '添付の画像', loading: 'lazy' })))));
         if (!m.sent) {
-          box.append(h('div', { class: 'row meta' }, h('span', { class: 'chip draft small', text: '未送信' }),
+          box.append(h('div', { class: 'row meta' },
             h('button', { class: 'link', text: '編集', onclick: () => { S.editing = m.id; renderThreads(); } }),
             h('button', { class: 'link', text: '削除', onclick: () => act(async () => { await api('/api/delete', { topic: S.slug, thread: t.id, msg: m.id }); await refreshTopic(true); }) })));
         }
@@ -695,8 +695,8 @@
     const card = h('div', { class: `thread ${stCls}${S.active === t.id ? ' active' : ''}${fresh ? ' fresh' : ''}${linkedTid === t.id ? ' linked' : ''}`, 'data-tid': t.id });
     card.append(h('div', { class: 'th-head', onclick: () => focusThread(t.id, true) },
       S.nums.has(t.id) ? h('span', { class: 'no', title: '本文の、同じ番号の印の所へのコメントです', text: String(S.nums.get(t.id)) }) : null,
-      h('span', { class: `chip ${stCls} small`, text: stText }),
-      h('span', { class: 'chip small', text: `v${t.version}` }),
+      stCls === 'wait' ? null : h('span', { class: `chip ${stCls} small`, text: stText }), // 既定の状態（AI の確認待ち）は、札を出さない
+      t.version === curVersion() ? null : h('span', { class: 'chip small', text: `v${t.version}` }), // 版は、いまの版と違うときだけ
       orphan ? h('span', { class: 'chip warn small', text: '修正で文が変わりました' }) : null,
       S.approx.has(t.id) ? h('span', { class: 'chip warn small', text: S.approx.get(t.id) === 'similar' ? '近い内容のブロックに表示' : '同じ位置のブロックに表示' }) : null,
       future ? h('span', { class: 'chip small', text: '後の版のコメント' }) : null,
@@ -783,7 +783,7 @@
       names.map((n) => h('span', { class: 'thumb' },
         h('img', { src: imgUrl(n), alt: '添付の画像' }),
         h('button', { class: 'x', title: '外す', 'aria-label': '画像を外す', text: '×', onclick: () => { S.drafts.imgs[key] = names.filter((x) => x !== n); renderThreads(); } }))),
-      h('button', { class: 'link', text: '画像を付ける', title: 'ファイルを選ぶ。貼り付け（⌘/Ctrl+V）・ドラッグでも付けられます', onclick: () => input.click() }),
+      h('button', { class: 'ghost small attach', text: '画像を付ける', title: 'ファイルを選ぶ。貼り付け（⌘/Ctrl+V）・ドラッグでも付けられます', onclick: () => input.click() }),
       S.uploading ? h('span', { class: 'sl', text: 'アップロード中…' }) : null,
       input);
   }
@@ -822,14 +822,13 @@
     const scroll = panel.scrollTop;
     panel.replaceChildren();
     if (!S.topic) return;
-    const head = h('div', { class: 'side-h panel-h' }, 'コメント',
-      h('button', { id: 'btn-wide', class: 'link', title: 'コメントを広く見る／もとの幅に戻す（幅は、左の境目のドラッグでも変えられます）', onclick: toggleWide, text: wideLabel() }));
+    const head = h('div', { class: 'side-h panel-h' }, 'コメント');
     panel.append(head);
     markPending(); // 入力中の対象を本文で強調し、その位置を決めてから、入力欄を並べる
     const list = threadsOnPage();
     const live = list.filter((t) => !t.resolved).sort(docOrder);
     const done = list.filter((t) => t.resolved).sort(docOrder);
-    if (!list.length && !S.composer) panel.append(h('div', { class: 'empty', text: '本文の文を選択すると「コメント」が出ます。図・表・画像は、ブロックの右に出る ＋ から。' }));
+    if (!list.length && !S.composer) panel.append(h('div', { class: 'empty', text: '本文の文を選ぶと「コメント」が出ます。ブロックにマウスを置くと出るバーの「コメント」「範囲」でも、付けられます。' }));
     // 入力欄は、対象の位置の順に、スレッドの間へ入れる（いつも一番上、にしない）
     const slot = composerSlot(live);
     live.forEach((t, i) => { if (i === slot) panel.append(renderComposer()); panel.append(renderThread(t)); });
@@ -863,7 +862,7 @@
       focusThread(r.thread, false);
     };
     return h('div', { class: 'thread composer' },
-      h('div', { class: 'th-head' }, h('span', { class: 'no pending', title: '本文の、オレンジの部分へのコメントです', text: '新' }), h('span', { class: 'chip draft small', text: '新しいコメント' }), h('div', { class: 'quote', text: trunc(a.quote || a.label, 90) }),
+      h('div', { class: 'th-head' }, h('span', { class: 'no pending', title: '本文の、オレンジの部分へのコメントです', text: '新' }), h('div', { class: 'quote', text: trunc(a.quote || a.label, 90) }),
         S.pendingEl ? h('div', { class: 'hint', text: '本文の、オレンジの部分へのコメントです' }) : null),
       h('textarea', {
         rows: 3, 'data-key': 'composer', placeholder: 'わからない点・確認したい点・直してほしい点（⌘/Ctrl+Enter で追加。画像は、貼り付け・ドラッグでも）', value: S.drafts.composer,
@@ -890,8 +889,7 @@
     const card = $('.thread.composer');
     if (card) card.scrollIntoView({ block: 'center', behavior: 'smooth' });
     getSelection().removeAllRanges();
-    $('#selbtn').hidden = true;
-    hideBlkBtns();
+    hideActbar();
   }
 
   function focusThread(tid, scrollDoc) {
@@ -999,35 +997,46 @@
   }
 
   // ------------------------------------------------------------ 選択・ブロックのコメント入口
-  const selbtn = $('#selbtn');
-  const blkbtn = $('#blkbtn');
+  const actbar = $('#actbar');
+  let actMode = null; // 'sel'（文を選んだとき）・'blk'（ブロックにマウスを置いたとき）・null（出していない）
   let pendingAnchor = null;
   let blkTarget = null;
   let blkHide;
 
-  selbtn.addEventListener('mousedown', (e) => e.preventDefault());
-  selbtn.addEventListener('click', () => { if (pendingAnchor) startComposer(pendingAnchor); });
-  blkbtn.addEventListener('click', () => { if (blkTarget) startComposer(blockAnchor(blkTarget)); });
-  blkbtn.addEventListener('mouseenter', () => clearTimeout(blkHide));
-  blkbtn.addEventListener('mouseleave', () => scheduleBlkHide());
+  // 入口は、1 つのバー（「コメント」・「範囲」）。文を選ぶと、選んだ文の上に・ブロックにマウスを置くと、そのブロックの右上に出る
+  function showActbar(mode, right, top) { // right：バーの右端・top：上端（画面の座標）
+    actMode = mode;
+    actbar.hidden = false;
+    const w = actbar.offsetWidth;
+    actbar.style.left = `${Math.max(8, Math.min(window.innerWidth - w - 8, right - w))}px`;
+    actbar.style.top = `${Math.max(8, top)}px`;
+  }
+  function hideActbar() { actbar.hidden = true; actMode = null; }
+  actbar.addEventListener('mousedown', (e) => e.preventDefault()); // 押しても、文の選択を外さない
+  $('#act-comment').addEventListener('click', () => {
+    const a = actMode === 'sel' ? pendingAnchor : (blkTarget && blockAnchor(blkTarget));
+    hideActbar();
+    if (a) startComposer(a);
+  });
+  $('#act-region').addEventListener('click', () => { hideActbar(); startRegionSelect(); });
+  actbar.addEventListener('mouseenter', () => clearTimeout(blkHide));
+  actbar.addEventListener('mouseleave', () => { if (actMode === 'blk') scheduleBlkHide(); });
 
   document.addEventListener('mouseup', (e) => {
-    if (e.target === selbtn) return;
+    if (actbar.contains(e.target)) return;
     setTimeout(() => {
       const sel = getSelection();
-      const a = sel && !sel.isCollapsed && isLatest() ? anchorFromSelection() : null;
-      if (!a) { selbtn.hidden = true; pendingAnchor = null; return; }
+      const a = sel && !sel.isCollapsed && isLatest() && !regState ? anchorFromSelection() : null;
+      if (!a) { pendingAnchor = null; if (actMode === 'sel') hideActbar(); return; }
       pendingAnchor = a;
       const rect = sel.getRangeAt(0).getBoundingClientRect();
-      selbtn.style.left = `${Math.min(window.innerWidth - 90, Math.max(8, rect.right - 20))}px`;
-      selbtn.style.top = `${Math.max(8, rect.top - 38)}px`;
-      selbtn.hidden = false;
+      showActbar('sel', rect.right + 24, rect.top - 38);
     }, 0);
   });
-  document.addEventListener('mousedown', (e) => { if (e.target !== selbtn) selbtn.hidden = true; });
+  document.addEventListener('mousedown', (e) => { if (!actbar.contains(e.target) && actMode === 'sel') hideActbar(); });
 
-  // 「＋」は、ブロックの右端（本文の箱の内側の余白）に出す。ボタンへ向かう間に消えない・別のブロックへ飛ばないように、
-  // ポインタが「そのブロックの高さ × 箱の右端まで」の帯にいる間は、同じブロックのまま出し続ける。
+  // ブロックにマウスを置くと、入口のバーを、そのブロックの右上（ブロックの上）に出す。バーへ向かう間に消えない・別のブロックへ飛ばないように、
+  // ポインタが「そのブロックの、バーの高さ上〜下端 × 箱の右端まで」の帯にいる間は、同じブロックのまま出し続ける。
   // 帯の外でも、本文の箱の右の余白にいる間は、同じ高さにある本文のブロックを探す（左の余白は、探さない）。
   function scheduleBlkHide() {
     clearTimeout(blkHide);
@@ -1043,51 +1052,49 @@
   function inBand(blk, x, y) {
     const r = blk.getBoundingClientRect();
     const art = $('#article').getBoundingClientRect();
-    return y >= r.top - 4 && y <= r.bottom + 4 && x >= r.left - 8 && x <= art.right + 8;
+    if (y >= r.top - 4 && y <= r.bottom + 4 && x >= r.left - 8 && x <= art.right + 8) return true;
+    // バーの上（と、そのまわり 6px）も、同じブロック。バーは、前のブロックの右端に少し重なるので、バーの外側の、前のブロックには、移れる
+    const b = actbar.getBoundingClientRect();
+    return actMode === 'blk' && x >= b.left - 6 && x <= b.right + 6 && y >= b.top - 6 && y <= b.bottom + 6;
   }
   function placeBlkBtn(blk) {
     const r = blk.getBoundingClientRect();
     const art = $('#article').getBoundingClientRect();
     const top = $('#docscroll').getBoundingClientRect().top + 4; // 本文の領域の上端（上のバーに、重ねない）
-    blkbtn.style.left = `${art.right - 34}px`;
-    blkbtn.style.top = `${Math.min(Math.max(r.top, top), Math.max(r.bottom - 26, top))}px`;
+    showActbar('blk', art.right - 8, Math.max(r.top - 30, top));
   }
   $('#docscroll').addEventListener('mousemove', (e) => {
-    if (!isLatest()) return;
-    if (blkTarget && !blkbtn.hidden && inBand(blkTarget, e.clientX, e.clientY)) { clearTimeout(blkHide); return; }
+    if (!isLatest() || regState || actMode === 'sel') return;
+    if (blkTarget && actMode === 'blk' && inBand(blkTarget, e.clientX, e.clientY)) { clearTimeout(blkHide); return; }
     const blk = blockAt(e.clientX, e.clientY);
     if (!blk) { scheduleBlkHide(); return; }
     clearTimeout(blkHide);
     blkTarget = blk;
     placeBlkBtn(blk);
-    blkbtn.hidden = false;
   });
   $('#docscroll').addEventListener('scroll', hideBlkBtns);
   $('#docscroll').addEventListener('mouseleave', () => scheduleBlkHide());
 
   // ------------------------------------------------------------ 本文の、好きな範囲を選んで、コメントする
-  // 上のバーの「範囲を選ぶ」を押すと、本文の上のどこでも、ドラッグで範囲を選べる（文・表・コード・図・画像・複数のブロックにまたがってもよい）。
+  // 入口のバーの「範囲」を押すと、本文の上のどこでも、ドラッグで範囲を選べる（文・表・コード・図・画像・複数のブロックにまたがってもよい）。
   // 範囲は、**左上にあるブロック**（画像・図があれば、その最初の画像・図）の大きさに対する比率（{x,y,w,h}。左上が原点）で持つ。範囲が、そのブロックの外へ出れば、0〜1 を超える。
   // 切り出した画像は、コメントの画像として添付する（AI には、画像のファイルの場所と、範囲の比率〔region〕が届く）。コメントの探し直しは、ブロックの位置づけと同じ（範囲は、ブロックの中の位置）
-  function hideBlkBtns() { blkbtn.hidden = true; }
+  function hideBlkBtns() { if (actMode === 'blk') hideActbar(); }
   const regsel = $('#regsel');
-  const regmode = $('#btn-region');
   let regState = null;
-  function cancelRegion() { regState = null; regsel.hidden = true; regsel.replaceChildren(); regmode.classList.remove('on'); }
-  regmode.addEventListener('click', () => {
-    if (regState) { cancelRegion(); return; }
+  function cancelRegion() { regState = null; regsel.hidden = true; regsel.replaceChildren(); }
+  function startRegionSelect() {
+    if (regState) return;
     if (!isLatest()) { toast('コメントは最新版にだけ付けられます', true); return; }
     const art = $('#article');
     if (!art.querySelector('[data-bid]')) { toast('範囲を選べる本文がありません', true); return; }
-    hideBlkBtns();
-    selbtn.hidden = true;
+    getSelection().removeAllRanges();
     const ds = $('#docscroll'), dr = ds.getBoundingClientRect(), a = art.getBoundingClientRect();
-    regsel.replaceChildren(h('div', { class: 'hint', text: 'ドラッグして、範囲を選びます（もう一度押すか、Esc でやめる）' }));
+    regsel.replaceChildren(h('div', { class: 'hint', text: 'ドラッグして、範囲を選びます（Esc か、枠の外を押すと、やめます）' }));
     Object.assign(regsel.style, { left: `${Math.round(a.left - dr.left + ds.scrollLeft)}px`, top: `${Math.round(a.top - dr.top + ds.scrollTop)}px`, width: `${a.width}px`, height: `${a.height}px` });
     regsel.hidden = false;
-    regmode.classList.add('on');
     regState = { from: null, box: null };
-  });
+  }
   // ドラッグ中の矩形（選択の枠の内側の座標。はみ出さない）
   function regRect(e) {
     const r = regsel.getBoundingClientRect();
@@ -1118,7 +1125,7 @@
   });
   regsel.addEventListener('pointercancel', cancelRegion);
   document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && regState) cancelRegion(); });
-  document.addEventListener('pointerdown', (e) => { if (regState && !regsel.contains(e.target) && !regmode.contains(e.target)) cancelRegion(); });
+  document.addEventListener('pointerdown', (e) => { if (regState && !regsel.contains(e.target) && !actbar.contains(e.target)) cancelRegion(); });
   window.addEventListener('resize', cancelRegion);
   // 範囲の名前（カードの見出し・AI に届く label）。画像の alt・図（Mermaid）・インラインの svg の文字
   function regionLabel(blk, media) {
@@ -1465,18 +1472,15 @@
 
   // ------------------------------------------------------------ 画面の広さ（左の一覧をしまう・右のコメントの幅）
   // 設定は、このブラウザの localStorage に覚える（サーバーには送らない。資料・コメントとは別）
-  const UI = { sideOpen: true, panelW: 380, wide: false };
+  const UI = { sideOpen: true, panelW: 380 };
   try { Object.assign(UI, JSON.parse(localStorage.getItem('rikai-ui') || '{}')); } catch (_) { /* 壊れていたら、既定のまま */ }
-  const PANEL_MIN = 280, PANEL_DEFAULT = 380, PANEL_WIDE = 720;
+  const PANEL_MIN = 280, PANEL_DEFAULT = 380;
   const SIDE_W = 230, DOC_MIN = 360; // 左の一覧の幅（CSS の --side-w の既定）と、本文の領域に残す最小の幅
   // 右の幅の上限：画面の 70%。ただし、左の一覧（開いているとき）と合わせて、本文の領域が DOC_MIN 以上、残る幅まで
   const panelMax = () => Math.max(PANEL_MIN, Math.min(Math.floor(window.innerWidth * 0.7), window.innerWidth - (UI.sideOpen ? SIDE_W : 0) - DOC_MIN));
   const saveUi = () => { try { localStorage.setItem('rikai-ui', JSON.stringify(UI)); } catch (_) { /* 保存できなくても、使える */ } };
   const savedW = () => Math.max(PANEL_MIN, Number(UI.panelW) || PANEL_DEFAULT);
-  const panelWidth = () => (UI.wide ? Math.min(PANEL_WIDE, panelMax()) : Math.min(savedW(), panelMax()));
-  // いま「広い」状態か（広くするボタンで広げた・または、ドラッグで広げた幅が、広くする幅以上）。ボタンの文字と動作を、実際の幅に合わせる
-  const isWide = () => UI.wide || panelWidth() >= Math.min(PANEL_WIDE, panelMax());
-  function wideLabel() { return isWide() ? '狭くする' : '広くする'; }
+  const panelWidth = () => Math.min(savedW(), panelMax());
   function applyUi() {
     const app = $('#app');
     app.classList.toggle('side-collapsed', !UI.sideOpen);
@@ -1486,25 +1490,14 @@
     rz.setAttribute('aria-valuenow', String(w));
     rz.setAttribute('aria-valuemax', String(panelMax()));
     $('#btn-side').setAttribute('aria-expanded', String(!!UI.sideOpen));
-    const wb = $('#btn-wide');
-    if (wb) wb.textContent = wideLabel();
-    hideBlkBtns(); // 配置が変わるので、「＋」・「範囲」は、次にマウスを動かしたとき、出し直す
+    hideActbar(); // 配置が変わるので、入口のバーは、次にマウスを動かしたとき、出し直す
     scheduleBadges(); // 記事の大きさが変わらず、位置だけ動くとき（上限の幅で中央にそろえているときの、左の一覧のしまい・右の幅の変更）も、ブロックの印を合わせ直す
-  }
-  function toggleWide() {
-    if (isWide()) {
-      UI.wide = false;
-      if (savedW() >= Math.min(PANEL_WIDE, panelMax())) UI.panelW = PANEL_DEFAULT; // 広い幅を保存していたら、もとの幅へ（そのままだと、狭くならない）
-    } else UI.wide = true;
-    saveUi();
-    applyUi();
   }
   $('#btn-side').addEventListener('click', () => { UI.sideOpen = !UI.sideOpen; saveUi(); applyUi(); });
   const resizer = $('#panel-resizer');
   resizer.addEventListener('pointerdown', (e) => {
     if (e.button !== 0) return; // 左ボタン（またはタッチ・ペン）だけ。右ボタンの、メニューの途中で、離しを失わないように
-    $('#selbtn').hidden = true; // 配置が変わるので、選択の「コメント」・「＋」は、古い位置に残さない
-    hideBlkBtns();
+    hideActbar(); // 配置が変わるので、入口のバーは、古い位置に残さない
     resizer.setPointerCapture(e.pointerId);
     resizer.classList.add('drag');
     document.body.classList.add('resizing');
@@ -1513,7 +1506,6 @@
   });
   resizer.addEventListener('pointermove', (e) => {
     if (!resizer.hasPointerCapture(e.pointerId)) return;
-    UI.wide = false;
     UI.panelW = Math.round(Math.min(Math.max(window.innerWidth - e.clientX, PANEL_MIN), panelMax()));
     applyUi();
   });
@@ -1523,11 +1515,10 @@
     document.body.classList.remove('resizing');
     saveUi();
   });
-  resizer.addEventListener('dblclick', () => { UI.wide = false; UI.panelW = PANEL_DEFAULT; saveUi(); applyUi(); });
+  resizer.addEventListener('dblclick', () => { UI.panelW = PANEL_DEFAULT; saveUi(); applyUi(); });
   resizer.addEventListener('keydown', (e) => {
     if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
     e.preventDefault();
-    UI.wide = false;
     UI.panelW = Math.min(Math.max(panelWidth() + (e.key === 'ArrowLeft' ? 24 : -24), PANEL_MIN), panelMax());
     saveUi();
     applyUi();
