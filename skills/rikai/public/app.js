@@ -290,25 +290,25 @@
       S.locs.set(t.id, el);
     }
     // 本文の順に番号をつける（右のパネルの、同じ番号のカードと対応する）。
-    // 文の印は、CSS の ::after（data-no）。ブロックの印は、要素の外の層（#badges）に出す（placeBadges）。どちらも、要素や文字を足さない
-    // （コメントの位置づけに使う本文の文字を、変えない）
+    // 番号の印は、文・ブロック・範囲の、**すべて、同じ見た目・同じ位置**（要素の外の層 #badges の、記事の左の余白に、対象の上端にそろえて、丸く出す。placeBadges）。
+    // 要素や文字を足さない（コメントの位置づけに使う本文の文字を、変えない）
     S.nums = new Map();
     S.blkBadges = new Map();
-    S.regions = []; // 画像・図の中の範囲を、対象にしたコメントの枠（placeBadges が、層に出す）
+    S.txtBadges = []; // 文の選択のコメント：最初の強調（mark）の、最初の行の高さに出す
+    S.regions = []; // 画像・図の中の範囲を、対象にしたコメントの枠（placeBadges が、層に出す。番号は、ほかと同じ、左の余白の丸）
     const located = threadsOnPage().filter((t) => S.locs.get(t.id)).sort(docOrder);
     located.forEach((t, i) => {
       const n = i + 1;
       S.nums.set(t.id, n);
       const marks = $$(`mark.hl[data-tid="${t.id}"]`, art);
       if (marks.length) {
-        const target = marks[marks.length - 1];
-        target.dataset.no = target.dataset.no ? `${target.dataset.no},${n}` : String(n);
+        S.txtBadges.push({ tid: t.id, el: marks[0], n, resolved: !!t.resolved });
       } else {
-        // 1 つのブロックに、複数のコメントがあるときは、番号を並べる（「6,7」）。カードの番号は、どれも、本文の印と対応する
+        // 1 つのブロックに、複数のコメントがあるときは、番号を並べる。カードの番号は、どれも、本文の印と対応する
         const el = S.locs.get(t.id);
         if (!S.blkBadges.has(el)) S.blkBadges.set(el, []);
         S.blkBadges.get(el).push({ tid: t.id, n, resolved: !!t.resolved });
-        if (t.anchor && t.anchor.rect) S.regions.push({ tid: t.id, el, rect: t.anchor.rect, n, resolved: !!t.resolved });
+        if (t.anchor && t.anchor.rect) S.regions.push({ tid: t.id, el, rect: t.anchor.rect, resolved: !!t.resolved });
       }
     });
     placeBadges();
@@ -1220,32 +1220,62 @@
     if (tid) focusThread(tid, false);
   });
 
-  // ブロックの番号の印は、要素の外の層（#badges。#docscroll の中の絶対位置）に出す。要素の中に出すと、箱の overflow で切れる・横スクロールで流れる・行末の文字に重なる。
-  // 位置は、記事の左の縁（記事の余白の中）に、そろえる。大きさが変わる（図の描画・窓・幅の変更）と、合わせ直す
+  // 番号の印は、文・ブロック・範囲の、すべて、同じ見た目（丸）・同じ位置（記事の左の余白。対象の上端）に、要素の外の層（#badges。#docscroll の中の絶対位置）に出す。
+  // 要素の中に出すと、箱の overflow で切れる・横スクロールで流れる・行末の文字に重なる。大きさが変わる（図の描画・窓・幅の変更）と、合わせ直す。
+  // 近い高さ（4px 以内。同じ行）の印は、1 つの組にして、横に並べる。組が、上の組に重ならないよう、前の組の下端（実測）の 2px 下より上には、出さない。
+  // 範囲のコメントの印は、範囲の上端の高さ（画像・図の中の位置）に出す
   function placeBadges() {
     const layer = $('#badges');
     layer.textContent = '';
     if (!S.blkBadges) return;
     const ds = $('#docscroll'), dr = ds.getBoundingClientRect(), ar = $('#article').getBoundingClientRect();
     const left = Math.round(ar.left - dr.left + ds.scrollLeft) - 12;
+    // 画像・図の中の範囲（その要素の大きさに対する比率で、位置を決める）。入力中のものは、オレンジ
+    const regions = [];
+    for (const g of S.regions || []) regions.push(g);
+    if (S.composer && S.composer.anchor.rect && S.pendingEl) regions.push({ tid: 'pending', el: S.pendingEl, rect: S.composer.anchor.rect, pending: true });
+    const regionTop = new Map();
+    for (const g of regions) {
+      const media = g.el.isConnected ? mediaOf(g.el) : null;
+      const m = media ? media.getBoundingClientRect() : null;
+      if (!m || !m.width || !m.height) continue;
+      g.m = m;
+      regionTop.set(g.tid, m.top + g.rect.y * m.height);
+    }
+    const items = [];
     for (const [el, list] of S.blkBadges) {
       if (!el.isConnected) continue;
       const r = el.getBoundingClientRect();
       if (!r.width && !r.height) continue; // 閉じた <details> の中など、見えない所には、出さない
-      const box = h('div', { class: 'bbadge' }, list.map((b) => h('span', { class: b.resolved ? 'bno resolved' : 'bno', 'data-tid': b.tid, text: String(b.n) })));
-      box.style.top = `${Math.round(r.top - dr.top + ds.scrollTop) + 2}px`;
+      for (const b of list) items.push({ top: regionTop.has(b.tid) ? regionTop.get(b.tid) : r.top, ...b });
+    }
+    for (const b of S.txtBadges || []) {
+      const rc = b.el.isConnected ? b.el.getClientRects()[0] : null;
+      if (rc) items.push({ top: rc.top, tid: b.tid, n: b.n, resolved: b.resolved });
+    }
+    if (S.composer && S.pendingEl && S.pendingEl.isConnected) { // 入力中の対象も、同じ印（オレンジ。「新」）
+      const rc = regionTop.has('pending') ? { top: regionTop.get('pending') } : S.pendingEl.getClientRects()[0];
+      if (rc) items.push({ top: rc.top, tid: 'pending', n: '新', pending: true });
+    }
+    items.sort((a, b) => a.top - b.top || (typeof a.n === 'number' ? a.n : 1e9) - (typeof b.n === 'number' ? b.n : 1e9));
+    const groups = [];
+    for (const it of items) {
+      const g = groups[groups.length - 1];
+      if (g && it.top - g.top < 4) g.items.push(it); else groups.push({ top: it.top, items: [it] });
+    }
+    let floor = -Infinity;
+    for (const g of groups) {
+      const top = Math.max(g.top, floor);
+      const box = h('div', { class: 'bbadge' }, g.items.map((b) => h('span', { class: `bno${b.resolved ? ' resolved' : ''}${b.pending ? ' pending' : ''}`, 'data-tid': b.tid, text: String(b.n) })));
+      box.style.top = `${Math.round(top - dr.top + ds.scrollTop) + 2}px`;
       box.style.left = `${left}px`;
       layer.append(box);
+      floor = top + box.offsetHeight + 2; // 折り返して背が高くなった組の、下に、次の組を出す
     }
-    // 画像・図の中の範囲を、対象にしたコメントの枠（その要素の大きさに対する比率で、位置を決める）。入力中のものは、オレンジ
-    const regions = [...(S.regions || [])];
-    if (S.composer && S.composer.anchor.rect && S.pendingEl) regions.push({ tid: 'pending', el: S.pendingEl, rect: S.composer.anchor.rect, n: '新', pending: true });
     for (const g of regions) {
-      const media = g.el.isConnected ? mediaOf(g.el) : null;
-      if (!media) continue;
-      const m = media.getBoundingClientRect();
-      if (!m.width || !m.height) continue;
-      const rb = h('div', { class: `regionbox${g.resolved ? ' resolved' : ''}${g.pending ? ' pending' : ''}`, 'data-tid': g.tid }, h('span', { class: 'rn', text: String(g.n) }));
+      if (!g.m) continue;
+      const m = g.m;
+      const rb = h('div', { class: `regionbox${g.resolved ? ' resolved' : ''}${g.pending ? ' pending' : ''}`, 'data-tid': g.tid });
       Object.assign(rb.style, {
         left: `${Math.round(m.left - dr.left + ds.scrollLeft + g.rect.x * m.width)}px`, top: `${Math.round(m.top - dr.top + ds.scrollTop + g.rect.y * m.height)}px`,
         width: `${Math.round(g.rect.w * m.width)}px`, height: `${Math.round(g.rect.h * m.height)}px`,
@@ -1261,7 +1291,7 @@
   badgeObserver.observe($('#article'));
   badgeObserver.observe($('#docscroll'));
   $('#badges').addEventListener('click', (e) => {
-    const el = e.target.closest('[data-tid]');
+    const el = e.target.closest('[data-tid]:not([data-tid="pending"])'); // 入力中の「新」は、押しても、選ぶカードがない
     if (el) focusThread(el.dataset.tid, false);
   });
   $('#badges').addEventListener('mouseover', (e) => {
