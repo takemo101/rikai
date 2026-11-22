@@ -15,7 +15,6 @@
       <div id="top-title"></div>
       <div class="spacer"></div>
       <div id="top-status"></div>
-      <button id="btn-region" class="ghost small" title="本文の、好きな範囲を、ドラッグで選んで、コメントします（文・表・コード・図・画像。もう一度押すと、やめる）">範囲を選ぶ</button>
       <button id="btn-submit" class="primary" disabled>Submit</button>
       <button id="btn-end" class="ghost">終了</button>
     </header>
@@ -32,8 +31,10 @@
     <div id="panel-resizer" role="separator" aria-orientation="vertical" aria-label="コメントの幅（ドラッグ、または左右の矢印キーで変える。ダブルクリックでもとの幅）" title="ドラッグで、コメントの幅を変える（ダブルクリックで、もとの幅）" tabindex="0" aria-valuemin="280"></div>
   </div>
 
-  <button id="selbtn" hidden>コメント</button>
-  <button id="blkbtn" hidden title="このブロックにコメント">＋</button>
+  <div id="actbar" hidden>
+    <button id="act-comment" type="button" title="この文・ブロックに、コメントします">コメント</button>
+    <button id="act-region" type="button" title="本文の、好きな範囲を、ドラッグで選んで、コメントします">範囲</button>
+  </div>
   <div id="toast" hidden></div>
 
   <dialog id="submitdlg">
