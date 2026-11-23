@@ -3,12 +3,14 @@
 // 文字を選ぶドラッグ・選択範囲・範囲を選ぶ最中・リンクの中・外部画像・html-app は、開かない。ズーム・移動・閉じる・フォーカス。
 import { act, fireEvent, render } from '@testing-library/react';
 import { afterEach, beforeAll, beforeEach, expect, test, vi } from 'vitest';
+import { topicKey } from '../../src/web/api/queries';
+import { queryClient } from '../../src/web/api/queryClient';
 import { Article } from '../../src/web/doc/Article';
 import { zoomableAt } from '../../src/web/doc/zoomOpen';
 import { buildView } from '../../src/web/lib/view';
 import { Lightbox } from '../../src/web/panel/Lightbox';
 import { useUi } from '../../src/web/store/ui';
-import { installPointerCapture, meta, resetAll, topicState } from './helpers';
+import { installPointerCapture, meta, mockFetch, renderWithClient, resetAll, topicState } from './helpers';
 import { ai, renderPanel, stubScroll, thread } from './panel/fixtures';
 
 const MERMAID_SVG =
@@ -56,7 +58,11 @@ function mountArticle() {
   });
   const view = buildView({ slug: 'demo', page: 'root', version: 1 }, topic);
   if (!view) throw new Error('view');
-  render(
+  // 個別表示（F43）の右のドックは、トピックを TanStack Query から読む（ルート・取得済みのトピック）。ここでは、作り物のものを、置く
+  mockFetch((req) => (req.path === '/api/topic/demo' ? { body: topic } : undefined));
+  queryClient.setQueryData(topicKey('demo'), topic);
+  location.hash = '#/demo/root';
+  renderWithClient(
     <>
       <div id="docscroll">
         <Article view={view} markdown={MD} prevMarkdown={null} />

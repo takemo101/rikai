@@ -168,8 +168,8 @@ test.describe('画像・図の拡大（F37）', () => {
     await page.mouse.up();
     expect((await box(stage(page))).x).toBeCloseTo(f.x, 0);
     await expect(lb).toBeVisible();
-    // 拡大して、ドラッグ：動く
-    for (let i = 0; i < 4; i++) await tool(page, '拡大').click();
+    // 拡大して、ドラッグ：動く（個別表示：右のドック分、ステージが狭く、全体表示が小さいので、縦にも動かせる大きさまで、多めに拡大する）
+    for (let i = 0; i < 6; i++) await tool(page, '拡大').click();
     const z = await box(stage(page));
     await page.mouse.move(700, 500);
     await page.mouse.down();
@@ -193,8 +193,8 @@ test.describe('画像・図の拡大（F37）', () => {
       await page.mouse.up();
     }
     const e = await box(stage(page));
-    const vw = page.viewportSize()?.width ?? 0;
-    expect(e.x + e.width).toBeGreaterThanOrEqual(vw - 2);
+    const area = await box(page.locator('#lightbox .lb-view')); // ステージの領域（右のドックを除く）
+    expect(e.x + e.width).toBeGreaterThanOrEqual(area.x + area.width - 2);
   });
 
   test('閉じる：Esc・背景（図・画像の外）を押す・X。図・画像の上を押しても、閉じない。閉じても、本文のスクロールは、そのまま', async ({
@@ -476,7 +476,7 @@ test.describe('画像・図の拡大（F37）', () => {
     }
   });
 
-  test('キーボード：Tab は、ライトボックスの中のボタンだけを回る。閉じたら、フォーカスは、開く前の要素へ（フォーカスできる要素だったとき）', async ({
+  test('キーボード：Tab は、ライトボックスの中（ステージの道具・ドック）だけを回る。閉じたら、フォーカスは、開く前の要素へ（フォーカスできる要素だったとき）', async ({
     page,
     app,
   }) => {
@@ -493,8 +493,12 @@ test.describe('画像・図の拡大（F37）', () => {
       await page.keyboard.press('Tab');
       seen.add((await page.evaluate(() => document.activeElement?.getAttribute('aria-label') ?? '')) as string);
     }
-    expect([...seen].every((n) => ['縮小', '拡大', '全体表示', '閉じる', ''].includes(n))).toBe(true);
     expect(seen.has('閉じる')).toBe(true);
+    // 個別表示（F43）：窓の中には、右のドックの入力欄・ボタンもある。Tab は、どれも、窓の中だけを回る（外の本文へ、出ない）。Shift+Tab も
+    for (let i = 0; i < 20; i++) {
+      await page.keyboard.press(i % 2 ? 'Shift+Tab' : 'Tab');
+      expect(await page.evaluate(() => !!document.activeElement?.closest('#lightbox'))).toBe(true);
+    }
     await page.keyboard.press('Escape');
     await expect(ui(page).lightbox).toBeHidden();
     await expect(page.locator('#article')).toBeVisible();

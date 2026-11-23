@@ -3,11 +3,12 @@
 // 範囲の画像：1 つの画像・図の中に収まるなら、元の解像度から切り出す（`cropMedia`）。そうでなければ、表示されている本文を複製して画像にする（`rasterRegion`）。
 // 画像にできなくても、位置だけで、コメントできる（トーストで知らせる）。
 
-import type { Rect } from '../../shared/types';
+import type { Anchor, Rect } from '../../shared/types';
 import { requestFrameSnapshot } from '../doc/appBridge';
 import { blockAnchor, frameOf } from '../doc/render/blocks';
 import { $, $$, trunc } from '../lib/dom';
 import { getView } from '../lib/view';
+import type { Size } from '../lib/zoom';
 import { toast, useUi } from '../store/ui';
 import { openComposer } from './compose';
 import { isInsideFrame, overlaps, pickBase, rasterTooBig, ratioRect, type ViewportRect } from './geometry';
@@ -37,10 +38,10 @@ export interface RegionDeps {
   attach: (slug: string, data: string) => Promise<{ name: string } | null>;
   /** `hooks.onFrameImages`：html-app の枠が、自分の見た目の画像を作って、範囲の画像に入った（F42） */
   raster?: (vr: ViewportRect, article: HTMLElement, hooks?: RasterHooks) => Promise<File | null>;
-  crop?: (media: Element, rect: Rect) => Promise<File | null>;
+  crop?: (media: Element, rect: Rect, size?: Size) => Promise<File | null>;
 }
 
-const textOfBlock = (blk: Element): string => {
+export const textOfBlock = (blk: Element): string => {
   // <style>・<script> の中身（図の CSS など）は、名前に入れない
   const plain = blk.cloneNode(true) as Element;
   for (const x of plain.querySelectorAll('style, script')) x.remove();
@@ -63,7 +64,8 @@ export function finishRegion(vr: ViewportRect, deps: RegionDeps): void {
     return;
   }
   const frame = frameOf(blk);
-  const media = frame === blk ? null : frame;
+  // html-app の枠の置き場（基準）は、画像・図ではない：切り出さず、枠自身に撮らせる（`rasterRegion`）
+  const media = frame === blk || blk.classList.contains('htmlapp') ? null : frame;
   const fr = frame.getBoundingClientRect();
   const rect = ratioRect(vr, fr);
   if (!rect) {
@@ -80,12 +82,26 @@ export function finishRegion(vr: ViewportRect, deps: RegionDeps): void {
   // 画像にする作業は、入力欄を開く前に始める（入力中の強調が、画像に写らないように。スタイルを写す所までは、同期で終わる）
   const raster = deps.raster ?? rasterRegion;
   const crop = deps.crop ?? cropMedia;
+  commentOnRegion(
+    { ...blockAnchor(blk), label, rect },
+    (hooks) => (inside && media ? crop(media, rect) : raster(vr, article, hooks)),
+    deps,
+  );
+}
+
+/**
+ * 範囲の対象（`anchor`：ブロック＋比率＋名前）で、入力欄を開き、範囲の画像（`makeImage`）を作って付ける（本文の範囲選択と、個別表示の範囲選択が、共に使う：F25・F43）。
+ * `makeImage` は、**入力欄を開く前**に呼ぶ（入力中の強調が、画像に写らないように）。`hooks.onFrameImages`：html-app の枠が、自分の見た目の画像を作って、範囲の画像に入った（F42）
+ */
+export function commentOnRegion(
+  anchor: Anchor,
+  makeImage: (hooks: RasterHooks) => Promise<File | null>,
+  deps: RegionDeps,
+  seed?: string,
+): void {
   let compId = -1; // 入力欄（このあと開く）。枠の画像が入ったとき、その入力欄に、印を付ける
-  const job =
-    inside && media
-      ? crop(media, rect)
-      : raster(vr, article, { onFrameImages: () => useUi.getState().noteFrameImage(compId) });
-  const comp = openComposer({ ...blockAnchor(blk), label, rect });
+  const job = makeImage({ onFrameImages: () => useUi.getState().noteFrameImage(compId) });
+  const comp = openComposer(anchor, seed);
   compId = comp?.id ?? -1;
   if (!comp) {
     job.catch(() => {}); // 最新版でないとき、入力欄の起動が断った
@@ -146,7 +162,7 @@ function readBase64(file: Blob): Promise<string> {
   return promise;
 }
 
-function loadImage(src: string, failure: string): Promise<HTMLImageElement> {
+export function loadImage(src: string, failure: string): Promise<HTMLImageElement> {
   const { promise, resolve, reject } = Promise.withResolvers<HTMLImageElement>();
   const im = new Image();
   im.onload = () => resolve(im);
@@ -164,7 +180,11 @@ export function paperOf(el: Element): string {
   return '#fff';
 }
 
-function canvas2d(w: number, h: number, paper = '#fff'): { cv: HTMLCanvasElement; ctx: CanvasRenderingContext2D } {
+export function canvas2d(
+  w: number,
+  h: number,
+  paper = '#fff',
+): { cv: HTMLCanvasElement; ctx: CanvasRenderingContext2D } {
   const cv = document.createElement('canvas');
   cv.width = Math.max(1, w);
   cv.height = Math.max(1, h);
@@ -175,7 +195,7 @@ function canvas2d(w: number, h: number, paper = '#fff'): { cv: HTMLCanvasElement
   return { cv, ctx };
 }
 
-async function canvasFile(cv: HTMLCanvasElement): Promise<File | null> {
+export async function canvasFile(cv: HTMLCanvasElement): Promise<File | null> {
   const toBlob = (type: string, q?: number) => new Promise<Blob | null>((resolve) => cv.toBlob(resolve, type, q));
   let blob = await toBlob('image/png');
   let name = 'region.png';
@@ -191,9 +211,10 @@ async function canvasFile(cv: HTMLCanvasElement): Promise<File | null> {
  * 出力は、長い辺が 2400px まで（写真の元の解像度は、5MB を超えるため）。PNG が大きすぎるときは、JPEG にする。
  * 画像は同じオリジン（/asset/・data:）なので、canvas が汚れない。svg は、外部のものを読まない（data: の画像にする）
  */
-export async function cropMedia(media: Element, rect: Rect): Promise<File | null> {
+export async function cropMedia(media: Element, rect: Rect, size?: Size): Promise<File | null> {
   const isImg = media instanceof HTMLImageElement;
-  const b = media.getBoundingClientRect();
+  // 図・ベクターの画像の、画像にする大きさの基準：表示の大きさ（本文）。個別表示（F43）では、ズームで変わらないよう、自然な大きさ（`size`）を渡す
+  const b = size ? { width: size.w, height: size.h } : media.getBoundingClientRect();
   const vectorScale = Math.min(2, OUT_MAX / Math.max(b.width, b.height));
   const vector = isImg && /^data:image\/svg|\.svg(?:[?#]|$)/i.test(media.currentSrc || media.src);
   let src: CanvasImageSource;
@@ -340,7 +361,7 @@ export async function rasterRegion(vr: ViewportRect, art: HTMLElement, hooks: Ra
 export const FRAME_PLACEHOLDER_TEXT = '実行できる枠（画像にできません）';
 
 /** 「rgb(r, g, b)」「rgba(…)」の明るさ（0〜1）。読めなければ、明るい（1）とみなす */
-function lightnessOf(color: string): number {
+export function lightnessOf(color: string): number {
   const m = /rgba?\(\s*(\d+(?:\.\d+)?)[,\s]+(\d+(?:\.\d+)?)[,\s]+(\d+(?:\.\d+)?)/.exec(color);
   if (!m) return 1;
   return (0.2126 * Number(m[1]) + 0.7152 * Number(m[2]) + 0.0722 * Number(m[3])) / 255;

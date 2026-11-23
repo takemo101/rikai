@@ -78,7 +78,7 @@ export interface ThreadsPanelProps {
  *
  * - `view` が null か、最新版でない（`!view.isLatest`）間は、`#regbtn` を出さない。コメントの入口は、最新版にだけ。
  * - 入力欄を開く：`useUi.getState().startComposer(anchor)`（最新版でなければ、トーストを出して false）。開いたら、入力欄の `textarea[data-key="composer"]` にフォーカスを移す・選択を外す・バーを隠す。
- * - 範囲を選ぶ状態：`regMode`（'idle' | 'selecting'）。Esc の順：範囲選択のキャンセル → 範囲の枠をドラッグ中（`regDrag`）なら元に戻す → それ以外は、ライトボックス（`lightbox`）を閉じる。
+ * - 範囲を選ぶ状態：`regMode`（'idle' | 'selecting'）。Esc の順（`lib/escape.ts`）：範囲選択のキャンセル → 範囲の枠をドラッグ中（`regDrag`）なら元に戻す → 個別表示の道具（範囲選択・要素選択）の中止 → ライトボックス（`lightbox`）を閉じる。
  * - 画像化・添付：`useMutations().attach`。`beginUpload`・`endUpload`・`setComposerRegionImg(composer.id, name)`（入力欄が、同じ id のままのときだけ）。
  * - カードと本文の、お互いの光り：`setLinked(tid)`（`linkedTid`）。
  * - 左の一覧・右の幅が変わる（`useUi` の `ui`）と、配置が変わるので、入口のバーは、隠す。

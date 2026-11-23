@@ -447,6 +447,7 @@ test('範囲が html-app の枠の中だけ：切り出し（crop）ではなく
   const iframe = article.querySelector('iframe') as HTMLIFrameElement;
   if (!blk) throw new Error();
   place(blk, 100, 100, 400, 300);
+  place(article.querySelector('.appview') as HTMLElement, 100, 150, 400, 240); // 範囲の基準は、枠の置き場（0.24.0 から。以前は、見出しのアイコン）
   place(iframe, 110, 150, 380, 240);
   const d = deps();
   finishRegion({ left: 150, top: 200, width: 100, height: 80 }, d);
@@ -462,6 +463,7 @@ const framed = () => {
   const iframe = article.querySelector('iframe') as HTMLIFrameElement;
   if (!blk) throw new Error();
   place(blk, 100, 100, 400, 300);
+  place(article.querySelector('.appview') as HTMLElement, 100, 150, 400, 240); // 範囲の基準は、枠の置き場（0.24.0 から。以前は、見出しのアイコン）
   place(iframe, 110, 150, 380, 240);
   return { blk, iframe };
 };

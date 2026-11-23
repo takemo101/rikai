@@ -198,7 +198,7 @@ export function Overlays({ view, scrollRef }: OverlaysProps) {
     const onCancel = (): void => endDrag(false);
     // 範囲の枠をつかんでいる間の Esc：動かすのをやめる（元に戻す）。ほかの Esc の処理（ライトボックスを閉じる）には、渡さない
     const onKey = (e: KeyboardEvent): void => {
-      if (e.key !== 'Escape' || !drag.current) return;
+      if (e.key !== 'Escape' || e.isComposing || e.keyCode === 229 || !drag.current) return; // 変換中の Esc は、変換の取り消し
       endDrag(false);
       e.stopImmediatePropagation();
     };

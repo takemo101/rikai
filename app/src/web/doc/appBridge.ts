@@ -16,6 +16,7 @@
 // 枠の幅・外観の切り替えは、保存しない（再読み込みで、自動・画面の外観に戻る）。本文を描き直しても（コメントの追加など）、同じ版の中では、覚えている。
 import {
   type PickInfo,
+  parseEsc,
   parsePick,
   parseSnapshot,
   parseState,
@@ -100,6 +101,11 @@ function decodesWithinLimit(png: string): Promise<boolean> {
 export interface FrameHandlers {
   /** 利用者が、枠の中の要素を選んだ（検査済み）。`stateJson`：その枠の、最新の状態 */
   onPick?: (pick: PickInfo, stateJson: string | null) => void;
+  /**
+   * 枠の中の Esc（検査済み。頻度の上限つき）。**個別表示の枠だけが渡す**（F43）：本文の枠は、渡さない（枠の Esc は、何もしない）。
+   * 選択モードの Esc は、橋が `pick-cancel` で知らせる（ここへは、来ない）
+   */
+  onEsc?: () => void;
 }
 
 interface Entry extends AppFrame {
@@ -149,6 +155,8 @@ export function parseResize(data: unknown): number | null {
 
 /** 1 つの枠の、`state` を受ける頻度の上限（1 秒あたり。橋は、1 秒に 4 回まで）。超えた分は、捨てる */
 const STATE_LIMIT = 8;
+/** 1 つの枠の、`esc` を受ける頻度の上限（1 秒あたり。橋は、150ms に 1 回まで送る） */
+const ESC_LIMIT = 6;
 
 function onMessage(e: MessageEvent): void {
   if (!e.source) return; // 送り元の窓がない（detached な枠の contentWindow も null：一致させない）
@@ -161,7 +169,7 @@ function onMessage(e: MessageEvent): void {
 
 /** 選択モードの枠があるあいだ、親の Esc で、中止する（枠の中の Esc は、枠が自分で中止して、知らせる） */
 function onPickKey(e: KeyboardEvent): void {
-  if (e.key !== 'Escape') return;
+  if (e.key !== 'Escape' || e.isComposing || e.keyCode === 229) return; // 変換中の Esc は、変換の取り消し
   for (const f of frames) f.cancelPick();
 }
 const pickingFrames = (except?: AppFrame): boolean => [...frames].some((f) => f !== except && f.get().picking);
@@ -181,6 +189,7 @@ export function registerFrame(
   let state = initial;
   let stateJson: string | null = null; // この枠の、最新の状態（メモリだけ。描き直しで消えてよい）
   let stateTimes: number[] = [];
+  let escTimes: number[] = [];
   const snapshots = new Map<string, { resolve: (png: string | null) => void; timer: number }>(); // 頼んで、まだ応答のない画像（id → 待っている人）
   const subs = new Set<() => void>();
   const cleanups: Array<() => void> = [];
@@ -357,6 +366,13 @@ export function registerFrame(
         if (!pick) return;
         setPicking(false); // 1 つ選ぶと、終わる（続けて届いても、受けない：洪水で、下書きが増えない）
         handlers.onPick?.(pick, stateJson);
+      } else if (type === 'esc') {
+        if (!handlers.onEsc || !parseEsc(data)) return; // 個別表示の枠だけ。形の検査
+        const now = Date.now();
+        escTimes = escTimes.filter((t) => now - t < 1000);
+        if (escTimes.length >= ESC_LIMIT) return; // 頻度の上限
+        escTimes.push(now);
+        handlers.onEsc();
       } else if (type === 'pick-cancel') {
         setPicking(false);
       } else if (type === 'snapshot') {
@@ -414,6 +430,17 @@ export function latestStateOf(box: ParentNode): string | null {
 export function requestFrameSnapshot(iframe: HTMLIFrameElement): Promise<string | null> {
   for (const f of frames) if (f.iframe === iframe) return f.requestSnapshot();
   return Promise.resolve(null);
+}
+
+/** 選択モードの枠が、1 つでもあれば、すべて中止して true（個別表示の Esc：道具の中止が、閉じるより先。F43）。なければ false */
+export function cancelAllPicks(): boolean {
+  let any = false;
+  for (const f of [...frames]) {
+    if (!f.get().picking) continue;
+    any = true;
+    f.cancelPick();
+  }
+  return any;
 }
 
 /** `container` の中の枠を、すべて外す（本文を描き直す前・本文が消えるとき）。枠が 0 になったら、メッセージの受け口も外す */

@@ -45,16 +45,22 @@ export function blockText(el: BlockEl): string {
   return (el.textContent || '').replace(/\s+/g, ' ').trim();
 }
 
-/** 範囲を選べる要素：ブロックの中の、画像（img）と図（svg。Mermaid・AI が書いたインラインの SVG）。最初の 1 つ */
+/**
+ * 範囲を選べる要素：ブロックの中の、画像（img）と図（svg。Mermaid・AI が書いたインラインの SVG）。最初の 1 つ。
+ * **html-app の枠のブロックには、ない**（null）：見出しのツールバーの、アイコンの svg（15px）を、拾わない（範囲の基準が、アイコンになる不具合だった：F43 で直した）
+ */
 export const mediaOf = (el: BlockEl): BlockEl | null =>
-  el.matches('img, svg') ? el : el.querySelector<BlockEl>('img, svg');
+  el.classList.contains('htmlapp') ? null : el.matches('img, svg') ? el : el.querySelector<BlockEl>('img, svg');
 
 /**
  * 範囲の基準：ブロックの最初の画像・図。なければ、ブロックそのもの。**壊れた画像**（読み込みが終わって、大きさがない）だけは、ブロックを基準にする。
  * 読み込み前の画像（遅延読み込み）は、画像のまま（大きさがないあいだは、枠を出さない。読み込まれたら、合わせ直す）。
+ * **html-app の枠のブロックは、枠の置き場（`.appview`：F40 の、本文の幅の箱。縮小表示・横スクロールの、外側）**：見出し・ソースの欄を含まない、枠の見た目の領域。
+ * （0.24.0 より前は、見出しのツールバーの、最初のアイコンだった。その基準で保存された範囲は、新しい基準では、ずれる：`.rikai/` は、書き換えない）
  * 範囲の枠を出すときも、同じ基準を使う（保存した比率は、この基準に対するもの）
  */
 export function frameOf(el: BlockEl): BlockEl {
+  if (el.classList.contains('htmlapp')) return el.querySelector<HTMLElement>(':scope > .appview') ?? el;
   const m = mediaOf(el);
   if (!m) return el;
   return m instanceof HTMLImageElement && m.complete && !m.naturalWidth ? el : m;
@@ -118,7 +124,7 @@ export function blockLabel(el: BlockEl): string {
   if (el.classList.contains('mermaid-block')) return '図';
   if (el.classList.contains('htmlapp')) return '実行できる枠';
   if (el.dataset.fmt) return labelOf(el.dataset.fmt);
-  const img = el.querySelector('img');
+  const img = el instanceof HTMLImageElement ? el : el.querySelector('img'); // ブロックそのものが `<img>` のこともある
   if (img) return `画像: ${img.alt || ''}`.trim();
   if (el.tagName === 'TABLE') return '表';
   if (el.tagName === 'PRE') return 'コード';

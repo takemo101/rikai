@@ -65,6 +65,7 @@ function addFrame(
     page?: 'light' | 'dark';
     follows?: boolean;
     onPick?: (pick: PickInfo, stateJson: string | null) => void;
+    onEsc?: () => void;
   } = {},
 ) {
   // host（本文の幅の箱）> inner（縮小後の大きさを持つ箱）> iframe
@@ -79,7 +80,7 @@ function addFrame(
     opts.auto ?? true,
     opts.follows ?? true,
     initialFrameState(opts.key ?? viewKey, opts.n ?? 0, opts.page ?? 'light', opts.follows ?? true),
-    { onPick: opts.onPick },
+    { onPick: opts.onPick, onEsc: opts.onEsc },
   );
   return { iframe, frame, win: iframe.contentWindow as Window };
 }
@@ -844,4 +845,41 @@ test('枠の画像：時間切れは 2 秒。待っている間に枠が消え�
   await flush();
   expect(result2).toBeNull();
   await expect(requestFrameSnapshot(document.createElement('iframe'))).resolves.toBeNull();
+});
+
+test('枠の中の Esc（esc）：個別表示の枠（onEsc を渡した枠）だけが、受ける。送り元の窓・形・頻度（1 秒に 6 回まで）を検査する。本文の枠・兄弟の枠の esc は、何もしない', () => {
+  const onEsc = vi.fn();
+  const focus = addFrame({ n: 0, onEsc });
+  const body = addFrame({ n: 1 }); // 本文の枠：onEsc がない
+  const esc = { __rikai: 1, type: 'esc' };
+  post(body.win, esc); // 兄弟・本文の枠：個別表示の枠の onEsc は、呼ばれない
+  post(window, esc);
+  post(null, esc);
+  expect(onEsc).not.toHaveBeenCalled();
+  post(focus.win, { ...esc, extra: 1 }); // 形の不正
+  post(focus.win, { __rikai: 1, type: 'esc', key: 'Escape' });
+  post(focus.win, { __rikai: 2, type: 'esc' });
+  expect(onEsc).not.toHaveBeenCalled();
+  post(focus.win, esc);
+  expect(onEsc).toHaveBeenCalledTimes(1);
+  for (let i = 0; i < 20; i++) post(focus.win, esc); // 洪水：1 秒に 6 回まで
+  expect(onEsc).toHaveBeenCalledTimes(6);
+  vi.advanceTimersByTime(1100);
+  post(focus.win, esc);
+  expect(onEsc).toHaveBeenCalledTimes(7);
+  // 外した枠からは、受けない
+  releaseApps(focus.iframe.parentElement as HTMLElement);
+  post(focus.win, esc);
+  expect(onEsc).toHaveBeenCalledTimes(7);
+});
+
+test('選択モードの、親での Esc：変換中（isComposing・keyCode 229）は、中止しない', () => {
+  const a = addFrame({ n: 0 });
+  a.frame.startPick();
+  expect(a.frame.get().picking).toBe(true);
+  document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', isComposing: true }));
+  document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', keyCode: 229 }));
+  expect(a.frame.get().picking).toBe(true);
+  document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
+  expect(a.frame.get().picking).toBe(false);
 });
