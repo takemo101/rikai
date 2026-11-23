@@ -1806,6 +1806,177 @@ var upgradeWebSocket = defineWebSocketHelper(async (c, events, options) => {
 var import_node_fs4 = __toESM(require("node:fs"), 1);
 var import_node_path3 = __toESM(require("node:path"), 1);
 
+// src/shared/htmlapp-bridge.ts
+var STATE_MAX_BYTES = 8192;
+var STATE_MAX_DEPTH = 8;
+var STATE_MAX_NODES = 500;
+var STATE_MAX_STRING = 1e3;
+var STATE_MAX_KEY = 100;
+var STYLE_KEYS = [
+  "display",
+  "position",
+  "width",
+  "height",
+  "margin",
+  "padding",
+  "border",
+  "border-radius",
+  "box-shadow",
+  "color",
+  "background-color",
+  "font-family",
+  "font-size",
+  "font-weight",
+  "line-height",
+  "gap",
+  "opacity",
+  "justify-content",
+  "align-items",
+  "flex-direction"
+];
+var TAG = /^[a-z][a-z0-9-]{0,31}$/i;
+var KNOWN_TAGS = new Set(
+  "a abbr address area article aside audio b base bdi bdo blockquote body br button canvas caption cite code col colgroup data datalist dd del details dfn dialog div dl dt em embed fieldset figcaption figure footer form h1 h2 h3 h4 h5 h6 head header hgroup hr html i iframe img input ins kbd label legend li link main map mark menu meta meter nav noscript object ol optgroup option output p param picture pre progress q rp rt ruby s samp script search section select slot small source span strong style sub summary sup table tbody td template textarea tfoot th thead time title tr track u ul var video wbr svg path circle rect g line text ellipse polygon polyline tspan defs use image symbol marker mask pattern stop clippath lineargradient radialgradient foreignobject".split(" ")
+);
+var STYLE_SET = new Set(STYLE_KEYS);
+var STYLE_VALUE_MAX = 80;
+var SELECTOR_MAX = 200;
+var TEXT_MAX = 80;
+var COORD_MAX = 1e5;
+var isObj = (v2) => typeof v2 === "object" && v2 !== null && !Array.isArray(v2);
+var onlyKeys = (o, allowed) => Object.keys(o).every((k) => allowed.includes(k));
+var int = (v2, min, max) => typeof v2 === "number" && Number.isFinite(v2) && Number.isInteger(v2) && v2 >= min && v2 <= max ? v2 : null;
+var flat = (s) => s.replace(/\s+/g, " ").trim();
+var HIDDEN = new RegExp("\\p{M}{3,}|(?!(?<=\\p{Extended_Pictographic})[\\uFE0E\\uFE0F])[\\p{Cc}\\p{Cf}\\p{Co}\\p{Cn}\\p{Cs}\\p{Default_Ignorable_Code_Point}\\u2800\\u2028\\u2029]", "gu");
+var ORDINARY_WS = /* @__PURE__ */ new Set(["	", "\n", "\r"]);
+var escapeChar = (ch) => {
+  const cp3 = ch.codePointAt(0);
+  const hex3 = cp3.toString(16).toUpperCase();
+  return cp3 > 65535 ? `\\u{${hex3}}` : `\\u${hex3.padStart(4, "0")}`;
+};
+var revealPlain = (s) => s.replace(HIDDEN, (run3) => {
+  let out2 = "";
+  for (const ch of run3) out2 += ORDINARY_WS.has(ch) ? ch : escapeChar(ch);
+  return out2;
+});
+var EMOJI_UNIT = "\\p{Extended_Pictographic}(?:\\uFE0F|\\p{Emoji_Modifier})?";
+var SAFE_EMOJI = new RegExp(`[0-9#*]\\uFE0F?\\u20E3|${EMOJI_UNIT}(?:\\u200D${EMOJI_UNIT}){1,19}`, "gu");
+var reveal = (s) => {
+  let out2 = "";
+  let from = 0;
+  for (const m of s.matchAll(SAFE_EMOJI)) {
+    out2 += revealPlain(s.slice(from, m.index)) + m[0];
+    from = m.index + m[0].length;
+  }
+  return out2 + revealPlain(s.slice(from));
+};
+function revealDeep(v2) {
+  if (typeof v2 === "string") return reveal(v2);
+  if (Array.isArray(v2)) return v2.map(revealDeep);
+  if (isObj(v2)) {
+    const o = /* @__PURE__ */ Object.create(null);
+    for (const k of Object.keys(v2)) o[reveal(k)] = revealDeep(v2[k]);
+    return o;
+  }
+  return v2;
+}
+var PICK_FIELDS = ["selector", "tag", "text", "rect", "styles", "frame"];
+var shownLength = (s) => s.replace(/\\u(?:\{[0-9A-F]{5,6}\}|[0-9A-F]{4})/g, ".").length;
+function pickFields(data, len) {
+  const { selector, tag, text, rect, styles, frame } = data;
+  if (typeof selector !== "string" || !selector || len(selector) > SELECTOR_MAX) return null;
+  if (typeof tag !== "string" || !TAG.test(tag)) return null;
+  if (typeof text !== "string" || len(text) > TEXT_MAX) return null;
+  if (!isObj(rect) || !onlyKeys(rect, ["x", "y", "w", "h"])) return null;
+  const [x2, y2, w2, h] = [
+    int(rect.x, -COORD_MAX, COORD_MAX),
+    int(rect.y, -COORD_MAX, COORD_MAX),
+    int(rect.w, 0, COORD_MAX),
+    int(rect.h, 0, COORD_MAX)
+  ];
+  if (x2 === null || y2 === null || w2 === null || h === null) return null;
+  if (!isObj(styles) || Object.keys(styles).length > STYLE_KEYS.length) return null;
+  const outStyles = {};
+  for (const k of Object.keys(styles)) {
+    const v2 = styles[k];
+    if (!STYLE_SET.has(k) || typeof v2 !== "string" || len(v2) > STYLE_VALUE_MAX) return null;
+    outStyles[k] = reveal(v2);
+  }
+  if (!isObj(frame) || !onlyKeys(frame, ["w", "h"])) return null;
+  const [fw, fh] = [int(frame.w, 0, COORD_MAX), int(frame.h, 0, COORD_MAX)];
+  if (fw === null || fh === null) return null;
+  return {
+    selector: flat(reveal(selector)),
+    tag,
+    text: flat(reveal(text)),
+    rect: { x: x2, y: y2, w: w2, h },
+    styles: outStyles,
+    frame: { w: fw, h: fh }
+  };
+}
+var byteLength = (s) => new TextEncoder().encode(s).length;
+function withinLimits(v2, len) {
+  let nodes = 0;
+  const walk = (x2, depth) => {
+    if (++nodes > STATE_MAX_NODES || depth > STATE_MAX_DEPTH) return false;
+    if (typeof x2 === "string") return len(x2) <= STATE_MAX_STRING;
+    if (Array.isArray(x2)) return x2.every((y2) => walk(y2, depth + 1));
+    if (isObj(x2)) return Object.keys(x2).every((k) => len(k) <= STATE_MAX_KEY && walk(x2[k], depth + 1));
+    return true;
+  };
+  return walk(v2, 1);
+}
+function checkState(v2, len) {
+  if (v2 === null || typeof v2 !== "object" || !withinLimits(v2, len)) return null;
+  const out2 = JSON.stringify(revealDeep(v2));
+  return byteLength(out2) <= STATE_MAX_BYTES ? out2 : null;
+}
+function stateText(json3, len) {
+  if (typeof json3 !== "string" || !json3 || byteLength(json3) > STATE_MAX_BYTES) return null;
+  let v2;
+  try {
+    v2 = JSON.parse(json3);
+  } catch {
+    return null;
+  }
+  return checkState(v2, len);
+}
+var FRAME_META_MAX_BYTES = 16384;
+var rejected = (reason) => ({ ok: false, reason });
+function parseFrameMeta(data) {
+  if (!isObj(data)) return rejected("frameMeta \u306F\u3001\u30AA\u30D6\u30B8\u30A7\u30AF\u30C8\u3067\u9001\u3063\u3066\u304F\u3060\u3055\u3044");
+  if (!onlyKeys(data, ["pick", "state", "imageFromFrame"])) return rejected("frameMeta \u306B\u3001\u4F7F\u3048\u306A\u3044\u30AD\u30FC\u304C\u3042\u308A\u307E\u3059");
+  const meta3 = {};
+  if (data.pick !== void 0) {
+    const pick2 = isObj(data.pick) && onlyKeys(data.pick, PICK_FIELDS) ? pickFields(data.pick, shownLength) : null;
+    if (!pick2)
+      return rejected(
+        "frameMeta.pick \u306E\u5F62\u304C\u4E0D\u6B63\u3067\u3059\uFF08selector\u30FBtag\u30FBtext\u30FBrect\u30FBstyles\u30FBframe\u3002\u9577\u3055\u30FB\u5024\u306E\u7BC4\u56F2\u306B\u53CE\u3081\u308B\uFF09"
+      );
+    meta3.pick = pick2;
+  }
+  if (data.state !== void 0) {
+    const out2 = stateText(data.state, shownLength);
+    if (out2 === null)
+      return rejected(
+        "frameMeta.state \u304C\u4E0D\u6B63\u3067\u3059\uFF08\u30AA\u30D6\u30B8\u30A7\u30AF\u30C8\u304B\u914D\u5217\u306E JSON \u306E\u6587\u5B57\u5217\u30028KB\u30FB\u6DF1\u3055 8\u30FB\u8981\u7D20 500\u30FB\u6587\u5B57\u5217 1000 \u6587\u5B57\u307E\u3067\uFF09"
+      );
+    meta3.state = out2;
+  }
+  if (data.imageFromFrame !== void 0) {
+    if (data.imageFromFrame !== true) return rejected("frameMeta.imageFromFrame \u306F\u3001true \u3060\u3051\u3067\u3059");
+    meta3.imageFromFrame = true;
+  }
+  if (meta3.pick === void 0 && meta3.state === void 0 && !meta3.imageFromFrame)
+    return rejected("frameMeta \u304C\u7A7A\u3067\u3059");
+  if (byteLength(JSON.stringify(meta3)) > FRAME_META_MAX_BYTES)
+    return { ok: false, reason: `frameMeta \u304C\u5927\u304D\u3059\u304E\u307E\u3059\uFF08${FRAME_META_MAX_BYTES / 1024}KB \u307E\u3067\uFF09`, tooBig: true };
+  return { ok: true, meta: meta3 };
+}
+var SNAPSHOT_MAX_SIDE = 2400;
+var FROM_FRAME = "\u3010\u67A0\u304B\u3089\u3011";
+var PICK_HEAD = `${FROM_FRAME}\u8981\u7D20\u3092\u9078\u3073\u307E\u3057\u305F\uFF08\u67A0\u306E\u81EA\u5DF1\u7533\u544A\u3002\u4E0B\u306E JSON\uFF09\uFF1A`;
+
 // src/server/image.ts
 var import_node_crypto = __toESM(require("node:crypto"), 1);
 var IMG_MAX = 5 * 1024 * 1024;
@@ -1862,6 +2033,12 @@ function createActions(store, hooks = {}) {
     }
     return names;
   }
+  function normFrameMeta(v2) {
+    if (v2 == null) return void 0;
+    const r = parseFrameMeta(v2);
+    if (!r.ok) throw new HttpError(r.tooBig ? 413 : 400, r.reason);
+    return r.meta;
+  }
   return {
     // 画像を assets/ に保存し、名前を返す。名前は、中身から決める（同じ画像は、同じ名前＝重ならない）。ロックの下で書く
     attach(b) {
@@ -1885,6 +2062,7 @@ function createActions(store, hooks = {}) {
         const text = str(b.text).trim();
         const images = normImages(meta3.slug, b.images);
         if (!text && !images.length) throw new HttpError(400, "\u30B3\u30E1\u30F3\u30C8\u304C\u7A7A\u3067\u3059");
+        const frameMeta = normFrameMeta(b.frameMeta);
         const t = {
           id: nextId2(th, "t"),
           page: b.page,
@@ -1901,6 +2079,7 @@ function createActions(store, hooks = {}) {
               kind: "comment",
               at: now(),
               text,
+              ...frameMeta ? { frameMeta } : {},
               ...images.length ? { images } : {},
               sent: false
             }
@@ -1991,7 +2170,8 @@ function createActions(store, hooks = {}) {
           const o = { id: m.id, author: m.author, kind: m.kind };
           const src = m;
           const dst = o;
-          for (const k of ["text", "ask", "answer", "to", "page", "revision"]) if (src[k] != null) dst[k] = src[k];
+          for (const k of ["text", "frameMeta", "ask", "answer", "to", "page", "revision"])
+            if (src[k] != null) dst[k] = src[k];
           if (m.images?.length) o.images = m.images.map((n) => import_node_path3.default.join(tdir(meta3.slug), "assets", n));
           return o;
         };
@@ -4359,7 +4539,7 @@ __export(external_exports, {
   includes: () => _includes,
   input: () => input,
   instanceof: () => _instanceof,
-  int: () => int,
+  int: () => int2,
   int32: () => int32,
   int64: () => int64,
   intersection: () => intersection,
@@ -21296,7 +21476,7 @@ __export(schemas_exports2, {
   httpUrl: () => httpUrl,
   iban: () => iban2,
   instanceof: () => _instanceof,
-  int: () => int,
+  int: () => int2,
   int32: () => int32,
   int64: () => int64,
   intersection: () => intersection,
@@ -22040,10 +22220,10 @@ var ZodNumber = /* @__PURE__ */ $constructor(
       return this.check(_lte(value, params));
     },
     int(params) {
-      return this.check(int(params));
+      return this.check(int2(params));
     },
     safe(params) {
-      return this.check(int(params));
+      return this.check(int2(params));
     },
     positive(params) {
       return this.check(_gt(0, params));
@@ -22075,7 +22255,7 @@ var ZodNumberFormat = /* @__PURE__ */ $constructor("ZodNumberFormat", (inst, def
   $ZodNumberFormat.init(inst, def);
   ZodNumber.init(inst, def);
 });
-function int(params) {
+function int2(params) {
   return _int(ZodNumberFormat, params);
 }
 function float32(params) {
@@ -23937,7 +24117,8 @@ var commentBody = external_exports.object({
   version: external_exports.union([external_exports.number(), external_exports.string()]),
   anchor: external_exports.unknown().optional(),
   text: external_exports.unknown().optional(),
-  images: external_exports.unknown().optional()
+  images: external_exports.unknown().optional(),
+  frameMeta: external_exports.unknown().optional()
 });
 var replyBody = external_exports.object({ topic, thread, text: external_exports.unknown().optional(), images: external_exports.unknown().optional() });
 var answerBody = external_exports.object({ topic, thread, msg, answer: external_exports.unknown().optional() });
@@ -25554,45 +25735,6 @@ function createAppFrames(store) {
   }
   return { appsOfPage };
 }
-
-// src/shared/htmlapp-bridge.ts
-var STATE_MAX_BYTES = 8192;
-var STYLE_KEYS = [
-  "display",
-  "position",
-  "width",
-  "height",
-  "margin",
-  "padding",
-  "border",
-  "border-radius",
-  "box-shadow",
-  "color",
-  "background-color",
-  "font-family",
-  "font-size",
-  "font-weight",
-  "line-height",
-  "gap",
-  "opacity",
-  "justify-content",
-  "align-items",
-  "flex-direction"
-];
-var KNOWN_TAGS = new Set(
-  "a abbr address area article aside audio b base bdi bdo blockquote body br button canvas caption cite code col colgroup data datalist dd del details dfn dialog div dl dt em embed fieldset figcaption figure footer form h1 h2 h3 h4 h5 h6 head header hgroup hr html i iframe img input ins kbd label legend li link main map mark menu meta meter nav noscript object ol optgroup option output p param picture pre progress q rp rt ruby s samp script search section select slot small source span strong style sub summary sup table tbody td template textarea tfoot th thead time title tr track u ul var video wbr svg path circle rect g line text ellipse polygon polyline tspan defs use image symbol marker mask pattern stop clippath lineargradient radialgradient foreignobject".split(" ")
-);
-var STYLE_SET = new Set(STYLE_KEYS);
-var HIDDEN = new RegExp("\\p{M}{3,}|(?!(?<=\\p{Extended_Pictographic})[\\uFE0E\\uFE0F])[\\p{Cc}\\p{Cf}\\p{Co}\\p{Cn}\\p{Cs}\\p{Default_Ignorable_Code_Point}\\u2800\\u2028\\u2029]", "gu");
-var EMOJI_UNIT = "\\p{Extended_Pictographic}(?:\\uFE0F|\\p{Emoji_Modifier})?";
-var SAFE_EMOJI = new RegExp(`[0-9#*]\\uFE0F?\\u20E3|${EMOJI_UNIT}(?:\\u200D${EMOJI_UNIT}){1,19}`, "gu");
-var SNAPSHOT_MAX_SIDE = 2400;
-var FROM_FRAME = "\u3010\u67A0\u304B\u3089\u3011";
-var FROM_FRAME_IMAGE = "\u3010\u67A0\u304B\u3089\uFF08\u753B\u50CF\uFF09\u3011";
-var FRAME_IMAGE_LINE = `${FROM_FRAME_IMAGE}\u67A0\u306E\u753B\u50CF\u306F\u3001\u67A0\u306E\u4E2D\u306E\u30B3\u30FC\u30C9\u304C\u4F5C\u3063\u305F\u3082\u306E\u3067\u3059
-
-`;
-var PICK_HEAD = `${FROM_FRAME}\u8981\u7D20\u3092\u9078\u3073\u307E\u3057\u305F\uFF08\u67A0\u306E\u81EA\u5DF1\u7533\u544A\u3002\u4E0B\u306E JSON\uFF09\uFF1A`;
 
 // src/shared/htmlapp-theme.ts
 var BRIDGE_COLORS = {

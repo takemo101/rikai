@@ -284,7 +284,7 @@ const fromFrame = (source: Window | null, data: unknown): void => {
   window.dispatchEvent(e);
 };
 
-test('要素を選ぶ（F42）：ボタン → 枠が選んだ要素 → その枠への下書き（「枠から：」の錨・「【枠から】」の本文＋ JSON）。自動では、送らない。選んでいないときの pick は、下書きを作らない', async () => {
+test('要素を選ぶ（F42・F45）：ボタン → 枠が選んだ要素 → その枠への下書き（「枠から：」の錨・下書きの frameMeta）。本文は空。自動では、送らない。選んでいないときの pick は、下書きを作らない', async () => {
   queryClient.setQueryData(
     topicKey('demo'),
     topicState({ meta: meta({ pages: { root: { title: 'T', parent: null, versions: 1, createdAt: '' } } }) }),
@@ -312,21 +312,22 @@ test('要素を選ぶ（F42）：ボタン → 枠が選んだ要素 → その�
   const c = useUi.getState().composer;
   expect(c?.anchor.label).toBe('枠から：button'); // 枠が決めた長い文字（セレクタ・文字）は、ラベルに入れない（tag だけ）
   expect(c?.anchor.blockTag).toBe('DIV');
-  const draft = useUi.getState().drafts.composer;
-  expect(
-    draft.startsWith(
-      '【枠から】要素を選びました（枠の自己申告。下の JSON）：button（x:24 y:312 w:320 h:40）\n\n```json\n',
-    ),
-  ).toBe(true);
-  expect(draft.split('\n')[0]).not.toContain('ログイン'); // セレクタ・文字は、JSON のブロックの中だけ
-  expect(draft).toContain('"selector": "button.primary"');
-  expect(draft).toContain('"state": {\n    "step": 2\n  }');
+  expect(useUi.getState().drafts.composer).toBe(''); // 入力欄は、空（機械的な文章・JSON は、本文に書かない）
+  expect(c?.frameMeta?.pick).toEqual({
+    selector: 'button.primary',
+    tag: 'button',
+    text: 'ログイン',
+    rect: { x: 24, y: 312, w: 320, h: 40 },
+    styles: { display: 'inline-block' },
+    frame: { w: 634, h: 400 },
+  });
+  expect(c?.frameMeta?.state).toBe('{"step":2}'); // 枠の状態も、frameMeta に
   expect(art().querySelector('.apppick')?.textContent).toBe(''); // 1 つ選ぶと、終わる
   // 自動では、送らない：保存の操作は、呼ばれていない
   expect(useUi.getState().composer?.id).toBe(c?.id);
 });
 
-test('「この枠にコメント」：枠が知らせた状態があれば、本文に添える（「【枠から】枠の状態」＋ JSON）。なければ、空のまま。別の対象を選び直すと、枠の初期値は、残らない', async () => {
+test('「この枠にコメント」：枠が知らせた状態があれば、下書きの frameMeta.state に持つ（本文には書かない）。なければ、frameMeta なし。別の対象を選び直すと、前の枠の情報は、残らない', async () => {
   queryClient.setQueryData(
     topicKey('demo'),
     topicState({ meta: meta({ pages: { root: { title: 'T', parent: null, versions: 1, createdAt: '' } } }) }),
@@ -336,13 +337,13 @@ test('「この枠にコメント」：枠が知らせた状態があれば、�
   const frame = art().querySelector('iframe') as HTMLIFrameElement;
   location.hash = '#/demo';
   act(() => screen.getByText('この枠にコメント').click());
-  expect(useUi.getState().drafts.composer).toBe(''); // 状態がない
+  expect(useUi.getState().drafts.composer).toBe(''); // 本文は、いつも空
+  expect(useUi.getState().composer?.frameMeta).toBeUndefined(); // 状態がない
   fromFrame(frame.contentWindow, { __rikai: 1, type: 'state', json: '{"cart":[1,2]}' });
   act(() => screen.getByText('この枠にコメント').click());
-  const seeded = useUi.getState().drafts.composer;
-  expect(seeded.startsWith('【枠から】枠の状態\n\n```json\n')).toBe(true);
-  expect(seeded).toContain('"cart"');
-  // 利用者が書き足さないまま、別の対象（普通の段落）へ移る：枠の初期値は、消える
+  expect(useUi.getState().drafts.composer).toBe(''); // 状態は、本文に書かない
+  expect(useUi.getState().composer?.frameMeta).toEqual({ state: '{"cart":[1,2]}' });
+  // 別の対象（普通の段落）へ移る：前の枠の情報は、残らない（トーストで知らせる）
   act(() => {
     useUi.getState().startComposer({
       blockId: 'b1',
@@ -356,6 +357,7 @@ test('「この枠にコメント」：枠が知らせた状態があれば、�
     });
   });
   expect(useUi.getState().drafts.composer).toBe('');
+  expect(useUi.getState().composer?.frameMeta).toBeUndefined();
 });
 
 test('位置が見つからないスレッド（引用なし・anchor なし・新しい版のもの）も、DocModel.locs に { kind: "none" } で入る。別のページのスレッドは、入らない', async () => {

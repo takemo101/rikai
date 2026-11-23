@@ -97,11 +97,10 @@ export function commentOnRegion(
   anchor: Anchor,
   makeImage: (hooks: RasterHooks) => Promise<File | null>,
   deps: RegionDeps,
-  seed?: string,
 ): void {
   let compId = -1; // 入力欄（このあと開く）。枠の画像が入ったとき、その入力欄に、印を付ける
   const job = makeImage({ onFrameImages: () => useUi.getState().noteFrameImage(compId) });
-  const comp = openComposer(anchor, seed);
+  const comp = openComposer(anchor);
   compId = comp?.id ?? -1;
   if (!comp) {
     job.catch(() => {}); // 最新版でないとき、入力欄の起動が断った

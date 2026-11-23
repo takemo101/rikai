@@ -549,7 +549,7 @@ test('枠の画像：枠のない範囲は、頼まない（いまと同じ）',
   expect(frameSnap).not.toHaveBeenCalled();
 });
 
-test('枠の画像が入ったら、入力欄の錨のラベルに注記・本文の先頭に「【枠から（画像）】」の 1 行（利用者が消せる）。入力欄をやめていれば、何もしない', async () => {
+test('枠の画像が入ったら、入力欄の錨のラベルに注記・下書きの frameMeta.imageFromFrame（本文には、書かない）。二重に付かない。入力欄をやめていれば、何もしない', async () => {
   framed();
   const d = deps({
     raster: vi.fn(async (_vr, _art, hooks) => {
@@ -561,17 +561,17 @@ test('枠の画像が入ったら、入力欄の錨のラベルに注記・本�
   ui().setComposerDraft('');
   finishRegion({ left: 150, top: 200, width: 100, height: 80 }, d);
   await vi.waitFor(() => expect(ui().composer?.anchor.label).toContain('（枠の画像は、枠自身が作ったもの）'));
-  expect(ui().drafts.composer.startsWith('【枠から（画像）】枠の画像は、枠の中のコードが作ったものです\n\n')).toBe(
-    true,
-  );
+  expect(ui().composer?.frameMeta).toEqual({ imageFromFrame: true });
+  expect(ui().drafts.composer).toBe(''); // 本文（利用者の言葉）には、何も入らない
   expect(ui().composer?.anchor.label.length).toBeLessThanOrEqual(120);
   // 2 回目（同じ入力欄）：二重に付かない
+  const label = ui().composer?.anchor.label;
   ui().noteFrameImage(ui().composer?.id as number);
-  expect(ui().drafts.composer.match(/【枠から（画像）】/g)).toHaveLength(1);
+  expect(ui().composer?.anchor.label).toBe(label);
+  expect(ui().composer?.frameMeta).toEqual({ imageFromFrame: true });
   // 古い入力欄の番号：何もしない
-  const before = ui().drafts.composer;
   ui().noteFrameImage(-1);
-  expect(ui().drafts.composer).toBe(before);
+  expect(ui().composer?.frameMeta).toEqual({ imageFromFrame: true });
   ui().closeComposer();
   ui().noteFrameImage(1);
   expect(ui().composer).toBeNull();

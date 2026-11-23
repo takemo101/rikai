@@ -437,7 +437,7 @@ export function followPageTheme(mode: ResolvedTheme): void {
   for (const f of frames) f.follow(mode);
 }
 
-/** この枠（`.htmlapp`・iframe の祖先）の、最新の状態（検査済みの JSON）。なければ null（「この枠にコメント」が、本文に添える） */
+/** この枠（`.htmlapp`・iframe の祖先）の、最新の状態（検査済みの JSON）。なければ null（「この枠にコメント」が、下書きの `frameMeta.state` に持つ） */
 export function latestStateOf(box: ParentNode): string | null {
   for (const f of frames) if (box.contains(f.iframe)) return f.latestState();
   return null;

@@ -1,14 +1,15 @@
-// html-app の枠 → 画面の「書き戻し」（F42）：メッセージの検査と、下書きの本文の組み立て。DOM に触れない純粋な関数だけ（画面・橋のスクリプト・テストが共有する）。
+// html-app の枠 → 画面の「書き戻し」（F42）と、枠から取った情報（`frameMeta`。F45）：メッセージの検査と、保存・送信の形の検査。DOM に触れない純粋な関数だけ（画面・サーバー・橋のスクリプト・テストが共有する）。
 // 枠の中のコードは、非信頼：**枠から来た値は、文字・画像のデータとして、形・大きさ・値の範囲を、ここで確かめてから**使う（`innerHTML`・`eval`・`href` には、入れない）。
 // 検査は、手で書く（画面は、Zod をバンドルに入れない：`web/api/events.ts` と同じ流儀）。返す値は、**新しく作ったオブジェクト**（枠が渡した object を、そのまま使わない：`__proto__` などで、壊れない）。
 // 枠が送れるのは、`{ __rikai: 1, type, … }`。余分なキーがあるメッセージは、捨てる（厳密）。
+// **`frameMeta`（コメントのメッセージの、省略できる項目）の検査は、`parseFrameMeta` の 1 か所**：画面（下書きに入れるとき）と、サーバー（送られてきたとき。画面を信用しない）が、同じ関数を使う。
 
 // **見えない・紛らわしい文字は、見える形にする**（`reveal`）：枠が、Unicode のタグ文字（U+E0000〜E007F。画面に何も描かれない）・異体字セレクタ（U+E0100〜E01EF など）・ゼロ幅・方向の制御（RLO）・
 // 私用・未割り当て・対でないサロゲート・制御文字・「無視してよい」文字（Default_Ignorable）・空白に見える字（点字の空白・ハングルの空白）・結合記号の重ね書きで、
 // 利用者に見えない文を、コメントの下書きに入れて、AI に読ませないように。取り除かず、`\uXXXX`（BMP の外は `\u{XXXXX}`）にして、利用者が気づけるようにする。
-// 検査の段階（`parsePick`・`parseState`）で、**枠から来た文字列（selector・text・styles の値・state の文字列とキー）に、一度だけ**かける（下流で、二重にしない）。
-// 長さの上限は、置き換えの前の長さで検査し、置き換えのあとの `state` が 8KB を超えたら捨てる（置き換えで、上限を迂回できない）。
-import type { Anchor } from './types';
+// 検査の段階（`parsePick`・`parseState`）で、**枠から来た文字列（selector・text・styles の値・state の文字列とキー）に、一度だけ**かける。保存・送信の形の検査（`parseFrameMeta`）も、同じ関数を通す
+// （すでに見える形のものは、そのまま：何度かけても同じ。サーバーは、画面を信用せず、もう一度かける）。長さの上限は、置き換えの前の長さで測り（`shownLength`）、置き換えのあとの `state` が 8KB を超えたら捨てる（置き換えで、上限を迂回できない）。
+import type { Anchor, FrameMeta, FramePick } from './types';
 
 export const STATE_MAX_BYTES = 8192;
 /** 状態（JSON）の、深さ・全体の要素数・文字列の長さ・キーの長さの上限 */
@@ -44,7 +45,7 @@ export const STYLE_KEYS = [
 const TAG = /^[a-z][a-z0-9-]{0,31}$/i;
 /**
  * 見出し・錨のラベルに出してよいタグ名（標準の HTML 要素と、SVG の主な要素。小文字）。カスタム要素の名前（`ignore-previous-instructions` など、枠が自由に決められる）は、
- * 見出し・ラベルには出さず、`custom` にする（元の名前は、JSON のブロックの中の `tag` にだけ入る）
+ * 見出し・ラベルには出さず、`custom` にする（元の名前は、開いたメタデータの `tag` にだけ入る）
  */
 const KNOWN_TAGS: ReadonlySet<string> = new Set(
   (
@@ -63,14 +64,8 @@ const SELECTOR_MAX = 200;
 const TEXT_MAX = 80;
 const COORD_MAX = 100_000;
 
-export interface PickInfo {
-  selector: string;
-  tag: string;
-  text: string;
-  rect: { x: number; y: number; w: number; h: number };
-  styles: Record<string, string>;
-  frame: { w: number; h: number };
-}
+/** 選んだ要素の情報（`parsePick` の出力。`frameMeta.pick` と同じ形） */
+export type PickInfo = FramePick;
 
 type Obj = Record<string, unknown>;
 const isObj = (v: unknown): v is Obj => typeof v === 'object' && v !== null && !Array.isArray(v);
@@ -129,14 +124,22 @@ function revealDeep(v: unknown): unknown {
   return v;
 }
 
-/** `{ __rikai: 1, type: 'pick', selector, tag, text, rect, styles, frame }` の検査。厳密：余分なキー・型違い・長すぎる・NaN・許可リストにないスタイルは、全体を捨てる（null） */
-export function parsePick(data: unknown): PickInfo | null {
-  if (!isObj(data) || data.__rikai !== 1 || data.type !== 'pick') return null;
-  if (!onlyKeys(data, ['__rikai', 'type', 'selector', 'tag', 'text', 'rect', 'styles', 'frame'])) return null;
+const PICK_FIELDS = ['selector', 'tag', 'text', 'rect', 'styles', 'frame'] as const;
+
+/**
+ * 文字列の長さの数え方。枠から届いたもの（`rawLength`）は、そのまま数える。保存した形（`shownLength`）は、`reveal` が作った `\uXXXX`・`\u{XXXXX}` を 1 文字と数える
+ * （見える形にしたあとでも、元の上限〔selector 200・text 80・state の文字列 1000 など〕で測る。全体の 8KB・16KB の上限が、実際の大きさを抑える）
+ */
+type Len = (s: string) => number;
+const rawLength: Len = (s) => s.length;
+const shownLength: Len = (s) => s.replace(/\\u(?:\{[0-9A-F]{5,6}\}|[0-9A-F]{4})/g, '.').length;
+
+/** `pick` の中身（selector・tag・text・rect・styles・frame）の検査。キーの過不足は、呼ぶ側が見る。厳密：型違い・長すぎる・NaN・許可リストにないスタイルは、全体を捨てる（null）。文字列には `reveal` をかける */
+function pickFields(data: Obj, len: Len): PickInfo | null {
   const { selector, tag, text, rect, styles, frame } = data;
-  if (typeof selector !== 'string' || !selector || selector.length > SELECTOR_MAX) return null;
+  if (typeof selector !== 'string' || !selector || len(selector) > SELECTOR_MAX) return null;
   if (typeof tag !== 'string' || !TAG.test(tag)) return null;
-  if (typeof text !== 'string' || text.length > TEXT_MAX) return null;
+  if (typeof text !== 'string' || len(text) > TEXT_MAX) return null;
   if (!isObj(rect) || !onlyKeys(rect, ['x', 'y', 'w', 'h'])) return null;
   const [x, y, w, h] = [
     int(rect.x, -COORD_MAX, COORD_MAX),
@@ -149,7 +152,7 @@ export function parsePick(data: unknown): PickInfo | null {
   const outStyles: Record<string, string> = {};
   for (const k of Object.keys(styles)) {
     const v = styles[k];
-    if (!STYLE_SET.has(k) || typeof v !== 'string' || v.length > STYLE_VALUE_MAX) return null;
+    if (!STYLE_SET.has(k) || typeof v !== 'string' || len(v) > STYLE_VALUE_MAX) return null;
     outStyles[k] = reveal(v);
   }
   if (!isObj(frame) || !onlyKeys(frame, ['w', 'h'])) return null;
@@ -165,19 +168,48 @@ export function parsePick(data: unknown): PickInfo | null {
   };
 }
 
+/** `{ __rikai: 1, type: 'pick', selector, tag, text, rect, styles, frame }` の検査。厳密：余分なキー・型違い・長すぎる・NaN・許可リストにないスタイルは、全体を捨てる（null） */
+export function parsePick(data: unknown): PickInfo | null {
+  if (!isObj(data) || data.__rikai !== 1 || data.type !== 'pick') return null;
+  if (!onlyKeys(data, ['__rikai', 'type', ...PICK_FIELDS])) return null;
+  return pickFields(data, rawLength);
+}
+
 const byteLength = (s: string): number => new TextEncoder().encode(s).length;
 
 /** JSON の値が、深さ・要素数・文字列の長さの上限の中か（循環は、JSON.parse の結果にはない） */
-function withinLimits(v: unknown): boolean {
+function withinLimits(v: unknown, len: Len): boolean {
   let nodes = 0;
   const walk = (x: unknown, depth: number): boolean => {
     if (++nodes > STATE_MAX_NODES || depth > STATE_MAX_DEPTH) return false;
-    if (typeof x === 'string') return x.length <= STATE_MAX_STRING;
+    if (typeof x === 'string') return len(x) <= STATE_MAX_STRING;
     if (Array.isArray(x)) return x.every((y) => walk(y, depth + 1));
-    if (isObj(x)) return Object.keys(x).every((k) => k.length <= STATE_MAX_KEY && walk(x[k], depth + 1));
+    if (isObj(x)) return Object.keys(x).every((k) => len(k) <= STATE_MAX_KEY && walk(x[k], depth + 1));
     return true;
   };
   return walk(v, 1);
+}
+
+/**
+ * 状態の値（JSON として読んだもの）の検査：object か配列・深さ 8・要素 500・文字列 1000 文字・キー 100 文字まで。
+ * 返すのは、**見える形にして、書き直した JSON の文字列**（置き換えで長くなっても、8KB〔UTF-8〕を超えたら捨てる）。それ以外は null
+ */
+function checkState(v: unknown, len: Len): string | null {
+  if (v === null || typeof v !== 'object' || !withinLimits(v, len)) return null; // 状態は、object か配列
+  const out = JSON.stringify(revealDeep(v));
+  return byteLength(out) <= STATE_MAX_BYTES ? out : null;
+}
+
+/** 状態の JSON の文字列の検査：文字列・8KB（UTF-8）以下・JSON として読める・深さ 8・要素 500・文字列 1000 文字・キー 100 文字まで。**読み直して、見える形にして、書き直した JSON の文字列**を返す。それ以外は null */
+function stateText(json: unknown, len: Len): string | null {
+  if (typeof json !== 'string' || !json || byteLength(json) > STATE_MAX_BYTES) return null;
+  let v: unknown;
+  try {
+    v = JSON.parse(json);
+  } catch {
+    return null;
+  }
+  return checkState(v, len);
 }
 
 /**
@@ -187,17 +219,49 @@ function withinLimits(v: unknown): boolean {
 export function parseState(data: unknown): string | null {
   if (!isObj(data) || data.__rikai !== 1 || data.type !== 'state' || !onlyKeys(data, ['__rikai', 'type', 'json']))
     return null;
-  const json = data.json;
-  if (typeof json !== 'string' || !json || byteLength(json) > STATE_MAX_BYTES) return null;
-  let v: unknown;
-  try {
-    v = JSON.parse(json);
-  } catch {
-    return null;
+  return stateText(data.json, rawLength);
+}
+
+/** `frameMeta` 全体の大きさの上限（`JSON.stringify` の UTF-8。メッセージ 1 つあたり）。`state` の 8KB に、`pick`（約 2〜4KB）が入る大きさ */
+export const FRAME_META_MAX_BYTES = 16384;
+export type FrameMetaResult = { ok: true; meta: FrameMeta } | { ok: false; reason: string; tooBig?: true };
+const rejected = (reason: string): FrameMetaResult => ({ ok: false, reason });
+
+/**
+ * `frameMeta`（`{ pick?, state?, imageFromFrame? }`）の検査（F45）。画面が下書きに入れるとき・サーバーがコメントを受けるとき（**サーバーは、画面を信用しない**）の、同じ関数。
+ * 厳密：object・余分なキー（`__proto__` を含む）なし・空でない・`pick` は `parsePick` と同じ形・`state` は `parseState` の出力と同じ形（JSON の文字列。再シリアライズして 8KB・深さ 8・要素 500・文字列 1000）・
+ * `imageFromFrame` は `true` だけ・全体で 16KB まで。文字列には `reveal` をかける（すでに見える形のものは、そのまま：何度かけても同じ）。返すのは、**新しく作ったオブジェクト**。
+ * 失敗は、`reason`（何が悪いか。値は含めない）。大きさの超過は `tooBig`
+ */
+export function parseFrameMeta(data: unknown): FrameMetaResult {
+  if (!isObj(data)) return rejected('frameMeta は、オブジェクトで送ってください');
+  if (!onlyKeys(data, ['pick', 'state', 'imageFromFrame'])) return rejected('frameMeta に、使えないキーがあります');
+  const meta: FrameMeta = {};
+  if (data.pick !== undefined) {
+    const pick = isObj(data.pick) && onlyKeys(data.pick, PICK_FIELDS) ? pickFields(data.pick, shownLength) : null;
+    if (!pick)
+      return rejected(
+        'frameMeta.pick の形が不正です（selector・tag・text・rect・styles・frame。長さ・値の範囲に収める）',
+      );
+    meta.pick = pick;
   }
-  if (v === null || typeof v !== 'object' || !withinLimits(v)) return null; // 状態は、object か配列
-  const out = JSON.stringify(revealDeep(v)); // 見える形にして、書き直す。置き換えで長くなっても、8KB を超えたら捨てる
-  return byteLength(out) <= STATE_MAX_BYTES ? out : null;
+  if (data.state !== undefined) {
+    const out = stateText(data.state, shownLength);
+    if (out === null)
+      return rejected(
+        'frameMeta.state が不正です（オブジェクトか配列の JSON の文字列。8KB・深さ 8・要素 500・文字列 1000 文字まで）',
+      );
+    meta.state = out;
+  }
+  if (data.imageFromFrame !== undefined) {
+    if (data.imageFromFrame !== true) return rejected('frameMeta.imageFromFrame は、true だけです');
+    meta.imageFromFrame = true;
+  }
+  if (meta.pick === undefined && meta.state === undefined && !meta.imageFromFrame)
+    return rejected('frameMeta が空です');
+  if (byteLength(JSON.stringify(meta)) > FRAME_META_MAX_BYTES)
+    return { ok: false, reason: `frameMeta が大きすぎます（${FRAME_META_MAX_BYTES / 1024}KB まで）`, tooBig: true };
+  return { ok: true, meta };
 }
 
 /**
@@ -235,65 +299,39 @@ export function parseSnapshot(data: unknown): { id: string; png: string | null }
   return { id, png };
 }
 
-/** コードブロックの囲み：値の中の、最長のバッククォートの連続 + 1（最低 3）。値が、ブロックを破れない */
-export function fenceFor(body: string): string {
-  let max = 0;
-  for (const m of body.matchAll(/`+/g)) max = Math.max(max, m[0].length);
-  return '`'.repeat(Math.max(3, max + 1));
-}
-
-/** JSON のコードブロック（```json … ```）。囲みは、`fenceFor` */
-export function jsonBlock(value: unknown): string {
-  const body = JSON.stringify(value, null, 2);
-  const f = fenceFor(body);
-  return `${f}json\n${body}\n${f}`;
-}
-
-/** 枠から来たことを示す印（コメントの先頭・錨のラベル） */
-export const FROM_FRAME = '【枠から】';
-export const FROM_FRAME_IMAGE = '【枠から（画像）】';
-/** 範囲の画像に、枠自身が作った画像が入ったとき：錨のラベルの注記と、本文の先頭の 1 行（利用者が消せる） */
+/** 旧い形のコメント（0.25.x まで）の、枠から来たことを示す印：本文の先頭の見出し。**いまは、本文に書かない**（`frameMeta` を持つ）。旧いコメントの札の判定のためだけに、残してある */
+const FROM_FRAME = '【枠から】';
+const FROM_FRAME_IMAGE = '【枠から（画像）】';
+/** 範囲の画像に、枠自身が作った画像が入ったとき：錨のラベルの注記（錨のラベルは、いまも使う。AI にも、錨として届く） */
 export const FRAME_IMAGE_NOTE = '（枠の画像は、枠自身が作ったもの）';
-export const FRAME_IMAGE_LINE = `${FROM_FRAME_IMAGE}枠の画像は、枠の中のコードが作ったものです\n\n`;
-/** 要素を選んだ下書きの、見出しの行の頭（利用者の文として、自然には書かれない）。「枠から」の札の、ラベル以外の印 */
+/** 旧い形：要素を選んだ下書きの、見出しの行の頭 */
 const PICK_HEAD = `${FROM_FRAME}要素を選びました（枠の自己申告。下の JSON）：`;
 /** 要素を選んだ下書きの錨のラベル：`枠から：<tag>`（`tag` は、`shownTag` を通った名前。枠が決めた長い文字は、入れない） */
 const PICK_LABEL = /^枠から：[a-z][a-z0-9-]{0,31}$/i;
 const hasLine = (text: string, head: string): boolean => text.startsWith(head) || text.includes(`\n${head}`);
 
+/** 選んだ要素の錨のラベル：`枠から：<tag>`（見出し・ラベルに出すタグ名だけ。selector・text は入れない） */
+export const pickLabel = (pick: PickInfo): string => `枠から：${shownTag(pick.tag)}`;
+
 /**
- * 錨と、利用者の文（下書き・コメントの最初の発言）が、「枠から」のものか（札を出す）。**錨のラベルだけでは、決めない**
- * （資料の本文に、`<div>枠から：p</div>` と書けば、同じ形の錨ができる：資料は、AI が書く）。次の**両方**が、そろうとき：
+ * **旧い形のコメント**（`frameMeta` を持たない。本文に見出しと JSON を書いていた 0.25.x まで）が、「枠から」のものか（札を出す）。**新しい形は、`frameMeta` の有無で決める。これは使わない**。
+ * 錨のラベルだけでは、決めない（資料の本文に、`<div>枠から：p</div>` と書けば、同じ形の錨ができる：資料は、AI が書く）。次の**両方**が、そろうとき：
  * - 錨：要素を選んだ下書き（`枠から：<tag>`。枠のブロック〔DIV〕・引用なし・範囲なし）か、範囲の画像に、枠自身が作った画像が入った錨（引用なし・範囲あり・ラベルが、注記で終わる）
  * - 文：その下書きを作ったときの、見出しの行（要素を選んだ下書きは `【枠から】要素を選びました（枠の自己申告。下の JSON）：`・範囲の画像は `【枠から（画像）】`）が、行の頭にある
- *   （利用者の文は、利用者の発言：資料は、書けない。利用者が、その行を消せば、札は消える）
  */
-export const fromFrameAnchor = (a: Pick<Anchor, 'label' | 'quote' | 'blockTag' | 'rect'>, text: string): boolean =>
+export const isLegacyFromFrame = (a: Pick<Anchor, 'label' | 'quote' | 'blockTag' | 'rect'>, text: string): boolean =>
   a.quote === '' &&
   ((a.blockTag === 'DIV' && !a.rect && PICK_LABEL.test(a.label) && hasLine(text, PICK_HEAD)) ||
     (!!a.rect && a.label.endsWith(FRAME_IMAGE_NOTE) && hasLine(text, FROM_FRAME_IMAGE)));
 
-/** 選んだ要素の、下書き：錨のラベルと、本文の初期値（1 行の見出し＋ JSON のブロック。あとに、空行：利用者が、続けて書く）。状態があれば、JSON に `state` として入る */
-export function pickDraft(pick: PickInfo, stateJson: string | null): { label: string; text: string } {
-  const { x, y, w, h } = pick.rect;
-  // 見出しの 1 行と錨のラベルには、枠が決めた長い文字（selector・text）も、枠が自由に決められるタグ名（カスタム要素）も、入れない（地の文として並んで、偽の区切り・指示に見えないように）。
-  // 出すのは、標準の要素名（またはカスタム要素を表す `custom`）と整数だけ。selector・text・元の tag は、JSON のブロックの中にだけ入る
-  const tag = shownTag(pick.tag);
-  const head = `${PICK_HEAD}${tag}（x:${x} y:${y} w:${w} h:${h}）`;
-  const body: Record<string, unknown> = {
-    selector: pick.selector,
-    tag: pick.tag,
-    text: pick.text,
-    rect: pick.rect,
-    frame: pick.frame,
-    styles: pick.styles,
-  };
-  if (stateJson !== null) body.state = JSON.parse(stateJson);
-  return { label: `枠から：${tag}`, text: `${head}\n\n${jsonBlock(body)}\n\n` };
-}
-
-/** 「この枠にコメント」に添える、枠の状態（見出し「枠の状態」＋ JSON のブロック）。状態がなければ、null */
-export function stateDraft(stateJson: string | null): string | null {
-  if (stateJson === null) return null;
-  return `${FROM_FRAME}枠の状態\n\n${jsonBlock(JSON.parse(stateJson))}\n\n`;
+/** 情報の行の、1 行の説明（`枠から：` に続く）：要素を選びました（button・x:113 y:133 w:93 h:34）／枠の状態／枠の画像は、枠自身が作ったもの。タグ名は、標準の要素名か `custom`（枠が決めた長い名前は、出さない） */
+export function frameMetaSummary(meta: FrameMeta): string {
+  const parts: string[] = [];
+  if (meta.pick) {
+    const { x, y, w, h } = meta.pick.rect;
+    parts.push(`要素を選びました（${shownTag(meta.pick.tag)}・x:${x} y:${y} w:${w} h:${h}）`);
+  }
+  if (meta.state !== undefined) parts.push('枠の状態');
+  if (meta.imageFromFrame) parts.push('枠の画像は、枠自身が作ったもの');
+  return parts.join('／');
 }

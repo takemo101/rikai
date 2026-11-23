@@ -70,6 +70,28 @@ export type AskAnswer =
   | { value: number }
   | { text: string };
 
+/** 枠の中で選んだ要素の情報（枠の自己申告。`parsePick` の出力） */
+export interface FramePick {
+  selector: string;
+  tag: string;
+  text: string;
+  rect: { x: number; y: number; w: number; h: number };
+  styles: Record<string, string>;
+  frame: { w: number; h: number };
+}
+
+/**
+ * 枠から取った情報（F45）。**`html-app` の枠の中のコードが作ったデータ（自己申告）で、利用者の言葉ではない**：コメントの本文（`text`）とは別の項目に持つ。
+ * `pick`：選んだ要素（利用者が押した要素とは限らない）・`state`：枠の状態（`rikai.state`）の、**JSON の文字列**（`parseState` の出力：検査・見える化して書き直した、object か配列の JSON。8KB まで）・
+ * `imageFromFrame`：添付の画像が、枠自身が作ったもの。検査は `parseFrameMeta`（`shared/htmlapp-bridge.ts`）の 1 か所。省略できる（なければ、旧い形か、枠と関係のないコメント）。
+ * `state` を、入れ子の型にしないのは、画面が受ける応答の型（Hono）と、`Thread` の型が、互いに代入できなくなるため
+ */
+export interface FrameMeta {
+  pick?: FramePick;
+  state?: string;
+  imageFromFrame?: true;
+}
+
 export type MessageKind = 'comment' | 'followup' | 'answer' | 'reply';
 
 export interface Message {
@@ -79,6 +101,8 @@ export interface Message {
   at: string;
   /** 人の comment・followup と、AI の reply は本文を持つ。answer は持たない */
   text?: string;
+  /** 人の comment：枠から取った情報（F45。省略できる。サーバーが検査して保存する） */
+  frameMeta?: FrameMeta;
   images?: string[];
   /** 人の送信済みの印（AI のメッセージは、いつも true） */
   sent?: boolean;
@@ -150,6 +174,7 @@ export interface RoundMessage {
   author: 'user' | 'ai';
   kind: MessageKind;
   text?: string;
+  frameMeta?: FrameMeta;
   ask?: Ask;
   answer?: AskAnswer;
   to?: string;

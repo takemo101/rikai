@@ -1,9 +1,10 @@
 // 本文（`<article id="article" class="md">`）。**命令的な島**：子を持たない要素で出し、中身は、`render/renderDoc.ts` が DOM を作って `replaceChildren` する。React は、中身を触らない。
 // 描き終えたら、DocModel（どのブロック・強調・番号が、どこにあるか）を、`useDoc` へ入れる（パネル・番号の層・入口のバーが読む）。
 import { useEffect, useRef } from 'react';
-import { type PickInfo, pickDraft, stateDraft } from '../../shared/htmlapp-bridge';
+import { type PickInfo, pickLabel } from '../../shared/htmlapp-bridge';
 import type { ArticleProps } from '../contracts';
 import { $$ } from '../lib/dom';
+import { frameMetaOf } from '../lib/frameMeta';
 import { type BlockEl, type DocModel, locEl, nextEpoch, useDoc } from '../store/doc';
 import { toast, useUi } from '../store/ui';
 import { latestStateOf, releaseApps } from './appBridge';
@@ -37,16 +38,22 @@ function focusComposer(): void {
   });
 }
 
-/** 「この枠にコメント」：枠を対象に、入力欄を開く（開けたら、入力欄へフォーカスを移し、選択を外す）。枠が、`rikai.state(obj)` で知らせた状態があれば、本文に添える（F42） */
+/** 「この枠にコメント」：枠を対象に、入力欄を開く（開けたら、入力欄へフォーカスを移し、選択を外す）。枠が、`rikai.state(obj)` で知らせた状態があれば、下書きの `frameMeta.state` に持つ（本文には書かない：F45） */
 function commentOn(box: BlockEl): void {
-  if (!useUi.getState().startComposer(blockAnchor(box), stateDraft(latestStateOf(box)) ?? undefined)) return;
+  const r = frameMetaOf({ stateJson: latestStateOf(box) });
+  if (!r.ok) toast(r.reason, true); // 状態は付けず、対象だけで開く
+  if (!useUi.getState().startComposer(blockAnchor(box), r.ok ? r.meta : undefined)) return;
   focusComposer();
 }
 
-/** 利用者が、枠の中の要素を選んだ（枠から届いて、検査を通ったもの）：その枠への下書きを作る。本文には、「【枠から】」の 1 行と、JSON のブロック。送るのは、利用者（自動では、送らない） */
+/** 利用者が、枠の中の要素を選んだ（枠から届いて、検査を通ったもの）：その枠への下書きを作る。入力欄は、空のまま（書きかけは、そのまま）。選んだ要素の情報は、下書きの `frameMeta`（本文には書かない：F45）。送るのは、利用者（自動では、送らない） */
 function pickOn(box: BlockEl, pick: PickInfo, stateJson: string | null): void {
-  const d = pickDraft(pick, stateJson);
-  if (!useUi.getState().startComposer({ ...blockAnchor(box), label: d.label }, d.text)) return;
+  const r = frameMetaOf({ pick, stateJson });
+  if (!r.ok) {
+    toast(r.reason, true);
+    return;
+  }
+  if (!useUi.getState().startComposer({ ...blockAnchor(box), label: pickLabel(pick) }, r.meta)) return;
   focusComposer();
 }
 

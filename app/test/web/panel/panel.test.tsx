@@ -3,7 +3,6 @@
 import { act, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, expect, onTestFinished, test, vi } from 'vitest';
-import { type PickInfo, parsePick, pickDraft } from '../../../src/shared/htmlapp-bridge';
 import { topicKey } from '../../../src/web/api/queries';
 import { queryClient } from '../../../src/web/api/queryClient';
 import { useDoc } from '../../../src/web/store/doc';
@@ -447,54 +446,61 @@ test('入力欄：対象の位置の順に、スレッドの間へ入る（い�
   expect(order()).toEqual(['composer']);
 });
 
-test('「枠から」の札（F42）：枠（DIV）の錨で、本物の pick の下書き（見出しの行つき）の入力欄・保存したカードにだけ付く。資料の生の `<div>枠から：p</div>`（錨は同じ形）・本文の文を選んだ（引用あり）・段落（P）のコメントには、付かない', () => {
-  const d = pickDraft(
-    parsePick({
-      __rikai: 1,
-      type: 'pick',
-      selector: 'button',
-      tag: 'button',
-      text: 'x',
-      rect: { x: 1, y: 2, w: 3, h: 4 },
-      styles: {},
-      frame: { w: 10, h: 10 },
-    }) as PickInfo,
-    null,
-  );
-  const frame = anchor('', { blockTag: 'DIV', label: d.label });
-  const fakeQuote = anchor('枠から：button', { blockTag: 'DIV', label: '枠から：button' }); // 利用者が、本文の「枠から：button」という文を選んだ
-  const fakePara = anchor('', { blockTag: 'P', label: '枠から：button' });
+const META = {
+  pick: {
+    selector: 'button',
+    tag: 'button',
+    text: 'x',
+    rect: { x: 1, y: 2, w: 3, h: 4 },
+    styles: {},
+    frame: { w: 10, h: 10 },
+  },
+};
+// 旧い形（0.25.x まで）のコメントの本文：見出しの行＋ JSON のブロック＋利用者の依頼
+const LEGACY =
+  '【枠から】要素を選びました（枠の自己申告。下の JSON）：button（x:1 y:2 w:3 h:4）\n\n```json\n{}\n```\n\nこれは私の依頼';
+
+test('「枠から」の札（F45）：frameMeta を持つコメント・入力欄にだけ付く（本文の見出しの行には頼らない）。資料の生の `<div>枠から：p</div>`（錨は同じ形）・本文に「【枠から】」と書いた利用者のコメント・AI の発言には、付かない。旧い形（frameMeta なし・見出しの行と JSON）は、旧いコメントのためだけに、付く', () => {
+  const frame = anchor('', { blockTag: 'DIV', label: '枠から：button' });
   const rawDiv = anchor('', { blockTag: 'DIV', label: '枠から：p' }); // 資料の生の <div>枠から：p</div> へのコメント：錨の形は、本物と同じ
+  const para = anchor('枠から：button', { blockTag: 'P', label: '枠から：button' });
   renderPanel([
-    thread({ id: 't1', anchor: frame, messages: [user(`${d.text}これは私の依頼`)] }),
-    thread({ id: 't2', anchor: fakeQuote }),
-    thread({ id: 't3', anchor: fakePara }),
-    thread({ id: 't4', anchor: rawDiv, messages: [user('この div を直してください')] }),
-    thread({ id: 't5', anchor: frame, messages: [ai(d.text)] }), // AI の発言には、見ない
+    thread({ id: 't1', anchor: frame, messages: [user('私の依頼', { frameMeta: META })] }), // 新しい形：付く
+    thread({ id: 't2', anchor: rawDiv, messages: [user('この div を直してください')] }), // 資料の生の枠から：p
+    thread({ id: 't3', anchor: para, messages: [user('【枠から】と書いただけのコメント')] }),
+    thread({ id: 't4', anchor: frame, messages: [user('【枠から】要素を選びました\n\n私が書いた文')] }), // 見出しの一部を、本文に書いた利用者
+    thread({ id: 't5', anchor: frame, messages: [ai(LEGACY)] }), // AI の発言には、見ない
+    thread({ id: 't6', anchor: frame, messages: [user(LEGACY)] }), // 旧い形：付く
+    thread({ id: 't7', anchor: frame, messages: [user('先の発言'), ai('返信'), user('追加', { frameMeta: META })] }), // どの発言でも
   ]);
+  const badge = (id: string) => q(`.thread[data-tid="${id}"] .th-head .fromframe`) !== null;
+  const attr = (id: string) => q(`.thread[data-tid="${id}"]`)?.hasAttribute('data-from-frame');
+  for (const id of ['t1', 't6', 't7']) {
+    expect(badge(id), id).toBe(true);
+    expect(attr(id), id).toBe(true);
+  }
+  for (const id of ['t2', 't3', 't4', 't5']) {
+    expect(badge(id), id).toBe(false);
+    expect(attr(id), id).toBe(false);
+  }
+  // 入力欄：frameMeta を持つときだけ（錨の形・下書きの文には、頼らない）
   act(() => {
-    useUi.getState().startComposer(frame, d.text);
+    useUi.getState().startComposer(frame, META);
   });
   expect(q('.thread.composer .fromframe')?.textContent).toBe('枠から');
   expect(q('.thread.composer')?.hasAttribute('data-from-frame')).toBe(true);
-  expect(q('.thread[data-tid="t1"] .fromframe')).not.toBeNull();
-  expect(q('.thread[data-tid="t1"]')?.hasAttribute('data-from-frame')).toBe(true);
-  for (const id of ['t2', 't3', 't4', 't5']) {
-    expect(q(`.thread[data-tid="${id}"] .fromframe`), id).toBeNull();
-    expect(q(`.thread[data-tid="${id}"]`)?.hasAttribute('data-from-frame'), id).toBe(false);
-  }
   act(() => {
     useUi.getState().closeComposer();
-    useUi.getState().startComposer(fakeQuote, d.text);
+    useUi.getState().startComposer(frame); // 本物の錨の形でも、frameMeta がなければ、付かない
+    useUi.getState().setComposerDraft(LEGACY); // 旧い見出しの行を書いても、付かない
   });
   expect(q('.thread.composer .fromframe')).toBeNull();
-  // 資料の生の <div>枠から：p</div> への入力欄：下書きが、普通の文なら、付かない
+  expect(q('.thread.composer')?.hasAttribute('data-from-frame')).toBe(false);
   act(() => {
     useUi.getState().closeComposer();
     useUi.getState().startComposer(rawDiv);
   });
   expect(q('.thread.composer .fromframe')).toBeNull();
-  expect(q('.thread.composer')?.hasAttribute('data-from-frame')).toBe(false);
 });
 
 test('入力欄：対象が本文にない（pending が null）なら、先頭。入力欄だけ（スレッドなし）でも、説明は出さない', () => {

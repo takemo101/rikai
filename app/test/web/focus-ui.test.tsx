@@ -480,7 +480,9 @@ test('個別表示の枠からの pick は、本文の枠と同じ検査で受�
   expect(ui().composer?.anchor.blockId).toBe(block.dataset.bid); // 本文の、元の枠（ブロック）
   expect(ui().composer?.anchor.blockHash).toBe(block.dataset.bhash);
   expect(ui().composer?.anchor.blockTag).toBe('DIV');
-  expect(ui().drafts.composer.startsWith('【枠から】要素を選びました')).toBe(true);
+  expect(ui().drafts.composer).toBe(''); // 入力欄は、空（本文に、機械的な文章・JSON は、書かない）
+  expect(ui().composer?.frameMeta?.pick?.tag).toBe('button');
+  expect(q('#lightbox .fv-dock .framemeta')?.textContent).toContain('要素を選びました'); // ドックの入力欄の上に、情報の行
   // 1 つ選ぶと、終わる：続けて届いても、下書きは、増えない
   const id = ui().composer?.id;
   send({ ...PICK, selector: 'b' }, win);
@@ -493,8 +495,8 @@ test('個別表示の枠からの pick は、本文の枠と同じ検査で受�
   fireEvent.click(q('#lightbox button[data-pick]') as HTMLElement);
   send(PICK, win);
   await settle();
-  expect(ui().drafts.composer).toContain('"slider": 70');
-  expect(ui().drafts.composer).not.toContain('"slider": 7,');
+  expect(ui().drafts.composer).toBe('');
+  expect(JSON.parse(ui().composer?.frameMeta?.state as string)).toEqual({ slider: 70 });
 });
 
 test('html-app の個別表示：Esc の順序（要素選択の中止 → 閉じる）。ドックの「この枠にコメント」に、個別表示の枠の状態が添う', async () => {
@@ -515,8 +517,9 @@ test('html-app の個別表示：Esc の順序（要素選択の中止 → 閉�
   send({ __rikai: 1, type: 'state', json: '{"clicks":3}' }, focusFrame().contentWindow as Window);
   fireEvent.click(q('#lightbox .fv-dock button.ghost') as HTMLElement);
   await settle();
-  expect(ui().drafts.composer.startsWith('【枠から】枠の状態')).toBe(true);
-  expect(ui().drafts.composer).toContain('"clicks": 3');
+  expect(ui().drafts.composer).toBe(''); // 状態は、本文に書かない
+  expect(ui().composer?.frameMeta).toEqual({ state: '{"clicks":3}' });
+  expect(q('#lightbox .fv-dock .framemeta')?.textContent).toContain('枠の状態'); // ドックの入力欄の上に、情報の行
   expect(win).not.toBe(focusFrame().contentWindow); // 開き直すたびに、新しい枠
 });
 

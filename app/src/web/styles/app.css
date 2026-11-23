@@ -625,6 +625,29 @@ dialog p { margin: 0 0 12px; color: var(--ink-2); }
 .thread .chip.fromframe { color: var(--accent-ink); border: 1px solid var(--accent-line); background: var(--accent-soft); font-weight: 600; }
 .thread[data-from-frame] { border-left: 3px solid var(--accent); }
 
+/* 枠から取った情報の行（F45）：コメントの文章ではなく、UI の行。閉じた行は 1 行の要約、開くと読み取り専用のメタデータ。札は、文字で書く（色だけに頼らない） */
+.framemeta { margin: 6px 0; border: 1px solid var(--accent-line); border-radius: var(--r); background: var(--accent-soft); }
+.fm-row { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 2px 6px; padding: 2px 6px 2px 2px; } /* 狭いパネルでは、「外す」が、下の段へ回る */
+.fm-toggle { flex: 1 1 150px; min-width: 0; display: flex; flex-wrap: wrap; align-items: center; gap: 2px 6px; text-align: left; background: none; border: 0; border-radius: var(--r-s); padding: 3px 4px; color: var(--ink); font-size: var(--fs-s); line-height: 1.5; }
+.fm-toggle:hover { background: var(--accent-a8); }
+.fm-toggle svg.lucide { color: var(--accent-ink); transition: transform 0.12s; }
+.framemeta[data-open] .fm-toggle svg.lucide { transform: rotate(90deg); }
+.fm-sum { flex: 1 1 0; min-width: 0; overflow-wrap: anywhere; }
+.fm-toggle.tagged .fm-sum { flex-basis: 100%; } /* 札があるとき：札の下に、要約を、幅いっぱいで */
+.fm-remove { flex: none; margin: 1px 0 1px auto; }
+.fm-body { border-top: 1px solid var(--accent-line); padding: 6px 10px 8px; font-size: var(--fs-s); color: var(--ink); }
+.fm-body .hint { margin: 0 0 6px; }
+.fm-dl { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 3px 10px; margin: 0; }
+.fm-dl dt { color: var(--muted); }
+.fm-dl dd { margin: 0; overflow-wrap: anywhere; }
+.fm-styles { list-style: none; margin: 0; padding: 0; }
+.fm-styles li { display: flex; flex-wrap: wrap; gap: 0 6px; }
+.fm-k { color: var(--muted); }
+.fm-k::after { content: ":"; }
+.fm-state, .fm-image { margin: 6px 0 0; }
+.fm-h { color: var(--muted); }
+.fm-body pre { margin: 2px 0 0; max-height: 200px; overflow: auto; font: 11.5px/1.5 var(--mono); background: var(--card); border: 1px solid var(--line); border-radius: var(--r-s); padding: 6px 8px; white-space: pre-wrap; overflow-wrap: anywhere; }
+
 /* ---- 個別表示（F43）：左にステージ・右にコメントのドック。窓が 760px 未満のときは、ドックは、下からのシート ---- */
 #lightbox.fv { align-items: stretch; justify-content: flex-start; cursor: default; color: var(--ink); font-size: var(--fs); }
 #lightbox .fv-main { position: relative; flex: 1 1 0; min-width: 0; min-height: 0; }

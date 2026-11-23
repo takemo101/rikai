@@ -13,15 +13,15 @@ import {
   TriangleAlert,
 } from 'lucide-react';
 import { type ReactNode, useRef } from 'react';
-import { fromFrameAnchor } from '../../shared/htmlapp-bridge';
+import { isLegacyFromFrame } from '../../shared/htmlapp-bridge';
 import type { Thread } from '../../shared/types';
 import { useMutations } from '../api/mutations';
 import { trunc } from '../lib/dom';
 import type { View } from '../lib/view';
 import type { DocModel } from '../store/doc';
 import { useUi } from '../store/ui';
-import { FromFrame } from './Composer';
 import { caretAtEnd } from './caret';
+import { FromFrame } from './FrameMetaChip';
 import { AttachButton, ImageBar } from './ImageBar';
 import { foldMessages, quoteOf, threadStatus } from './logic';
 import { MessageView } from './Message';
@@ -72,9 +72,12 @@ export function ThreadCard({ view, thread: t, full = false, model, seen, editing
 
   const cls = ['thread', stCls, active && 'active', fresh && 'fresh', linked && 'linked'].filter(Boolean).join(' ');
   const segments = foldMessages(t, { full, seen, editing });
-  // 「枠から」の札：錨の形＋利用者の最初の発言の見出しの行（資料の本文の、似た錨に、付かない。AI の返信は、見ない）
+  // 「枠から」の札：**`frameMeta` の有無で決める**（本文の見出しの行には、頼らない：資料の本文の `<div>枠から：p</div>` や、利用者が本文に「【枠から】」と書いたコメントに、付かない）。
+  // `frameMeta` を持たない旧い形のコメント（0.25.x まで：本文に見出しと JSON）だけ、錨の形＋最初の発言の見出しの行で判定する
   const first = t.messages[0];
-  const fromFrame = !!t.anchor && fromFrameAnchor(t.anchor, first?.author === 'user' ? (first.text ?? '') : '');
+  const fromFrame =
+    t.messages.some((m) => m.author === 'user' && m.frameMeta) ||
+    (!!t.anchor && isLegacyFromFrame(t.anchor, first?.author === 'user' ? (first.text ?? '') : ''));
 
   return (
     <div className={cls} data-tid={t.id} {...(fromFrame ? { 'data-from-frame': '' } : {})}>

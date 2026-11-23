@@ -2,13 +2,14 @@
 // 開く（対象を選んだ・選び直した）たびに、欄にフォーカスを移し、カードを真ん中へ（旧 `startComposer`）。
 import { Send } from 'lucide-react';
 import { useEffect, useRef } from 'react';
-import { fromFrameAnchor } from '../../shared/htmlapp-bridge';
 import { useMutations } from '../api/mutations';
 import { trunc } from '../lib/dom';
+import { effectiveFrameMeta } from '../lib/frameMeta';
 import type { View } from '../lib/view';
 import type { BlockEl } from '../store/doc';
 import { type ComposerState, useUi } from '../store/ui';
 import { caretAtEnd } from './caret';
+import { FrameMetaChip } from './FrameMetaChip';
 import { AttachButton, ImageBar } from './ImageBar';
 import { usePanel } from './panelContext';
 import { useDraftImgs, useImageAttach } from './useImageAttach';
@@ -22,18 +23,6 @@ interface Props {
   dock?: boolean;
 }
 
-/** 「枠から」の札：枠の中のコードが作った情報（要素・状態・画像）が入っている下書き・コメント。AI の文章・あなたの文章と、見分ける（F42） */
-export function FromFrame() {
-  return (
-    <span
-      className="chip small fromframe"
-      title="html-app の枠の中のコードが作った情報が、入っています（要素・状態・画像）"
-    >
-      枠から
-    </span>
-  );
-}
-
 export function Composer({ view, composer, pending, dock = false }: Props) {
   const a = composer.anchor;
   const slug = view.slug;
@@ -45,7 +34,9 @@ export function Composer({ view, composer, pending, dock = false }: Props) {
   const card = useRef<HTMLDivElement>(null);
   const area = useRef<HTMLTextAreaElement>(null);
   const busy = useRef(false);
-  const fromFrame = fromFrameAnchor(a, draft); // 札：錨の形＋下書きの見出しの行（資料の本文の、似た錨に、付かない）
+  // 枠から取った情報（F45）：本文には書かず、情報の行に出す・メッセージの `frameMeta` として送る。札も、これの有無で決める（本文の見出しの行には、頼らない）
+  const meta = effectiveFrameMeta(composer.frameMeta, composer.regionImg, imgs);
+  const fromFrame = !!meta;
 
   // 対象を選び直すたびに（id が変わるたびに）、欄へ移す
   // biome-ignore lint/correctness/useExhaustiveDependencies: id が変わったときだけ（本文は、使わない）
@@ -64,12 +55,27 @@ export function Composer({ view, composer, pending, dock = false }: Props) {
       ui.showToast('画像のアップロード中です。終わってから、送ってください', true);
       return;
     }
-    if (!text && !imgs.length) return;
+    if (!text && !imgs.length) {
+      // 枠から取った情報だけでは、送れない（本文は、利用者の言葉）：知らせて、入力欄へ戻す
+      if (meta) {
+        ui.showToast('コメントの本文を書いてください（枠から取った情報だけでは送れません）', true);
+        area.current?.focus();
+      }
+      return;
+    }
     busy.current = true;
     try {
       const composerId = composer.id;
       await comment(
-        { topic: slug, page: view.page, version: view.version, anchor: a, text, images: [...imgs] },
+        {
+          topic: slug,
+          page: view.page,
+          version: view.version,
+          anchor: a,
+          text,
+          images: [...imgs],
+          ...(meta ? { frameMeta: meta } : {}),
+        },
         {
           // 保存できた：書きかけを消す（取り直しが遅れても、もう一度押して、二重に保存されない）。入力欄は、追加したカードが届いてから閉じる
           onOk: (res) => {
@@ -93,7 +99,6 @@ export function Composer({ view, composer, pending, dock = false }: Props) {
         <span className="no pending" title="本文の、点線の部分へのコメントです">
           新
         </span>
-        {fromFrame ? <FromFrame /> : null}
         <div className="quote">{trunc(a.quote || a.label, 90)}</div>
         {dock && a.rect ? <div className="hint">選んだ範囲（ステージの、点線の枠）へのコメントです</div> : null}
         {!dock && pending ? (
@@ -104,9 +109,10 @@ export function Composer({ view, composer, pending, dock = false }: Props) {
           </div>
         ) : null}
       </div>
+      {meta ? <FrameMetaChip meta={meta} onRemove={() => useUi.getState().removeFrameMeta()} /> : null}
       <textarea
         ref={area}
-        rows={fromFrame ? 8 : 3} // 枠からの下書き（見出し＋ JSON）は、長い：読める高さにする
+        rows={3}
         data-key="composer"
         placeholder="わからない点・確認したい点・直してほしい点（⌘/Ctrl+Enter で追加。画像は、貼り付け・ドラッグでも）"
         value={draft}
