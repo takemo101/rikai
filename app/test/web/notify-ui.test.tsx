@@ -6,6 +6,7 @@ import { topicKey } from '../../src/web/api/queries';
 import { queryClient } from '../../src/web/api/queryClient';
 import { NotifyBell } from '../../src/web/layout/NotifyBell';
 import { useBrowserNotify } from '../../src/web/layout/useBrowserNotify';
+import { NOTIFY_ICON } from '../../src/web/lib/notifyIcon';
 import { UI_KEY } from '../../src/web/lib/storage';
 import { useUi } from '../../src/web/store/ui';
 import { meta, msg, renderWithClient, resetAll, thread, topicState } from './helpers';
@@ -135,7 +136,7 @@ function setup(over: { enabled?: boolean; permission?: NotificationPermission; f
   renderWithClient(<Harness />);
 }
 
-test('最初の読み込みでは出ない（ベースライン）。AI の返信が増えたら、1 回出る：題 rikai・トピック名と件数だけ・tag はトピックごと・icon なし', () => {
+test('最初の読み込みでは出ない（ベースライン）。AI の返信が増えたら、1 回出る：題 rikai・トピック名と件数だけ・tag はトピックごと・icon は rikai の PNG（data:）だけ', () => {
   setup();
   put(state([ai('a1')])); // 最初：すでに、新着の返信がある（ベースラインを取るだけ）
   expect(FakeNotification.made).toHaveLength(0);
@@ -146,7 +147,11 @@ test('最初の読み込みでは出ない（ベースライン）。AI の返�
   expect(n.options.body).toBe('猫の資料：AI から返信が届きました（返信 1・新しい版 1・質問 1）');
   expect(n.options.tag).toBe('rikai-demo');
   expect(n.options.silent).toBe(false);
-  expect(n.options.icon).toBeUndefined();
+  // 意図した変更：icon は、rikai の PNG の data: だけ（外のものではない）。badge・data は、付けない
+  expect(n.options.icon).toBe(NOTIFY_ICON);
+  expect(n.options.icon).toMatch(/^data:image\/png;base64,/);
+  expect(n.options).not.toHaveProperty('badge');
+  expect(n.options).not.toHaveProperty('data');
   expect(JSON.stringify(n.options)).not.toContain('返信の本文'); // 返信の本文は、載せない（N6）
 });
 

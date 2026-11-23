@@ -1,5 +1,9 @@
 // ブラウザの通知（F41）の判定と文言：新着は、ID で決める（読んだ・解決の取り消し・メッセージの削除では出ない／読んだあとの新着は出る）。
 // ベースライン・同じ状態・画面を見ているとき・許可なし・オフ。質問付きの 1 通は「質問 1」だけ。累計。0 の項目の省略・40 字・絵文字・制御文字
+
+import { createHash } from 'node:crypto';
+import fs from 'node:fs';
+import path from 'node:path';
 import { expect, test } from 'vitest';
 import type { Message, Thread } from '../../../src/shared/types';
 import {
@@ -11,6 +15,7 @@ import {
   shouldNotify,
   snapshotOf,
 } from '../../../src/web/lib/notify';
+import { NOTIFY_ICON, NOTIFY_ICON_SOURCE_SHA256 } from '../../../src/web/lib/notifyIcon';
 import { meta, msg, thread, topicState } from '../helpers';
 
 const ASK = { type: 'yes_no', question: '？' } as const;
@@ -150,4 +155,25 @@ test('トピック名：文字のまま（HTML として解釈しない）・40 
   const evil = notifyBody('資\u202E料\u2066x\u2069\u200E\u200F\u0007\u0000終', one);
   expect(evil).toBe('資料x終：AI から返信が届きました（返信 1）');
   expect(evil).not.toMatch(/[\u202a-\u202e\u2066-\u2069\u200e\u200f\p{Cc}]/u);
+});
+
+// 通知のアイコン：data: の PNG（192×192・数 KB）。外部の URL ではない。絵の元（public/favicon.svg）が変わったら、作り直す
+test('通知のアイコン：data:image/png;base64 の定数。PNG の署名・192×192・透過つき（RGBA）・20KB 以内。外部の URL ではない（data: で始まる）', () => {
+  expect(NOTIFY_ICON.startsWith('data:image/png;base64,')).toBe(true);
+  const b64 = NOTIFY_ICON.slice('data:image/png;base64,'.length);
+  expect(b64).toMatch(/^[A-Za-z0-9+/]+={0,2}$/);
+  const png = Buffer.from(b64, 'base64');
+  expect([...png.subarray(0, 4)]).toEqual([0x89, 0x50, 0x4e, 0x47]); // PNG の署名
+  expect(png.subarray(0, 8).toString('hex')).toBe('89504e470d0a1a0a');
+  expect(png.subarray(12, 16).toString('ascii')).toBe('IHDR');
+  expect(png.readUInt32BE(16)).toBe(192); // 幅
+  expect(png.readUInt32BE(20)).toBe(192); // 高さ
+  expect(png[25]).toBe(6); // RGBA（角が透明）
+  expect(png.length).toBeLessThanOrEqual(20 * 1024);
+  expect(Buffer.from(b64, 'base64').toString('base64')).toBe(b64); // base64 として、正しい
+});
+
+test('通知のアイコンは、public/favicon.svg を描いたもの：元が変わっていたら、作り直す（lib/notifyIcon.ts のコメント）', () => {
+  const svg = fs.readFileSync(path.resolve(__dirname, '../../../src/web/public/favicon.svg'));
+  expect(createHash('sha256').update(svg).digest('hex')).toBe(NOTIFY_ICON_SOURCE_SHA256);
 });
