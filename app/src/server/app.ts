@@ -14,6 +14,7 @@ import { apiBodies, topicQuery } from '../shared/api';
 import type { PageInfo } from '../shared/types';
 import type { Actions } from './actions';
 import { createAppFrames } from './appframe';
+import { frameDocument, parseMode } from './appframe-bridge';
 import { APP_MAX } from './htmlapp';
 import { IMG_MAX } from './image';
 import { checkSlug, isSupported, type Store, topicTitle } from './store';
@@ -381,7 +382,8 @@ export function createApp(opts: AppOptions) {
     return serveFile(file, { 'Content-Security-Policy': 'sandbox' });
   });
 
-  // 実行できる枠の中身：同じ版の資料から、n 番目の html-app フェンスを取り出して、隔離する CSP つきで配る（クライアントが送った中身は、使わない）
+  // 実行できる枠の中身：同じ版の資料から、n 番目の html-app フェンスを取り出して、隔離する CSP つきで配る（クライアントが送った中身は、使わない）。
+  // 中身の前に、橋と土台のスタイルを差し込む（appframe-bridge.ts）。`?mode=light|dark` は、検査して、その外観で始める（それ以外は、無視）
   app.get('/appframe/*', async (c) => {
     const m = /^\/appframe\/([^/]+)\/([^/]+)\/(\d+)\/(\d+)$/.exec(c.req.path);
     if (!m) return notFoundText();
@@ -402,7 +404,7 @@ export function createApp(opts: AppOptions) {
     const frame = apps[n];
     if (frame === undefined) return notFoundText();
     if (frame.length > APP_MAX) return textResponse(413, '枠の中身が大きすぎます');
-    return new Response(`<!doctype html>\n<meta charset="utf-8">\n${frame}`, {
+    return new Response(frameDocument(frame, parseMode(c.req.queries('mode'))), {
       status: 200,
       headers: {
         'Content-Type': 'text/html; charset=utf-8',

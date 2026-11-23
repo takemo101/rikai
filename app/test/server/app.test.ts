@@ -295,7 +295,11 @@ test('枠（/appframe）：隔離する CSP の全文。ないものは 404。�
   );
   assert.equal(r.headers.get('x-dns-prefetch-control'), 'off');
   assert.equal(r.headers.get('referrer-policy'), 'no-referrer');
-  assert.equal(await r.text(), '<!doctype html>\n<meta charset="utf-8">\n<b>1</b>');
+  // 文書：橋が、資料の中身（<b>1</b>）より前に入る。この資料は、配色への対応を示さない（従来）ので、土台のスタイルは、入らない（appframe-bridge.test.ts が、中身を確かめる）
+  const body = await r.text();
+  assert.ok(body.startsWith('<!doctype html>\n<meta charset="utf-8">\n<script>'), body.slice(0, 80));
+  assert.ok(!body.includes('<style>'));
+  assert.ok(body.endsWith('</script>\n<b>1</b>'));
   assert.equal((await call('/appframe/frames/root/1/1', { headers: authed() })).status, 404);
   assert.equal((await call('/appframe/frames/root/2/0', { headers: authed() })).status, 404);
   assert.equal((await call('/appframe/frames/__proto__/1/0', { headers: authed() })).status, 404);

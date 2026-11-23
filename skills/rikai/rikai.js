@@ -25555,6 +25555,123 @@ function createAppFrames(store) {
   return { appsOfPage };
 }
 
+// src/shared/htmlapp-theme.ts
+var BRIDGE_COLORS = {
+  bg: ["#fff", "#09090b"],
+  surface: ["#f4f4f5", "#18181b"],
+  ink: ["#18181b", "#fafafa"],
+  "ink-2": ["#3f3f46", "#d4d4d8"],
+  muted: ["#63636b", "#a1a1aa"],
+  line: ["#e4e4e7", "#27272a"],
+  accent: ["#2563eb", "#60a5fa"],
+  "accent-ink": ["#1d4ed8", "#93c5fd"],
+  "accent-fill": ["#2563eb"],
+  ok: ["#15803d", "#4ade80"],
+  warn: ["#b45309", "#fbbf24"],
+  err: ["#b91c1c", "#f87171"]
+};
+var bridgeColorDecls = () => Object.entries(BRIDGE_COLORS).map(([name, v2]) => `--color-${name}:${v2.length === 2 ? `light-dark(${v2[0]},${v2[1]})` : v2[0]}`).join(";");
+var META_SCHEME = /<meta\s[^>]*name\s*=\s*["']?color-scheme/i;
+var escapeRe = (s) => s.replace(/[.*+?^${}()|[\]\\-]/g, "\\$&");
+var CHECKS = Object.keys(BRIDGE_COLORS).map((name) => ({
+  used: new RegExp(`var\\(\\s*--color-${escapeRe(name)}(?=[\\s,)])`),
+  defined: new RegExp(`--color-${escapeRe(name)}\\s*:`)
+}));
+var followsTheme = (content) => META_SCHEME.test(content) || CHECKS.some((c) => c.used.test(content) && !c.defined.test(content));
+
+// src/server/appframe-bridge.ts
+var parseMode = (values) => values?.length === 1 && (values[0] === "light" || values[0] === "dark") ? values[0] : null;
+var BASE_STYLE = `
+:where(:root){color-scheme:light dark;
+${bridgeColorDecls()};
+--font-sans:-apple-system,BlinkMacSystemFont,"Hiragino Sans","Noto Sans JP","Segoe UI",sans-serif;--font-mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace;--radius:6px}
+:where(:root[data-theme="light"]){color-scheme:light}
+:where(:root[data-theme="dark"]){color-scheme:dark}
+:where(body){margin:0;padding:12px;box-sizing:border-box;background:var(--color-bg);color:var(--color-ink);font:14px/1.6 var(--font-sans)}
+:where(a){color:var(--color-accent-ink)}
+:where(code,pre,kbd,samp){font-family:var(--font-mono)}
+:where(button,select,textarea,input:not([type="checkbox"],[type="radio"],[type="range"],[type="color"],[type="file"])){font:inherit;color:var(--color-ink);background:var(--color-surface);border:1px solid light-dark(#d4d4d8,#52525b);border-radius:var(--radius);padding:4px 10px;box-sizing:border-box}
+:where(select,textarea,input:not([type="button"],[type="submit"],[type="reset"],[type="checkbox"],[type="radio"],[type="range"],[type="color"],[type="file"])){background:var(--color-bg)}
+:where(button){cursor:pointer}
+:where(button:hover:not(:disabled)){background:var(--color-line)}
+:where(button:disabled){cursor:default;opacity:.5}
+:where(input[type="checkbox"],input[type="radio"],input[type="range"]){accent-color:var(--color-accent)}
+`.trim().replace(/\n/g, "");
+var BRIDGE_SOURCE = `(function(){
+var GAP=250,STEP=50,FLIP=1000,HOLD=10000,ECHO=2,SLACK=64,MAXH=2400;
+var root=document.documentElement;
+var last=0,prev=0,prevAt=0,lastAt=-GAP,ranAt=0,timer=0,echo=0,seenH=innerHeight,lastExcess=-1,flipLow=0,flipUntil=0,flips=0,frozen=false,frozenExcess=0,excess=0;
+function measure(){
+var b=document.body;
+if(!b)return 0;
+var top=Math.max(0,b.getBoundingClientRect().top+scrollY);
+return Math.ceil(top+b.scrollHeight+(parseFloat(getComputedStyle(b).marginBottom)||0));
+}
+function send(h,now){
+prev=last;prevAt=lastAt;last=h;lastAt=now;
+if(parent!==window)parent.postMessage({__rikai:1,type:'resize',height:h},'*');
+}
+function update(){
+timer=0;
+var now=Date.now();
+ranAt=now;
+var m=measure();
+if(m<=0)return;
+var driven=innerHeight!==seenH;
+seenH=innerHeight;
+if(m===last)return;
+if(frozen){
+if(m>last&&m-innerHeight===frozenExcess)return;
+frozen=false;root.style.overflowY='';echo=0;lastExcess=-1;
+}
+if(m>last){
+excess=m-innerHeight;
+echo=driven&&excess>0&&excess===lastExcess?echo+1:0;
+lastExcess=excess;
+}else echo=0;
+if(echo>=ECHO){frozen=true;frozenExcess=excess;root.style.overflowY=excess<=SLACK&&m<=MAXH?'hidden':'auto';send(m,now);return;}
+if(m<last&&m===flipLow&&now<flipUntil)return;
+flips=m===prev&&driven&&now-prevAt<FLIP?flips+1:0;
+if(flips>=2&&m<last){flipLow=m;flipUntil=now+HOLD;return;}
+send(m,now);
+}
+function request(){
+if(timer)return;
+var wait=Math.max(lastAt+GAP,ranAt+STEP)-Date.now();
+timer=setTimeout(update,wait>0?wait:0);
+}
+if(typeof ResizeObserver==='function'){
+var ro=new ResizeObserver(request);
+ro.observe(root);
+document.addEventListener('DOMContentLoaded',function(){if(document.body)ro.observe(document.body);request();});
+}
+addEventListener('load',request);
+if(document.fonts&&document.fonts.ready)document.fonts.ready.then(request);
+[100,500,1500].forEach(function(t){setTimeout(request,t);});
+addEventListener('message',function(e){
+var d=e.data;
+if(e.source!==parent||!d||d.__rikai!==1||d.type!=='theme')return;
+if(d.mode!=='light'&&d.mode!=='dark')return;
+if(d.by!=='auto'&&d.by!=='user')return;
+if(d.by==='auto'&&!root.hasAttribute('data-follow'))return;
+root.setAttribute('data-theme',d.mode);
+root.style.colorScheme=d.mode;
+});
+})();`;
+function frameDocument(content, mode) {
+  const bridge = `<script>${BRIDGE_SOURCE}</script>`;
+  if (!followsTheme(content)) return `<!doctype html>
+<meta charset="utf-8">
+${bridge}
+${content}`;
+  return `<!doctype html>
+<html data-follow${mode ? ` data-theme="${mode}"` : ""}>
+<meta charset="utf-8">
+<style>${BASE_STYLE}</style>
+${bridge}
+${content}`;
+}
+
 // src/server/watch.ts
 var import_node_fs6 = __toESM(require("node:fs"), 1);
 var import_node_path5 = __toESM(require("node:path"), 1);
@@ -25959,9 +26076,7 @@ function createApp(opts) {
     const frame = apps[n];
     if (frame === void 0) return notFoundText();
     if (frame.length > APP_MAX) return textResponse(413, "\u67A0\u306E\u4E2D\u8EAB\u304C\u5927\u304D\u3059\u304E\u307E\u3059");
-    return new Response(`<!doctype html>
-<meta charset="utf-8">
-${frame}`, {
+    return new Response(frameDocument(frame, parseMode(c.req.queries("mode"))), {
       status: 200,
       headers: {
         "Content-Type": "text/html; charset=utf-8",

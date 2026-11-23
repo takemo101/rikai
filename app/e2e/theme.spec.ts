@@ -496,7 +496,7 @@ test.describe('外観のモード（F36）', () => {
     for (const c of samples) expect(lum(rgbOf(c)), `最初のフレームから：${c}`).toBeLessThan(0.05);
   });
 
-  test('html-app の枠：ダークでも、枠の iframe は、ライト（color-scheme: light）で、枠の中の文字は、地に対して、読める。<meta name="color-scheme" content="light dark"> を宣言した部品も、読める', async ({
+  test('html-app の枠：画面の外観に従う（橋が、?mode と theme で、配色を渡す）。ライトでもダークでも、枠の中の文字は、地に対して、読める。<meta name="color-scheme" content="light dark"> を宣言した部品も、読める', async ({
     page,
     app,
   }) => {
@@ -506,7 +506,11 @@ test.describe('外観のモード（F36）', () => {
     for (const scheme of BOTH) {
       await page.emulateMedia({ colorScheme: scheme });
       await page.waitForTimeout(300);
-      expect(await frame.evaluate((e) => getComputedStyle(e).colorScheme)).toBe('light');
+      // 意図した変更（F40）：この部品は、<meta name="color-scheme"> で、配色への対応を示している（オプトイン）ので、画面の外観に従う（再読み込みなし）。
+      // 対応を示さない従来の部品が、常にライトのままであることは、htmlapp-bridge.spec.ts（従来の資料：従来と同じ見た目）
+      await expect
+        .poll(() => page.frameLocator('iframe.appframe').first().locator('html').getAttribute('data-theme'))
+        .toBe(scheme);
       const text = await page
         .frameLocator('iframe.appframe')
         .first()

@@ -230,7 +230,7 @@ test.describe('html-app の隔離（F28・N3）', () => {
       expect((i.sandbox ?? '').trim().split(/\s+/)).toEqual(['allow-scripts']);
       expect(i.allow ?? '').toBe('');
       expect(i.inApp).toBe(true);
-      expect(i.src).toMatch(/^\/appframe\/app\/root\/1\/[01]$/);
+      expect(i.src).toMatch(/^\/appframe\/app\/root\/1\/[01]\?mode=(light|dark)$/);
     }
     // ブラウザの目から見ても、枠は、オリジンのない文書
     await expect.poll(() => page.frames().some((f) => f.url().includes('/appframe/'))).toBe(true);

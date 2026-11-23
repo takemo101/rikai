@@ -236,14 +236,18 @@ test.describe('html-app（実行できる枠）', () => {
     await expect(first).toHaveAttribute('sandbox', 'allow-scripts');
     expect(await first.getAttribute('allow')).toBeFalsy();
     await expect(first).toHaveAttribute('height', '300'); // info 文字列の height=300
-    await expect(first).toHaveAttribute('src', /\/appframe\/app\/root\/1\/0$/);
-    await expect(iframes.nth(1)).toHaveAttribute('src', /\/appframe\/app\/root\/1\/1$/);
+    await expect(first).toHaveAttribute('src', /\/appframe\/app\/root\/1\/0\?mode=(light|dark)$/);
+    await expect(iframes.nth(1)).toHaveAttribute('src', /\/appframe\/app\/root\/1\/1\?mode=(light|dark)$/);
     await expect(iframes.nth(1)).toHaveAttribute('sandbox', 'allow-scripts');
     await expect(u.article.locator('.htmlapp').first()).toContainText('実行できる枠 1');
     await expect(u.article.locator('.htmlapp').first()).toContainText('隔離されています');
 
     const f = page.frameLocator('iframe').first();
     await expect(f.locator('#out')).toHaveText('動いています');
+    // 高さを指定しない 2 つ目の枠は、読み込み直後に、自動の高さで、縮む（橋）。その直後の数 ms は、Chrome が、枠への入力の宛先を、更新している最中で、
+    // 押したことが、枠に届かないことがある（人の操作の速さでは、起きない）：縮んで、落ち着いてから、押す
+    await expect.poll(() => iframes.nth(1).getAttribute('height')).not.toBe('200');
+    await page.waitForTimeout(300);
     // 本物のマウスで押す：枠の中のスクリプトが、反応する
     await f.locator('#inc').click();
     await f.locator('#inc').click();

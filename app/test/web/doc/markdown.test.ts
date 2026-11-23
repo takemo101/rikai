@@ -2,7 +2,7 @@
 // Markdown → 無害化。資料は AI が書いた非信頼のデータ（N1〜N3・F28）：スクリプト・イベント属性・危険なリンク・外部画像・フォーム・style を、本文に入れない。
 import { expect, test } from 'vitest';
 import { blockAnchor, blockEls, blockText, markBlocks, mediaOf } from '../../../src/web/doc/render/blocks';
-import { mdToFragment } from '../../../src/web/doc/render/markdown';
+import { appHeight, mdToFragment } from '../../../src/web/doc/render/markdown';
 import { hash } from '../../../src/web/lib/dom';
 
 /** 断片を、HTML の文字列にする */
@@ -102,6 +102,26 @@ test('Mermaid：ソースは、URI エンコードして、data-mermaid に持�
   expect(el).not.toBeNull();
   expect(decodeURIComponent(el?.dataset.mermaid ?? '')).toBe(src);
   expect(el?.querySelector('script')).toBeNull();
+});
+
+test('html-app の情報文字列：height=N（120〜1200 に収める）は固定。height なし・height=auto・読めない値は、自動', () => {
+  expect(appHeight('html-app height=480')).toBe(480);
+  expect(appHeight('html-app height=480px')).toBe(480);
+  expect(appHeight('html-app height=50')).toBe(120);
+  expect(appHeight('html-app height=2000')).toBe(1200);
+  for (const info of [
+    'html-app',
+    'html-app height=auto',
+    'html-app height=',
+    'html-app height=abc',
+    'html-app height=9',
+    'html-app xheight=480',
+  ])
+    expect(appHeight(info), info).toBe('auto');
+  const auto = dom(
+    '```html-app\n<b>1</b>\n```\n\n```html-app height=auto\n<b>2</b>\n```\n\n```html-app height=300\n<b>3</b>\n```',
+  );
+  expect([...auto.querySelectorAll<HTMLElement>('.htmlapp')].map((b) => b.dataset.h)).toEqual(['auto', 'auto', '300']);
 });
 
 test('html-app：置き場は、フェンスの番号と高さ（120〜1200 に収める）だけから作る。ソースは、無害化のあとに、表から付ける（資料の偽の data-src は、使わない）', () => {
