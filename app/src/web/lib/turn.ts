@@ -34,7 +34,7 @@ export interface Turn {
 const NONE = { unsent: 0, replies: 0, asks: 0, mine: 0, open: 0, detailed: false } as const;
 
 /** 質問 q が、まだ答えを求められているか：回答がなく、会話が先へ進んでいない（スレッドが未解決） */
-const awaitsAnswer = (t: Pick<Thread, 'resolved' | 'messages'>, q: Message): boolean =>
+export const awaitsAnswer = (t: Pick<Thread, 'resolved' | 'messages'>, q: Message): boolean =>
   !t.resolved && !!q.ask && q.author === 'ai' && !answerOf(t, q) && !askStale(t, q);
 
 /** スレッドの、答えを求められている質問の数 */

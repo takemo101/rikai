@@ -14,10 +14,18 @@ export interface UiPrefs {
   links: boolean;
   /** 外観のモード（ライト・ダーク・システム） */
   theme: ThemeMode;
+  /** ブラウザの通知（F41）を、使うか。既定はオフ。許可（Notification.permission）が granted でなければ、オンでも、オフとして扱う */
+  notify: boolean;
 }
 export const PANEL_MIN = 280;
 export const PANEL_DEFAULT = 380;
-export const DEFAULT_UI: UiPrefs = { sideOpen: true, panelW: PANEL_DEFAULT, links: true, theme: DEFAULT_THEME };
+export const DEFAULT_UI: UiPrefs = {
+  sideOpen: true,
+  panelW: PANEL_DEFAULT,
+  links: true,
+  theme: DEFAULT_THEME,
+  notify: false,
+};
 
 export function loadSeen(): Set<string> {
   try {
@@ -44,6 +52,7 @@ export function loadUi(): UiPrefs {
       const o = v as Record<string, unknown>;
       if (typeof o.sideOpen === 'boolean') ui.sideOpen = o.sideOpen;
       if (typeof o.links === 'boolean') ui.links = o.links;
+      if (typeof o.notify === 'boolean') ui.notify = o.notify;
       ui.theme = parseTheme(o.theme);
       if (typeof o.panelW === 'number' || typeof o.panelW === 'string')
         ui.panelW = Number(o.panelW) || DEFAULT_UI.panelW;

@@ -172,6 +172,8 @@ button.turn-btn:hover { background: var(--hover); }
 .turn.waiting-ai .turn-btn, .turn.open .turn-btn { border-color: var(--line); } /* AI の番・未解決だけ：灰色（中立） */
 .turn-sr { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
 #btn-submit.attn { box-shadow: 0 0 0 3px var(--accent-a22); } /* 未送信があるとき：Submit に、輪 */
+/* 通知のベル（F41）：オンは、アクセントの色（オフ・押せないときは、ほかのアイコンボタンと同じ灰色） */
+#btn-notify[data-notify="on"] { color: var(--accent-ink); }
 #top-status { display: flex; align-items: center; gap: 10px; min-width: 0; flex: 0 1 auto; overflow: hidden; padding: 2px; margin: -2px; } /* padding は、focus の輪が、overflow で切れないように */
 /* 狭いとき、先に縮めるのは、進み具合のチップ・ヒント（`#turn` は、縮めない）。Submit の下に、潜らない */
 #top-status > .chip, #top-status > .hint { min-width: 0; overflow: hidden; }

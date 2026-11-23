@@ -6,6 +6,7 @@ import { nextTheme, THEME_LABEL } from '../lib/theme';
 import type { View } from '../lib/view';
 import { toast, useUi } from '../store/ui';
 import { sideAutoHidden, usePanelGeometry } from './geometry';
+import { NotifyBell } from './NotifyBell';
 import type { ServerStatus } from './status';
 import { TurnPill, useTurn } from './TurnPill';
 
@@ -51,6 +52,7 @@ export function TopBar({ view, status }: TopBarProps) {
       <div className="brand">rikai</div>
       <div id="top-title">{topic ? topic.meta.title : ''}</div>
       <div className="spacer" />
+      <NotifyBell />
       <button
         id="btn-theme"
         type="button"

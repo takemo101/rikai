@@ -41,11 +41,15 @@ export function h<K extends keyof HTMLElementTagNameMap>(
 /** DOMPurify は、属性値に `-->` や `</style` を含むと、属性ごと消すので、図のソースは、URI エンコードして持つ */
 export const encSrc = (s: string): string => encodeURIComponent(String(s));
 
-/** 空白をつぶして、n 文字（…を含む）に切り詰める。文字は、コードポイント単位（絵文字などのサロゲートペアを、半分に割らない） */
+/**
+ * 空白をつぶして、n 文字（…を含む）に切り詰める。文字は、コードポイント単位（絵文字などのサロゲートペアを、半分に割らない）。
+ * 制御文字と、双方向文字の制御（U+200E・U+200F・U+202A〜202E・U+2066〜2069）は、取り除く（通知・タイトルで、表示の向きを、乱されないように）
+ */
 export function trunc(s: unknown, n: number): string {
   const chars = [
     ...String(s ?? '')
       .replace(/\s+/g, ' ')
+      .replace(/[\p{Cc}\u200e\u200f\u202a-\u202e\u2066-\u2069]/gu, '')
       .trim(),
   ];
   return chars.length > n ? `${chars.slice(0, n - 1).join('')}…` : chars.join('');
