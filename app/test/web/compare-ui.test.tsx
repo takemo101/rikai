@@ -339,8 +339,28 @@ test('入力中のコメント：比べる画面を開くと、いったん外�
   await waitFor(() => expect(byId('article')).toHaveTextContent('共通の段落'));
 });
 
-test('入力中のコメント：見ている版が替わった（新しい版が届いて、最新版が替わる）ときは、戻さない。書きかけの文・画像は、下書きとして残る', async () => {
+test('入力中のコメント：比べている間に新しい版が届き、対象が新しい版にもあるとき：その対象で戻る（文・画像も、そのまま）', async () => {
   server(3);
+  await openApp();
+  const before = composing();
+  await openCompare();
+  act(() => {
+    queryClient.setQueryData(topicKey('demo'), state(4));
+  });
+  await waitFor(() => expect(document.querySelector('[data-newer]')).not.toBeNull());
+  fireEvent.keyDown(document, { key: 'Escape' });
+  await waitFor(() => expect(document.getElementById('compare')).toBeNull());
+  await waitFor(() => expect(byId('article')).toHaveTextContent('版 4 だけ'));
+  await waitFor(() => expect(useUi.getState().composer?.verify).toBeUndefined()); // 新しい本文で、対象が見つかった
+  expect(useUi.getState().composer?.anchor).toEqual(before?.anchor);
+  expect(useUi.getState().composer?.id).toBe(before?.id);
+  expect(useUi.getState().drafts.composer).toBe('書きかけのコメント');
+  expect(useUi.getState().drafts.imgs.composer).toEqual(['c-0123456789abcdef.png']);
+  expect(useUi.getState().lostDraft).toBeNull();
+});
+
+test('入力中のコメント：新しい版に、対象がなくなったとき：別の対象に付けない（次に開く入力欄に、文・画像が入らない）。知らせて、「対象を失った下書き」として残す（コピー・破棄）', async () => {
+  server(3, (v) => (v >= 4 ? { body: { markdown: '# 題\n\nまったく別の内容だけの版です。\n' } } : undefined));
   await openApp();
   composing();
   await openCompare();
@@ -350,12 +370,39 @@ test('入力中のコメント：見ている版が替わった（新しい版�
   await waitFor(() => expect(document.querySelector('[data-newer]')).not.toBeNull());
   fireEvent.keyDown(document, { key: 'Escape' });
   await waitFor(() => expect(document.getElementById('compare')).toBeNull());
-  expect(useUi.getState().composer).toBeNull(); // v4 の本文に、v3 の対象は、置けない
-  expect(useUi.getState().drafts.composer).toBe('書きかけのコメント');
-  expect(useUi.getState().drafts.imgs.composer).toEqual(['c-0123456789abcdef.png']);
+  await waitFor(() => expect(byId('article')).toHaveTextContent('まったく別の内容'));
+  await waitFor(() => expect(useUi.getState().lostDraft).not.toBeNull());
+  const s = useUi.getState();
+  expect(s.composer).toBeNull();
+  expect(s.drafts.composer).toBe(''); // 次の入力欄に、入らない
+  expect(s.drafts.imgs.composer ?? []).toEqual([]);
+  expect(s.lostDraft).toEqual({
+    text: '書きかけのコメント',
+    imgs: ['c-0123456789abcdef.png'],
+    reason: '新しい版でなくなりました',
+  });
+  expect(byId('toast')).toHaveTextContent(
+    '書きかけのコメントの対象が、新しい版でなくなりました。文は、下書きとして残しています',
+  );
+  // 別の対象で入力欄を開く：前の文・画像は、入っていない
+  expect(useUi.getState().startComposer({ ...ANCHOR, quote: 'まったく別の内容だけの版です。' })).toBe(true);
+  expect(useUi.getState().drafts.composer).toBe('');
+  expect(useUi.getState().drafts.imgs.composer ?? []).toEqual([]);
+  // パネルに、注記つきで出る。文は、そのまま（文字として）。コピー・破棄
+  const note = document.querySelector('[data-lost-draft]') as HTMLElement;
+  expect(note).toHaveTextContent('対象を失った下書き');
+  expect(note).toHaveTextContent('書きかけのコメント');
+  expect(note).toHaveTextContent('画像：1 枚');
+  const writeText = vi.fn(async () => {});
+  vi.stubGlobal('navigator', { ...navigator, clipboard: { writeText } });
+  fireEvent.click(within(note).getByRole('button', { name: 'コピー' }));
+  expect(writeText).toHaveBeenCalledWith('書きかけのコメント');
+  fireEvent.click(within(note).getByRole('button', { name: '破棄' }));
+  expect(document.querySelector('[data-lost-draft]')).toBeNull();
+  expect(useUi.getState().lostDraft).toBeNull();
 });
 
-test('入力中のコメント：ページを移って閉じたときも、戻さない（別のページの対象になるため）', async () => {
+test('入力中のコメント：ページを移って閉じたときも、戻さない（別のページの対象になるため）。書きかけは、対象を失った下書きに（次の入力欄に入らない）', async () => {
   server(3);
   await openApp();
   composing();
@@ -365,7 +412,13 @@ test('入力中のコメント：ページを移って閉じたときも、戻�
   });
   await waitFor(() => expect(useUi.getState().compare).toBeNull());
   expect(useUi.getState().composer).toBeNull();
-  expect(useUi.getState().drafts.composer).toBe('書きかけのコメント');
+  expect(useUi.getState().drafts.composer).toBe(''); // 別のページの入力欄に、入らない
+  expect(useUi.getState().drafts.imgs.composer ?? []).toEqual([]);
+  expect(useUi.getState().lostDraft).toEqual({
+    text: '書きかけのコメント',
+    imgs: ['c-0123456789abcdef.png'],
+    reason: '別のページにあります',
+  });
 });
 
 test('選んでいたスレッドも、閉じると戻る', async () => {
@@ -398,4 +451,24 @@ test('スクロール位置：開く前の位置を控えて、閉じて本文�
   });
   await waitFor(() => expect(useUi.getState().compare).toBeNull());
   await waitFor(() => expect(byId('docscroll').scrollTop).toBe(0));
+});
+
+test('スクロール位置：戻したあと、2 フレームのあいだに、利用者がスクロールしたら、巻き戻さない（置き直しは、動かしていないときだけ）', async () => {
+  server(3);
+  await openApp();
+  byId('docscroll').scrollTop = 366;
+  await openCompare();
+  // フレームを、手で進める（2 回目の置き直しの前に、利用者が動かす）
+  const queue: FrameRequestCallback[] = [];
+  const raf = vi.spyOn(window, 'requestAnimationFrame').mockImplementation((cb) => queue.push(cb));
+  try {
+    fireEvent.keyDown(document, { key: 'Escape' });
+    await waitFor(() => expect(document.getElementById('compare')).toBeNull());
+    await waitFor(() => expect(byId('docscroll').scrollTop).toBe(366)); // 描き終えて、すぐ、戻した
+    byId('docscroll').scrollTop = 50; // 利用者が、動かした
+    for (let i = 0; i < 6 && queue.length; i++) for (const cb of queue.splice(0)) cb(0); // 保留中のフレームを、すべて進める
+    expect(byId('docscroll').scrollTop).toBe(50);
+  } finally {
+    raf.mockRestore();
+  }
 });
