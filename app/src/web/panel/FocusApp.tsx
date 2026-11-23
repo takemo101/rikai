@@ -6,7 +6,7 @@
 import { X } from 'lucide-react';
 import { useCallback, useLayoutEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { createPortal } from 'react-dom';
-import { pickDraft } from '../../shared/htmlapp-bridge';
+import { pickLabel } from '../../shared/htmlapp-bridge';
 import { AppToolbar } from '../doc/AppToolbar';
 import { type AppFrame, initialFrameState, registerFrame, releaseApps } from '../doc/appBridge';
 import { appFrameDom } from '../doc/render/apps';
@@ -17,6 +17,7 @@ import { finishFocusApp } from '../interact/focusRegion';
 import type { Box } from '../interact/geometry';
 import type { RegionDeps } from '../interact/region';
 import { escapeStep } from '../lib/escape';
+import { frameMetaOf } from '../lib/frameMeta';
 import { resolvedTheme } from '../lib/theme';
 import { clampRegionRect } from '../overlay/layout';
 import { type LightboxTarget, useUi } from '../store/ui';
@@ -79,8 +80,12 @@ export function FocusApp({
       onPick: (pick, stateJson) => {
         const blk = ctxRef.current.block;
         if (!blk) return;
-        const d = pickDraft(pick, stateJson);
-        openComposer({ ...blockAnchor(blk), label: d.label }, d.text);
+        const r = frameMetaOf({ pick, stateJson });
+        if (!r.ok) {
+          useUi.getState().showToast(r.reason, true);
+          return;
+        }
+        openComposer({ ...blockAnchor(blk), label: pickLabel(pick) }, r.meta);
       },
     });
     // 幅の既定は、本文の枠が、いま選んでいる幅（プリセット）：範囲を、同じレイアウトで選べる。本文が「自動」なら、個別表示も「自動」（ステージの幅いっぱい）

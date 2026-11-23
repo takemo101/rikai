@@ -13,7 +13,17 @@ import type {
   ResolveBody,
   SubmitBody,
 } from '../shared/api';
-import type { Message, Round, RoundItem, RoundMessage, RoundPage, Thread, ThreadsFile } from '../shared/types';
+import { parseFrameMeta } from '../shared/htmlapp-bridge';
+import type {
+  FrameMeta,
+  Message,
+  Round,
+  RoundItem,
+  RoundMessage,
+  RoundPage,
+  Thread,
+  ThreadsFile,
+} from '../shared/types';
 import { normAnswer } from './ask';
 import { decodeImage, IMG_NAME_RE, MAX_IMAGES } from './image';
 import { isSupported, type Store } from './store';
@@ -60,6 +70,14 @@ export function createActions(store: Store, hooks: ActionHooks = {}) {
     return names as string[];
   }
 
+  // 枠から取った情報（F45）：画面を信用せず、受けたときに 1 度だけ検査する（`parseFrameMeta`。見えない文字は見える形にして、新しいオブジェクトで保存する）。ない（null・省略）なら、なし
+  function normFrameMeta(v: unknown): FrameMeta | undefined {
+    if (v == null) return undefined;
+    const r = parseFrameMeta(v);
+    if (!r.ok) throw new HttpError(r.tooBig ? 413 : 400, r.reason);
+    return r.meta;
+  }
+
   return {
     // 画像を assets/ に保存し、名前を返す。名前は、中身から決める（同じ画像は、同じ名前＝重ならない）。ロックの下で書く
     attach(b: AttachBody): { name: string } {
@@ -83,6 +101,7 @@ export function createActions(store: Store, hooks: ActionHooks = {}) {
         const text = str(b.text).trim();
         const images = normImages(meta.slug, b.images);
         if (!text && !images.length) throw new HttpError(400, 'コメントが空です');
+        const frameMeta = normFrameMeta(b.frameMeta);
         const t: Thread = {
           id: nextId(th, 't'),
           page: b.page,
@@ -99,6 +118,7 @@ export function createActions(store: Store, hooks: ActionHooks = {}) {
               kind: 'comment',
               at: now(),
               text,
+              ...(frameMeta ? { frameMeta } : {}),
               ...(images.length ? { images } : {}),
               sent: false,
             },
@@ -189,7 +209,8 @@ export function createActions(store: Store, hooks: ActionHooks = {}) {
           const o: RoundMessage = { id: m.id, author: m.author, kind: m.kind };
           const src = m as unknown as Record<string, unknown>;
           const dst = o as unknown as Record<string, unknown>;
-          for (const k of ['text', 'ask', 'answer', 'to', 'page', 'revision']) if (src[k] != null) dst[k] = src[k];
+          for (const k of ['text', 'frameMeta', 'ask', 'answer', 'to', 'page', 'revision'])
+            if (src[k] != null) dst[k] = src[k];
           // 添付の画像は、AI が読めるよう、ファイルの絶対パスで渡す
           if (m.images?.length) o.images = m.images.map((n) => path.join(tdir(meta.slug), 'assets', n));
           return o;

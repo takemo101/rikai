@@ -3,10 +3,10 @@
 // 個別表示で書いた下書きは、閉じたあとも、本文のパネルに残り、パネルの Submit で送る。
 import { MessageSquarePlus } from 'lucide-react';
 import { useContext, useEffect, useMemo, useRef } from 'react';
-import { stateDraft } from '../../shared/htmlapp-bridge';
 import type { AppFrame } from '../doc/appBridge';
 import { blockAnchor, blockLabel } from '../doc/render/blocks';
 import { openComposer } from '../interact/compose';
+import { frameMetaOf } from '../lib/frameMeta';
 import { useDoc } from '../store/doc';
 import { type FocusRef, useUi } from '../store/ui';
 import { Composer } from './Composer';
@@ -56,11 +56,12 @@ export function FocusDock({ focus, ctx, frame }: { focus: FocusRef; ctx: FocusCt
   const isApp = block?.classList.contains('htmlapp') ?? false;
   const seen = useUi.getState().seen; // 描き直すときの値（パネルと同じ）：読んだだけで、すぐ、たたまない
 
-  /** 対象全体にコメント（html-app の枠は、枠の状態があれば、添える：F42） */
+  /** 対象全体にコメント（html-app の枠は、枠の状態があれば、下書きの `frameMeta.state` に持つ：F42・F45。本文には書かない） */
   const commentOnTarget = (): void => {
     if (!block) return;
-    const state = isApp ? (frame?.latestState() ?? null) : null;
-    openComposer(blockAnchor(block), (state && stateDraft(state)) || undefined);
+    const r = frameMetaOf({ stateJson: isApp ? (frame?.latestState() ?? null) : null });
+    if (!r.ok) useUi.getState().showToast(r.reason, true); // 状態は付けず、対象だけで開く
+    openComposer(blockAnchor(block), r.ok ? r.meta : undefined);
   };
 
   return (

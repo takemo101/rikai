@@ -7,8 +7,8 @@
 // サーバーの状態（topics・topic・md・offline・error）と、導出（page・version）は、ここにない（queries.ts・lib/view.ts）。
 // 本文の DOM を指すもの（locs・nums・approx・pendingEl・regions・blkBadges…）は、store/doc.ts の DocModel。
 import { create } from 'zustand';
-import { FRAME_IMAGE_LINE, FRAME_IMAGE_NOTE, FROM_FRAME_IMAGE } from '../../shared/htmlapp-bridge';
-import type { Anchor, Thread } from '../../shared/types';
+import { FRAME_IMAGE_NOTE } from '../../shared/htmlapp-bridge';
+import type { Anchor, FrameMeta, Thread } from '../../shared/types';
 import type { FrameWidth } from '../doc/appBridge';
 import { defaultPair, isVersion } from '../lib/compare';
 import { loadSeen, loadUi, saveSeen, saveUi, type UiPrefs } from '../lib/storage';
@@ -77,8 +77,8 @@ export interface ComposerState {
   anchor: Anchor;
   /** 範囲の切り出し画像を、自動で付けたときの名前（対象を選び直したとき、この画像だけを外す） */
   regionImg?: string;
-  /** 枠から来た情報（要素・状態）で、本文に入れた初期値（F42）。対象を選び直したとき、利用者が書き足していなければ、これを入れ替える */
-  seed?: string;
+  /** 枠から取った情報（F45）で、検査済み。この入力欄の対象（錨）のもの。コメントを追加するとき、メッセージの `frameMeta` として送る（本文には、書かない） */
+  frameMeta?: FrameMeta;
   /**
    * 比べる画面（F44）を開いている間に新しい版が届いて、閉じたとき：入力欄を、いったん戻したが、対象が、新しい版の本文に**まだ見つかるか**を、本文を描いたあとに確かめる印
    * （見つかれば外す。見つからなければ、入力欄を閉じて、書きかけを「対象を失った下書き」にする：`loseComposerDraft`）
@@ -185,11 +185,13 @@ export interface UiState {
 export interface UiActions {
   // ---- 入力欄（コメントの新規） ----
   /** 最新版でなければ、トーストを出して、false。入力欄を開いた（対象を選び直した）ら、true。前の入力欄の切り出し画像は、外す。書きかけの文は、残す */
-  /** `seed`：本文の初期値（html-app の枠から来た情報。F42）。書きかけがあれば、空行をあけて、あとに足す */
-  startComposer: (anchor: Anchor, seed?: string) => boolean;
-  /** 入力欄を閉じる（やめる・送った・別のページへ移った）：対象・書きかけの文・画像を消し、画像の世代を進める */
-  /** 範囲の画像に、枠自身が作った画像が入った：錨のラベルに注記・本文の先頭に 1 行（F42）。その入力欄が、まだ開いているときだけ */
+  /** `frameMeta`：枠から取った情報（html-app の枠。F45。検査済み）。**本文には書かない**（入力欄は、書きかけのまま）。前の入力欄の情報は、持ち越さない（置き換え・外れたときは、トーストで知らせる） */
+  startComposer: (anchor: Anchor, frameMeta?: FrameMeta) => boolean;
+  /** 範囲の画像に、枠自身が作った画像が入った：錨のラベルに注記・`frameMeta.imageFromFrame`（F42・F45）。その入力欄が、まだ開いているときだけ */
   noteFrameImage: (composerId: number) => void;
+  /** 入力欄の、枠から取った情報だけを外す（錨・本文は残る。元に戻せない。トーストで知らせる） */
+  removeFrameMeta: () => void;
+  /** 入力欄を閉じる（やめる・送った・別のページへ移った）：対象・書きかけの文・画像を消し、画像の世代を進める */
   closeComposer: () => void;
   /** 対象だけを、閉じる（書きかけの文・画像は、残す。ページ内のリンクを押したとき：旧と同じ） */
   dropComposerTarget: () => void;
@@ -368,7 +370,7 @@ export const useUi = create<UiStore>()((set, get) => {
   return {
     ...initialUi(),
 
-    startComposer: (anchor, seed) => {
+    startComposer: (anchor, frameMeta) => {
       if (!getView()?.isLatest) {
         get().showToast('コメントは最新版にだけ付けられます', true);
         return false;
@@ -378,25 +380,44 @@ export const useUi = create<UiStore>()((set, get) => {
       const imgs = prevCrop
         ? { ...drafts.imgs, composer: (drafts.imgs.composer ?? []).filter((n) => n !== prevCrop) }
         : drafts.imgs;
-      // 本文：前の枠からの初期値（`composer.seed`）が、そのままなら、新しい対象のものに入れ替える（別の対象に、前の枠の情報が残らない）。書き足していれば、書きかけを残す
-      const prev = drafts.composer === composer?.seed ? '' : drafts.composer;
-      const text = seed ? (prev.trim() ? `${prev.replace(/\s+$/, '')}\n\n${seed}` : seed) : prev;
+      // 本文（書きかけ）は、そのまま残す（枠から取った情報は、本文に書かない：F45）。枠から取った情報は、対象（錨）のもの：新しい対象に、前の対象の情報は持ち越さない。
+      // 1 つの下書きに、持てるのは 1 組：置き換えた・外れたときは、トーストで知らせる
+      const prevMeta = composer?.frameMeta;
       set({
-        composer: { id: ++composerSeq, anchor, ...(seed ? { seed } : {}) },
-        drafts: { ...drafts, composer: text, imgs },
+        composer: { id: ++composerSeq, anchor, ...(frameMeta ? { frameMeta } : {}) },
+        drafts: { ...drafts, imgs },
       });
+      if (prevMeta && (prevMeta.pick || prevMeta.state !== undefined) && prevMeta !== frameMeta)
+        get().showToast(
+          frameMeta
+            ? '枠から取った情報を、新しいものに置き換えました'
+            : '前の対象の、枠から取った情報は、外しました（対象が変わったため）',
+        );
       return true;
     },
     noteFrameImage: (composerId) =>
       set((s) => {
         const c = s.composer;
-        if (!c || c.id !== composerId || c.anchor.label.includes(FRAME_IMAGE_NOTE)) return s;
-        const label = `${c.anchor.label.slice(0, 120 - FRAME_IMAGE_NOTE.length)}${FRAME_IMAGE_NOTE}`;
-        const text = s.drafts.composer.startsWith(FROM_FRAME_IMAGE)
-          ? s.drafts.composer
-          : `${FRAME_IMAGE_LINE}${s.drafts.composer}`;
-        return { composer: { ...c, anchor: { ...c.anchor, label } }, drafts: { ...s.drafts, composer: text } };
+        if (!c || c.id !== composerId || c.frameMeta?.imageFromFrame) return s;
+        const noted = c.anchor.label.includes(FRAME_IMAGE_NOTE);
+        const label = noted
+          ? c.anchor.label
+          : `${c.anchor.label.slice(0, 120 - FRAME_IMAGE_NOTE.length)}${FRAME_IMAGE_NOTE}`;
+        return {
+          composer: {
+            ...c,
+            anchor: { ...c.anchor, label },
+            frameMeta: { ...c.frameMeta, imageFromFrame: true as const },
+          },
+        };
       }),
+    removeFrameMeta: () => {
+      const c = get().composer;
+      if (!c?.frameMeta) return;
+      const { frameMeta: _drop, ...rest } = c;
+      set({ composer: rest });
+      get().showToast('枠から取った情報を外しました（元には戻せません）。コメントの対象と本文は、そのままです');
+    },
     closeComposer: () => {
       set((s) => ({ composer: null, drafts: { ...s.drafts, composer: '' } }));
       resetImgs('composer');

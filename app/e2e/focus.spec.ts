@@ -359,7 +359,7 @@ test.describe('個別表示：画像・図で、範囲を選んで、コメン�
 
 // ============================================================================
 test.describe('個別表示：html-app の枠', () => {
-  test('枠は、新しい iframe（同じ隔離）。本文の枠は、動かない・状態は、引き継がない。「要素を選ぶ」→ 枠の中の要素を押す → ドックに、「枠から」の下書き（個別表示の枠の状態が添う）', async ({
+  test('枠は、新しい iframe（同じ隔離）。本文の枠は、動かない・状態は、引き継がない。「要素を選ぶ」→ 枠の中の要素を押す → ドックに、情報の行（個別表示の枠の状態が添う）。送信後のカードにも、同じ行', async ({
     page,
     app,
   }) => {
@@ -401,16 +401,20 @@ test.describe('個別表示：html-app の枠', () => {
     await expect(lbx(page)).toBeVisible();
     await expect(dockComposer(page)).toHaveAttribute('data-from-frame', '');
     await expect(dockComposer(page).locator('.quote')).toHaveText('枠から：button');
-    const draft = await dockComposer(page).locator('textarea').inputValue();
-    expect(draft.startsWith('【枠から】要素を選びました（枠の自己申告。下の JSON）：button（x:')).toBe(true);
-    const parsed = JSON.parse(draft.slice(draft.indexOf('{'), draft.lastIndexOf('}') + 1));
-    expect(parsed).toMatchObject({ selector: 'button#go', tag: 'button', text: 'ボタン', state: { slider: 70 } }); // 個別表示の枠の状態（本文の枠の 55 ではない）
-    // 書き足して、閉じる → パネルに下書きが残る → 追加 → Submit → 錨は、本文の、元の枠
-    await dockComposer(page).locator('textarea').fill(`${draft}このボタンを、もっと目立たせたい`);
+    expect(await dockComposer(page).locator('textarea').inputValue()).toBe(''); // 入力欄は、空
+    const row = dockComposer(page).locator('.framemeta'); // ドックの入力欄の上に、情報の行
+    await expect(row.locator('.fm-sum')).toContainText('要素を選びました（button・x:');
+    await row.locator('.fm-toggle').click();
+    await expect(row.locator('.fm-body')).toContainText('button#go');
+    const st = JSON.parse((await row.locator('.fm-body pre').textContent()) ?? 'null');
+    expect(st).toMatchObject({ slider: 70 }); // 個別表示の枠の状態（本文の枠の 55 ではない）
+    // 書いて、閉じる → パネルに下書き（情報の行つき）が残る → 追加 → Submit → 錨は、本文の、元の枠
+    await dockComposer(page).locator('textarea').fill('このボタンを、もっと目立たせたい');
     await page.keyboard.press('Escape');
     await expect(lbx(page)).toBeHidden();
     await expect(u.composer).toBeVisible();
     await expect(u.composer).toHaveAttribute('data-from-frame', '');
+    await expect(u.composer.locator('.fm-sum')).toContainText('要素を選びました');
     await expect(appCap(page).getByRole('button', { name: '個別表示', exact: true })).toBeFocused(); // 開いた所に、戻る
     await u.composer.getByRole('button', { name: 'コメントを追加' }).click();
     await expect(u.threads).toHaveCount(1);
@@ -420,8 +424,9 @@ test.describe('個別表示：html-app の枠', () => {
     expect(item.anchor.label).toBe('枠から：button');
     await expect(page.locator('#article .htmlapp.blk-thread')).toHaveCount(1); // 錨は、本文の、元の枠（ブロック）
     await expect(ui(page).bno).toHaveText(['1']);
-    expect(item.new[0].text).toContain('"slider": 70');
-    expect(item.new[0].text).toContain('このボタンを、もっと目立たせたい');
+    expect(item.new[0].text).toBe('このボタンを、もっと目立たせたい'); // 本文は、利用者の言葉だけ
+    expect(JSON.parse(item.new[0].frameMeta.state)).toMatchObject({ slider: 70 });
+    expect(item.new[0].frameMeta.pick).toMatchObject({ selector: 'button#go', tag: 'button', text: 'ボタン' });
   });
 
   test('枠の画像：範囲を選ぶ → 枠の範囲が画像になる（赤い帯が写る）。ドックの入力欄に付く・印が付く。幅の切り替え（縮小表示）でも、位置が合う。既存の範囲の枠が、縮小表示に追従する', async ({
@@ -452,13 +457,14 @@ test.describe('個別表示：html-app の枠', () => {
     const below = await thumbPixel(thumb, 0.8, 0.9); // 帯の下（白い地）
     expect(below[1]).toBeGreaterThan(200);
     await expect(dockComposer(page).locator('.quote')).toContainText('枠の画像は、枠自身が作ったもの');
-    expect(await dockComposer(page).locator('textarea').inputValue()).toMatch(/^【枠から（画像）】/);
-    await expect(dockComposer(page).locator('.fromframe')).toBeVisible();
-    await dockComposer(page)
-      .locator('textarea')
-      .fill(`${await dockComposer(page).locator('textarea').inputValue()}この帯の色が気になる`);
+    expect(await dockComposer(page).locator('textarea').inputValue()).toBe(''); // 本文には、書かない
+    await expect(dockComposer(page).locator('.framemeta .fromframe')).toBeVisible();
+    await expect(dockComposer(page).locator('.fm-sum')).toHaveText('枠の画像は、枠自身が作ったもの');
+    await dockComposer(page).locator('textarea').fill('この帯の色が気になる');
     await dockComposer(page).getByRole('button', { name: 'コメントを追加' }).click();
     await expect(dockThreads(page)).toHaveCount(1);
+    await expect(dockThreads(page).first().locator('.framemeta .fm-sum')).toHaveText('枠の画像は、枠自身が作ったもの'); // ドックのカードにも、情報の行（外すは、ない）
+    await expect(dockThreads(page).first().getByRole('button', { name: '外す' })).toHaveCount(0);
     // ステージに、範囲の枠が重なる。枠の画像の上での位置は、選んだとおり
     const rb = page.locator('#lightbox .fv-box:not(.pending)');
     await expect(rb).toHaveCount(1);
@@ -499,9 +505,11 @@ test.describe('個別表示：html-app の枠', () => {
     await page.waitForTimeout(700);
     await dock(page).getByRole('button', { name: 'この枠にコメント' }).click();
     await expect(dockComposer(page)).toBeVisible();
-    const t = await dockComposer(page).locator('textarea').inputValue();
-    expect(t.startsWith('【枠から】枠の状態')).toBe(true);
-    expect(t).toContain('"slider": 33');
+    expect(await dockComposer(page).locator('textarea').inputValue()).toBe(''); // 状態は、本文に書かない
+    const row = dockComposer(page).locator('.framemeta'); // ドックの入力欄の上に、情報の行
+    await expect(row.locator('.fm-sum')).toHaveText('枠の状態');
+    await row.locator('.fm-toggle').click();
+    expect(JSON.parse((await row.locator('.fm-body pre').textContent()) ?? 'null')).toMatchObject({ slider: 33 });
   });
 });
 
@@ -1302,16 +1310,22 @@ test.describe('個別表示：安全', () => {
     await focusFrame(page).locator('#r').fill('44');
     await page.waitForTimeout(800);
     await dock(page).getByRole('button', { name: 'この枠にコメント' }).click();
-    const draft = await dockComposer(page).locator('textarea').inputValue();
-    expect(draft).toContain('"slider": 44');
-    expect(draft).not.toContain('evil');
+    expect(await dockComposer(page).locator('textarea').inputValue()).toBe(''); // 状態は、本文に書かない
+    const row = dockComposer(page).locator('.framemeta');
+    await row.locator('.fm-toggle').click();
+    const shown = (await row.locator('.fm-body pre').textContent()) ?? '';
+    expect(shown).toContain('"slider": 44');
+    expect(shown).not.toContain('evil');
     // 錨は、本物の枠（2 つ目）のブロック：ソースに「本物」が入っている
+    await dockComposer(page).locator('textarea').fill('本物の枠の状態');
     await dockComposer(page).getByRole('button', { name: 'コメントを追加' }).click();
     await expect(dockThreads(page)).toHaveCount(1);
     await page.keyboard.press('Escape');
     await submitAll(page);
     const r = await app.nextRound();
     expect(r.items[0].anchor.label).toBe('実行できる枠');
+    expect(r.items[0].new[0].text).toBe('本物の枠の状態');
+    expect(JSON.parse(r.items[0].new[0].frameMeta.state)).toMatchObject({ slider: 44 }); // 攻撃する枠の状態は、入らない
     await expect(page.locator('#article .htmlapp.blk-thread')).toHaveCount(1);
     await expect(page.locator('#article .htmlapp').nth(1)).toHaveClass(/blk-thread/); // 錨は、本物の枠（2 つ目）のブロック
     await expect(page.locator('#article .htmlapp').nth(0)).not.toHaveClass(/blk-thread/);

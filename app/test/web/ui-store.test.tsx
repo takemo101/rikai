@@ -283,31 +283,68 @@ test('狭い窓の取っ手の幅は、保存した幅（ui.panelW）と別：�
   expect(ui().panelWNarrow).toBeNull();
 });
 
-test('startComposer(anchor, seed)：初期値を入れる。書きかけがあれば、空行をあけて、あとに足す。前の初期値のままなら、新しい対象で入れ替える（別の対象には、残らない）', () => {
-  const a = (label: string) => ({
-    blockId: 'b0',
-    blockHash: '',
-    blockTag: 'DIV',
-    blockText: '',
-    quote: '',
-    prefix: '',
-    suffix: '',
-    label,
-  });
+const frameAnchor = (label: string) => ({
+  blockId: 'b0',
+  blockHash: '',
+  blockTag: 'DIV',
+  blockText: '',
+  quote: '',
+  prefix: '',
+  suffix: '',
+  label,
+});
+const PICK_META = {
+  pick: {
+    selector: 'button.primary',
+    tag: 'button',
+    text: 'ログイン',
+    rect: { x: 24, y: 312, w: 320, h: 40 },
+    styles: { color: 'red' },
+    frame: { w: 634, h: 400 },
+  },
+};
+
+test('startComposer(anchor, frameMeta)：枠から取った情報は、入力欄（対象）が持つ。本文（書きかけ）には、書かない・足さない。空なら、空のまま', () => {
   location.hash = '#/demo/root';
   queryClient.setQueryData(topicKey('demo'), topicState());
-  const ui = useUi.getState();
-  expect(ui.startComposer(a('枠から：a'), 'SEED-A\n')).toBe(true);
-  expect(useUi.getState().drafts.composer).toBe('SEED-A\n');
-  expect(useUi.getState().composer?.seed).toBe('SEED-A\n');
-  useUi.getState().startComposer(a('枠から：b'), 'SEED-B\n'); // 前の初期値のまま：入れ替える
-  expect(useUi.getState().drafts.composer).toBe('SEED-B\n');
-  useUi.getState().setComposerDraft('SEED-B\n私の一言');
-  useUi.getState().startComposer(a('枠から：c'), 'SEED-C\n'); // 書き足している：残して、足す
-  expect(useUi.getState().drafts.composer).toBe('SEED-B\n私の一言\n\nSEED-C\n');
-  useUi.getState().closeComposer();
-  useUi.getState().startComposer(a('枠から：d'), 'SEED-D\n');
-  useUi.getState().startComposer(a('普通'));
-  expect(useUi.getState().drafts.composer).toBe(''); // 初期値のまま、初期値のない対象へ：消える
-  expect(useUi.getState().composer?.seed).toBeUndefined();
+  expect(useUi.getState().startComposer(frameAnchor('枠から：button'), PICK_META)).toBe(true);
+  expect(useUi.getState().drafts.composer).toBe(''); // 入力欄は、空で開く
+  expect(useUi.getState().composer?.frameMeta).toEqual(PICK_META);
+  useUi.getState().setComposerDraft('私の一言');
+  useUi.getState().startComposer(frameAnchor('枠から：button'), { state: '{"step":2}' }); // 別の情報で開き直す
+  expect(useUi.getState().drafts.composer).toBe('私の一言'); // 書きかけは、そのまま（追記しない）
+  expect(useUi.getState().composer?.frameMeta).toEqual({ state: '{"step":2}' });
+});
+
+test('新しい情報は、古い情報を置き換える（1 つの下書きに 1 組）：トーストで知らせる。情報のない対象へ移ったときも、外れたことを知らせる。前に情報がなければ、知らせない', () => {
+  location.hash = '#/demo/root';
+  queryClient.setQueryData(topicKey('demo'), topicState());
+  useUi.getState().startComposer(frameAnchor('枠から：button'), PICK_META);
+  expect(useUi.getState().toast).toBeNull(); // 前の情報がなかった
+  const other = { pick: { ...PICK_META.pick, selector: 'a.link', tag: 'a' } };
+  useUi.getState().startComposer(frameAnchor('枠から：a'), other);
+  expect(useUi.getState().composer?.frameMeta).toEqual(other); // 置き換わる（古い pick は、残らない）
+  expect(useUi.getState().toast?.msg).toContain('置き換えました');
+  useUi.getState().showToast('x');
+  useUi.getState().startComposer(frameAnchor('普通'));
+  expect(useUi.getState().composer?.frameMeta).toBeUndefined(); // 前の対象の情報は、持ち越さない
+  expect(useUi.getState().toast?.msg).toContain('外しました');
+  useUi.getState().showToast('y');
+  useUi.getState().startComposer(frameAnchor('普通 2'));
+  expect(useUi.getState().toast?.msg).toBe('y'); // 情報のなかった入力欄からは、知らせない
+});
+
+test('removeFrameMeta：枠から取った情報だけを外す（錨・本文は残る）。トーストで知らせる。何もなければ、何もしない', () => {
+  location.hash = '#/demo/root';
+  queryClient.setQueryData(topicKey('demo'), topicState());
+  useUi.getState().startComposer(frameAnchor('枠から：button'), PICK_META);
+  useUi.getState().setComposerDraft('書きかけ');
+  useUi.getState().removeFrameMeta();
+  expect(useUi.getState().composer?.frameMeta).toBeUndefined();
+  expect(useUi.getState().composer?.anchor.label).toBe('枠から：button');
+  expect(useUi.getState().drafts.composer).toBe('書きかけ');
+  expect(useUi.getState().toast?.msg).toContain('元には戻せません');
+  useUi.getState().showToast('z');
+  useUi.getState().removeFrameMeta();
+  expect(useUi.getState().toast?.msg).toBe('z');
 });

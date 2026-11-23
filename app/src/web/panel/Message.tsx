@@ -9,6 +9,7 @@ import type { View } from '../lib/view';
 import { useUi } from '../store/ui';
 import { AskView } from './AskView';
 import { caretAtEnd } from './caret';
+import { FrameMetaChip } from './FrameMetaChip';
 import { imgUrl } from './logic';
 
 interface Props {
@@ -74,6 +75,7 @@ function UserMessage({ view, thread, m }: Omit<Props, 'seen'>) {
   }
   return (
     <div className="msg user">
+      {m.frameMeta ? <FrameMetaChip meta={m.frameMeta} showTag={false} /> : null}
       {m.text ? <div className="body pre">{m.text}</div> : null}
       {m.images?.length ? (
         <div className="imgs">

@@ -15,6 +15,7 @@ export const commentBody = z.object({
   anchor: z.unknown().optional(),
   text: z.unknown().optional(),
   images: z.unknown().optional(),
+  frameMeta: z.unknown().optional(),
 });
 export const replyBody = z.object({ topic, thread, text: z.unknown().optional(), images: z.unknown().optional() });
 export const answerBody = z.object({ topic, thread, msg, answer: z.unknown().optional() });

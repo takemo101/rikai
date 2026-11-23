@@ -377,6 +377,34 @@ test.describe('外観のモード（F36）', () => {
     await auditBoth(page, 'トースト（通常）');
   });
 
+  test('枠から取った情報の行（F45）：下書き（閉じた・開いた）・送信後のカード（開いた）も、ライト・ダークで、文字が AA 以上。ダークで、白い島がない', async ({
+    page,
+    app,
+  }) => {
+    const doc = `# 題\n\n${BT}html-app height=160\n<button id="go" style="padding:6px">ログイン</button>\n<script>window.rikai.state({ step: 2, text: 'あ'.repeat(60) });</script>\n${BT}\n`;
+    await app.switchTopic(page, 'thfm', '情報の行', doc);
+    await page.waitForTimeout(1500);
+    const cap = page.locator('#article .htmlapp .cap').first();
+    await cap.locator('button[data-pick]').click();
+    await page.frameLocator('#article iframe.appframe').locator('#go').click();
+    const row = ui(page).composer.locator('.framemeta');
+    await expect(row).toBeVisible();
+    await auditBoth(page, '下書きの情報の行（閉じた）');
+    await row.locator('.fm-toggle').click();
+    await expect(row.locator('.fm-body')).toBeVisible();
+    await auditBoth(page, '下書きの情報の行（開いた）');
+    await ui(page).composer.locator('textarea').fill('見た目の確認');
+    await ui(page).composer.getByRole('button', { name: 'コメントを追加' }).click();
+    const card = ui(page).threads.first().locator('.framemeta');
+    await expect(card).toBeVisible();
+    await card.locator('.fm-toggle').click();
+    await expect(card.locator('.fm-body')).toBeVisible();
+    await auditBoth(page, '送信後のカードの情報の行（開いた）');
+    await page.emulateMedia({ colorScheme: 'dark' });
+    const body = await card.locator('pre').evaluate((e) => getComputedStyle(e).backgroundColor);
+    expect(lum(rgbOf(body)), `状態の背景 ${body}`).toBeLessThan(0.1);
+  });
+
   test('状態の総当たり：同じ行の「+N」のポップオーバーも、AA 以上', async ({ page, app }) => {
     await page.setViewportSize({ width: 1500, height: 1000 });
     const words = ['語一', '語二', '語三', '語四', '語五', '語六', '語七'];
