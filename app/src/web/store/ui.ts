@@ -40,6 +40,8 @@ export interface CompareState {
     composer: ComposerState | null;
     active: string | null;
     solo: string | null;
+    /** `<トピック>/<ページ>`（版を含まない）：同じページか（対象を、新しい版で探し直せるか） */
+    pageKey: string;
   };
 }
 
@@ -77,6 +79,19 @@ export interface ComposerState {
   regionImg?: string;
   /** 枠から来た情報（要素・状態）で、本文に入れた初期値（F42）。対象を選び直したとき、利用者が書き足していなければ、これを入れ替える */
   seed?: string;
+  /**
+   * 比べる画面（F44）を開いている間に新しい版が届いて、閉じたとき：入力欄を、いったん戻したが、対象が、新しい版の本文に**まだ見つかるか**を、本文を描いたあとに確かめる印
+   * （見つかれば外す。見つからなければ、入力欄を閉じて、書きかけを「対象を失った下書き」にする：`loseComposerDraft`）
+   */
+  verify?: boolean;
+}
+
+/** 対象を失った下書き：書きかけの文・添付の画像の名前。**次に開く入力欄には、自動で入れない**（別の対象のコメントに付いてしまうため）。パネルの上に出して、利用者が、コピー・破棄を選ぶ */
+export interface LostDraft {
+  text: string;
+  imgs: string[];
+  /** 対象が戻せなかった理由（パネルの説明に出す） */
+  reason: string;
 }
 
 /** 質問の、回答の下書き（選びかけ・書きかけ。保存した回答は、AskAnswer）。型ごとに、使う項目が違う */
@@ -123,6 +138,8 @@ export interface UiState {
   compare: CompareState | null;
   /** 比べる画面を閉じて、本文を描き直したあとに、戻すスクロール位置（本文〔`Article`〕が、描き終えたら、1 度だけ受け取る）。なければ null */
   scrollRestore: number | null;
+  /** 対象を失った下書き（なければ null）。1 件だけ持つ（続けて失ったときは、つなぐ） */
+  lostDraft: LostDraft | null;
   drafts: Drafts;
   /** 入力欄のキー → 世代（やめる・送る・移るで進める。終わりが遅れたアップロードを、捨てるため） */
   imgGen: Record<string, number>;
@@ -241,6 +258,14 @@ export interface UiActions {
   closeCompare: (restore?: boolean) => void;
   /** 戻すスクロール位置を、1 度だけ受け取る（受け取ると、なくなる） */
   takeScrollRestore: () => number | null;
+  /**
+   * 入力欄の対象を戻せなかった：入力欄を閉じ、書きかけの文・添付の画像を、`lostDraft` へ移す（`drafts` は空にする：**次に開く別の対象の入力欄に、入らない**）。
+   * 利用者に、トーストで知らせる。文も画像もなければ、ただ閉じる。`reason`：「対象が、〜」に続く文
+   */
+  loseComposerDraft: (reason: string) => void;
+  /** 戻した入力欄の対象が、新しい版の本文に見つかった：確かめの印（`verify`）を外す */
+  confirmComposer: (id: number) => void;
+  discardLostDraft: () => void;
   /** 左右の版を選ぶ。存在しない版（0・最新版より後・整数でない）は、受けない */
   setCompareVersion: (side: 'left' | 'right', version: number) => void;
   setCompareWidth: (width: FrameWidth) => void;
@@ -277,6 +302,7 @@ export function initialUi(): UiState {
     showChanges: true,
     compare: null,
     scrollRestore: null,
+    lostDraft: null,
     drafts: { composer: '', reply: {}, edit: {}, ask: {}, imgs: {} },
     imgGen: {},
     uploading: 0,
@@ -405,7 +431,7 @@ export const useUi = create<UiStore>()((set, get) => {
           width: 'auto',
           mode: null,
           changesOnly: false,
-          from: { key: v.key, scrollTop, composer, active, solo },
+          from: { key: v.key, scrollTop, composer, active, solo, pageKey: `${v.slug}/${v.page}` },
         },
         composer: null,
         active: null,
@@ -419,25 +445,49 @@ export const useUi = create<UiStore>()((set, get) => {
       const { compare } = get();
       if (!compare) return;
       const v = getView();
-      const same = restore && v !== null && v.key === compare.from.key;
-      const { composer, active, solo, scrollTop } = compare.from;
+      const { composer, active, solo, scrollTop, key, pageKey } = compare.from;
+      const sameKey = restore && v !== null && v.key === key;
+      // 版が替わった（新しい版が届いた）が、同じページの最新版：対象を、新しい版の本文で探し直せる（描いたあとに確かめる：`verify`）
+      const relocate = restore && !sameKey && v?.isLatest === true && `${v.slug}/${v.page}` === pageKey;
+      const mine = get().composer === null; // 別の入力欄が、すでに開いていれば、そちらを優先
       set((s) => ({
         compare: null,
-        ...(same
+        scrollRestore: sameKey ? scrollTop : null,
+        ...(sameKey
           ? {
               composer: s.composer ?? (v?.isLatest ? composer : null),
               active: s.active ?? active,
               solo: s.solo ?? solo,
-              scrollRestore: scrollTop,
             }
-          : { scrollRestore: null }),
+          : {}),
+        ...(relocate && composer && mine ? { composer: { ...composer, verify: true } } : {}),
       }));
+      // 対象を戻せない（別のページへ移った）：書きかけを、別の対象に付けない
+      if (composer && mine && !sameKey && !relocate) get().loseComposerDraft('別のページにあります');
     },
     takeScrollRestore: () => {
       const r = get().scrollRestore;
       if (r !== null) set({ scrollRestore: null });
       return r;
     },
+    loseComposerDraft: (reason) => {
+      const { drafts, lostDraft } = get();
+      const text = drafts.composer;
+      const imgs = drafts.imgs.composer ?? [];
+      get().closeComposer(); // 文・画像は、ここで空になる（次の入力欄に、残らない）
+      if (!text.trim() && !imgs.length) return;
+      set({
+        lostDraft: {
+          text: lostDraft ? `${lostDraft.text}\n\n${text}`.trim() : text,
+          imgs: [...(lostDraft?.imgs ?? []), ...imgs.filter((n) => !lostDraft?.imgs.includes(n))],
+          reason,
+        },
+      });
+      get().showToast(`書きかけのコメントの対象が、${reason}。文は、下書きとして残しています`);
+    },
+    confirmComposer: (id) =>
+      set((s) => (s.composer?.id === id && s.composer.verify ? { composer: { ...s.composer, verify: undefined } } : s)),
+    discardLostDraft: () => set({ lostDraft: null }),
     setCompareVersion: (side, version) => {
       const v = getView();
       if (!v || !isVersion(version, v.latest)) return;
@@ -485,7 +535,10 @@ export const useUi = create<UiStore>()((set, get) => {
         }
         return { uploading: Math.max(0, s.uploading - 1), uploadingBy: by };
       }),
-    leaveTopic: () => patchDrafts({ imgs: {} }),
+    leaveTopic: () => {
+      patchDrafts({ imgs: {} });
+      set((s) => ({ lostDraft: s.lostDraft ? { ...s.lostDraft, imgs: [] } : null })); // 添付の画像は、そのトピックの assets/ にある
+    },
 
     setTab: (tab) => set({ tab }),
     setOlderOpen: (key, open) => set((s) => ({ olderOpen: withMember(s.olderOpen, key, open) })),

@@ -28,6 +28,7 @@ import { type DocModel, docOrder, locEl, useDoc } from '../store/doc';
 import { type Tab, useUi } from '../store/ui';
 import { Composer } from './Composer';
 import { Lightbox } from './Lightbox';
+import { LostDraft } from './LostDraft';
 import { composerSlot, lastSpeech, quoteOf } from './logic';
 import { type PanelActions, PanelContext, usePanel } from './panelContext';
 import { ThreadCard } from './ThreadCard';
@@ -213,6 +214,7 @@ const Threads = memo(function Threads({ view, panelRef }: { view: View; panelRef
       </button>
     </div>,
   ];
+  top.push(<LostDraft key="lost" />);
   const body: ReactNode[] = [];
 
   if (solo) {

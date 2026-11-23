@@ -935,20 +935,67 @@ test.describe('比べる画面：開く前の状態・差分の見え方', () =>
     await expect(u.threads.first()).toContainText('書きかけのコメントです');
   });
 
-  test('新しい版が届いて閉じたとき：入力欄の対象は戻さない（書きかけの文は残る）。別の対象の入力欄に、前の対象のものが混ざらない', async ({
+  test('比べている間に新しい版が届き、対象が新しい版にもあるとき：その対象で、同じ文のまま戻る。送ると、元の段落のコメントになる', async ({
     page,
     app,
   }) => {
     const u = ui(page);
     await versions(page, app);
     await openComposerOnText(page, '猫は一日に五回、ごはんを食べます');
-    await u.composer.locator('textarea').fill('書きかけ');
+    await u.composer.locator('textarea').fill('書きかけ A');
     await openCompare(page);
-    await app.apply({ revisions: [{ page: 'root', markdown: V3.replace('五回', '六回') }] }, { topic: DOC_ID });
+    await app.apply(
+      { revisions: [{ page: 'root', markdown: `${V3}\n新しい版で足した段落です。\n` }] },
+      { topic: DOC_ID },
+    );
     await expect(page.locator('[data-newer]')).toBeVisible();
     await page.keyboard.press('Escape');
     await expect(compare(page)).toHaveCount(0);
-    await expect(u.composer).toHaveCount(0);
+    await expect(u.article).toContainText('新しい版で足した段落です');
+    await expect(u.composer).toBeVisible();
+    await expect(u.composer.locator('textarea')).toHaveValue('書きかけ A');
+    await expect(page.locator('[data-lost-draft]')).toHaveCount(0);
+    await u.composer.getByRole('button', { name: 'コメントを追加' }).click();
+    await expect(u.threads).toHaveCount(1);
+    await expect(u.article.locator('mark.hl').first()).toContainText('猫は一日に五回、ごはんを食べます');
+  });
+
+  test('新しい版に対象がなくなったとき：別の対象に付けない（次に別の段落で開いた入力欄は、空）。知らせて、「対象を失った下書き」に残す（コピー・破棄）', async ({
+    page,
+    app,
+  }) => {
+    const u = ui(page);
+    await page.context().grantPermissions(['clipboard-read', 'clipboard-write']);
+    await versions(page, app);
+    await openComposerOnText(page, '猫は一日に五回、ごはんを食べます');
+    await u.composer.locator('textarea').fill('書きかけ A');
+    await openCompare(page);
+    await app.apply(
+      { revisions: [{ page: 'root', markdown: V3.replace('一日に五回', '毎日、六度') }] },
+      { topic: DOC_ID },
+    );
+    await expect(page.locator('[data-newer]')).toBeVisible();
+    await page.keyboard.press('Escape');
+    await expect(compare(page)).toHaveCount(0);
+    await expect(u.article).toContainText('毎日、六度');
+    await expect(u.composer).toHaveCount(0); // 入力欄は、閉じたまま
+    await expect(u.toast).toContainText(
+      '書きかけのコメントの対象が、新しい版でなくなりました。文は、下書きとして残しています',
+    );
+    const lost = page.locator('[data-lost-draft]');
+    await expect(lost).toBeVisible();
+    await expect(lost).toContainText('対象を失った下書き');
+    await expect(lost.locator('.lostdraft-text')).toHaveText('書きかけ A');
+    // 別の段落で、入力欄を開く：前の文は、入っていない（別の対象に付かない）
+    await openComposerOnText(page, '導入の段落です');
+    await expect(u.composer.locator('textarea')).toHaveValue('');
+    await expect(lost).toBeVisible(); // 失った下書きは、そのまま
+    await u.composer.getByRole('button', { name: 'やめる' }).click();
+    // コピー（利用者の操作）・破棄
+    await lost.getByRole('button', { name: 'コピー' }).click();
+    await expect.poll(() => page.evaluate(() => navigator.clipboard.readText())).toBe('書きかけ A');
+    await lost.getByRole('button', { name: '破棄' }).click();
+    await expect(lost).toHaveCount(0);
   });
 
   test('スクロール位置：開く前の位置（366px 前後）へ、閉じたあと、戻る', async ({ page, app }) => {
@@ -983,6 +1030,43 @@ test.describe('比べる画面：開く前の状態・差分の見え方', () =>
     await expect(compare(page)).toHaveCount(0);
     await expect.poll(top).toBeLessThanOrEqual(max);
     await expect.poll(top).toBeGreaterThan(max - 3);
+  });
+
+  test('スクロール位置：戻したあと、すぐに利用者がスクロールしたら、巻き戻さない', async ({ page, app }) => {
+    const long = (n: number) =>
+      lines(
+        '# 長い資料',
+        '',
+        ...Array.from({ length: 60 }, (_, i) => `第 ${i + 1} 段落です。版 ${n}。猫は眠ります。`).flatMap((p) => [
+          p,
+          '',
+        ]),
+      );
+    await versions(page, app, [long(1), long(2), long(3)]);
+    await page.locator('#docscroll').evaluate((e) => {
+      e.scrollTop = 366;
+    });
+    await openCompare(page);
+    // 閉じた直後に、スクロールする（戻す処理の、2 フレーム後の置き直しより、前に）
+    await page.evaluate(() => {
+      const sc = document.getElementById('docscroll') as HTMLElement;
+      const mo = new MutationObserver(() => {
+        if (!document.getElementById('article')) return;
+        mo.disconnect();
+        const iv = setInterval(() => {
+          if (Math.abs(sc.scrollTop - 366) < 2) {
+            sc.scrollTop = 1500; // 戻った直後に、利用者が動かした
+            clearInterval(iv);
+          }
+        }, 1);
+        setTimeout(() => clearInterval(iv), 3000);
+      });
+      mo.observe(sc, { childList: true, subtree: true });
+    });
+    await page.keyboard.press('Escape');
+    await expect(compare(page)).toHaveCount(0);
+    await page.waitForTimeout(600);
+    expect(await page.locator('#docscroll').evaluate((e) => e.scrollTop)).toBeGreaterThan(1000); // 366 に、巻き戻らない
   });
 
   test('種類だけが変わったブロック（段落 → 見出し・箇条書き → 番号つき・段落 → 引用）：「変更前」「変更後」になり、種類の変化が書かれる。F11 の「前の版からの変更」でも、変更', async ({

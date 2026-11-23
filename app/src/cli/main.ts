@@ -12,6 +12,7 @@ import { shutdown, startServer } from '../server/serve';
 import { createStore, type Store } from '../server/store';
 import { HttpError, now, out, readJSON, sleep, writeJSON } from '../server/util';
 import { type Flags, parseArgs, projectRoot } from './args';
+import { readStdin } from './stdin';
 
 // 起動したサーバーの情報（.rikai/.server.json）
 interface ServerInfo {
@@ -120,17 +121,6 @@ function cmdStop(store: Store): void {
     fs.unlinkSync(store.serverFile());
   } catch {}
   out({ ok: true, stopped: true });
-}
-
-/**
- * 標準入力を、最後まで読む。`fs.readFileSync(0)` は使わない：パイプ・ヒアドキュメントがノンブロッキングのとき、入力が途切れた瞬間に `EAGAIN` で失敗した（約 18 万バイト以上）。
- * ストリームで読み、**バイトのまま集めてから**、1 度だけ UTF-8 にする（チャンクの境目で、日本語・絵文字が割れない）
- */
-async function readStdin(): Promise<string> {
-  if (process.stdin.isTTY) throw new HttpError(400, '標準入力で渡してください');
-  const chunks: Buffer[] = [];
-  for await (const chunk of process.stdin) chunks.push(chunk as Buffer);
-  return Buffer.concat(chunks).toString('utf8');
 }
 
 const HELP = `rikai <command>

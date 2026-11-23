@@ -26347,6 +26347,14 @@ function projectRoot(flags) {
   }
 }
 
+// src/cli/stdin.ts
+async function readStdin(input2 = process.stdin) {
+  if (input2.isTTY) throw new HttpError(400, "\u6A19\u6E96\u5165\u529B\u3067\u6E21\u3057\u3066\u304F\u3060\u3055\u3044");
+  const chunks = [];
+  for await (const chunk of input2) chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(String(chunk)));
+  return Buffer.concat(chunks).toString("utf8");
+}
+
 // src/cli/main.ts
 var SELF = process.argv[1];
 function cmdServe(store) {
@@ -26435,12 +26443,6 @@ function cmdStop(store) {
   } catch {
   }
   out({ ok: true, stopped: true });
-}
-async function readStdin() {
-  if (process.stdin.isTTY) throw new HttpError(400, "\u6A19\u6E96\u5165\u529B\u3067\u6E21\u3057\u3066\u304F\u3060\u3055\u3044");
-  const chunks = [];
-  for await (const chunk of process.stdin) chunks.push(chunk);
-  return Buffer.concat(chunks).toString("utf8");
 }
 var HELP = `rikai <command>
   new <topic> --title <\u984C\u540D> [--source <\u5BFE\u8C61>]   \u6A19\u6E96\u5165\u529B\u306EMarkdown\u304B\u3089\u65B0\u3057\u3044\u30C8\u30D4\u30C3\u30AF\u3092\u4F5C\u308B

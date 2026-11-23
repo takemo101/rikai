@@ -124,6 +124,12 @@ export function Article({ view, markdown, prevMarkdown }: ArticleProps) {
           );
         }
         useDoc.getState().setModel(model);
+        // 比べる画面を閉じて、新しい版になった：戻した入力欄の対象が、新しい本文に見つかるか。見つからなければ、別の対象に付けず、書きかけを「対象を失った下書き」へ
+        const c = useUi.getState().composer;
+        if (c?.verify) {
+          if (model.pending) useUi.getState().confirmComposer(c.id);
+          else useUi.getState().loseComposerDraft('新しい版でなくなりました');
+        }
       })
       .catch(() => {
         if (tok === renderTok.current) toast('本文を表示できませんでした', true);
