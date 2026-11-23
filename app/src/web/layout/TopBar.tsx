@@ -12,7 +12,7 @@ export interface TopBarProps {
 }
 
 const PROGRESS_TITLE =
-  '数だけです（人が「理解できた（解決）」にしたスレッドの数と、回答を送信した質問の数。保存しただけの回答は数えません）。理解できたかの判定ではありません';
+  '数だけです（人が「解決」にしたスレッドの数と、回答を送信した質問の数。保存しただけの回答は数えません）。理解できたかの判定ではありません';
 
 /** 「解決 N/M・回答 K/L」（回答の質問がなければ、回答は出さない）。スレッドがなければ null */
 export function progressLabel(threads: View['topic']['threads']): string | null {

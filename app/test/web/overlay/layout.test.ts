@@ -1,14 +1,18 @@
 // 番号の層の位置の計算（純粋な関数）：番号の順・同じ高さの組・上の組に重ならない・範囲の枠・枠のドラッグ。
 import { expect, test } from 'vitest';
 import {
+  BADGE_MAX,
   type BadgeGroup,
   type BadgeItem,
   badgeLeft,
   badgeTopIn,
+  badgeWidth,
+  foldBadges,
   groupBadges,
   regionBox,
   regionTopOf,
   stackGroups,
+  stackWidth,
 } from '../../../src/web/overlay/layout';
 import {
   adjustEdges,
@@ -39,6 +43,39 @@ test('同じ行（4px 未満の差）は、1 つの組。4px 以上は、別の�
     [111, ['d']],
   ]);
   expect(groupBadges([])).toEqual([]);
+});
+
+test('丸の幅は、文字数で決まる（1 文字 18・2 文字 24・3 文字 31・4 文字 38）。重ねた幅は、重なり 2px を引く', () => {
+  expect([1, 9, '新', 10, 99, 100, 999, 1000].map(badgeWidth)).toEqual([18, 18, 18, 24, 24, 31, 31, 38]);
+  expect(stackWidth([18])).toBe(18);
+  expect(stackWidth([18, 18, 18])).toBe(50);
+  expect(stackWidth([24, 24, 31])).toBe(75);
+  expect(stackWidth([])).toBe(0);
+});
+
+test('同じ行の丸：5 つまで・収まるなら、すべて並べる（5 件ちょうども、5 つ）。6 つ以上は、先頭から 4 つと、残りを「+N」に。収まらなければ、並べる数を減らす（桁数で、幅が違う）', () => {
+  const nums = (from: number, n: number) => Array.from({ length: n }, (_, i) => from + i);
+  const f = (items: number[], room = 200) => {
+    const r = foldBadges(items, room, (n) => n);
+    return [r.shown, r.folded];
+  };
+  expect(BADGE_MAX).toBe(5);
+  expect(f(nums(1, 1))).toEqual([[1], []]);
+  expect(f(nums(1, 5))).toEqual([nums(1, 5), []]); // 5 件ちょうどは、そのまま（「+1」にしない）
+  expect(f(nums(1, 6))).toEqual([nums(1, 4), [5, 6]]);
+  expect(f(nums(1, 9))).toEqual([nums(1, 4), nums(5, 5)]);
+  // 幅：1 桁 5 つ = 82・2 桁 5 つ = 112（収まらなければ、「+N」の分も入れて、減らす）
+  expect(f(nums(1, 5), 82)).toEqual([nums(1, 5), []]);
+  expect(f(nums(1, 5), 81)).toEqual([nums(1, 3), [4, 5]]); // 3 つ（50）＋「+2」（24 − 2）= 72
+  expect(f(nums(10, 5), 112)).toEqual([nums(10, 5), []]);
+  expect(f(nums(10, 5), 102)).toEqual([nums(10, 3), [13, 14]]);
+  expect(f(nums(10, 5), 90)).toEqual([nums(10, 3), [13, 14]]); // 24×3 − 4 + 22 = 90
+  expect(f(nums(100, 3), 70)).toEqual([[100], [101, 102]]); // 3 桁：91（3 つ）・82（2 つ + 「+1」）は、収まらない → 1 つ（31 + 22 = 53）
+  // 狭い：1 つも収まらなければ、「+N」だけ
+  expect(f(nums(1, 3), 10)).toEqual([[], [1, 2, 3]]);
+  expect(f(nums(1, 3), 40)).toEqual([[1], [2, 3]]); // 2 つ + 「+1」= 34 + 22 = 56 > 40 → 1 つ（18 + 24 − 2 = 40）
+
+  expect(f(nums(1, 3), 60)).toEqual([nums(1, 3), []]);
 });
 
 test('上の組に重ならない：前の組の下端（実測）の 2px 下より上には、出さない。折り返して背が高くなった組の下に、次の組が来る', () => {

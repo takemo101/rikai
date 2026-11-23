@@ -11,7 +11,7 @@ async function replyCycle(page: Page, app: RikaiApp, userText: string, aiText: s
   const u = ui(page);
   const card = u.threads.first();
   await card.locator('textarea').last().fill(userText);
-  await card.getByRole('button', { name: '返信を追加' }).click();
+  await card.getByRole('button', { name: '追加', exact: true }).click();
   await expect(card).toContainText(userText);
   await submitAll(page);
   const r = await app.nextRound();
@@ -63,7 +63,7 @@ test.describe('長い会話の折りたたみ（F29）', () => {
 
     // 未送信の発言は、たたまない。その分、たたむ範囲は広がる
     await card.locator('textarea').last().fill('四番目（未送信）の発言');
-    await card.getByRole('button', { name: '返信を追加' }).click();
+    await card.getByRole('button', { name: '追加', exact: true }).click();
     await expect(card.locator('.msg').filter({ hasText: '四番目（未送信）の発言' })).toBeVisible();
     await expect(older.locator('summary')).toHaveText('これまでのやり取り（5 件）');
 
@@ -94,7 +94,7 @@ test.describe('タブと解決済みの 1 行（F33）', () => {
     await seed(page, app);
     await expect(tab(page, '進行中')).toHaveAttribute('aria-selected', 'true');
     await expect(tab(page, '進行中')).toHaveText('進行中3');
-    await u.threads.filter({ hasText: '朝についての確認' }).getByRole('button', { name: '理解できた（解決）' }).click();
+    await u.threads.filter({ hasText: '朝についての確認' }).getByRole('button', { name: '解決', exact: true }).click();
     await expect(tab(page, '進行中')).toHaveText('進行中2');
     await expect(tab(page, '解決済み')).toHaveText('解決済み1');
     await expect(tab(page, 'すべて')).toHaveText('すべて3');
@@ -121,7 +121,7 @@ test.describe('タブと解決済みの 1 行（F33）', () => {
   }) => {
     const u = ui(page);
     await seed(page, app);
-    await u.threads.filter({ hasText: '朝についての確認' }).getByRole('button', { name: '理解できた（解決）' }).click();
+    await u.threads.filter({ hasText: '朝についての確認' }).getByRole('button', { name: '解決', exact: true }).click();
     await tab(page, '解決済み').click();
     const row = page.locator('.donerow');
     await expect(row).toContainText('1');
@@ -139,7 +139,7 @@ test.describe('タブと解決済みの 1 行（F33）', () => {
   test('本文の、解決済みの文の強調を押すと、一覧の中で、そのカードが開く（F33(2)）', async ({ page, app }) => {
     const u = ui(page);
     await seed(page, app);
-    await u.threads.filter({ hasText: '朝についての確認' }).getByRole('button', { name: '理解できた（解決）' }).click();
+    await u.threads.filter({ hasText: '朝についての確認' }).getByRole('button', { name: '解決', exact: true }).click();
     await expect(tab(page, '解決済み')).toHaveText('解決済み1');
     await expect(u.threads).toHaveCount(2); // 進行中
     await u.article.locator('mark', { hasText: '猫は朝によく鳴きます' }).click();
@@ -150,7 +150,7 @@ test.describe('タブと解決済みの 1 行（F33）', () => {
   test('入力欄は、解決済みのタブでも出る。追加すると、進行中へ戻る（F22(3)・F33）', async ({ page, app }) => {
     const u = ui(page);
     await seed(page, app);
-    await u.threads.filter({ hasText: '朝についての確認' }).getByRole('button', { name: '理解できた（解決）' }).click();
+    await u.threads.filter({ hasText: '朝についての確認' }).getByRole('button', { name: '解決', exact: true }).click();
     await tab(page, '解決済み').click();
     await openComposerOnText(page, 'ごはんを食べます');
     await expect(u.composer).toBeVisible();
@@ -392,7 +392,7 @@ test.describe('画像の添付（F24）', () => {
     await pickFiles(page, card, [png(60, 40)]);
     await expect(card.locator('.th-foot .thumb img')).toHaveCount(1);
     await card.locator('textarea').fill('画像つきの返信');
-    await card.getByRole('button', { name: '返信を追加' }).click();
+    await card.getByRole('button', { name: '追加', exact: true }).click();
     await expect(card.locator('.msg.user img')).toHaveCount(1);
     await expect(card.locator('.th-foot .thumb img')).toHaveCount(0); // 入力欄は空に戻る
     await submitAll(page);

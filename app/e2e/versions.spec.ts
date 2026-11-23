@@ -150,7 +150,7 @@ test.describe('版と差分', () => {
     await expect(sleep.locator('.no')).toHaveCount(0); // 本文の中にないので、番号はない
     await expect(u.bno).toHaveText(['1', '2']); // 見つかる 2 つだけ
     // 見つからなくても、スレッドは、パネルに残る（返信できる）
-    await expect(sleep.getByRole('button', { name: '返信を追加' })).toBeVisible();
+    await expect(sleep.getByRole('button', { name: '追加', exact: true })).toBeVisible();
   });
 
   test('付けた版より前の版には、そのコメントは出ない（「後の版のコメント」）。最新でない版（v2）にも、差分が出る（F11・F12）', async ({

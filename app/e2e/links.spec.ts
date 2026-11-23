@@ -32,7 +32,7 @@ interface Ends {
   cls: string;
   start: { x: number; y: number };
   end: { x: number; y: number };
-  /** 本文側の、実際の強調の、最後の行の右端の中央（文のスレッド） */
+  /** 本文側の、実際の強調の、最後の行の右端の中央（文のスレッド。点の位置） */
   mark: { x: number; y: number } | null;
   /** カードの、番号の丸の中央の高さ・カードの左端 */
   card: { x: number; y: number } | null;
@@ -43,7 +43,7 @@ const ends = (page: Page): Promise<Ends[]> =>
   page.evaluate(() =>
     [...document.querySelectorAll<SVGPathElement>('#links path[data-tid]')].map((p) => {
       const tid = p.dataset.tid as string;
-      const m = (p.getAttribute('d') ?? '').match(/^M(\S+) (\S+)C\S+ \S+ \S+ \S+ (\S+) (\S+)$/) as RegExpMatchArray;
+      const m = (p.getAttribute('d') ?? '').match(/^M([\d.-]+) ([\d.-]+).* ([\d.-]+) ([\d.-]+)$/) as RegExpMatchArray;
       const marks = [...document.querySelectorAll<HTMLElement>('#article mark.hl[data-tid]')].filter(
         (e) => e.dataset.tid === tid,
       );
@@ -59,7 +59,7 @@ const ends = (page: Page): Promise<Ends[]> =>
         cls: p.parentElement?.getAttribute('class') ?? '',
         start: { x: Number(m[1]), y: Number(m[2]) },
         end: { x: Number(m[3]), y: Number(m[4]) },
-        mark: lr ? { x: lr.right, y: lr.top + lr.height / 2 } : null,
+        mark: lr ? { x: lr.right, y: lr.top + lr.height / 2 } : null, // 点：強調の最後の行の右端の中央
         card: no && cr ? { x: cr.left, y: no.top + no.height / 2 } : null,
       };
     }),
@@ -68,7 +68,7 @@ const ends = (page: Page): Promise<Ends[]> =>
 const near = (a: number, b: number) => expect(Math.abs(a - b)).toBeLessThanOrEqual(1);
 
 test.describe('関連の線（F35）', () => {
-  test('コメント 3 件：線が 3 本。本文側は、強調の最後の行の右端の中央、カード側は、番号の丸の高さの、カードの左端。押せない・aria-hidden', async ({
+  test('コメント 3 件：線が 3 本。本文側は、強調の最後の行の右端の中央（点）、カード側は、番号の丸の高さの、カードの左端。押せない・aria-hidden', async ({
     page,
     app,
   }) => {
@@ -288,7 +288,7 @@ test.describe('関連の線（F35）', () => {
     await dragSelect(page, '第10段落の文章です');
     await u.actComment.click();
     await expect(u.composer).toBeVisible();
-    const pending = page.locator('#links g.pending path');
+    const pending = page.locator('#links g.pending path.cn');
     await expect(pending).toHaveCount(1);
     expect(await pending.evaluate((p) => getComputedStyle(p).strokeDasharray)).not.toBe('none');
     await expect(paths(page)).toHaveCount(2);
@@ -325,7 +325,7 @@ test.describe('関連の線（F35）', () => {
     await openLong(page, app, [3, 4, 5]);
     const u = ui(page);
     const tab = (n: string) => page.locator('.tab', { hasText: n });
-    await u.threads.nth(0).getByRole('button', { name: '理解できた（解決）' }).click();
+    await u.threads.nth(0).getByRole('button', { name: '解決', exact: true }).click();
     await expect(tab('解決済み')).toHaveText('解決済み1');
     await expect(paths(page)).toHaveCount(2); // 進行中のタブ：解決済みは、カードがない
 
@@ -334,7 +334,7 @@ test.describe('関連の線（F35）', () => {
     await expect(paths(page)).toHaveCount(0); // 1 行にたたまれたものには、引かない
 
     await page.locator('.donerow').click(); // 開く：カードが出る
-    await expect(page.locator('#links g.resolved path')).toHaveCount(1);
+    await expect(page.locator('#links g.resolved path.cn')).toHaveCount(1);
     await tab('すべて').click();
     await expect(paths(page)).toHaveCount(3); // 進行中 2 ＋ 開いている解決済み 1
     // 開いた直後は、そのカードが active（アクセントで強調）：別のカードを選ぶと、解決済みは、灰色（--muted）に戻る
@@ -348,7 +348,7 @@ test.describe('関連の線（F35）', () => {
       probe.remove();
       return c;
     });
-    expect(await page.locator('#links g.resolved path').evaluate((p) => getComputedStyle(p).stroke)).toBe(muted);
+    expect(await page.locator('#links g.resolved path.cn').evaluate((p) => getComputedStyle(p).stroke)).toBe(muted);
     await page.locator('.rowopen button.link', { hasText: '一覧の 1 行に戻す' }).click();
     await expect(paths(page)).toHaveCount(2);
 
@@ -462,7 +462,7 @@ test.describe('関連の線（F35）', () => {
         const r = mark.getClientRects()[0] as DOMRect;
         const box = (document.querySelector('#article pre') as HTMLElement).getBoundingClientRect();
         const p = document.querySelector<SVGPathElement>('#links path[data-tid]');
-        const m = (p?.getAttribute('d') ?? '').match(/^M(\S+) (\S+)C/);
+        const m = (p?.getAttribute('d') ?? '').match(/^M([\d.-]+) ([\d.-]+)/);
         return {
           drawn: !!p,
           start: m ? { x: Number(m[1]), y: Number(m[2]) } : null,
@@ -497,7 +497,7 @@ test.describe('関連の線（F35）', () => {
     await expect(paths(page)).toHaveCount(0);
   });
 
-  test('複数行（折り返し）の強調：始点は、最後の行の右端の中央（先頭の行ではない）。強調の文字を、線が横切らない', async ({
+  test('複数行（折り返し）の強調：点は、最後の行の右端の中央（先頭の行ではない）。強調の文字を、線が横切らない', async ({
     page,
     app,
   }) => {
@@ -511,7 +511,7 @@ test.describe('関連の線（F35）', () => {
       const last = rects.reduce((a, b) => (b.bottom > a.bottom ? b : a));
       const first = rects[0] as DOMRect;
       const p = document.querySelector<SVGPathElement>('#links path[data-tid]');
-      const m = (p?.getAttribute('d') ?? '').match(/^M(\S+) (\S+)C/) as RegExpMatchArray;
+      const m = (p?.getAttribute('d') ?? '').match(/^M([\d.-]+) ([\d.-]+)/) as RegExpMatchArray;
       return {
         lines: new Set(rects.map((x) => Math.round(x.top))).size,
         start: { x: Number(m[1]), y: Number(m[2]) },

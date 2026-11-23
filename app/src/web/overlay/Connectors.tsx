@@ -10,15 +10,20 @@ import { frameOf } from '../doc/render/blocks';
 import { type DocModel, type ThreadLoc, useDoc } from '../store/doc';
 import { useUi } from '../store/ui';
 import {
+  BELOW,
   type Box,
   clipBox,
+  type DocEnd,
   endOfLastLine,
   type Frame,
+  fanOutSameRow,
   type Link,
+  lastLineBottom,
   linkBetween,
   type Pt,
   rightMiddle,
   sameFrame,
+  sharedLeadX,
 } from './connectorPath';
 
 /** 入力中の対象の印（`#badges` の `.regionbox.pending`・`data-tid` と同じ） */
@@ -46,7 +51,15 @@ function hiddenByScroll(el: Element, p: Pt, stop: Element): boolean {
 }
 
 /** 強調（`mark`）の、最後の行の右端の中央。見えない所（閉じた `<details>`・描き直しの前の古い要素・横スクロールの外）は null */
-function textPoint(marks: readonly HTMLElement[], stop: Element): Pt | null {
+/** 本文側の端点（`p`）と、その行の下端（同じ行の線を、ずらすときの基準） */
+interface End {
+  p: Pt;
+  bottom: number;
+  /** 下の行までのすきま（行間）。引き出し線を、同じ行でずらす幅の上限 */
+  gap: number;
+}
+
+function textPoint(marks: readonly HTMLElement[], stop: Element): End | null {
   const rects: Box[] = [];
   let lastMark: HTMLElement | null = null;
   for (const m of marks) {
@@ -58,11 +71,17 @@ function textPoint(marks: readonly HTMLElement[], stop: Element): Pt | null {
       }
   }
   const p = endOfLastLine(rects);
-  return p && lastMark && !hiddenByScroll(lastMark, p, stop) ? p : null;
+  const bottom = lastLineBottom(rects);
+  if (!p || bottom === null || !lastMark || hiddenByScroll(lastMark, p, stop)) return null;
+  // 行間：行の高さ（`line-height`）と、強調の矩形の高さの差。`pre` の行は、本文の行より、背が低い
+  const last = rects.filter((r) => r.bottom === bottom).at(-1);
+  const lh = Number.parseFloat(getComputedStyle(lastMark).lineHeight);
+  const gap = Number.isFinite(lh) && last ? Math.max(0, lh - (last.bottom - last.top)) : 4;
+  return { p, bottom, gap };
 }
 
 /** 本文側の端点。ブロックは、画像・図なら、その要素（`frameOf`）の右端の外 */
-function docPoint(loc: ThreadLoc | undefined, regions: Map<string, Box>, tid: string, stop: Element): Pt | null {
+function docPoint(loc: ThreadLoc | undefined, regions: Map<string, Box>, tid: string, stop: Element): End | null {
   switch (loc?.kind) {
     case 'text':
       return textPoint(loc.marks, stop);
@@ -71,11 +90,11 @@ function docPoint(loc: ThreadLoc | undefined, regions: Map<string, Box>, tid: st
       const r = frameOf(loc.el).getBoundingClientRect();
       if (!visible(r)) return null;
       const p = rightMiddle(boxOf(r));
-      return { x: p.x + GAP.block, y: p.y };
+      return centered({ x: p.x + GAP.block, y: p.y });
     }
     case 'region': {
       const b = regions.get(tid);
-      return b ? shiftX(rightMiddle(b), GAP.region) : null;
+      return b ? centered(shiftX(rightMiddle(b), GAP.region)) : null;
     }
     default:
       return null;
@@ -83,16 +102,17 @@ function docPoint(loc: ThreadLoc | undefined, regions: Map<string, Box>, tid: st
 }
 
 const shiftX = (p: Pt, dx: number): Pt => ({ x: p.x + dx, y: p.y });
+const centered = (p: Pt): End => ({ p, bottom: p.y - BELOW, gap: 8 }); // 中央を指す端点（ブロック・枠）は、引き出し線も、その高さ
 
 /** 入力中の対象：範囲なら枠（`.regionbox.pending`）・文・ブロックなら、強調した要素 */
-function pendingPoint(model: DocModel, regions: Map<string, Box>, stop: Element): Pt | null {
+function pendingPoint(model: DocModel, regions: Map<string, Box>, stop: Element): End | null {
   const b = regions.get(PENDING);
-  if (b) return shiftX(rightMiddle(b), GAP.pending);
+  if (b) return centered(shiftX(rightMiddle(b), GAP.pending));
   const el = model.pending;
   if (!el?.isConnected) return null;
   if (el.tagName === 'MARK') return textPoint([el as HTMLElement], stop);
   const r = el.getBoundingClientRect();
-  return visible(r) ? shiftX(rightMiddle(boxOf(r)), GAP.block) : null;
+  return visible(r) ? centered(shiftX(rightMiddle(boxOf(r)), GAP.block)) : null;
 }
 
 /** カード側の端点：見出しの番号の丸の高さの、カードの左端（丸がなければ、見出し・カードの上） */
@@ -115,7 +135,7 @@ function measure(
   const panelRect = boxOf(panel.getBoundingClientRect());
   const clip = clipBox(docBox, panelRect);
   const links: Link[] = [];
-  if (!model) return { clip, links };
+  if (!model) return { clip, leadX: null, links };
 
   // 固定の見出し（`.panel-top`）の下に隠れたカードは、見えない：パネルの見える範囲は、その下から
   const head = panel.querySelector('.panel-top');
@@ -129,6 +149,8 @@ function measure(
     if (e.dataset.tid && visible(r)) regions.set(e.dataset.tid, boxOf(r));
   }
 
+  // 1 回目：カードごとの、本文側・カード側の端点
+  const rows: { tid: string; isComposer: boolean; end: End; card: Pt }[] = [];
   for (const card of panel.querySelectorAll<HTMLElement>('.thread.composer, .thread[data-tid]')) {
     const isComposer = card.classList.contains('composer');
     const tid = isComposer ? PENDING : card.dataset.tid;
@@ -136,15 +158,37 @@ function measure(
     if (!tid || !visible(r)) continue;
     cards.push(card);
     if (isComposer && !composerOpen) continue;
-    const doc = isComposer
+    const end = isComposer
       ? pendingPoint(model, regions, scroller)
       : docPoint(model.locs.get(tid), regions, tid, scroller);
-    if (!doc) continue;
-    const emphasized = isComposer || tid === sel.active || tid === sel.linked; // 縁へ寄せた線は、これだけ引く
-    const link = linkBetween(tid, doc, cardPoint(card, r), docBox, panelBox, emphasized);
+    if (end) rows.push({ tid, isComposer, end, card: cardPoint(card, r) });
+  }
+  // 実際に引く線（本文側の端が、見える範囲の中）だけで、始点・引き出しを決める：引かれない線（見える範囲の外のカードなど）に、場所を取らない
+  const emphasizedOf = (r: { tid: string; isComposer: boolean }): boolean =>
+    r.isComposer || r.tid === sel.active || r.tid === sel.linked; // 縁へ寄せた線は、これだけ引く
+  const drawn = rows.filter((r) => linkBetween(r.tid, r.end.p, r.card, docBox, panelBox, emphasizedOf(r))?.doc);
+  const starts = fanOutSameRow(
+    drawn.map((e): DocEnd => ({ tid: e.tid, p: e.end.p, bottom: e.end.bottom, gap: e.end.gap, cardY: e.card.y })),
+  );
+  // すべての線が、共通の x まで水平に引き出して、同じ x の範囲で、S 字に入る（始点の順＝カードの順なら、交差しない）
+  const article = scroller.querySelector('#article')?.getBoundingClientRect();
+  const first = drawn[0];
+  const leadX = first ? sharedLeadX(Math.max(...drawn.map((e) => e.end.p.x)), article?.right ?? 0, first.card.x) : null;
+  for (const r of rows) {
+    const start = starts.get(r.tid);
+    const link = linkBetween(
+      r.tid,
+      start?.from ?? start ?? r.end.p,
+      r.card,
+      docBox,
+      panelBox,
+      emphasizedOf(r),
+      start && leadX !== null ? leadX : undefined,
+      start?.from ? start : undefined,
+    );
     if (link) links.push(link);
   }
-  return { clip, links };
+  return { clip, leadX: links.some((l) => l.lead) ? leadX : null, links };
 }
 
 export function Connectors({ view, scrollRef }: ConnectorsProps) {
@@ -244,6 +288,17 @@ export function Connectors({ view, scrollRef }: ConnectorsProps) {
         <clipPath id="links-clip">
           <rect x={clip.left} y={clip.top} width={clip.right - clip.left} height={clip.bottom - clip.top} />
         </clipPath>
+        {/* 引き出し線のある線の、S 字の部分だけ（x が、共通の x から右）：引き出しの部分は、別の線（.cn-lead）で、薄い点線に描く */}
+        {frame.leadX !== null ? (
+          <clipPath id="links-s">
+            <rect
+              x={frame.leadX}
+              y={clip.top}
+              width={Math.max(0, clip.right - frame.leadX)}
+              height={clip.bottom - clip.top}
+            />
+          </clipPath>
+        ) : null}
       </defs>
       <g clipPath="url(#links-clip)">
         {links.map((l) => {
@@ -259,7 +314,8 @@ export function Connectors({ view, scrollRef }: ConnectorsProps) {
             .join(' ');
           return (
             <g key={l.tid} className={cls} data-tid={l.tid}>
-              <path className="cn" data-tid={l.tid} d={l.d} />
+              {l.lead ? <path className="cn-lead" d={l.d.slice(0, l.d.lastIndexOf('C'))} /> : null}
+              <path className="cn" data-tid={l.tid} d={l.d} clipPath={l.lead ? 'url(#links-s)' : undefined} />
               {l.doc ? <circle className="cn-dot" cx={l.doc.x} cy={l.doc.y} r={3} /> : null}
               {l.card ? (
                 <line className="cn-bar" x1={l.card.x} y1={l.card.y - 5} x2={l.card.x} y2={l.card.y + 5} />

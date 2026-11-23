@@ -27,6 +27,42 @@ export const BADGE_OUTSET = 12;
 
 const numOf = (b: BadgeItem): number => (typeof b.n === 'number' ? b.n : 1e9);
 
+/** 丸の高さ（px。`.bno` の高さ）・重ねたときの、隣との重なり（px）。重なっても、数字が、隠れないように、小さく */
+export const BADGE_SIZE = 18;
+export const BADGE_OVERLAP = 2;
+/** 1 つの行に、並べる丸の数の上限（「+N」も 1 つに数える） */
+export const BADGE_MAX = 5;
+
+/**
+ * 丸の幅（px）。文字数（桁数）で決まる：1 文字は 18px（丸）・2 文字 24px・3 文字 31px・4 文字 38px。
+ * CSS（`.bno`・`.bno.d2`〜`.d4` の `width`）と、同じ値：実際の幅と、一致する（e2e で、実測と比べる）。「+N」は、`+` も 1 文字に数える
+ */
+export const badgeWidth = (text: string | number): number => {
+  const n = Math.min(4, String(text).length);
+  return n <= 1 ? BADGE_SIZE : 24 + (n - 2) * 7;
+};
+
+/** 丸を重ねて並べた幅（px） */
+export const stackWidth = (widths: readonly number[]): number =>
+  widths.reduce((a, b) => a + b, 0) - BADGE_OVERLAP * Math.max(0, widths.length - 1);
+
+/**
+ * 同じ行の丸を、重ねて（アバターのスタック）、1 つの行に収める。`room`：丸の組の右端から、左の見える端までの幅（px）。`textOf`：丸の文字（幅を決める）。
+ * 5 つ（`BADGE_MAX`）まで・`room` に収まるなら、すべて並べる。収まらなければ、先頭から、収まる分（4 つまで。「+N」の丸が、1 つ分の幅を使う）だけを並べ、残りを `folded` にまとめる。1 つも収まらなければ、「+N」だけにする（丸が、見える範囲の左の外へ、はみ出さない）。
+ * 5 件ちょうどは、収まれば、5 つ並べる（「+1」にしない）
+ */
+export function foldBadges<T>(
+  items: readonly T[],
+  room: number,
+  textOf: (item: T) => string | number,
+): { shown: T[]; folded: T[] } {
+  const widths = items.map((i) => badgeWidth(textOf(i)));
+  if (items.length <= BADGE_MAX && stackWidth(widths) <= room) return { shown: [...items], folded: [] };
+  let n = Math.min(BADGE_MAX - 1, items.length - 1);
+  while (n > 0 && stackWidth([...widths.slice(0, n), badgeWidth(`+${items.length - n}`)]) > room) n--;
+  return { shown: items.slice(0, n), folded: items.slice(n) };
+}
+
 /** 高さ（上端）の順（同じ高さは、番号の順。「新」は、最後）に並べ、近い高さ（4px 未満。同じ行）の印を、1 つの組にする */
 export function groupBadges(items: readonly BadgeItem[]): BadgeGroup[] {
   const sorted = [...items].sort((a, b) => a.top - b.top || numOf(a) - numOf(b));

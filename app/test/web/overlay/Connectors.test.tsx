@@ -216,13 +216,13 @@ test('スレッドの数だけ、線を引く：<svg id="links" aria-hidden>。�
   expect(svg?.getAttribute('aria-hidden')).toBe('true');
   expect(tids()).toEqual(['t1', 't2', 't3']);
   // 文：mark の右端 440・中央 110 → カード t1：左 1024（カードの左端）・番号の丸の中央 129
-  expect(dAt('t1').startsWith('M440 110C')).toBe(true);
+  expect(dAt('t1').startsWith('M440 110C445 110 445 122 450 122H936C')).toBe(true);
   expect(dAt('t1').endsWith(' 1024 129')).toBe(true);
   // ブロック（2 番目：上 250・高さ 40）：右端 930・中央 270 → カード t2：丸の中央 269
   expect(dAt('t2').startsWith('M936 270C')).toBe(true); // 右端 930 + 6（版で変えたブロックの、右端の緑の線に、重ならない）
   expect(dAt('t2').endsWith(' 1024 269')).toBe(true);
   // 範囲：#badges の枠（500,300,200,100）の右端 700・中央 350 → t3：丸の中央 409
-  expect(dAt('t3').startsWith('M704 350C')).toBe(true); // 右端 700 + 4
+  expect(dAt('t3').startsWith('M704 350H936C')).toBe(true); // 右端 700 + 4。すべての線が、共通の x（記事の右端 930 + 6）まで、水平に引き出す
   expect(dAt('t3').endsWith(' 1024 409')).toBe(true);
   // 丸（本文側・半径 3）と、棒（カード側）
   expect(document.querySelectorAll('#links circle.cn-dot')).toHaveLength(3);
@@ -334,7 +334,7 @@ test('入力中の対象：入力欄（.thread.composer）にも、pending の�
   mount(w, { model: modelOf(w, { pending }) });
   expect(tids()).toContain('pending');
   expect(group('pending')?.classList.contains('pending')).toBe(true);
-  expect(dAt('pending').startsWith('M420 330C')).toBe(true);
+  expect(dAt('pending').startsWith('M420 330C425 330 425 342 430 342H936C')).toBe(true);
   expect(dAt('pending').endsWith(' 1024 549')).toBe(true);
 
   act(() => useUi.setState({ composer: null }));
@@ -384,12 +384,46 @@ test('見える範囲：縁へ寄せる線は、選んでいない（active で�
   w.rects.set(w.mark, [360, 200, 80, 20]);
   scroll(w.scroller);
   flush();
-  expect(dAt('t1').startsWith('M440 210C')).toBe(true);
+  expect(dAt('t1').startsWith('M440 210C445 210 445 222 450 222H936C')).toBe(true);
   expect(dAt('t1').endsWith(' 1024 108')).toBe(true);
   expect(group('t1')?.querySelector('.cn-bar')).toBeNull();
   act(() => useUi.getState().setActive(null));
   flush();
   expect(tids()).toEqual(['t2', 't3']);
+});
+
+test('同じ行の 2 つの強調：始点を、カードの順に下へずらす。すべての線が、共通の x（記事の右端 + 6）まで引き出してから、S 字に入る', () => {
+  const w = world();
+  const mark2 = document.createElement('mark');
+  mark2.className = 'hl live';
+  w.blocks[0]?.append(mark2);
+  w.rects.set(mark2, [500, 101, 60, 20]);
+  mark2.getClientRects = () => [domRect(w.rects.get(mark2) as R)] as unknown as DOMRectList;
+  const model = modelOf(w);
+  model.locs.set('t2', { kind: 'text', marks: [mark2] });
+  mount(w, { model });
+  // t1：端点 (440, 110)・t2：端点 (560, 111)。行の下端は 121 → 基準 121 − 4 = 117。カードの順（t1 が上）：t1 が 117・t2 が 119。引き出しは、共通の x（936）まで
+  expect(dAt('t1').startsWith('M440 123H936C')).toBe(true);
+  expect(dAt('t2').startsWith('M560 123H936C')).toBe(true);
+  expect(dAt('t1').endsWith(' 1024 129')).toBe(true);
+  // t3（範囲）は、別の行：同じ共通の x まで
+  expect(dAt('t3').startsWith('M704 350H936C')).toBe(true);
+});
+
+test('実際に引く線だけで、同じ行の組を作る：引かれないカード（パネルの見える範囲の外）は、場所を取らない', () => {
+  const w = world();
+  const mark2 = document.createElement('mark');
+  mark2.className = 'hl live';
+  w.blocks[0]?.append(mark2);
+  w.rects.set(mark2, [500, 101, 60, 20]);
+  mark2.getClientRects = () => [domRect(w.rects.get(mark2) as R)] as unknown as DOMRectList;
+  const model = modelOf(w);
+  model.locs.set('t2', { kind: 'text', marks: [mark2] });
+  // t2 のカードは、パネルの固定の見出しの下に隠れている（丸の中央 60）：引かない。同じ行の t1 は、1 つだけの行と同じ（ずらさない・行の下端 120 − 4 = 116）
+  w.rects.set(w.num('t2'), [1034, 51, 18, 18]);
+  mount(w, { model });
+  expect(tids()).not.toContain('t2');
+  expect(dAt('t1').startsWith('M440 110C445 110 445 122 450 122H936C')).toBe(true);
 });
 
 test('入力中（pending）の線は、縁へ寄せても、引く（選んでいなくても）', () => {
@@ -426,7 +460,7 @@ test('複数行の強調：本文側の端点は、最後の行の右端の中�
   w.mark.getClientRects = () => lines.map(domRect) as unknown as DOMRectList;
   act(() => void w.scroller.dispatchEvent(new Event('scroll')));
   flush();
-  expect(dAt('t1').startsWith('M450 150C')).toBe(true);
+  expect(dAt('t1').startsWith('M450 150C455 150 455 162 460 162H936C')).toBe(true);
   expect(document.querySelector('#links g[data-tid="t1"] circle')?.getAttribute('cx')).toBe('450');
   expect(document.querySelector('#links g[data-tid="t1"] circle')?.getAttribute('cy')).toBe('150');
 });

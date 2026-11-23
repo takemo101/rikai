@@ -260,7 +260,7 @@ test('返信にも、画像を付けて送れる（キーは reply-<スレッド
   await waitFor(() => expect(useUi.getState().drafts.imgs['reply-t1']).toHaveLength(1));
   expect(useUi.getState().drafts.imgs.composer ?? []).toEqual([]);
   expect(thumbs(q('.thread[data-tid="t1"]') as HTMLElement)).toHaveLength(1);
-  await userEvent.click(screen.getByRole('button', { name: '返信を追加' }));
+  await userEvent.click(screen.getByRole('button', { name: '追加' }));
   await waitFor(() => expect(view.posts.at(-1)?.path).toBe('/api/reply'));
   expect(view.posts.at(-1)?.body).toMatchObject({ thread: 't1', text: '', images: [expect.stringMatching(/^c-/)] });
   await waitFor(() => expect(useUi.getState().drafts.imgs['reply-t1']).toEqual([]));
@@ -270,7 +270,7 @@ test('アップロード中は、送れない（トースト）', async () => {
   renderPanel([thread({ id: 't1', messages: [user('質問')] })]);
   act(() => useUi.getState().beginUpload());
   await userEvent.type(q('textarea[data-key="reply-t1"]') as HTMLElement, 'x');
-  await userEvent.click(screen.getByRole('button', { name: '返信を追加' }));
+  await userEvent.click(screen.getByRole('button', { name: '追加' }));
   expect(useUi.getState().toast).toMatchObject({
     msg: '画像のアップロード中です。終わってから、送ってください',
     err: true,

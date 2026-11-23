@@ -167,7 +167,7 @@ test.describe('複数のトピック（F15・F21）', () => {
     await app.apply({ round: r.round, replies: [{ thread: r.items[0].thread, body: '返信です。' }] });
     await expect(mine).not.toContainText('待ち');
     await expect(u.top).not.toContainText('AIの返信待ち');
-    await u.threads.first().getByRole('button', { name: '理解できた（解決）' }).click();
+    await u.threads.first().getByRole('button', { name: '解決', exact: true }).click();
     await expect(mine).toContainText('1/1');
     await expect(u.top).toContainText('解決 1/1');
   });

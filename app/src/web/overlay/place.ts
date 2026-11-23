@@ -7,10 +7,12 @@ import { frameOf } from '../doc/render/blocks';
 import { h } from '../lib/dom';
 import type { BlockEl, DocModel } from '../store/doc';
 import {
+  BADGE_OUTSET,
   type BadgeItem,
   type Box,
   badgeLeft,
   badgeTopIn,
+  foldBadges,
   groupBadges,
   regionBox,
   regionTopOf,
@@ -118,23 +120,62 @@ function build(input: PlaceInput): HTMLElement[] {
     if (top !== undefined) items.push({ top, tid: 'pending', n: '新', pending: true });
   }
 
+  // 丸の組の右端（記事の左端 + 34px）から、層の左端までの幅（クリップの 2px 手前まで）：これに収まる数だけ、重ねて並べる
+  const room = left + BADGE_OUTSET + 34 - 2;
   stackGroups(groupBadges(items), (g, top) => {
+    const { shown, folded } = foldBadges(g.items, room, (b) => b.n);
+    const bno = (b: BadgeItem, fold: boolean) => {
+      const w = String(b.n).length;
+      return h('span', {
+        class: `bno${w > 1 ? ` d${Math.min(w, 4)}` : ''}${b.resolved ? ' resolved' : ''}${b.pending ? ' pending' : ''}${fold ? ' fold' : ''}`,
+        'data-tid': b.tid,
+        text: String(b.n),
+      });
+    };
     const box = h(
       'div',
       { class: 'bbadge' },
-      g.items.map((b) =>
-        h('span', {
-          class: `bno${b.resolved ? ' resolved' : ''}${b.pending ? ' pending' : ''}`,
-          'data-tid': b.tid,
-          text: String(b.n),
-        }),
-      ),
+      shown.map((b) => bno(b, false)),
     );
     box.style.top = `${badgeTopIn(top, dr, ds.scrollTop)}px`;
     box.style.left = `${left}px`;
+    const first = folded[0];
+    if (first) {
+      // 「+N」：押すと、まとめた分の、いちばん小さい番号のカード。マウスを置くと、まとめた丸が、行の下の小さなポップオーバーに開く（CSS）。
+      // ポップオーバーは、左端を、本文の見える範囲の左（+4px）にそろえ、横に並べて、折り返す
+      const text = `+${folded.length}`;
+      const pop = h(
+        'div',
+        { class: 'bno-pop' },
+        folded.map((b) => bno(b, true)),
+      );
+      pop.style.left = `${ds.scrollLeft + 4 - left}px`;
+      pop.style.maxWidth = `${Math.max(60, ds.clientWidth - 8)}px`;
+      // 開くとき（マウスが入ったとき）に、実際の大きさで置き直す：右端は「+N」の右端にそろえ（すきまを空けない）、左へは、見える範囲の左 +4px まで。
+      // 下に入りきらなければ、行の上に開く（上にも入らなければ、下のまま）
+      box.addEventListener('mouseenter', () => {
+        const [sr, br] = [ds.getBoundingClientRect(), box.getBoundingClientRect()];
+        const pr = pop.getBoundingClientRect();
+        pop.style.left = `${Math.max(sr.left + 4, br.right - pr.width) - br.left}px`;
+        pop.classList.remove('up');
+        const below = br.bottom - 2 + pr.height > sr.bottom - 4;
+        const room = br.top + 2 - pr.height >= sr.top + 4;
+        if (below && room) pop.classList.add('up');
+      });
+      box.append(
+        h('span', {
+          class: `bno-more${text.length > 1 ? ` d${Math.min(text.length, 4)}` : ''}`,
+          'data-tid': first.tid,
+          'data-tids': folded.map((b) => b.tid).join(' '),
+          title: `ほかに ${folded.length} 件（${folded.map((b) => b.n).join('・')}）`,
+          text,
+        }),
+        pop,
+      );
+    }
     layer.append(box);
     made.push(box);
-    return box.offsetHeight; // 折り返して背が高くなった組の、下に、次の組を出す
+    return box.offsetHeight; // 1 行（背は、丸の高さ。ポップオーバーは、数えない）。次の組は、その下に出す
   });
 
   for (const g of regions) {
@@ -159,5 +200,5 @@ export function markLinked(layer: HTMLElement, tid: string | null): void {
   for (const e of layer.querySelectorAll('.linked')) e.classList.remove('linked');
   if (!tid) return;
   for (const e of layer.querySelectorAll<HTMLElement>('[data-tid]'))
-    if (e.dataset.tid === tid) e.classList.add('linked');
+    if (e.dataset.tid === tid || e.dataset.tids?.split(' ').includes(tid)) e.classList.add('linked'); // 「+N」は、まとめた分のどれでも
 }

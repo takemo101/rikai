@@ -146,8 +146,8 @@ label.chk { font-size: var(--fs-s); color: var(--muted); display: flex; gap: 6px
 #links-toggle[aria-pressed=true] { color: var(--accent-ink); background: var(--accent-soft); }
 
 /* ---- 中央：本文（白い紙の上。カードの枠・影はなし） ---- */
-#docscroll { flex: 1; overflow: auto; padding: 32px 40px 120px 24px; position: relative; background: var(--paper); }
-/* 左の 40px は、番号の丸の置き場（#badges） */
+#docscroll { flex: 1; overflow: auto; padding: 32px 40px 120px 36px; position: relative; background: var(--paper); }
+/* 左の 40px は、番号の丸の置き場（#badges）。丸は重ねて 1 行に収める（重なり 2px）：左の余白 36px ＋ 記事の左 34px で、1 桁なら 4 つ・2 桁なら 3 つ。広い窓では、5 つ。収まらない分は、減らして、「+N」にまとめる（丸の幅の計算は layout.ts の foldBadges） */
 #article { max-width: var(--article-w); margin: 0 auto; padding: 0 0 0 40px; }
 
 .md { font-size: 15px; line-height: 1.8; color: var(--ink); }
@@ -243,11 +243,25 @@ mark.hl.pending { background: var(--accent-soft); outline: 1.5px dashed var(--ac
 
 /* ブロックの番号は、要素の外の層（#badges）に、絶対位置で出す（要素の中だと、箱の overflow で切れる・横スクロールで流れる・行末の文字に重なる）。位置は placeBadges */
 #badges { position: absolute; top: 0; left: 0; width: 0; height: 0; z-index: 2; }
-.bbadge { position: absolute; display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 3px; width: 46px; } /* 記事の左の余白（12px 外〜34px 内）に収める。複数のコメントは、折り返す（本文の先頭の文字に、かぶらない） */
-.bno { padding: 0 5px; min-width: 18px; font-size: 11px; font-weight: 600; line-height: 18px; text-align: center; border-radius: 999px; background: var(--accent); color: #fff; cursor: pointer; box-shadow: 0 0 0 2px var(--paper); }
+/* 同じ行の丸は、1 つの行に収め（折り返さない）、右詰めで、横に重ねる（アバターのスタック。重なりは 2px、白い縁の輪で区切る）。
+   丸の幅は、文字数で決まる（1 文字 18px・2 文字 24px・3 文字 31px・4 文字 38px。layout.ts の badgeWidth と同じ値。`width` で固定する）。
+   並べるのは 5 つまで（収まらなければ、減らす）：残りは、「+N」にまとめ、マウスを置くと、行の下の小さなポップオーバーに開く */
+.bbadge { position: absolute; display: flex; flex-wrap: nowrap; justify-content: flex-end; width: 46px; } /* 右端は、記事の左の余白（12px 外〜34px 内）に収める */
+.bno, .bno-more { position: relative; flex: none; padding: 0; width: 18px; font-size: 11px; font-weight: 600; line-height: 18px; text-align: center; border-radius: 999px; cursor: pointer; box-shadow: 0 0 0 1.5px var(--paper); font-variant-numeric: tabular-nums; }
+.bno.d2, .bno-more.d2 { width: 24px; }
+.bno.d3, .bno-more.d3 { width: 31px; }
+.bno.d4, .bno-more.d4 { width: 38px; }
+.bno { background: var(--accent); color: #fff; }
+.bbadge > .bno + .bno, .bbadge > .bno + .bno-more { margin-left: -2px; }
+.bno:hover, .bno.linked, .bno-more:hover, .bno-more.linked { z-index: 3; } /* 重なりの中でも、手前に出る */
 .bno.resolved { background: var(--muted); }
 .bno.pending { background: var(--accent-deep); }
-.bno.linked { outline: 2px solid var(--accent); outline-offset: 2px; }
+.bno.linked, .bno-more.linked { outline: 2px solid var(--accent); outline-offset: 2px; }
+.bno-more { background: var(--paper); color: var(--accent-ink); box-shadow: 0 0 0 1.5px var(--paper), inset 0 0 0 1px var(--accent); }
+/* ポップオーバー：行の下（「+N」と 2px 重ねて、マウスが、すきまで外れないように。下に入りきらなければ、行の上：`.up`）。「+N」の右端にそろえ、左へは、本文の見える範囲の左 +4px まで（place.ts が、開くとき〔mouseenter〕に置く）。押せる */
+.bno-pop { display: none; position: absolute; top: calc(100% - 2px); z-index: 5; flex-wrap: wrap; gap: 6px; width: max-content; padding: 8px 6px 6px; background: var(--paper); border: 1px solid var(--line); border-radius: var(--r-l); box-shadow: var(--shadow-pop); }
+.bno-pop.up { top: auto; bottom: calc(100% - 2px); padding: 6px 6px 8px; }
+.bbadge:hover > .bno-pop { display: flex; }
 
 /* ---- コメントの入口と、範囲の選択 ---- */
 /* 入口：バーの「コメント」。文を選ぶと、選んだ文の上に・ブロックにマウスを置くと、そのブロックの右上に出る */

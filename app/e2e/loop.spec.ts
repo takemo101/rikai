@@ -1,4 +1,4 @@
-// 資料とコメントのループ（F1〜F8・F14・F21）：資料を開く → 文を選んでコメント → Submit → CLI の pull に届く → apply で返信 → 返信 → 理解できた（解決）
+// 資料とコメントのループ（F1〜F8・F14・F21）：資料を開く → 文を選んでコメント → Submit → CLI の pull に届く → apply で返信 → 返信 → 解決
 import { expect, test } from './fixtures';
 import { addTextComment, openComposerOnText, submitAll, ui } from './ui';
 
@@ -64,10 +64,7 @@ test.describe('コメントのループ', () => {
     expect((await app.poll()).status).toBe('feedback');
   });
 
-  test('apply で返信 → 画面に返信 → 返信を追加 → 理解できた（解決）→ タブと数（F8・F14・F21・F33）', async ({
-    page,
-    app,
-  }) => {
+  test('apply で返信 → 画面に返信 → 追加 → 解決 → タブと数（F8・F14・F21・F33）', async ({ page, app }) => {
     const u = ui(page);
     await addTextComment(page, '猫は朝によく鳴きます', '朝に鳴く理由は？');
     await submitAll(page);
@@ -81,9 +78,9 @@ test.describe('コメントのループ', () => {
     await expect(u.threads.first()).toContainText('AIの返信');
     expect((await app.pull()).status).toBe('none'); // handled になった
 
-    // 返信を追加（下書き）→ Submit → followup として届く
+    // 返信の「追加」（下書き）→ Submit → followup として届く
     await u.threads.first().locator('textarea').fill('では夜は？');
-    await u.threads.first().getByRole('button', { name: '返信を追加' }).click();
+    await u.threads.first().getByRole('button', { name: '追加', exact: true }).click();
     await expect(u.threads.first().locator('.msg.user').last()).toContainText('では夜は？');
     await expect(u.submit).toHaveText('Submit (1)');
     await submitAll(page);
@@ -94,9 +91,9 @@ test.describe('コメントのループ', () => {
     await app.apply({ round: 2, replies: [{ thread: tid, body: '夜は静かです。' }] });
     await expect(u.threads.first().locator('.msg.ai').last()).toContainText('夜は静かです。');
 
-    // 理解できた（解決）：タブの数・1 行・上のバーの数
+    // 解決：タブの数・1 行・上のバーの数
     await expect(u.top).toContainText('解決 0/1');
-    await u.threads.first().getByRole('button', { name: '理解できた（解決）' }).click();
+    await u.threads.first().getByRole('button', { name: '解決', exact: true }).click();
     const tab = (name: string) => page.locator('.tab', { hasText: name });
     await expect(tab('進行中')).toHaveText('進行中0');
     await expect(tab('解決済み')).toHaveText('解決済み1');
