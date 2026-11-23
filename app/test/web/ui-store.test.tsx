@@ -227,7 +227,7 @@ test('ダイアログ・ライトボックス・範囲の状態', () => {
   ui().closeDialog();
   expect(ui().dialog).toBeNull();
   ui().openLightbox('/asset/x/a.png');
-  expect(ui().lightbox).toBe('/asset/x/a.png');
+  expect(ui().lightbox).toEqual({ kind: 'img', src: '/asset/x/a.png', alt: '添付の画像（大きく）', zoom: false }); // F37：型つき
   ui().closeLightbox();
   ui().setRegMode('selecting');
   ui().setRegDrag(true);

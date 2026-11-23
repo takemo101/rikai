@@ -9,6 +9,7 @@ import { articleTid } from './hit';
 import { blockAnchor } from './render/blocks';
 import { markPending } from './render/highlights';
 import { renderDoc } from './render/renderDoc';
+import { noteMouseDown, zoomOnClick } from './zoomOpen';
 
 /** 選んでいるスレッドの、本文の強調に、`.active` を付ける（付けなおす） */
 function applyActive(art: HTMLElement, tid: string | null): void {
@@ -118,22 +119,29 @@ export function Article({ view, markdown, prevMarkdown }: ArticleProps) {
     if (ref.current && settled.current) applyActive(ref.current, active);
   }, [active]);
 
-  // 本文の強調・範囲の枠を押す：選ぶ（本文の強調を押したときは、1 枚だけ見る状態を解く）
+  // 本文の強調・範囲の枠を押す：選ぶ（本文の強調を押したときは、1 枚だけ見る状態を解く）。コメントのない画像・図を押す：拡大（F37。委譲：このリスナー 1 つ）
   useEffect(() => {
     const art = ref.current;
     if (!art) return;
     const onClick = (e: MouseEvent): void => {
       if (e.target instanceof Element && e.target.closest('a[data-page]')) return; // ハッシュで遷移する
       const tid = articleTid(e, modelRef.current);
-      if (!tid) return;
+      if (!tid) {
+        zoomOnClick(e, art); // コメントのない画像・図は、拡大（F37）。コメントの付いた対象を押すと、そのコメントを選ぶ（上）
+        return;
+      }
       const thread = latest.current.view.topic.threads.find((t) => t.id === tid);
       if (!thread) return;
       const ui = useUi.getState();
       if (ui.solo) ui.closeSolo();
       ui.focusThread(thread);
     };
+    art.addEventListener('mousedown', noteMouseDown); // 押した位置（押す・ドラッグの区別）
     art.addEventListener('click', onClick);
-    return () => art.removeEventListener('click', onClick);
+    return () => {
+      art.removeEventListener('mousedown', noteMouseDown);
+      art.removeEventListener('click', onClick);
+    };
   }, []);
 
   useEffect(

@@ -188,10 +188,10 @@ test('Esc の順：範囲選択 → ドラッグ中（W1 に任せる）→ ラ�
   ui().setRegMode('selecting');
   fireEvent.keyDown(document, { key: 'Escape' });
   expect(ui().regMode).toBe('idle');
-  expect(ui().lightbox).toBe('/asset/x.png'); // 同じ Esc で、ライトボックスまでは、閉じない
+  expect(ui().lightbox).toMatchObject({ kind: 'img', src: '/asset/x.png' }); // 同じ Esc で、ライトボックスまでは、閉じない
   ui().setRegDrag(true);
   expect(handleEscape()).toBe(true);
-  expect(ui().lightbox).toBe('/asset/x.png');
+  expect(ui().lightbox).toMatchObject({ kind: 'img', src: '/asset/x.png' });
   ui().setRegDrag(false);
   fireEvent.keyDown(document, { key: 'Escape' });
   expect(ui().lightbox).toBeNull();
@@ -372,4 +372,83 @@ test('スクロールすると、ブロックのバーは消える。左の一�
   expect(bar().hasAttribute('hidden')).toBe(false);
   act(() => ui().toggleSide());
   expect(bar().hasAttribute('hidden')).toBe(true);
+});
+
+// ---- F37：入口のバーの「拡大」（画像・図を含むブロックだけ。コメントの付いた画像・図も、ここから拡大できる） ----
+function addBlocks(): void {
+  const art = q('#article');
+  art.insertAdjacentHTML(
+    'beforeend',
+    [
+      '<p id="im"><img alt="図" src="/asset/demo/a.png"></p>',
+      '<div id="mm" class="mermaid-block"><svg viewBox="0 0 100 50"><rect width="5" height="5"/></svg></div>',
+      '<svg id="inl" viewBox="0 0 10 10"><rect width="5" height="5"/></svg>',
+      '<pre id="cd">const a = 1;</pre>',
+      '<table id="tb"><tbody><tr><td>表</td></tr></tbody></table>',
+      '<p id="bl"><span class="img-blocked">[外部画像は表示しません]</span></p>',
+      '<div id="ha" class="htmlapp"><iframe></iframe></div>',
+    ].join(''),
+  );
+  markBlocks(art);
+  ['im', 'mm', 'inl', 'cd', 'tb', 'bl', 'ha'].forEach((id, i) => {
+    place(q(`#${id}`), 100, 220 + i * 60, 600, 40);
+  });
+}
+
+test('「拡大」：画像・Mermaid の図・インラインの svg を含むブロックの入口のバーだけに出る（「コメント」の左）。コード・表・外部画像・html-app・文では、出ない', () => {
+  mountDoc(viewOf(1));
+  addBlocks();
+  for (const id of ['im', 'mm', 'inl']) {
+    hover(q(`#${id}`), 300, 230 + ['im', 'mm', 'inl'].indexOf(id) * 60);
+    const z = document.getElementById('act-zoom');
+    expect(z, id).not.toBeNull();
+    expect(z?.textContent).toBe('拡大');
+    expect(z?.getAttribute('aria-label')).toBe('拡大');
+    expect(z?.title).toBeTruthy();
+    // 「コメント」が、バーの右端（バーの右端の位置は、これまでどおり）
+    expect(z?.nextElementSibling).toBe(q('#act-comment'));
+  }
+  for (const id of ['cd', 'tb', 'bl', 'ha', 'p2']) {
+    hover(q(`#${id}`), 300, id === 'p2' ? 180 : 230 + 180 + ['cd', 'tb', 'bl', 'ha'].indexOf(id) * 60);
+    expect(bar().hasAttribute('hidden'), id).toBe(false); // コメントのバーは、出る
+    expect(document.getElementById('act-zoom'), id).toBeNull();
+    expect(q('#act-comment')).toBeTruthy();
+  }
+});
+
+test('「拡大」を押す：そのブロックの画像（図）を、ライトボックスで開く。バーは消え、コメントの入力欄は、開かない', () => {
+  mountDoc(viewOf(1));
+  addBlocks();
+  hover(q('#im'), 300, 230);
+  fireEvent.click(q('#act-zoom'));
+  expect(ui().lightbox).toMatchObject({ kind: 'img', zoom: true });
+  expect(ui().composer).toBeNull();
+  expect(bar().hasAttribute('hidden')).toBe(true);
+  ui().closeLightbox();
+  hover(q('#mm'), 300, 290);
+  fireEvent.click(q('#act-zoom'));
+  expect(ui().lightbox).toMatchObject({ kind: 'svg' });
+  expect(ui().composer).toBeNull();
+});
+
+test('画像のブロックでも、「コメント」は、これまでどおり：入力欄が開く（拡大しない）', () => {
+  mountDoc(viewOf(1));
+  addBlocks();
+  hover(q('#im'), 300, 230);
+  fireEvent.click(q('#act-comment'));
+  expect(ui().composer?.anchor).toMatchObject({ blockId: expect.any(String) });
+  expect(ui().lightbox).toBeNull();
+});
+
+test('文を選んだときのバー（sel）には、「拡大」は、出ない', async () => {
+  vi.useFakeTimers();
+  mountDoc(viewOf(1));
+  addBlocks();
+  selectText();
+  fireEvent.mouseUp(q('#p1'));
+  await act(async () => {
+    await vi.advanceTimersByTimeAsync(5);
+  });
+  expect(bar().hasAttribute('hidden')).toBe(false);
+  expect(document.getElementById('act-zoom')).toBeNull();
 });

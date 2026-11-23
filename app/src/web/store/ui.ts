@@ -16,6 +16,17 @@ export type Tab = 'live' | 'done' | 'all';
 export type RegMode = 'idle' | 'selecting';
 export type DialogKind = 'submit' | 'end';
 
+/**
+ * ライトボックスに出すもの。img：画像（zoom: false は、コメントに添付した画像：押すと閉じる・F31。zoom: true は、本文・返信の画像：ズーム・移動ができる）。
+ * svg：図（Mermaid・インラインの SVG）の複製（id を付け替え済み：lib/zoomSvg.ts）。ズーム・移動ができる
+ */
+export type LightboxTarget =
+  | { kind: 'img'; src: string; alt: string; zoom: boolean }
+  | { kind: 'svg'; node: SVGSVGElement; alt: string; size: { w: number; h: number } };
+
+/** コメントに添付した画像の、ライトボックスの名前 */
+export const ATTACHED_ALT = '添付の画像（大きく）';
+
 /** 入力欄（コメントの新規）の対象。id は、入力欄ごとに増える（遅れて終わる非同期の処理が、「同じ入力欄か」を見分ける） */
 export interface ComposerState {
   id: number;
@@ -98,8 +109,8 @@ export interface UiState {
   panelWNarrow: number | null;
   /** 開いているダイアログ（`<dialog>`。`confirm()` は使わない：F34） */
   dialog: DialogKind | null;
-  /** ライトボックスで大きく見ている画像の URL */
-  lightbox: string | null;
+  /** ライトボックスで大きく見ているもの（添付の画像・本文の画像・図） */
+  lightbox: LightboxTarget | null;
 }
 
 export interface UiActions {
@@ -155,7 +166,10 @@ export interface UiActions {
   clearToast: (id: number) => void;
   openDialog: (kind: DialogKind) => void;
   closeDialog: () => void;
+  /** コメントに添付した画像を、大きく出す（押すと閉じる） */
   openLightbox: (src: string) => void;
+  /** 本文・返信の画像・図を、大きく出す（ズーム・移動ができる） */
+  openZoom: (target: LightboxTarget) => void;
   closeLightbox: () => void;
   // ---- 画面の広さ ----
   /** 左の一覧を、しまう・出す。autoHidden（788px 未満の、自動で隠す窓）では、保存せず、本文の上に重ねて出す・しまう。広い窓では、保存して、重ねて出したものは、しまう */
@@ -336,7 +350,8 @@ export const useUi = create<UiStore>()((set, get) => {
     clearToast: (id) => set((s) => (s.toast?.id === id ? { toast: null } : s)),
     openDialog: (dialog) => set({ dialog }),
     closeDialog: () => set({ dialog: null }),
-    openLightbox: (lightbox) => set({ lightbox }),
+    openLightbox: (src) => set({ lightbox: { kind: 'img', src, alt: ATTACHED_ALT, zoom: false } }),
+    openZoom: (lightbox) => set({ lightbox }),
     closeLightbox: () => set({ lightbox: null }),
 
     toggleSide: (autoHidden = false) => {
