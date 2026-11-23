@@ -398,3 +398,103 @@ test.describe('範囲を選ぶ', () => {
     expect(page.context().pages().length).toBe(pages); // 別のタブは、開かない
   });
 });
+
+// html-app の枠は、別オリジンの隔離した iframe：範囲の画像の複製の中では、読み込まれず、空になる（地の色だけが写って、1 色になる）。
+// 画像では、「実行できる枠（画像にできません）」の箱で表す（画面で見えている位置・大きさ）
+test.describe('範囲の画像：html-app の枠', () => {
+  const BT = '```';
+  const DOC_APP = `# 枠のある資料\n\n前の段落です。\n\n${BT}html-app height=200\n<p>枠の中の文字</p><button>押す</button>\n${BT}\n\n後の段落です。\n`;
+
+  // 画像（サムネイル）の統計：いちばん多い色の割合・その色と違う画素の数・文字の色（地と、はっきり違う）の画素の数
+  const stats = (thumb: Locator) =>
+    thumb.evaluate((img: HTMLImageElement) => {
+      const c = document.createElement('canvas');
+      c.width = img.naturalWidth;
+      c.height = img.naturalHeight;
+      const g = c.getContext('2d') as CanvasRenderingContext2D;
+      g.drawImage(img, 0, 0);
+      const d = g.getImageData(0, 0, c.width, c.height).data;
+      const count = new Map<number, number>();
+      for (let i = 0; i < d.length; i += 4) {
+        const k = ((d[i] as number) << 16) | ((d[i + 1] as number) << 8) | (d[i + 2] as number);
+        count.set(k, (count.get(k) ?? 0) + 1);
+      }
+      const [top, n] = [...count.entries()].sort((a, b) => b[1] - a[1])[0] as [number, number];
+      const lum = (k: number) => 0.2126 * ((k >> 16) & 255) + 0.7152 * ((k >> 8) & 255) + 0.0722 * (k & 255);
+      let strong = 0; // いちばん多い色（地）と、明るさが 80 以上違う画素（箱の文字・点線）
+      for (const [k, v] of count) if (Math.abs(lum(k) - lum(top)) >= 80) strong += v;
+      return { total: c.width * c.height, topShare: n / (c.width * c.height), distinct: count.size, strong };
+    });
+
+  async function selectFrameRange(page: Page, width?: string) {
+    const u = ui(page);
+    if (width) await page.locator('#article .htmlapp .cap').first().locator(`button[data-width="${width}"]`).click();
+    await page.waitForTimeout(1500); // 自動の高さの枠が、落ち着くまで
+    await page.addStyleTag({ content: '#toast { visibility: hidden !important; }' });
+    const f = page.locator('#article iframe.appframe').first();
+    await f.scrollIntoViewIfNeeded();
+    await page.waitForTimeout(400);
+    const b = await box(f);
+    const art = await box(u.article);
+    await u.regbtn.click();
+    // 枠の全体を含み、少し外（前後の段落）まで
+    await dragBox(page, { x: art.x + 8, y: b.y - 6 }, { x: art.x + art.width - 8, y: b.y + b.height + 6 });
+    await expect(u.composer).toBeVisible();
+    const thumb = u.composer.locator('.thumb img');
+    await expect(thumb).toHaveCount(1);
+    await expect(thumb).toHaveJSProperty('complete', true);
+    return thumb;
+  }
+
+  for (const scheme of ['light', 'dark'] as const) {
+    test(`枠を含む範囲（${scheme}）：添付の画像が、1 色ではなく、「実行できる枠」の箱（文字・点線）が写っている`, async ({
+      page,
+      app,
+    }) => {
+      await page.emulateMedia({ colorScheme: scheme });
+      await app.switchTopic(page, `fr-${scheme}`, '枠のある資料', DOC_APP);
+      const thumb = await selectFrameRange(page);
+      const st = await stats(thumb);
+      // 1 色（枠が写らず、地の色だけ）ではない：地の色が、画像の大半でも、箱の文字・点線が、はっきりある
+      expect(st.distinct, '色の数').toBeGreaterThan(10);
+      expect(st.strong, '地と、はっきり違う画素（箱の文字・点線・段落の文字）').toBeGreaterThan(300);
+      // 箱は、枠の位置・大きさ（枠は、本文の幅 × 200px）：箱の背景が、広い面積で、地と少し違う色になる
+      expect(st.topShare).toBeLessThan(0.9);
+    });
+  }
+
+  test('縮小表示（1280）の枠を含む範囲：箱は、画面で見えているとおりの位置・大きさ（縮小後）で写る', async ({
+    page,
+    app,
+  }) => {
+    await app.switchTopic(page, 'fr-scale', '枠のある資料', DOC_APP);
+    const thumb = await selectFrameRange(page, '1280');
+    const st = await stats(thumb);
+    expect(st.distinct).toBeGreaterThan(10);
+    expect(st.strong).toBeGreaterThan(300);
+    expect(st.topShare).toBeLessThan(0.9);
+    // 箱の位置：画像の中で、枠の縦の範囲（縮小後の高さ）に、箱の背景（地と違う色）の行がある
+    const rows = await thumb.evaluate((img: HTMLImageElement) => {
+      const c = document.createElement('canvas');
+      c.width = img.naturalWidth;
+      c.height = img.naturalHeight;
+      const g = c.getContext('2d') as CanvasRenderingContext2D;
+      g.drawImage(img, 0, 0);
+      const x = Math.floor(c.width * 0.9); // 右の方：文字のない所
+      const d = g.getImageData(x, 0, 1, c.height).data;
+      const first = (i: number) => `${d[i * 4]},${d[i * 4 + 1]},${d[i * 4 + 2]}`;
+      const paper = first(0);
+      let a = -1;
+      let b = -1;
+      for (let y = 0; y < c.height; y++)
+        if (first(y) !== paper) {
+          if (a < 0) a = y;
+          b = y;
+        }
+      return { a, b, h: c.height };
+    });
+    expect(rows.a).toBeGreaterThan(0); // 前の段落の分、下にずれている
+    expect(rows.b).toBeLessThan(rows.h - 1); // 後の段落の分、手前で終わる
+    expect(rows.b - rows.a).toBeGreaterThan(40);
+  });
+});
