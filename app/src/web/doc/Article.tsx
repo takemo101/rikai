@@ -5,6 +5,7 @@ import type { ArticleProps } from '../contracts';
 import { $$ } from '../lib/dom';
 import { type BlockEl, type DocModel, locEl, nextEpoch, useDoc } from '../store/doc';
 import { toast, useUi } from '../store/ui';
+import { releaseApps } from './appBridge';
 import { articleTid } from './hit';
 import { blockAnchor } from './render/blocks';
 import { markPending } from './render/highlights';
@@ -144,14 +145,15 @@ export function Article({ view, markdown, prevMarkdown }: ArticleProps) {
     };
   }, []);
 
-  useEffect(
-    () => () => {
+  useEffect(() => {
+    const art = ref.current; // 後始末の時には、ref は、もう null（要素を、ここで持つ）
+    return () => {
+      if (art) releaseApps(art); // 枠を橋から外す（メッセージの受け口も、枠が 0 になれば外れる）
       renderTok.current++;
       modelRef.current = null;
       useDoc.getState().setModel(null);
-    },
-    [],
-  );
+    };
+  }, []);
 
   return <article id="article" className="md" ref={ref} />;
 }

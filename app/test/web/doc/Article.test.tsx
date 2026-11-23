@@ -6,6 +6,7 @@ import type { Anchor, Thread } from '../../../src/shared/types';
 import { topicKey } from '../../../src/web/api/queries';
 import { queryClient } from '../../../src/web/api/queryClient';
 import { Article } from '../../../src/web/doc/Article';
+import { registeredFrames } from '../../../src/web/doc/appBridge';
 import { buildView } from '../../../src/web/lib/view';
 import { useDoc } from '../../../src/web/store/doc';
 import { useUi } from '../../../src/web/store/ui';
@@ -254,6 +255,27 @@ test('「この枠にコメント」：その枠を対象に、入力欄を開�
   expect(c?.anchor.quote).toBe('');
   expect(useDoc.getState().model?.pending).toBe(art().querySelector('.htmlapp'));
   expect(art().querySelector('.htmlapp')?.classList.contains('blk-pending')).toBe(true);
+});
+
+test('html-app の枠：描き直すと、前の枠を橋から外して、新しい枠だけを登録する（積み上がらない）。アンマウントで、すべて外れる（メッセージの受け口も）', async () => {
+  const add = vi.spyOn(window, 'addEventListener');
+  const del = vi.spyOn(window, 'removeEventListener');
+  const count = (spy: typeof add) => spy.mock.calls.filter((c) => c[0] === 'message').length;
+  const md = '# 題\n\n```html-app\n<b>1</b>\n```\n\n```html-app\n<b>2</b>\n```\n';
+  const { again, unmount } = mount([], md);
+  await settle();
+  expect(registeredFrames()).toBe(2);
+  expect(count(add) - count(del)).toBe(1);
+  again([on('t1', '最初')], md); // スレッドが変わる＝描き直し
+  await settle();
+  expect(registeredFrames()).toBe(2);
+  expect(count(add) - count(del)).toBe(1);
+  unmount();
+  await settle();
+  expect(registeredFrames()).toBe(0);
+  expect(count(add) - count(del)).toBe(0);
+  add.mockRestore();
+  del.mockRestore();
 });
 
 test('位置が見つからないスレッド（引用なし・anchor なし・新しい版のもの）も、DocModel.locs に { kind: "none" } で入る。別のページのスレッドは、入らない', async () => {

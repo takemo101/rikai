@@ -3,6 +3,7 @@
 import type { Anchor, Thread } from '../../../shared/types';
 import type { View } from '../../lib/view';
 import { type DocModel, nextEpoch } from '../../store/doc';
+import { releaseApps } from '../appBridge';
 import { fillApps } from './apps';
 import { markBlocks } from './blocks';
 import { addDiff } from './diff';
@@ -40,6 +41,7 @@ export async function renderDoc(
     input.showChanges && view.version > 1 && input.prevMarkdown != null
       ? addDiff(frag, { key: view.key, slug: view.slug, md: input.markdown, prevMd: input.prevMarkdown })
       : null;
+  releaseApps(art); // いまの枠（描き直しで消える）を、橋から外す
   art.replaceChildren(frag);
   fillApps(art, { view, onComment: input.onComment });
   await fillMermaid(art);

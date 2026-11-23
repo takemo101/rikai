@@ -552,6 +552,34 @@ test('本文の取得に失敗した：トピックの更新が来たら、取�
   }
 });
 
+test('外観の変化（上のバーのボタン）で、配色への対応を示した html-app の枠に theme（by: auto）が届く（再読み込みしない：iframe は、同じもの・src も、そのまま）', async () => {
+  location.hash = '#/a/root';
+  document.documentElement.removeAttribute('data-theme');
+  mockFetch((req) => {
+    if (req.path === '/api/topics') return { body: [summary('a')] };
+    if (/^\/api\/topic\/a$/.test(req.path)) return { body: topicState({ meta: meta({ slug: 'a', title: '題 a' }) }) };
+    if (/^\/api\/page\//.test(req.path))
+      return { body: { markdown: '```html-app\n<b style="color:var(--color-ink)">x</b>\n```\n' } };
+    return undefined;
+  });
+  renderWithClient(<App />);
+  await waitFor(() => expect(document.querySelector('#article iframe.appframe')).not.toBeNull());
+  const frame = document.querySelector('#article iframe.appframe') as HTMLIFrameElement;
+  const src = frame.getAttribute('src');
+  expect(src).toMatch(/\?mode=light$/);
+  const send = vi.spyOn(frame.contentWindow as Window, 'postMessage');
+  // system → light（見た目は、同じ light：送らない）→ dark（送る）
+  fireEvent.click(byId('btn-theme'));
+  await act(async () => {});
+  expect(send).not.toHaveBeenCalled();
+  fireEvent.click(byId('btn-theme'));
+  await act(async () => {});
+  expect(send).toHaveBeenCalledWith({ __rikai: 1, type: 'theme', mode: 'dark', by: 'auto' }, '*');
+  expect(document.querySelector('#article iframe.appframe')).toBe(frame);
+  expect(frame.getAttribute('src')).toBe(src);
+  document.documentElement.removeAttribute('data-theme');
+});
+
 // 自動で隠す窓（788px 未満）の左の一覧（ドロワー）・狭い窓の取っ手の幅：どちらも保存しない一時の状態（RIK-040）
 const resizeTo = (w: number) =>
   act(() => {

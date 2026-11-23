@@ -91,7 +91,12 @@ test('枠の中身は、資料から取り出して、隔離する CSP つきで
   assert.equal(r.headers['x-content-type-options'], 'nosniff');
   assert.equal(r.headers['cache-control'], 'no-store');
   assert.equal(r.headers['referrer-policy'], 'no-referrer');
-  assert.ok(r.body.startsWith('<!doctype html>\n<meta charset="utf-8">\n'));
+  assert.ok(
+    r.body.startsWith('<!doctype html>\n<meta charset="utf-8">\n<script>'),
+    '従来の資料：橋だけを足す（土台なし）',
+  );
+  assert.ok(r.body.includes("type:'resize'"), '橋が入る（中身の前）');
+  assert.ok(r.body.indexOf("type:'resize'") < r.body.indexOf('document.title'));
   assert.ok(r.body.includes('document.title = "押された"'), '資料の中身が、そのまま入る');
   const second = await request('/appframe/demo/root/1/1', authed());
   assert.equal(second.status, 200);

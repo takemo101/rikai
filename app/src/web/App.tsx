@@ -4,6 +4,7 @@ import { useServerEvents } from './api/events';
 import { usePage, useTopic, useTopics } from './api/queries';
 import type { ArticleProps } from './contracts';
 import { Article } from './doc/Article';
+import { followPageTheme } from './doc/appBridge';
 import { fillMermaid } from './doc/render';
 import { Interact } from './interact/Interact';
 import { DocBar } from './layout/DocBar';
@@ -48,6 +49,7 @@ export function App() {
   const scrollRef = useRef<HTMLDivElement>(null);
   const { w, sideShown, drawer, autoHidden, narrow } = usePanelGeometry();
   useLayoutReset({ drawer, autoHidden, narrow });
+  useFollowAppFrames();
 
   useNavigationEffects(route, view, scrollRef);
   useRedrawDiagrams();
@@ -263,5 +265,13 @@ function useRedrawDiagrams(): void {
       return;
     }
     void fillMermaid(document);
+  }, [theme]);
+}
+
+/** 外観が変わったら、実行できる枠（html-app）も、その外観にする（`theme` を送るだけ：再読み込みしない。枠の中の状態は、保たれる。枠だけの外観は、解く） */
+function useFollowAppFrames(): void {
+  const theme = useResolvedTheme();
+  useEffect(() => {
+    followPageTheme(theme);
   }, [theme]);
 }

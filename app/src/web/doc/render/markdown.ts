@@ -42,6 +42,15 @@ export const PURIFY: Config = {
 // 返信・前の版の差分では、枠にしない（ふつうのコードブロック）
 let appCtx: { n: number; srcs: string[] } | null = null;
 
+/**
+ * 枠の高さ（情報文字列）：`height=480`（120〜1200px）は、**固定**。`height` がない・`height=auto`・読めない値は、`auto`（枠の中身に合わせて、枠が、高さを知らせる。apps.ts・appBridge.ts）。
+ * 従来の資料（`height=` を書いたもの）は、固定のまま
+ */
+export function appHeight(info: string): number | 'auto' {
+  const m = /\bheight=(\d{2,4})(?:px)?\b/.exec(info);
+  return m ? Math.min(1200, Math.max(120, Number(m[1]))) : 'auto';
+}
+
 const marked = new Marked({
   gfm: true,
   renderer: {
@@ -53,8 +62,7 @@ const marked = new Marked({
         const n = appCtx.n++;
         // ソースは、ここで持つ（属性に入れない：資料の生の HTML で、偽の data-src を書かれても、ソースの表示・位置づけ・差分に、使わない）
         appCtx.srcs[n] = text;
-        const m = /\bheight=(\d{2,4})(?:px)?\b/.exec(lang || '');
-        const ht = m ? Math.min(1200, Math.max(120, Number(m[1]))) : 360;
+        const ht = appHeight(lang || '');
         return `<div class="htmlapp" data-n="${n}" data-h="${ht}"><div class="cap">実行できる枠 ${n + 1}（隔離されています。パスワードなどの秘密は、入力しないでください）</div></div>`;
       }
       // diff・json・terminal（ANSI）・trace：決まった形の HTML にする（文字は escape 済み。読めないものは、ふつうのコードブロック）
