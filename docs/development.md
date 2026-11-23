@@ -133,7 +133,7 @@ pnpm run test:e2e   # 実際の Chrome（Playwright。先に pnpm run build。�
 
 ### e2e（実際の Chrome）
 
-`pnpm run test:e2e`（ルートで。Playwright。`app/e2e/` の 13 ファイル 169 件：`shell`・`loop`・`select`・`region`・`panel`・`ask`・`versions`・`formats`・`security`・`links`・`same-line`・`theme`・`zoom`）。**実際の Chrome**（headless）で、画面を、本物のマウス・キーで操作する。ブラウザは、ダウンロードしない。
+`pnpm run test:e2e`（ルートで。Playwright。`app/e2e/` の 14 ファイル 177 件：`shell`・`loop`・`select`・`region`・`panel`・`ask`・`versions`・`formats`・`security`・`links`・`same-line`・`theme`・`zoom`・`events`）。**実際の Chrome**（headless）で、画面を、本物のマウス・キーで操作する。ブラウザは、ダウンロードしない。
 
 - 環境変数：`RIKAI_CHROME`（Chrome の実行ファイル。なければ、`app/e2e/env.ts` の既定の場所。どちらにもなければ、skip）・`RIKAI_CLI`（試す `rikai.js`。既定は、`skills/rikai/rikai.js`。画面は、その隣の `public/` から配られる。**先に `pnpm run build`**）。
 - 1 つのテストにつき、使い捨てのプロジェクトを `os.tmpdir()` に作り、サーバーを起こす。終わりに stop して消す（利用者の `.rikai/` には触れない）。順番に（workers 1）流す。各テストは、127.0.0.1 以外への通信が 0 件であることも確かめる。

@@ -10,6 +10,7 @@ import { type ActionHooks, createActions } from './actions';
 import { createApp } from './app';
 import type { Store } from './store';
 import { readJSON } from './util';
+import { type ChangeFeed, createChangeFeed } from './watch';
 
 export interface RunningServer {
   server: http.Server;
@@ -22,11 +23,13 @@ export interface RunningServer {
  * ポートは、待ち受けが始まってから分かる（Host・Origin の検査と Cookie の名前に使うので、そのあとで、アプリを作る）。
  * 先にポートだけ取って閉じる方法は、閉じてから開くまでの間に、ほかのプロセスに取られうるので、使わない。
  * publicDir：画面（旧 UI）の置き場。省略すると、バンドル（rikai.js）の横の public/
+ * feed：変更の通知（SSE）の元。省略すると、ここで作る（テストは、`fs.watch` の差し替えなどのために渡す）
  */
 export function startServer(
   store: Store,
   hooks: ActionHooks = {},
   publicDir: string = path.join(__dirname, 'public'),
+  feed: ChangeFeed = createChangeFeed(store),
 ): Promise<RunningServer> {
   store.ensureBase();
   const token = crypto.randomBytes(24).toString('hex');
@@ -34,7 +37,7 @@ export function startServer(
   const { promise, resolve } = Promise.withResolvers<RunningServer>();
   server.listen(0, '127.0.0.1', () => {
     const port = (server.address() as AddressInfo).port;
-    const app = createApp({ store, token, port, publicDir, actions: createActions(store, hooks) });
+    const app = createApp({ store, token, port, publicDir, actions: createActions(store, hooks), feed });
     // 待ち受けが始まった、同じ回のうちに取りつける（要求は、このあとにしか来ない）
     const listener = getRequestListener((req, env) => app.fetch(req, env));
     server.on('request', (incoming, outgoing) => {

@@ -9,6 +9,7 @@ import { Readable } from 'node:stream';
 import { zValidator } from '@hono/zod-validator';
 import { type Context, Hono, type MiddlewareHandler } from 'hono';
 import { HTTPException } from 'hono/http-exception';
+import { streamSSE } from 'hono/streaming';
 import { apiBodies, topicQuery } from '../shared/api';
 import type { PageInfo } from '../shared/types';
 import type { Actions } from './actions';
@@ -17,6 +18,7 @@ import { APP_MAX } from './htmlapp';
 import { IMG_MAX } from './image';
 import { checkSlug, isSupported, type Store, topicTitle } from './store';
 import { HttpError } from './util';
+import { type ChangeFeed, createChangeFeed } from './watch';
 
 export interface AppOptions {
   store: Store;
@@ -27,7 +29,16 @@ export interface AppOptions {
   /** 画面（Vite のビルド：index.html・favicon.svg・assets/）の置き場。この下の、`/assets/*` と `/favicon.svg` だけを配る */
   publicDir: string;
   actions: Actions;
+  /** 変更の通知（`GET /api/events`）。省略すると、このアプリが作る（`serve.ts` は、自分で作って渡す。テストが、`fs.watch` の差し替えなどをするため。閉じる関数はない：購読は、切断で解け、終了は、プロセスの終了） */
+  feed?: ChangeFeed;
+  /** `GET /api/events` の、同時接続の上限（既定 20）。超えたら 503 */
+  maxEvents?: number;
+  /** `GET /api/events` の、`: ping`（コメント行。途中の機器に切られない・切れたことに気づく）を送る間隔（ミリ秒。既定 15 秒） */
+  pingMs?: number;
 }
+
+export const MAX_EVENTS = 20;
+export const PING_MS = 15_000;
 
 const MAX_BODY = 2 * 1024 * 1024;
 const MAX_ATTACH_BODY = Math.ceil(IMG_MAX / 3) * 4 + 4096; // 画像（base64 で 4/3 倍）と、JSON の枠
@@ -157,6 +168,9 @@ const lenient =
 
 export function createApp(opts: AppOptions) {
   const { store, token, port, actions } = opts;
+  const feed = opts.feed ?? createChangeFeed(store);
+  const maxEvents = opts.maxEvents ?? MAX_EVENTS;
+  const pingMs = opts.pingMs ?? PING_MS;
   const publicDir = path.resolve(opts.publicDir);
   const frames = createAppFrames(store);
   const tokenBuf = Buffer.from(token);
@@ -216,6 +230,35 @@ export function createApp(opts: AppOptions) {
         return c.json({ ...store.topicState(slug), appframe: true as const }, 200, JSON_HEADERS);
       },
     )
+    // 変更の通知（SSE）：「変わった」という通知だけを送る（データは送らない。画面は、既存の取得をすぐ実行する）。
+    // `ready`：つながった直後（再接続のあとも。画面が全体を取り直す合図）・`changed`：`{topics:true}` か `{slug,rev}`（shared/api.ts の ChangedEvent）・`: ping`：15 秒ごと。
+    // 認証は、/api/ の入口の検査（Host・Origin・合言葉）が済んでいる。切断・終了で、購読とタイマーを解く
+    .get('/events', (c) => {
+      if (feed.size >= maxEvents) return jsonResponse(503, { ok: false, error: '接続が多すぎます' });
+      const res = streamSSE(c, async (stream) => {
+        const end = Promise.withResolvers<void>();
+        // 書き込みの失敗（切断）は、Hono の StreamingApi が握りつぶす。後始末は、下の onAbort（切断）で行う
+        const send = (event: string, data: unknown): void => {
+          void stream.writeSSE({ event, data: JSON.stringify(data) });
+        };
+        // 購読を、`ready` より先に始める（このあとの変化を、取りこぼさない）。ここは、上の上限の確認と、同じ回の中
+        const unsubscribe = feed.subscribe((e) => send('changed', e));
+        const ping = setInterval(() => {
+          void stream.write(': ping\n\n');
+        }, pingMs);
+        stream.onAbort(end.resolve);
+        try {
+          send('ready', {});
+          await end.promise;
+        } finally {
+          clearInterval(ping);
+          unsubscribe();
+        }
+      });
+      res.headers.set('Cache-Control', 'no-store'); // streamSSE は no-cache にする。ほかの応答と同じ
+      res.headers.set('X-Content-Type-Options', 'nosniff');
+      return res;
+    })
     .get('/page/:slug/:page/:v', (c) => {
       const parts = c.req.path.slice('/api/page/'.length).split('/');
       if (parts.length !== 3 || !/^\d+$/.test(parts[2] as string)) throw new HttpError(404, 'not found'); // 版は、数字だけ（旧は、パスの形で振り分けた）

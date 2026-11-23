@@ -40,6 +40,13 @@ export const apiBodies = {
 /** `GET /api/topic/<slug>` の問い合わせ：画面が前に受け取った rev（同じなら、`{ unchanged: true }` だけが返る） */
 export const topicQuery = z.object({ since: z.string().optional() });
 
+/**
+ * `GET /api/events`（SSE）の `changed` の本体：「変わった」という通知だけ（データは送らない）。
+ * `topics`：トピックの一覧が変わった（新しい・消えた）。`slug`・`rev`：そのトピックの rev が N になった（一覧の `pending`・`progress` なども変わりうる）。
+ * 型だけ（画面は、Zod を、バンドルに入れない：`web/api/events.ts` が、手で確かめる）
+ */
+export type ChangedEvent = { topics: true } | { slug: string; rev: number };
+
 export type ApiName = keyof typeof apiBodies;
 export type AttachBody = z.infer<typeof attachBody>;
 export type CommentBody = z.infer<typeof commentBody>;

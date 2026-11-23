@@ -1,10 +1,11 @@
 // 読み取り：トピックの一覧・トピックの状態・ページの本文。サーバーの状態は、ここ（TanStack Query）だけが持つ。
-// - useTopics：1.5 秒ごと
-// - useTopic：1.5 秒ごと。`?since=<rev>` で送り、`{unchanged:true}` なら、前のデータ（同じ参照）を返す。失敗は query.error（status なし＝接続できない・あり＝サーバーのエラー）
+// - useTopics：サーバーからの通知（SSE：events.ts）がつながっていない間（と、取得が失敗している間）だけ、1.5 秒ごと（つながっている間は、通知で取り直す）
+// - useTopic：同じ。`?since=<rev>` で送り、`{unchanged:true}` なら、前のデータ（同じ参照）を返す。失敗は query.error（status なし＝接続できない・あり＝サーバーのエラー）
 // - usePage：版は変わらないので、staleTime: Infinity
 import { type QueryClient, type UseQueryResult, useQuery } from '@tanstack/react-query';
 import type { InferResponseType } from 'hono/client';
 import type { Meta, Thread } from '../../shared/types';
+import { useUi } from '../store/ui';
 import { api, read } from './client';
 import { POLL_MS } from './queryClient';
 
@@ -53,8 +54,17 @@ export async function refreshTopic(client: QueryClient, slug: string): Promise<T
   return client.setQueryData<TopicState>(topicKey(slug), d) ?? d; // 同じ内容なら、前の参照が返る（structural sharing）
 }
 
+/**
+ * 取得の間隔：通知（SSE）がつながっていて、直前の取得が成功している間は、止める（通知で取り直す）。
+ * 切れたら、1.5 秒ごとに戻る（保険）。通知による取り直しが失敗したときも、戻る（次の通知は、いつ来るか分からない。成功したら、また止まる）
+ */
+const useInterval = () => {
+  const live = useUi((s) => s.live);
+  return (q: { state: { error: Error | null } }): number | false => (live && q.state.error == null ? false : POLL_MS);
+};
+
 export function useTopics(): UseQueryResult<TopicSummary[]> {
-  return useQuery({ queryKey: topicsKey, queryFn: fetchTopics, refetchInterval: POLL_MS });
+  return useQuery({ queryKey: topicsKey, queryFn: fetchTopics, refetchInterval: useInterval() });
 }
 
 /** slug が null の間は、取らない（トピックを開いていない・読めない形式） */
@@ -62,7 +72,7 @@ export function useTopic(slug: string | null): UseQueryResult<TopicState> {
   return useQuery({
     queryKey: topicKey(slug ?? ''),
     enabled: slug !== null,
-    refetchInterval: POLL_MS,
+    refetchInterval: useInterval(),
     queryFn: ({ client }) => loadTopic(client, slug ?? '', false),
   });
 }
