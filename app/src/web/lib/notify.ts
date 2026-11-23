@@ -1,12 +1,13 @@
 // ブラウザの通知（F41）：画面が前面にないときに、「あなたの番」になったことを、OS の通知（Web の `Notification` API）で知らせる。
 // 方式：画面が、SSE（F38）の更新で取り直したトピックを、前回の見た状態と比べて、**新しく届いたものがあるときだけ**出す（Web Push・サーバーからの OS 通知は、使わない：N1）。
 // ここは、判定と文言の純粋関数と、通知を出す薄い部分だけ。DOM のイベント・状態は、layout/useBrowserNotify.ts。
-// 載せるのは、トピック名と件数だけ（AI の返信の本文・資料の中身は載せない：N6）。`icon` は付けない（外部の画像を読まない：N1）。
+// 載せるのは、トピック名と件数だけ（AI の返信の本文・資料の中身は載せない：N6）。`icon` は、rikai の PNG（data: の定数：lib/notifyIcon.ts）だけ（外部の画像を読まない・通信を増やさない：N1）。`badge`・`data` は付けない。
 //
 // **新着は、ID で決める**（件数の差では、読んだこと・解決の取り消し・自分のメッセージの削除で、数え直されて、見落とす／誤って出す）。
 // 前回までに知っていた、AI の発言の ID・質問付きの AI の発言の ID・ページごとの版の集合を持ち、**前回の集合に無い ID だけ**を、新着とする（既読・未解決・解決済みは、関係ない。ID が減っても、出さない）。
 import type { TopicState } from '../api/queries';
 import { trunc } from './dom';
+import { NOTIFY_ICON } from './notifyIcon';
 import { awaitsAnswer } from './turn';
 
 /** 前回までに、知っていたもの（ID の集合） */
@@ -150,7 +151,12 @@ export function requestPermission(): Promise<Permission> {
 export function showNotification(slug: string, topicTitle: string, d: Delta, onClick: () => void): Notification | null {
   if (typeof Notification === 'undefined') return null;
   try {
-    const n = new Notification(NOTIFY_TITLE, { body: notifyBody(topicTitle, d), tag: `rikai-${slug}`, silent: false });
+    const n = new Notification(NOTIFY_TITLE, {
+      body: notifyBody(topicTitle, d),
+      icon: NOTIFY_ICON,
+      tag: `rikai-${slug}`,
+      silent: false,
+    });
     n.onclick = () => {
       window.focus();
       n.close();

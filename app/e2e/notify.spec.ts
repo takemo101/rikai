@@ -109,7 +109,7 @@ test.describe('ブラウザの通知（F41）', () => {
     expect(await notes(page)).toHaveLength(0);
   });
 
-  test('画面を見ていないとき、AI の返信が届くと、通知が 1 回出る（題 rikai・トピック名と件数・tag・icon なし）。返信の本文は、載せない', async ({
+  test('画面を見ていないとき、AI の返信が届くと、通知が 1 回出る（題 rikai・トピック名と件数・tag・icon は rikai の PNG）。返信の本文は、載せない', async ({
     page,
     app,
   }) => {
@@ -121,7 +121,17 @@ test.describe('ブラウザの通知（F41）', () => {
     expect(n?.title).toBe('rikai');
     expect(n?.options.body).toBe('猫の観察日記：AI から返信が届きました（返信 1）');
     expect(n?.options.tag).toBe('rikai-demo');
-    expect(n?.options.icon).toBeUndefined();
+    // 意図した変更：icon は、rikai の PNG の data: だけ。実際のブラウザが、その画像を読める（192×192）
+    expect(n?.options.icon).toMatch(/^data:image\/png;base64,/);
+    const size = await page.evaluate(async (src) => {
+      const im = new Image();
+      im.src = src;
+      await im.decode();
+      return [im.naturalWidth, im.naturalHeight];
+    }, n?.options.icon ?? '');
+    expect(size).toEqual([192, 192]);
+    expect(n?.options).not.toHaveProperty('badge');
+    expect(n?.options).not.toHaveProperty('data');
     expect(n?.options.silent).toBe(false);
     expect(JSON.stringify(n)).not.toContain('秘密の本文');
     // 同じ状態の取り直し・自分の操作では、増えない
