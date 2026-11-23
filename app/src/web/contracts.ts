@@ -58,7 +58,8 @@ export interface OverlaysProps {
 
 /**
  * 右のパネル（`<aside id="threads">`）。**W2**：`panel/ThreadsPanel.tsx` が `export function ThreadsPanel(props: ThreadsPanelProps)` を出す。
- * 旧 index.html の `#lightbox`（ライトボックス）も、ここ（W2）が出す（`useUi` の `lightbox`・`openLightbox`・`closeLightbox`）。
+ * 旧 index.html の `#lightbox`（ライトボックス）も、ここ（W2）が出す（`useUi` の `lightbox`・`openLightbox`・`openZoom`・`closeLightbox`）。
+ * `lightbox` は、添付の画像（押すと閉じる）・本文・返信の画像（ズーム・移動）・図（SVG の複製。id を付け替え済み）のどれか（F37。本文の DOM には、何も足さない）。
  *
  * - `view` が null なら、空の `<aside id="threads">`。
  * - 状態：`tab`・`solo`・`rowOpen`・`olderOpen`・`askOpen`・`drafts`・`imgGen`・`uploading`・`editing`・`seen`・`active`・`linkedTid`・`composer`（すべて `useUi`）。

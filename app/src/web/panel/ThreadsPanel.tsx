@@ -21,6 +21,7 @@ import type { Thread } from '../../shared/types';
 import { type TopicState, topicKey } from '../api/queries';
 import { queryClient } from '../api/queryClient';
 import type { ThreadsPanelProps } from '../contracts';
+import { noteMouseDown, zoomOnClick } from '../doc/zoomOpen';
 import { trunc } from '../lib/dom';
 import type { View } from '../lib/view';
 import { type DocModel, docOrder, locEl, useDoc } from '../store/doc';
@@ -120,7 +121,7 @@ export function ThreadsPanel({ view }: ThreadsPanelProps) {
   return (
     <PanelContext.Provider value={actions}>
       {/* biome-ignore lint/a11y/useKeyWithClickEvents: サムネイルの画像の押下を、パネル全体で受ける（旧と同じ。画像は、押す前提のマウス操作） */}
-      <aside id="threads" ref={panelRef} onClick={openLightboxOnImage}>
+      <aside id="threads" ref={panelRef} onClick={openLightboxOnImage} onMouseDown={noteMouseDown}>
         {view ? <Threads view={view} panelRef={panelRef} /> : null}
       </aside>
       <Lightbox />
@@ -128,13 +129,18 @@ export function ThreadsPanel({ view }: ThreadsPanelProps) {
   );
 }
 
-/** 添付の画像（サムネイル・送った画像）を押すと、ライトボックスで大きく出す */
+/** 添付の画像（サムネイル・送った画像）を押すと、ライトボックスで大きく出す（押すと閉じる）。返信の本体の、画像・図は、拡大（ズーム・移動） */
 function openLightboxOnImage(e: MouseEvent<HTMLElement>): void {
   if (!(e.target instanceof Element)) return;
   const img = e.target.closest('.thumb img, .msg .imgs img');
-  if (!(img instanceof HTMLImageElement)) return;
-  e.preventDefault();
-  useUi.getState().openLightbox(img.src);
+  if (img instanceof HTMLImageElement) {
+    e.preventDefault();
+    useUi.getState().openLightbox(img.src);
+    return;
+  }
+  // AI の返信の本体の、画像・図（F37：ズーム・移動ができる）
+  const body = e.target.closest('.msg .body.md');
+  if (body) zoomOnClick(e.nativeEvent, body);
 }
 
 // ---- スクロールの位置を戻す（旧 renderThreads の、描き直しの前後） ----

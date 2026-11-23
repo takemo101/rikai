@@ -293,7 +293,8 @@ test('ライトボックス：サムネイル・送った画像を押すと、�
   expect(notPrevented).toBe(false); // <a> の遷移を止める
   expect(lb.hidden).toBe(false);
   expect((q('img', lb) as HTMLImageElement).src).toBe(sent.src);
-  expect(useUi.getState().lightbox).toBe(sent.src);
+  // F37：ライトボックスの状態は、型つき（添付の画像は zoom: false＝押すと閉じる）
+  expect(useUi.getState().lightbox).toEqual({ kind: 'img', src: sent.src, alt: '添付の画像（大きく）', zoom: false });
   await userEvent.click(lb);
   expect(lb.hidden).toBe(true);
   expect(useUi.getState().lightbox).toBeNull();
@@ -320,10 +321,12 @@ test('ライトボックス：画像以外（本文・ボタン）を押して�
   expect(useUi.getState().lightbox).toBeNull();
 });
 
-test('AI の返信の画像（Markdown の assets/）は、ライトボックスに、しない（旧と同じ：添付の画像だけ）', () => {
+// 意図した変更（F37）：返信の本文の画像も、押すと拡大（ズーム・移動ができる zoom: true）。以前は、添付の画像だけだった
+test('AI の返信の画像（Markdown の assets/）は、押すと、拡大して開く（zoom: true）。添付の画像（zoom: false）とは、別', () => {
   renderPanel([thread({ id: 't1', messages: [ai('![図](assets/fig.png)')] })]);
   const img = q('.msg.ai .body img') as HTMLImageElement;
   expect(img.getAttribute('src')).toBe('/asset/demo/fig.png');
   fireEvent.click(img);
-  expect(useUi.getState().lightbox).toBeNull();
+  expect(useUi.getState().lightbox).toMatchObject({ kind: 'img', zoom: true });
+  expect((useUi.getState().lightbox as { src: string }).src).toContain('/asset/demo/fig.png');
 });

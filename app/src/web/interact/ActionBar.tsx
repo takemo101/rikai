@@ -1,11 +1,12 @@
-// 入口のバー（`#actbar`。「コメント」だけ）。文を選ぶと、選んだ文の上に・ブロックにマウスを置くと、そのブロックの右上に出る（範囲は、右下に浮かぶ「範囲を選ぶ」）。
+// 入口のバー（`#actbar`。「コメント」。画像・図を含むブロックでは、「拡大」も）。文を選ぶと、選んだ文の上に・ブロックにマウスを置くと、そのブロックの右上に出る（範囲は、右下に浮かぶ「範囲を選ぶ」）。
 // ブロックにマウスを置くと、入口のバーを、そのブロックの右上（ブロックの上）に出す。バーへ向かう間に消えない・別のブロックへ飛ばないように、
 // ポインターが「そのブロックの、バーの高さ上〜下端 × 箱の右端まで」の帯にいる間は、同じブロックのまま出し続ける（`inBand`）。
 // 帯の外でも、本文の箱の右の余白にいる間は、同じ高さにある本文のブロックを探す（左の余白は、探さない）。
-import { MessageSquarePlus } from 'lucide-react';
+import { MessageSquarePlus, ZoomIn } from 'lucide-react';
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import type { Anchor } from '../../shared/types';
 import { blockAnchor } from '../doc/render/blocks';
+import { openZoomOf, zoomTargetOfBlock } from '../doc/zoomOpen';
 import { $ } from '../lib/dom';
 import { useUi } from '../store/ui';
 import { openComposer } from './compose';
@@ -21,6 +22,8 @@ interface Bar {
   /** バーの右端・上端（画面の座標） */
   right: number;
   top: number;
+  /** 「拡大」を出すか：ブロックのバーで、そのブロックが、画像・Mermaid の図・インラインの svg を含むとき */
+  zoom: boolean;
 }
 /** イベントの処理が読む、いまの状態（再描画を起こさない） */
 interface Ctl {
@@ -51,9 +54,9 @@ export function ActionBar({ scroller, latest }: Props) {
     ctl.current.mode = null;
     setBar(null);
   }, []);
-  const show = useCallback((mode: BarMode, right: number, top: number): void => {
+  const show = useCallback((mode: BarMode, right: number, top: number, zoom = false): void => {
     ctl.current.mode = mode;
-    setBar({ mode, right, top });
+    setBar({ mode, right, top, zoom });
   }, []);
   /** ブロックのバーを、遅れて隠す（バーへ向かう間に、消えないように） */
   const scheduleHide = useCallback((): void => {
@@ -152,7 +155,7 @@ export function ActionBar({ scroller, latest }: Props) {
       window.clearTimeout(c.hideTimer);
       c.blk = blk;
       const spot = blockBarSpot(blk.getBoundingClientRect(), artBox, scroller.getBoundingClientRect().top);
-      show('blk', spot.right, spot.top);
+      show('blk', spot.right, spot.top, !!zoomTargetOfBlock(blk));
     };
     // バーへ向かって、本文の領域を出るときは、消さない（React の onMouseEnter は、この mouseleave より先に呼ばれるので、タイマーを止められない）
     const onLeave = (e: MouseEvent): void => {
@@ -186,6 +189,14 @@ export function ActionBar({ scroller, latest }: Props) {
     if (a) openComposer(a);
   };
 
+  /** 「拡大」：そのブロックの（最初の）画像・図を、大きく出す（コメントの有無に関係なく）。コメントの入力欄は、開かない */
+  const onZoom = (): void => {
+    const c = ctl.current;
+    const el = c.mode === 'blk' && c.blk?.isConnected ? zoomTargetOfBlock(c.blk) : null;
+    hide();
+    if (el) openZoomOf(el);
+  };
+
   return (
     // 押しても、文の選択を外さない。バーへ向かう間・バーの上にいる間は、ブロックのバーを消さない（マウスだけの、見た目のための処理）
     // biome-ignore lint/a11y/noStaticElementInteractions: 旧と同じ DOM（役割を足さない）。操作は、中の button
@@ -199,6 +210,12 @@ export function ActionBar({ scroller, latest }: Props) {
         if (ctl.current.mode === 'blk') scheduleHide();
       }}
     >
+      {bar?.mode === 'blk' && bar.zoom ? (
+        <button id="act-zoom" type="button" aria-label="拡大" title="この画像・図を、大きく見ます" onClick={onZoom}>
+          <ZoomIn aria-hidden="true" focusable="false" />
+          拡大
+        </button>
+      ) : null}
       <button id="act-comment" type="button" title="この文・ブロックに、コメントします" onClick={onComment}>
         <MessageSquarePlus aria-hidden="true" focusable="false" />
         コメント

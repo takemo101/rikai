@@ -326,6 +326,7 @@ mark.hl.pending { background: var(--accent-soft); outline: 1.5px dashed var(--ac
 #actbar { position: fixed; z-index: 20; display: flex; background: var(--tip-bg); border-radius: var(--r); box-shadow: var(--shadow-pop), 0 0 0 1px var(--tip-edge); overflow: hidden; }
 #actbar button { display: inline-flex; align-items: center; gap: 5px; background: transparent; color: var(--tip-ink); border: 0; padding: 4px 10px; font-size: var(--fs-s); }
 #actbar button:hover { background: var(--tip-hover); }
+#actbar button + button { border-left: 1px solid rgba(255, 255, 255, 0.16); } /* 「拡大」「コメント」の仕切り（「コメント」が右端：バーの右端を、そろえる） */
 #actbar[hidden], #regsel[hidden], #toast[hidden], #ended[hidden], #regbtn[hidden] { display: none; }
 /* 範囲を選ぶボタン：本文の右下に浮かぶ（スクロールしても、同じ場所）。選んでいる間は、アクセントの色 */
 #regbtn { position: absolute; right: 20px; bottom: 20px; z-index: 12; display: flex; align-items: center; justify-content: center; gap: 6px; min-width: 112px; padding: 6px 12px; font-size: var(--fs); background: var(--card); color: var(--ink-2); border: 1px solid var(--line-strong); border-radius: var(--r); box-shadow: var(--shadow-pop); } /* 幅は、「やめる」でも、変わらない（押している間に、ボタンが縮まないように） */
@@ -346,11 +347,30 @@ mark.hl.pending { background: var(--accent-soft); outline: 1.5px dashed var(--ac
 .rh-sw { bottom: -6px; left: -6px; cursor: nesw-resize; } .rh-w { top: calc(50% - 5px); left: -6px; cursor: ew-resize; }
 
 /* ---- 画像のライトボックス・トースト ---- */
-#lightbox { position: fixed; inset: 0; z-index: 50; display: flex; align-items: center; justify-content: center; background: var(--scrim-image); cursor: zoom-out; }
+#lightbox { position: fixed; inset: 0; z-index: 50; display: flex; align-items: center; justify-content: center; background: var(--scrim-image); cursor: zoom-out; outline: 0; }
 #lightbox[hidden] { display: none; }
 #lightbox img { max-width: 92vw; max-height: 90vh; background: #fff; border-radius: var(--r); box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4); }
-#lightbox .close { position: absolute; top: 16px; right: 16px; display: inline-flex; padding: 6px; color: #fff; background: rgba(255, 255, 255, 0.14); border-radius: var(--r); pointer-events: none; }
+#lightbox > .close { position: absolute; top: 16px; right: 16px; display: inline-flex; padding: 6px; color: #fff; background: rgba(255, 255, 255, 0.14); border-radius: var(--r); pointer-events: none; }
 #lightbox .close svg.lucide { width: 18px; height: 18px; }
+/* 本文・返信の画像・図の拡大（F37）：ズーム・移動。舞台は、自然な大きさで、窓の中心に置き、transform で、拡大・移動する */
+#lightbox .lb-view { position: absolute; inset: 0; overflow: hidden; touch-action: none; user-select: none; }
+#lightbox .lb-stage { position: absolute; left: 50%; top: 50%; transform-origin: center; border-radius: var(--r); box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4); cursor: default; }
+#lightbox .lb-view.zoomed .lb-stage { cursor: grab; }
+#lightbox .lb-view.panning, #lightbox .lb-view.panning .lb-stage { cursor: grabbing; }
+#lightbox .lb-stage img { display: block; width: 100%; height: 100%; max-width: none; max-height: none; border-radius: var(--r); box-shadow: none; }
+#lightbox .lb-stage.img { background: #fff; } /* 画像の地は、白（透明な画像が、暗い地に沈まない） */
+#lightbox .lb-stage.svg { background: var(--paper); overflow: hidden; outline: 1px solid var(--line-strong); } /* 図の地は、画面の紙の色（ダークは暗い地：Mermaid の色が、正しく見える） */
+#lightbox .lb-tools { position: absolute; top: 16px; right: 16px; display: flex; align-items: center; gap: 2px; padding: 4px; color: #fff; background: rgba(24, 24, 27, 0.92); border: 1px solid rgba(255, 255, 255, 0.2); border-radius: var(--r); box-shadow: 0 2px 12px rgba(0, 0, 0, 0.4); cursor: default; } /* 白い図の上でも、見える：暗い地 */
+#lightbox .lb-tools button { display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; padding: 0; color: #fff; background: transparent; border: 0; border-radius: var(--r-s); }
+#lightbox .lb-tools button:hover:not(:disabled) { background: rgba(255, 255, 255, 0.2); }
+#lightbox .lb-tools button:active:not(:disabled) { background: rgba(255, 255, 255, 0.3); }
+#lightbox .lb-tools button:focus-visible { outline: 2px solid #fff; outline-offset: 0; }
+#lightbox .lb-tools button:disabled { opacity: 0.4; }
+#lightbox .lb-tools svg.lucide { width: 16px; height: 16px; }
+#lightbox .lb-pct { min-width: 44px; padding: 0 4px; text-align: center; font-size: var(--fs-s); font-variant-numeric: tabular-nums; }
+/* 本文・返信の、拡大できる画像・図（本文の DOM は、変えない：見た目だけ） */
+#article img, #article .mermaid-block svg, #article svg, .msg .body.md img, .msg .body.md svg { cursor: zoom-in; }
+#article a img, #article a svg { cursor: pointer; }
 .thumb img, .msg .imgs img { cursor: zoom-in; }
 #toast { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); display: flex; align-items: center; gap: 8px; background: var(--tip-bg); color: var(--tip-ink); padding: 8px 14px; border-radius: var(--r); box-shadow: var(--shadow-pop), 0 0 0 1px var(--tip-edge); z-index: 50; max-width: 70vw; white-space: pre-wrap; pointer-events: none; } /* 押せない：下の「範囲を選ぶ」などの操作を、じゃましない */
 #toast.err { background: var(--err-fill); color: #fff; box-shadow: var(--shadow-pop); }
