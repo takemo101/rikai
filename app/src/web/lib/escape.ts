@@ -2,6 +2,7 @@
 //   1. 本文の範囲を選んでいる → やめる
 //   2. 範囲の枠（入力中の対象）をドラッグしている → 何もしない（元に戻すのは、枠を持つ overlay：Overlays.tsx）
 //   3. 個別表示（ライトボックス）が開いている：道具（ステージの範囲選択・html-app の要素選択）が動いていれば、**その中止だけ**（入力欄の下書きは、触らない）→ もう一度で、閉じる
+//   4. 版を並べて比べる画面（F44）が開いている → 閉じる（ライトボックスは、比較の画面からは開けない。左の一覧のドロワー・ダイアログが開いているときは、それらが先に閉じる：ここでは、閉じない）
 // 変換中（`isComposing`・`keyCode 229`）の Esc は、処理しない（橋の `esc` の転送・要素選択の中止も、同じ）。
 // 入力欄の書きかけ（`drafts.composer`）は、閉じても、消えない：右のパネルに残り、パネルの Submit で送る（F43）。
 import { cancelAllPicks } from '../doc/appBridge';
@@ -30,6 +31,10 @@ export function escapeStep(e?: Event): boolean {
     }
     if (cancelAllPicks()) return true;
     s.closeLightbox();
+    return true;
+  }
+  if (s.compare && !s.narrowSideOpen && !s.dialog) {
+    s.closeCompare();
     return true;
   }
   return false;

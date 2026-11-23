@@ -99,3 +99,26 @@ test('本文の直下の <svg>：変更・追加を、ブロックとして数�
   expect(box.querySelectorAll('svg.blk.changed')).toHaveLength(2);
   expect(box.querySelector('svg.added')?.textContent?.trim()).toBe('追加の図');
 });
+
+test('段落 → 見出し・箇条書き → 番号つき・段落 → 引用：内容が同じでも「変更」。種類が変わったことを、差分の箱に書く（F11）', () => {
+  const prev = '# 題\n\n概要です。\n\n- 項目 A\n- 項目 B\n\n注意です。\n';
+  const cur = '# 題\n\n## 概要です。\n\n1. 項目 A\n2. 項目 B\n\n> 注意です。\n';
+  const { sum, box } = diffOf(prev, cur);
+  expect(sum).toEqual({ changed: 4, added: 0, removed: 0 });
+  const notes = [...box.querySelectorAll('.diffnote')].map((n) => n.textContent);
+  expect(notes).toEqual([
+    'ブロックの種類が変わりました：p → h2',
+    'ブロックの種類が変わりました：箇条書き → 番号つきの並び',
+    'ブロックの種類が変わりました：箇条書き → 番号つきの並び',
+    'ブロックの種類が変わりました：p → blockquote',
+  ]);
+});
+
+test('F11 の文字の差分も、文字として描く：HTML を含む文でも、タグにならない', () => {
+  const evil = '`<img src=x onerror=window.__xss=1>` と `<script>window.__xss=1</script>`';
+  const { box } = diffOf(`前の文：${evil}\n`, `後の文：${evil}\n`);
+  const diff = box.querySelector('.diffbox .diff') as HTMLElement;
+  expect(diff.textContent).toContain('<img src=x onerror=window.__xss=1>');
+  expect(diff.querySelectorAll('img, script, [onerror]')).toHaveLength(0);
+  expect((window as unknown as { __xss?: number }).__xss).toBeUndefined();
+});

@@ -125,8 +125,12 @@ test('matchBlocks：「同じ」ブロックの間の区間の中でだけ、変
 });
 
 test('matchBlocks：空の版・同じ版', () => {
-  assert.deepEqual(matchBlocks([], [B('a', 'P', 'x')]), { cur: [{ status: 'added', prev: null }], removed: [] });
-  assert.deepEqual(matchBlocks([B('a', 'P', 'x')], []), { cur: [], removed: [0] });
+  assert.deepEqual(matchBlocks([], [B('a', 'P', 'x')]), {
+    cur: [{ status: 'added', prev: null }],
+    removed: [],
+    limited: false,
+  });
+  assert.deepEqual(matchBlocks([B('a', 'P', 'x')], []), { cur: [], removed: [0], limited: false });
   const same = [B('a', 'P', 'x'), B('b', 'P', 'y')];
   assert.deepEqual(
     matchBlocks(same, same).cur.map((c) => c.status),
@@ -194,4 +198,38 @@ test('matchBlocks：近さを調べる組の数は、区間ごとではなく、
   assert.ok(r.cur.filter((c) => c.status === 'same').length === gaps, '見出しは、すべて「同じ」');
   const used = r.cur.map((c) => c.prev).filter((p) => p !== null);
   assert.equal(new Set(used).size, used.length, '前のブロックを、2 回使わない');
+});
+
+test('matchBlocks：内容が同じでも、種類（tag）が違えば「変更」（対応はつく：追加と削除にならない）。P → H2・P → blockquote・箇条書き → 番号つき', () => {
+  const sig = (hash: string, tag: string, text = hash): BlockSig => ({ hash, tag, text });
+  const cases: [BlockSig, BlockSig][] = [
+    [sig('x', 'P', '概要'), sig('x', 'H2', '概要')],
+    [sig('x', 'P', '注意'), sig('x', 'BLOCKQUOTE', '注意')],
+    [sig('x', 'LI>UL', '項目'), sig('x', 'LI>OL', '項目')],
+    [sig('x', 'H2', '概要'), sig('x', 'H3', '概要')],
+  ];
+  for (const [p, c] of cases) {
+    const m = matchBlocks([sig('a', 'P'), p, sig('b', 'P')], [sig('a', 'P'), c, sig('b', 'P')]);
+    assert.deepEqual(
+      m.cur.map((x) => x.status),
+      ['same', 'changed', 'same'],
+      `${p.tag} → ${c.tag}`,
+    );
+    assert.deepEqual(m.cur[1], { status: 'changed', prev: 1 });
+    assert.deepEqual(m.removed, []);
+  }
+  // 種類も同じなら、これまでどおり「同じ」
+  assert.equal(matchBlocks([sig('x', 'H2')], [sig('x', 'H2')]).cur[0]?.status, 'same');
+});
+
+test('matchBlocks：近さを調べる組の予算（MAX_PAIRS）を超えた区間があると、limited（対応づけていない）。収まっていれば false', () => {
+  const sig = (i: number, tag = 'P'): BlockSig => ({ hash: `h${i}`, tag, text: `段落 ${i} の本文です` });
+  const n = Math.ceil(Math.sqrt(MAX_PAIRS)) + 5; // n × n > MAX_PAIRS（アンカーのない、1 つの区間）
+  const prev = Array.from({ length: n }, (_, i) => sig(i));
+  const cur = Array.from({ length: n }, (_, i) => sig(i + 1000));
+  const m = matchBlocks(prev, cur);
+  assert.equal(m.limited, true);
+  assert.ok(m.cur.every((c) => c.status === 'added'));
+  assert.equal(m.removed.length, n);
+  assert.equal(matchBlocks([sig(1), sig(2)], [sig(1), sig(3)]).limited, false);
 });

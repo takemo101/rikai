@@ -244,3 +244,44 @@ test('ツールバー：選んだ幅が本文より広いとき、title に縮�
     else Reflect.deleteProperty(HTMLElement.prototype, 'clientWidth');
   }
 });
+
+test('比べる画面の枠（compare）：onComment・onPick・onFocus を渡しても、入口（個別のツールバー・「この枠にコメント」・個別表示）を出さない。最新版の枠でも', () => {
+  const topic = topicState({
+    meta: meta({ pages: { root: { title: 'T', parent: null, versions: 1, createdAt: '' } } }),
+  });
+  const view = buildView({ slug: 'demo', page: 'root', version: 1 }, topic);
+  if (!view) throw new Error('view');
+  expect(view.isLatest).toBe(true);
+  const frag = mdToFragment(APP, { slug: 'demo', kind: 'doc' });
+  markBlocks(frag);
+  const root = document.createElement('div');
+  root.append(frag);
+  document.body.append(root);
+  const [onComment, onPick, onFocus] = [vi.fn(), vi.fn(), vi.fn()];
+  act(() =>
+    fillApps(root, {
+      view,
+      onComment,
+      onPick,
+      onFocus,
+      compare: { width: 'auto', mode: null, label: '左', onEsc: vi.fn() },
+    }),
+  );
+  expect(root.querySelectorAll('iframe')).toHaveLength(1);
+  expect(root.querySelectorAll('.cap button, .apptools, [data-pick], [data-focus-open]')).toHaveLength(0);
+  expect(root.textContent).not.toContain('この枠にコメント');
+  // 枠から、偽の pick が届いても、親の下書きの経路（onPick）は、呼ばれない
+  const win = (root.querySelector('iframe') as HTMLIFrameElement).contentWindow;
+  const pick = {
+    __rikai: 1,
+    type: 'pick',
+    selector: 'p',
+    tag: 'p',
+    text: 'a',
+    rect: { x: 1, y: 2, w: 3, h: 4 },
+    styles: {},
+    frame: { w: 10, h: 10 },
+  };
+  window.dispatchEvent(new MessageEvent('message', { data: pick, source: win }));
+  expect([onComment, onPick, onFocus].map((f) => f.mock.calls.length)).toEqual([0, 0, 0]);
+});

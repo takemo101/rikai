@@ -145,6 +145,17 @@ export function blockAnchor(el: BlockEl): Anchor {
   };
 }
 
+/**
+ * 版どうしの対応づけに使う、ブロックの種類（`BlockSig.tag`）。リストの項目は、並びの種類（ul・ol）も含める：箇条書き ⇄ 番号つきの並びも、「種類が変わった」変更になる。
+ * 項目を、並びから取り出す前に、呼ぶ（親の並びを見る）
+ */
+export const sigTag = (el: BlockEl): string =>
+  el.tagName === 'LI' && el.parentElement ? `LI>${el.parentElement.tagName}` : el.tagName;
+
+/** `sigTag` の、人に見せる名前（差分の説明用） */
+export const tagLabel = (tag: string): string =>
+  tag === 'LI>UL' ? '箇条書き' : tag === 'LI>OL' ? '番号つきの並び' : tag.toLowerCase();
+
 /** 差分に使う、ブロックの文字（表は、セルを「 | 」で、行を改行でつなぐ。図は、ソース） */
 export function plainText(el: BlockEl): string {
   if (el.classList.contains('mermaid-block')) return safeDecode(el.dataset.mermaid || '');
