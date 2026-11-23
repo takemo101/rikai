@@ -5,6 +5,7 @@ import { usePage, useTopic, useTopics } from './api/queries';
 import type { ArticleProps } from './contracts';
 import { Article } from './doc/Article';
 import { followPageTheme } from './doc/appBridge';
+import { CompareView } from './doc/CompareView';
 import { fillMermaid } from './doc/render';
 import { Interact } from './interact/Interact';
 import { DocBar } from './layout/DocBar';
@@ -42,6 +43,7 @@ export function App() {
   const topicQ = useTopic(topics && route && !unsupported ? route.slug : null);
   const view = buildView(route, topicQ.data);
   const status = serverStatus([topicsQ.error, topicQ.error]);
+  const compare = useUi((s) => s.compare);
 
   const pageQ = usePage(view?.slug ?? null, view?.page ?? 'root', view?.version ?? 0);
   const prevQ = usePage(view?.slug ?? null, view?.page ?? 'root', (view?.version ?? 0) - 1);
@@ -107,8 +109,11 @@ export function App() {
     return () => document.removeEventListener('click', onClick);
   }, []);
 
+  // 版を並べて比べているとき（F44）：本文の代わりに、比べる画面。通常の本文（`Article`）は、外す（枠は、閉じるときに、橋から外れる）。コメントの入口・番号の層・右のコメントは、出さない（読み取り専用）
+  const comparing = notice === null && !!compare && !!view;
   let body: ReactNode;
   if (notice !== null) body = <Notice text={notice} />;
+  else if (compare && view) body = <CompareView view={view} compare={compare} />;
   else if (held.current) body = <Article {...held.current} />;
   else body = <Notice text="" />;
 
@@ -117,7 +122,12 @@ export function App() {
       <div
         id="app"
         className={
-          [sideShown ? '' : 'side-collapsed', drawer ? 'side-drawer' : '', w < PANEL_MIN ? 'panel-tight' : '']
+          [
+            sideShown ? '' : 'side-collapsed',
+            drawer ? 'side-drawer' : '',
+            w < PANEL_MIN ? 'panel-tight' : '',
+            comparing ? 'comparing' : '',
+          ]
             .filter(Boolean)
             .join(' ') || undefined
         }
@@ -129,10 +139,10 @@ export function App() {
           <DocBar view={view} />
           <div id="docscroll" ref={scrollRef}>
             {body}
-            <Overlays view={view} scrollRef={scrollRef} />
+            <Overlays view={comparing ? null : view} scrollRef={scrollRef} />
           </div>
           {/* 見せている本文が、いまのページ・版のものでない間（取得中・取得に失敗）は、コメントの入口を出さない：食い違う本文に、コメントを付けないため */}
-          <Interact view={held.current?.view.key === view?.key ? view : null} scrollRef={scrollRef} />
+          <Interact view={!comparing && held.current?.view.key === view?.key ? view : null} scrollRef={scrollRef} />
         </main>
         <ThreadsPanel view={view} />
         <Resizer />
@@ -165,6 +175,7 @@ function useNavigationEffects(
     const p = prev.current;
     prev.current = { slug, page, version };
     if (!p) return;
+    if (p.slug !== slug || p.page !== page) useUi.getState().closeCompare(false); // 比べる画面は、ページ・トピックを移ると閉じる（同じページの版の切り替え〔ハッシュの版〕では、閉じない）
     if (p.slug !== slug) {
       useUi.getState().leaveTopic();
       useUi.getState().closeComposer();
@@ -275,5 +286,6 @@ function useFollowAppFrames(): void {
   const theme = useResolvedTheme();
   useEffect(() => {
     followPageTheme(theme);
+    useUi.getState().setCompareMode(null); // 比較用ツールバーの枠だけの外観も、解く（枠は、`followPageTheme` が、画面に合わせる）
   }, [theme]);
 }

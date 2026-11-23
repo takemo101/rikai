@@ -597,7 +597,7 @@ test.describe('幅の切り替え', () => {
     };
     await pick('375');
     await expect.poll(async () => (await boxOf(frame)).width).toBeCloseTo(375, 0);
-    expect(await inner()).toBe(375);
+    await expect.poll(inner).toBe(375); // 枠の幅を変えた直後は、枠の中の幅が、まだ前のことがある
     expect(await frame.evaluate((e) => e.style.transform)).toBe(''); // 狭い幅は、縮小しない
     for (const w of [768, 1280, 1920]) {
       await pick(String(w));
@@ -623,7 +623,7 @@ test.describe('幅の切り替え', () => {
     await expect(cap.locator('button[data-width="375"]')).toHaveAttribute('title', '枠の幅：スマートフォン（375px）');
     await pick('auto');
     await expect.poll(async () => (await boxOf(frame)).width).toBeCloseTo(full, 0);
-    expect(await inner()).toBeCloseTo(full, 0);
+    await expect.poll(inner).toBeCloseTo(full, 0);
     expect(await frame.evaluate((e) => [e.style.width, e.style.transform])).toEqual(['', '']);
     expect(
       await page
@@ -656,7 +656,7 @@ test.describe('幅の切り替え', () => {
     const full = (await boxOf(wrap)).width;
     await cap.locator('button[data-width="1280"]').click();
     await expect.poll(() => frameCss(page, 0, '#m', 'color')).toBe('rgb(4, 5, 6)'); // @media (min-width: 1000px)
-    expect(await f.locator('html').evaluate(() => window.innerWidth)).toBe(1280);
+    await expect.poll(() => f.locator('html').evaluate(() => window.innerWidth)).toBe(1280);
     expect(await boxOf(wrap)).toMatchObject({ width: full });
     await settled(page);
     // 高さ：縮小後の大きさを持つ箱（.appscale）＝枠の高さ（CSS）× 縮小率。見た目の枠の高さと、同じ

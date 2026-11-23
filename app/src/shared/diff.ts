@@ -1,6 +1,6 @@
 // 版どうしの差分。DOM に触れない純粋な関数だけ（サーバー・画面・テストが共有する）。
 //  - diffText: 2 つの文字列の、トークン単位の差分（同じ・追加・削除）
-//  - matchBlocks: 前の版と今の版のブロックの対応づけ（同じ・変更・追加・削除）。順序を保つ
+//  - matchBlocks: 前の版と今の版のブロックの対応づけ（同じ・変更・追加・削除）。順序を保つ。内容が同じでも、種類（tag）が違えば「変更」
 import { similarity } from './anchor';
 
 /** 半角の英数字の連続・空白の連続は 1 つ、それ以外（日本語など）は 1 文字ずつ */
@@ -104,10 +104,12 @@ export interface BlockMatches {
   cur: BlockMatch[];
   /** 前の版にあって、対応する今のブロックがない添字 */
   removed: number[];
+  /** 近さを調べる組の数の予算（`MAX_PAIRS`）を超えて、近さによる対応づけを、一部の区間で、していない（そこは、追加と削除になる） */
+  limited: boolean;
 }
 
 /**
- * 1) 同じ内容（hash）を、順序を保って対応づける（最長共通部分列）
+ * 1) 同じ内容（hash）を、順序を保って対応づける（最長共通部分列）。種類（tag）まで同じなら「同じ」・違えば「変更」
  * 2) 残りを、同じ「同じ」の間の区間の中で、同じ種類で内容が近いものどうし（類似度 0.5 以上。高い順）
  * 3) 残りの今のブロックは追加、前のブロックは削除
  */
@@ -156,7 +158,8 @@ export function matchBlocks(prev: BlockSig[], cur: BlockSig[]): BlockMatches {
   }
   for (const [i, j] of anchors) {
     curPrev[j] = i;
-    status[j] = 'same';
+    // 内容が同じでも、ブロックの種類（段落 → 見出し・引用など）が違えば、変更（対応はつける：追加と削除には、しない）
+    status[j] = (prev[i] as BlockSig).tag === (cur[j] as BlockSig).tag ? 'same' : 'changed';
     prevUsed[i] = true;
   }
 
@@ -166,12 +169,16 @@ export function matchBlocks(prev: BlockSig[], cur: BlockSig[]): BlockMatches {
   const cex = cur.map((c) => norm(c.text));
   const bounds: [number, number][] = [[-1, -1], ...anchors, [n, m]];
   let budget = MAX_PAIRS;
+  let limited = false;
   for (let k = 0; k + 1 < bounds.length; k++) {
     const [pa, ca] = bounds[k] as [number, number];
     const [pb, cb] = bounds[k + 1] as [number, number];
     // 比べる組の数は、区間のブロック数の積で増える。残りの予算を超える区間は、近さを調べず、追加と削除にする
     const pairs = (pb - pa - 1) * (cb - ca - 1);
-    if (pairs > budget) continue;
+    if (pairs > budget) {
+      limited = true;
+      continue;
+    }
     budget -= Math.max(0, pairs);
     const cand: { i: number; j: number; s: number }[] = [];
     for (let j = ca + 1; j < cb; j++) {
@@ -191,5 +198,9 @@ export function matchBlocks(prev: BlockSig[], cur: BlockSig[]): BlockMatches {
   }
   const removed: number[] = [];
   for (let i = 0; i < n; i++) if (!prevUsed[i]) removed.push(i);
-  return { cur: cur.map((_, j) => ({ status: status[j] as MatchStatus, prev: curPrev[j] as number | null })), removed };
+  return {
+    cur: cur.map((_, j) => ({ status: status[j] as MatchStatus, prev: curPrev[j] as number | null })),
+    removed,
+    limited,
+  };
 }

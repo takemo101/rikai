@@ -2,12 +2,14 @@
 import { type DiffOp, diffText, type MatchStatus, matchBlocks } from '../../../shared/diff';
 import { h } from '../../lib/dom';
 import type { BlockEl, DiffSummary } from '../../store/doc';
-import { blockEls, blockLabel, markBlocks, plainText } from './blocks';
+import { blockEls, blockLabel, markBlocks, plainText, sigTag, tagLabel } from './blocks';
 import { mdToFragment } from './markdown';
 
 interface DiffPlan {
   statuses: MatchStatus[];
   ops: Map<number, DiffOp[]>;
+  /** 内容は同じで、種類が変わったブロック（今のブロックの添字 → 説明） */
+  retag: Map<number, string>;
   removed: string[];
 }
 
@@ -38,13 +40,17 @@ function diffPlan(frag: DocumentFragment, src: DiffSource): DiffPlan {
   const pe = blockEls(prev);
   const ce = blockEls(frag);
   const info = (els: BlockEl[]) =>
-    els.map((e) => ({ hash: e.dataset.bhash ?? '', tag: e.tagName, text: plainText(e) }));
+    els.map((e) => ({ hash: e.dataset.bhash ?? '', tag: sigTag(e), text: plainText(e) }));
   const pi = info(pe);
   const ci = info(ce);
   const m = matchBlocks(pi, ci);
   const ops = new Map<number, DiffOp[]>();
+  const retag = new Map<number, string>();
   m.cur.forEach((c, j) => {
-    if (c.status === 'changed' && c.prev !== null) ops.set(j, diffText(pi[c.prev]?.text, ci[j]?.text));
+    if (c.status !== 'changed' || c.prev === null) return;
+    ops.set(j, diffText(pi[c.prev]?.text, ci[j]?.text));
+    const [from, to] = [pi[c.prev]?.tag, ci[j]?.tag];
+    if (from && to && from !== to) retag.set(j, `ブロックの種類が変わりました：${tagLabel(from)} → ${tagLabel(to)}`);
   });
   // 文字のないブロック（画像だけの段落・区切り線）は、ラベルで見せる
   const removed = m.removed.map((i) => {
@@ -52,15 +58,16 @@ function diffPlan(frag: DocumentFragment, src: DiffSource): DiffPlan {
     if (!el) return '';
     return pi[i]?.text || blockLabel(el) || `（${el.tagName.toLowerCase()}）`;
   });
-  const plan: DiffPlan = { statuses: m.cur.map((c) => c.status), ops, removed };
+  const plan: DiffPlan = { statuses: m.cur.map((c) => c.status), ops, retag, removed };
   cache = { key: src.key, md: src.md, prev: src.prevMd, plan };
   return plan;
 }
 
-function diffBox(ops: DiffOp[], tag: string): HTMLElement {
+function diffBox(ops: DiffOp[], tag: string, note?: string): HTMLElement {
   const body = h(
     'div',
     { class: 'diff' },
+    note ? h('div', { class: 'diffnote', text: note }) : null,
     ops.map((o) => (o.t === 'eq' ? o.s : h(o.t === 'del' ? 'del' : 'ins', { text: o.s }))),
   );
   const details = h(
@@ -90,7 +97,7 @@ export function addDiff(frag: DocumentFragment, src: DiffSource): DiffSummary {
       continue;
     }
     sum.changed++;
-    el.after(diffBox(plan.ops.get(j) ?? [], el.tagName));
+    el.after(diffBox(plan.ops.get(j) ?? [], el.tagName, plan.retag.get(j)));
   }
   if (plan.removed.length) {
     frag.append(

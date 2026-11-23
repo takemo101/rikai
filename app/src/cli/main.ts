@@ -122,9 +122,15 @@ function cmdStop(store: Store): void {
   out({ ok: true, stopped: true });
 }
 
-function readStdin(): string {
+/**
+ * 標準入力を、最後まで読む。`fs.readFileSync(0)` は使わない：パイプ・ヒアドキュメントがノンブロッキングのとき、入力が途切れた瞬間に `EAGAIN` で失敗した（約 18 万バイト以上）。
+ * ストリームで読み、**バイトのまま集めてから**、1 度だけ UTF-8 にする（チャンクの境目で、日本語・絵文字が割れない）
+ */
+async function readStdin(): Promise<string> {
   if (process.stdin.isTTY) throw new HttpError(400, '標準入力で渡してください');
-  return fs.readFileSync(0, 'utf8');
+  const chunks: Buffer[] = [];
+  for await (const chunk of process.stdin) chunks.push(chunk as Buffer);
+  return Buffer.concat(chunks).toString('utf8');
 }
 
 const HELP = `rikai <command>
@@ -148,7 +154,7 @@ async function main(): Promise<void> {
       case 'serve':
         return cmdServe(store);
       case 'new': {
-        const meta = store.newTopic(slug, flags.title as string, flags.source as string, readStdin());
+        const meta = store.newTopic(slug, flags.title as string, flags.source as string, await readStdin());
         return out({
           ok: true,
           topic: meta.slug,
@@ -166,7 +172,7 @@ async function main(): Promise<void> {
       case 'apply': {
         let payload: unknown;
         try {
-          payload = JSON.parse(readStdin());
+          payload = JSON.parse(await readStdin());
         } catch (e) {
           if (e instanceof HttpError) throw e;
           throw new HttpError(400, `JSON が不正です: ${(e as Error).message}`);

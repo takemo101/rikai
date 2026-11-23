@@ -26436,9 +26436,11 @@ function cmdStop(store) {
   }
   out({ ok: true, stopped: true });
 }
-function readStdin() {
+async function readStdin() {
   if (process.stdin.isTTY) throw new HttpError(400, "\u6A19\u6E96\u5165\u529B\u3067\u6E21\u3057\u3066\u304F\u3060\u3055\u3044");
-  return import_node_fs9.default.readFileSync(0, "utf8");
+  const chunks = [];
+  for await (const chunk of process.stdin) chunks.push(chunk);
+  return Buffer.concat(chunks).toString("utf8");
 }
 var HELP = `rikai <command>
   new <topic> --title <\u984C\u540D> [--source <\u5BFE\u8C61>]   \u6A19\u6E96\u5165\u529B\u306EMarkdown\u304B\u3089\u65B0\u3057\u3044\u30C8\u30D4\u30C3\u30AF\u3092\u4F5C\u308B
@@ -26460,7 +26462,7 @@ async function main() {
       case "serve":
         return cmdServe(store);
       case "new": {
-        const meta3 = store.newTopic(slug, flags.title, flags.source, readStdin());
+        const meta3 = store.newTopic(slug, flags.title, flags.source, await readStdin());
         return out({
           ok: true,
           topic: meta3.slug,
@@ -26478,7 +26480,7 @@ async function main() {
       case "apply": {
         let payload;
         try {
-          payload = JSON.parse(readStdin());
+          payload = JSON.parse(await readStdin());
         } catch (e) {
           if (e instanceof HttpError) throw e;
           throw new HttpError(400, `JSON \u304C\u4E0D\u6B63\u3067\u3059: ${e.message}`);

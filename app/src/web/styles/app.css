@@ -269,14 +269,78 @@ label.chk { font-size: var(--fs-s); color: var(--muted); display: flex; gap: 6px
 #article .blk { position: relative; border-radius: var(--r-s); }
 #article .blk.changed { box-shadow: 6px 0 0 -3px var(--change); } /* 前の版から変えたブロック：右端の細い緑の線だけ（左は、コメントの番号が出る。凡例は、上のバー） */
 #article .blk.changed.added { box-shadow: 6px 0 0 -3px var(--change-added); }
-#article .diffbox { margin: 4px 0 12px; font-size: var(--fs-s); color: var(--muted); }
+:is(#article, #compare) .diffbox { margin: 4px 0 12px; font-size: var(--fs-s); color: var(--muted); }
 #article li.diffbox { list-style: none; display: block; } /* list-item のままだと、番号つきの並びで、番号を 1 つ使う */
-#article .diffbox summary { cursor: pointer; user-select: none; }
-#article .diffbox .diff { margin-top: 4px; padding: 6px 10px; background: var(--surface); border: 1px dashed var(--line-strong); border-radius: var(--r); color: var(--ink); white-space: pre-wrap; word-break: break-word; }
-#article .diffbox ins { background: var(--ins); text-decoration: none; }
-#article .diffbox del { background: var(--del); text-decoration: line-through; }
+:is(#article, #compare) .diffbox summary { cursor: pointer; user-select: none; }
+:is(#article, #compare) .diffbox .diff { margin-top: 4px; padding: 6px 10px; background: var(--surface); border: 1px dashed var(--line-strong); border-radius: var(--r); color: var(--ink); white-space: pre-wrap; word-break: break-word; }
+:is(#article, #compare) .diffbox .diffnote { margin-bottom: 4px; color: var(--muted); font-size: var(--fs-s); }
+:is(#article, #compare) .diffbox ins { background: var(--ins); text-decoration: none; }
+:is(#article, #compare) .diffbox del { background: var(--del); text-decoration: line-through; }
 #article .diffbox.removed { margin-top: 24px; padding-top: 8px; border-top: 1px dashed var(--line-strong); }
 #article .diffbox.removed .diff + .diff { margin-top: 4px; }
+
+/* ---- 版を並べて比べる（F44）：本文の領域に、左右 2 つの版を、ブロックごとの行で並べる（読み取り専用）。行の高さは、左右で揃う（空きは空白）ので、スクロールの同期は要らない。
+   比べている間は、右のコメントを隠して、本文の幅を広く使う。状態（追加・変更・削除）は、色だけでなく、札の文字でも伝える。狭い窓（760px 未満）・欄が狭いときは、行の左右を、上下に並べる ---- */
+#app.comparing { grid-template-columns: var(--side-w) minmax(0, 1fr); }
+#app.comparing #threads, #app.comparing #panel-resizer { display: none; }
+.cmp-sr { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
+#btn-compare[aria-pressed="true"] { background: var(--accent-soft); color: var(--accent-ink); border-color: var(--accent-line); }
+#btn-compare.off { color: var(--muted); border-style: dashed; cursor: default; } /* 押せない（aria-disabled）：薄めず（読める：AA）、破線と灰色の文字で伝える */
+#compare { container: cmp / inline-size; display: flex; flex-direction: column; gap: 10px; }
+#compare .cmptop { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 6px 16px; }
+#compare .cmpnote { margin: 0; font-size: var(--fs-s); color: var(--muted); }
+#compare .cmpnote-main { color: var(--ink-2); }
+#compare .cmpactions { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; }
+#compare .cmphead, #compare .cmprow { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); column-gap: 20px; }
+#compare .cmphead { position: sticky; top: 0; z-index: 5; padding: 8px 0; background: var(--paper); border-bottom: 1px solid var(--line); }
+#compare .cmpcol { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+#compare .cmpcol-row { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; }
+#compare .cmplabel { display: inline-flex; align-items: center; gap: 6px; font-size: var(--fs-s); color: var(--muted); }
+#compare .cmplabel select { padding: 3px 8px; font-size: var(--fs-s); }
+#compare .cmptag { padding: 0 8px; border: 1px solid var(--line-strong); border-radius: 999px; }
+#compare .cmptag.latest { color: var(--accent-ink); background: var(--accent-soft); border-color: var(--accent-line); }
+#compare .cmperr { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; font-size: var(--fs-s); color: var(--err); }
+#compare .cmpmeta { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 14px; }
+#compare .cmpmeta:empty { display: none; }
+#compare .cmpsum { color: var(--ink-2); font-weight: 600; }
+#compare .cmptools { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 14px; padding: 4px 8px; background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); }
+#compare .cmptools-bar { margin: 0; padding: 0; border: 0; min-width: 0; display: inline-flex; flex-wrap: wrap; align-items: center; gap: 1px; }
+#compare .cmptools-t { margin-right: 6px; font-size: var(--fs-s); color: var(--muted); }
+#compare .cmptools button.iconbtn { width: 24px; height: 24px; }
+#compare .cmptools button.iconbtn[aria-pressed="true"] { background: var(--accent-a10); color: var(--accent-ink); }
+#compare .cmpgrid.loading { opacity: 0.55; }
+#compare .cmpcell { position: relative; min-width: 0; padding: 0 12px; border-radius: var(--r-s); }
+#compare .cmpcell > :is(p, h1, h2, h3, h4, ul, ol, table, pre, blockquote):first-child { margin-top: 0.4em; }
+#compare .cmpcell > :is(ul, ol) { margin: 0.15em 0; } /* 並びの項目は、1 つずつ、並びの外枠に入る：外枠の上下の余白を詰めて、項目の間隔を、本文と同じに */
+#compare .cmpgap { border: 1px dashed var(--line); background: transparent; }
+#compare .cmpside { display: none; margin-top: 6px; font-size: 11px; color: var(--muted); }
+#compare .cmpbadge { display: inline-block; margin: 6px 0 0; padding: 0 8px; font-size: 11px; font-weight: 600; line-height: 18px; border: 1px solid currentColor; border-radius: 999px; }
+#compare .cmpcell[data-status="added"] { background: var(--diff-add-bg); box-shadow: inset 3px 0 0 var(--change-added); }
+#compare .cmpcell[data-status="added"] .cmpbadge { color: var(--diff-add-ink); }
+#compare .cmpcell[data-status="removed"] { background: var(--diff-del-bg); box-shadow: inset 3px 0 0 var(--diff-del-ink); }
+#compare .cmpcell[data-status="removed"] .cmpbadge { color: var(--diff-del-ink); }
+#compare .cmpcell[data-status="changed"].cmpl { background: var(--diff-del-bg); box-shadow: inset 3px 0 0 var(--diff-del-ink); }
+#compare .cmpcell[data-status="changed"].cmpl .cmpbadge { color: var(--diff-del-ink); }
+#compare .cmpcell[data-status="changed"].cmpr { background: var(--diff-add-bg); box-shadow: inset 3px 0 0 var(--change); }
+#compare .cmpcell[data-status="changed"].cmpr .cmpbadge { color: var(--diff-add-ink); }
+#compare .cmpcell[data-status]:has(> .htmlapp) { background: transparent; } /* 枠（html-app）の行は、地を塗らない（枠が、主役）。左の線と札で、状態を伝える */
+#compare .cmpgroup { margin: 6px 0; }
+#compare .cmpgroup > summary { padding: 6px 10px; font-size: var(--fs-s); color: var(--muted); cursor: pointer; user-select: none; border: 1px dashed var(--line-strong); border-radius: var(--r); }
+#compare .cmpgroup[open] > summary { margin-bottom: 4px; }
+@media (max-width: 759.98px) {
+  #compare .cmphead, #compare .cmprow { grid-template-columns: minmax(0, 1fr); }
+  #compare .cmphead { position: static; }
+  #compare .cmprow { padding-bottom: 8px; border-bottom: 1px solid var(--line); }
+  #compare .cmpgap { display: none; }
+  #compare .cmpside { display: block; }
+}
+@container cmp (max-width: 519.98px) {
+  #compare .cmphead, #compare .cmprow { grid-template-columns: minmax(0, 1fr); }
+  #compare .cmphead { position: static; }
+  #compare .cmprow { padding-bottom: 8px; border-bottom: 1px solid var(--line); }
+  #compare .cmpgap { display: none; }
+  #compare .cmpside { display: block; }
+}
 
 /* ---- 本文：資料の形式（diff・json・terminal・trace）。`.md` は、本文と、AI の返信の本体の、両方につく ---- */
 .md .fmt { margin: 0 0 14px; border: 1px solid var(--line); border-radius: var(--r); background: var(--card); overflow: auto; }

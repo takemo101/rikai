@@ -5,6 +5,7 @@
 import { ArrowLeftRight, Crosshair, Expand, Monitor, Moon, Smartphone, Sun, Tablet, Tv } from 'lucide-react';
 import { useSyncExternalStore } from 'react';
 import { createRoot } from 'react-dom/client';
+import type { ResolvedTheme } from '../lib/theme';
 import { type AppFrame, FRAME_WIDTHS, type FrameWidth, frameScale, frameScrolls } from './appBridge';
 
 // 幅：名前・px。aria-label は「枠の幅：名前（px）」。title は、本文より広いとき、縮小率を足す（枠の中のレイアウトは、選んだ幅で計算して、本文の幅に収まるよう縮小して見せる）
@@ -18,18 +19,26 @@ const WIDTH_UI: Record<FrameWidth, { Icon: typeof Monitor; name: string; px?: nu
 
 const PICK_LABEL = '枠の中の要素を選んでコメント';
 
-/** `onFocus`：「個別表示」ボタン（F43）。本文の枠の見出しだけに付ける（個別表示の中の枠には、付けない） */
-export function AppToolbar({ frame, onFocus }: { frame: AppFrame; onFocus?: (() => void) | undefined }) {
-  const state = useSyncExternalStore(frame.subscribe, frame.get);
-  const dark = state.mode === 'dark';
-  const modeLabel = `枠の外観：${dark ? 'ダーク' : 'ライト'}。押すと、${dark ? 'ライト' : 'ダーク'}にします`;
+/**
+ * 幅のボタン（375・768・1280・1920・自動）。`width`：いま選んでいる幅（そろっていなければ null：どれも押されていない）・`avail`：本文の幅（縮小率を、タイトルに書く）。
+ * 1 つの枠のツールバーと、版を並べて比べる画面（F44）の、比較用ツールバーが、同じものを使う
+ */
+export function WidthButtons({
+  width,
+  avail,
+  onWidth,
+}: {
+  width: FrameWidth | null;
+  avail: number;
+  onWidth: (w: FrameWidth) => void;
+}) {
   return (
     <>
       {FRAME_WIDTHS.map((w) => {
         const { Icon, name, px } = WIDTH_UI[w];
         const label = px ? `枠の幅：${name}（${px}px）` : `枠の幅：${name}`;
-        const scale = frameScale(w, state.avail);
-        const scrolls = frameScrolls(w, state.avail);
+        const scale = frameScale(w, avail);
+        const scrolls = frameScrolls(w, avail);
         const title =
           scale < 1
             ? `枠の幅：${name}（${px}px・表示は ${Math.round(scale * 100)}% に縮小${scrolls ? '。横にスクロールできます' : ''}）`
@@ -42,23 +51,43 @@ export function AppToolbar({ frame, onFocus }: { frame: AppFrame; onFocus?: (() 
             data-width={w}
             title={title}
             aria-label={label}
-            aria-pressed={state.width === w}
-            onClick={() => frame.setWidth(w)}
+            aria-pressed={width === w}
+            onClick={() => onWidth(w)}
           >
             <Icon aria-hidden="true" focusable="false" />
           </button>
         );
       })}
-      <button
-        type="button"
-        className="iconbtn"
-        data-frame-mode={state.mode}
-        title={modeLabel}
-        aria-label={modeLabel}
-        onClick={() => frame.setMode(dark ? 'light' : 'dark')}
-      >
-        {dark ? <Moon aria-hidden="true" focusable="false" /> : <Sun aria-hidden="true" focusable="false" />}
-      </button>
+    </>
+  );
+}
+
+/** 枠だけのライト／ダークのボタン。`mode`：いまの外観（そろっていなければ null：「不揃い」）。押すと、反対の外観（不揃いのときは、ダーク） */
+export function ModeButton({ mode, onMode }: { mode: ResolvedTheme | null; onMode: (m: ResolvedTheme) => void }) {
+  const dark = mode === 'dark';
+  const now = mode === null ? '不揃い' : dark ? 'ダーク' : 'ライト';
+  const label = `枠の外観：${now}。押すと、${dark ? 'ライト' : 'ダーク'}にします`;
+  return (
+    <button
+      type="button"
+      className="iconbtn"
+      data-frame-mode={mode ?? 'mixed'}
+      title={label}
+      aria-label={label}
+      onClick={() => onMode(dark ? 'light' : 'dark')}
+    >
+      {dark ? <Moon aria-hidden="true" focusable="false" /> : <Sun aria-hidden="true" focusable="false" />}
+    </button>
+  );
+}
+
+/** `onFocus`：「個別表示」ボタン（F43）。本文の枠の見出しだけに付ける（個別表示の中の枠には、付けない） */
+export function AppToolbar({ frame, onFocus }: { frame: AppFrame; onFocus?: (() => void) | undefined }) {
+  const state = useSyncExternalStore(frame.subscribe, frame.get);
+  return (
+    <>
+      <WidthButtons width={state.width} avail={state.avail} onWidth={(w) => frame.setWidth(w)} />
+      <ModeButton mode={state.mode} onMode={(m) => frame.setMode(m)} />
       <button
         type="button"
         className="iconbtn"

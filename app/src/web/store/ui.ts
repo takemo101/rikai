@@ -9,8 +9,10 @@
 import { create } from 'zustand';
 import { FRAME_IMAGE_LINE, FRAME_IMAGE_NOTE, FROM_FRAME_IMAGE } from '../../shared/htmlapp-bridge';
 import type { Anchor, Thread } from '../../shared/types';
+import type { FrameWidth } from '../doc/appBridge';
+import { defaultPair, isVersion } from '../lib/compare';
 import { loadSeen, loadUi, saveSeen, saveUi, type UiPrefs } from '../lib/storage';
-import { applyTheme, type ThemeMode } from '../lib/theme';
+import { applyTheme, type ResolvedTheme, type ThemeMode } from '../lib/theme';
 import { getView } from '../lib/view';
 
 export type Tab = 'live' | 'done' | 'all';
@@ -18,6 +20,28 @@ export type RegMode = 'idle' | 'selecting';
 /** 個別表示（F43）のステージの道具。`region`：画像・図・枠の上で、範囲をドラッグで選んでいる（Esc で中止）。要素を選ぶ道具（html-app）は、橋が持つ（`appBridge.ts`） */
 export type FocusTool = 'idle' | 'region';
 export type DialogKind = 'submit' | 'end';
+
+/**
+ * 版を並べて比べる（F44）の状態。開いている間だけある（null＝通常の表示）。**開閉・左右の版・比較用ツールバーの選びの、所有者は、ここだけ**（ルート〔ハッシュ〕には、持たない：
+ * 版のルート `#/…/vN` は「見ている版」で、比較は、その上の一時の画面。再読み込みで閉じる。ページ・トピックを移ると、閉じる）。
+ * `left`・`right`：比べる版（同じ版を左右に選んでもよい）。`width`・`mode`：左右のすべての枠に、まとめて効く幅・枠だけの外観（mode の null は、画面に従う）。
+ * `changesOnly`：変更のない続きのブロックを、折りたたむ。
+ * `from`：開く前の画面（閉じるとき、戻すために控える）：見ていた版の印（`View.key`）・本文のスクロール位置・入力欄（対象つき）・選んでいたスレッド
+ */
+export interface CompareState {
+  left: number;
+  right: number;
+  width: FrameWidth;
+  mode: ResolvedTheme | null;
+  changesOnly: boolean;
+  from: {
+    key: string;
+    scrollTop: number;
+    composer: ComposerState | null;
+    active: string | null;
+    solo: string | null;
+  };
+}
 
 /**
  * 個別表示の対象のブロックを、DocModel の中から探し直すための印（F43）。本文は、更新のたびに描き直されて、要素が作り直されるので、要素ではなく、内容で指す：
@@ -95,6 +119,10 @@ export interface UiState {
   linkedTid: string | null;
   /** 「前の版からの変更を表示」 */
   showChanges: boolean;
+  /** 版を並べて比べる画面（F44）。開いていなければ null */
+  compare: CompareState | null;
+  /** 比べる画面を閉じて、本文を描き直したあとに、戻すスクロール位置（本文〔`Article`〕が、描き終えたら、1 度だけ受け取る）。なければ null */
+  scrollRestore: number | null;
   drafts: Drafts;
   /** 入力欄のキー → 世代（やめる・送る・移るで進める。終わりが遅れたアップロードを、捨てるため） */
   imgGen: Record<string, number>;
@@ -200,6 +228,25 @@ export interface UiActions {
   openZoom: (target: LightboxTarget) => void;
   closeLightbox: () => void;
   setLive: (live: boolean) => void;
+  // ---- 版を並べて比べる（F44） ----
+  /**
+   * 開く：版が 2 つ以上あるページで、いま見ている版と、その 1 つ前（`defaultPair`）。開けたら true。`scrollTop`：本文のスクロール位置（閉じたら戻す）。
+   * コメントの入力欄（対象つき）・選んでいるスレッドは、`compare.from` に控えて、いったん外す（書きかけの文・添付の画像は、そのまま残る）
+   */
+  openCompare: (scrollTop?: number) => boolean;
+  /**
+   * 閉じる。`restore`（既定 true）：開く前の入力欄の対象・選んでいたスレッド・スクロール位置を、戻す。**見ている版が同じとき（`View.key` が同じ。版の本文は変わらないので、対象は、まだ本文にある）だけ**
+   * 戻す（ページ・トピックを移った・新しい版が届いて最新版が替わったときは、戻さない：書きかけの文・画像は、下書きとして残る）。別の入力欄が、すでに開いていれば、そちらを優先する
+   */
+  closeCompare: (restore?: boolean) => void;
+  /** 戻すスクロール位置を、1 度だけ受け取る（受け取ると、なくなる） */
+  takeScrollRestore: () => number | null;
+  /** 左右の版を選ぶ。存在しない版（0・最新版より後・整数でない）は、受けない */
+  setCompareVersion: (side: 'left' | 'right', version: number) => void;
+  setCompareWidth: (width: FrameWidth) => void;
+  /** 枠だけの外観（null は、画面に従う）。画面の外観が変わると、null に戻る（`useFollowAppFrames`） */
+  setCompareMode: (mode: ResolvedTheme | null) => void;
+  setCompareChangesOnly: (on: boolean) => void;
   // ---- 画面の広さ ----
   /** 左の一覧を、しまう・出す。autoHidden（788px 未満の、自動で隠す窓）では、保存せず、本文の上に重ねて出す・しまう。広い窓では、保存して、重ねて出したものは、しまう */
   toggleSide: (autoHidden?: boolean) => void;
@@ -228,6 +275,8 @@ export function initialUi(): UiState {
     focusSeq: 0,
     linkedTid: null,
     showChanges: true,
+    compare: null,
+    scrollRestore: null,
     drafts: { composer: '', reply: {}, edit: {}, ask: {}, imgs: {} },
     imgGen: {},
     uploading: 0,
@@ -345,6 +394,59 @@ export const useUi = create<UiStore>()((set, get) => {
     },
     markSeen,
     setShowChanges: (showChanges) => set({ showChanges }),
+    openCompare: (scrollTop = 0) => {
+      const v = getView();
+      const pair = v ? defaultPair(v.version, v.latest) : null;
+      if (!v || !pair) return false;
+      const { composer, active, solo } = get();
+      set({
+        compare: {
+          ...pair,
+          width: 'auto',
+          mode: null,
+          changesOnly: false,
+          from: { key: v.key, scrollTop, composer, active, solo },
+        },
+        composer: null,
+        active: null,
+        solo: null,
+        regMode: 'idle',
+        linkedTid: null,
+      });
+      return true;
+    },
+    closeCompare: (restore = true) => {
+      const { compare } = get();
+      if (!compare) return;
+      const v = getView();
+      const same = restore && v !== null && v.key === compare.from.key;
+      const { composer, active, solo, scrollTop } = compare.from;
+      set((s) => ({
+        compare: null,
+        ...(same
+          ? {
+              composer: s.composer ?? (v?.isLatest ? composer : null),
+              active: s.active ?? active,
+              solo: s.solo ?? solo,
+              scrollRestore: scrollTop,
+            }
+          : { scrollRestore: null }),
+      }));
+    },
+    takeScrollRestore: () => {
+      const r = get().scrollRestore;
+      if (r !== null) set({ scrollRestore: null });
+      return r;
+    },
+    setCompareVersion: (side, version) => {
+      const v = getView();
+      if (!v || !isVersion(version, v.latest)) return;
+      set((s) => (s.compare ? { compare: { ...s.compare, [side]: version } } : s));
+    },
+    setCompareWidth: (width) => set((s) => (s.compare ? { compare: { ...s.compare, width } } : s)),
+    setCompareMode: (mode) =>
+      set((s) => (s.compare && s.compare.mode !== mode ? { compare: { ...s.compare, mode } } : s)),
+    setCompareChangesOnly: (changesOnly) => set((s) => (s.compare ? { compare: { ...s.compare, changesOnly } } : s)),
 
     setComposerDraft: (text) => patchDrafts({ composer: text }),
     setReplyDraft: (tid, text) => set((s) => ({ drafts: { ...s.drafts, reply: { ...s.drafts.reply, [tid]: text } } })),

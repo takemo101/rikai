@@ -5,19 +5,24 @@ import { $$, h } from '../../lib/dom';
 import { type ResolvedTheme, resolvedTheme } from '../../lib/theme';
 import type { View } from '../../lib/view';
 import { mountToolbar } from '../AppToolbar';
-import { initialFrameState, registerFrame } from '../appBridge';
+import { compareFrameState, type FrameWidth, initialFrameState, registerFrame } from '../appBridge';
 
 /** 自動の高さの枠の、最初の高さ（px）。中身の知らせ（appBridge.ts）が届くまで */
 const AUTO_INITIAL_HEIGHT = 200;
 
 export interface AppsContext {
   view: View;
-  /** 「この枠にコメント」を押した。枠（`.htmlapp`）を渡す */
-  onComment: (box: HTMLElement) => void;
+  /** 「この枠にコメント」を押した。枠（`.htmlapp`）を渡す。なければ、ボタンを出さない（版を並べて比べる画面：`compare`） */
+  onComment?: (box: HTMLElement) => void;
   /** 利用者が、枠の中の要素を選んだ（検査済み）。枠（`.htmlapp`）・要素の情報・その枠の最新の状態（JSON）を渡す */
   onPick?: (box: HTMLElement, pick: PickInfo, stateJson: string | null) => void;
   /** 「個別表示」を押した（F43）。枠（`.htmlapp`）を渡す */
   onFocus?: (box: HTMLElement) => void;
+  /**
+   * 版を並べて比べる画面の枠（F44）：**読み取り専用**。個別のツールバー・「この枠にコメント」・要素を選ぶ入口を出さない（比較用ツールバーが、左右の枠に、まとめて効く）。
+   * 最初の幅・外観は、`ui.compare` の選び（外観の null は、画面に従う）。幅・外観は、同じ版の中でも、覚えない（本文の枠の覚えと、混ぜない）。`label`：枠の名前に足す（「左」「右」）
+   */
+  compare?: { width: FrameWidth; mode: ResolvedTheme | null; label: string; onEsc: () => void };
 }
 
 /** 枠の置き場（`.htmlapp`）の、枠の仕様：番号・固定の高さ（`height=480`。なければ null＝自動）・資料のソース・画面の配色への対応。番号が読めなければ null */
@@ -81,13 +86,29 @@ export function fillApps(container: ParentNode, ctx: AppsContext): void {
     const cap = box.querySelector('.cap');
     if (live) {
       // 外観は、画面のいまの外観（`?mode=`）。同じ版の中で覚えている、枠だけの外観・幅があれば、それ
-      const state = initialFrameState(view.key, n, resolvedTheme(), follows);
-      const { wrap, iframe } = appFrameDom(view, n, fixed, state.mode);
+      const cmp = ctx.compare;
+      const state = cmp
+        ? compareFrameState(cmp.width, cmp.mode, resolvedTheme(), follows)
+        : initialFrameState(view.key, n, resolvedTheme(), follows);
+      const { wrap, iframe } = appFrameDom(
+        view,
+        n,
+        fixed,
+        state.mode,
+        cmp ? { title: `${cmp.label}の実行できる枠 ${n + 1}` } : {},
+      );
       box.append(wrap);
-      const frame = registerFrame(iframe, n, auto, follows, state, {
-        onPick: (pick, stateJson) => ctx.onPick?.(box, pick, stateJson),
-      });
-      if (cap) {
+      const frame = registerFrame(
+        iframe,
+        n,
+        auto,
+        follows,
+        state,
+        cmp
+          ? { remember: false, onEsc: cmp.onEsc }
+          : { onPick: (pick, stateJson) => ctx.onPick?.(box, pick, stateJson) },
+      );
+      if (cap && !cmp) {
         const tools = h('span', { class: 'apptools', role: 'group', 'aria-label': '枠の表示（幅・外観）' });
         cap.append(' ', tools);
         mountToolbar(tools, frame, ctx.onFocus ? () => ctx.onFocus?.(box) : undefined);
@@ -100,8 +121,9 @@ export function fillApps(container: ParentNode, ctx: AppsContext): void {
         }),
       );
     }
-    if (cap && view.isLatest)
-      cap.append(' ', h('button', { class: 'link', text: 'この枠にコメント', onclick: () => ctx.onComment(box) }));
+    const onComment = ctx.onComment;
+    if (cap && view.isLatest && onComment && !ctx.compare)
+      cap.append(' ', h('button', { class: 'link', text: 'この枠にコメント', onclick: () => onComment(box) }));
     // 何が動くかを、見られるように（ソースは、文字として出す）。版が変わったときに、何が変わったか、確かめられる
     if (source)
       box.append(h('details', { class: 'appsrc' }, h('summary', { text: 'ソースを見る' }), h('pre', { text: source })));

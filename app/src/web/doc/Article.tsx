@@ -111,7 +111,18 @@ export function Article({ view, markdown, prevMarkdown }: ArticleProps) {
         settled.current = true;
         applyActive(art, useUi.getState().active);
         applyLinked(art, model, useUi.getState().linkedTid);
+        // 比べる画面（F44）を閉じた直後：開く前の位置へ（範囲外は、ブラウザが収める）。枠・画像の高さが落ち着くまで、2 フレーム後にも、置き直す
+        const restore = useUi.getState().takeScrollRestore();
+        if (restore !== null) scrollTo.current = restore;
         if (scroller) scroller.scrollTop = scrollTo.current;
+        if (restore !== null && scroller) {
+          const applied = scroller.scrollTop; // 利用者が、そのあいだに動かしていれば（位置が変わっていれば）、置き直さない
+          requestAnimationFrame(() =>
+            requestAnimationFrame(() => {
+              if (tok === renderTok.current && Math.abs(scroller.scrollTop - applied) < 1) scroller.scrollTop = restore;
+            }),
+          );
+        }
         useDoc.getState().setModel(model);
       })
       .catch(() => {

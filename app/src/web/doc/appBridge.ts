@@ -99,10 +99,16 @@ function decodesWithinLimit(png: string): Promise<boolean> {
 
 /** 枠 → 画面の、書き戻しの受け口（`registerFrame` に渡す） */
 export interface FrameHandlers {
+  /**
+   * 幅・枠だけの外観を、同じ版の中で覚えるか（既定 true）。**版を並べて比べる画面（F44）の枠は、false**：左右の枠が、同じ番号（`n`）で、同じ覚えを使い合わない・
+   * 本文の枠の覚えを、上書きしない。比較用ツールバーの選びは、`ui.compare` が持つ（`compareFrameState`）
+   */
+  remember?: boolean;
   /** 利用者が、枠の中の要素を選んだ（検査済み）。`stateJson`：その枠の、最新の状態 */
   onPick?: (pick: PickInfo, stateJson: string | null) => void;
   /**
-   * 枠の中の Esc（検査済み。頻度の上限つき）。**個別表示の枠だけが渡す**（F43）：本文の枠は、渡さない（枠の Esc は、何もしない）。
+   * 枠の中の Esc（検査済み。頻度の上限つき）。**個別表示の枠（F43）と、版を並べて比べる画面の枠（F44）だけが渡す**：本文の枠は、渡さない（枠の Esc は、何もしない）。
+   * 枠のコードが、偽の `esc` を送れば、その画面が閉じる（閉じるだけ：データには触れない。個別表示と同じ）
    * 選択モードの Esc は、橋が `pick-cancel` で知らせる（ここへは、来ない）
    */
   onEsc?: () => void;
@@ -141,6 +147,16 @@ export function initialFrameState(viewKey: string, n: number, page: ResolvedThem
     avail: 0,
     picking: false,
   };
+}
+
+/** 版を並べて比べる画面（F44）の枠の、最初の状態：比較用ツールバーの選び（幅・枠だけの外観。null は、画面に従う）。覚えは使わない */
+export function compareFrameState(
+  width: FrameWidth,
+  mode: ResolvedTheme | null,
+  page: ResolvedTheme,
+  follows: boolean,
+): FrameState {
+  return { width, mode: mode ?? (follows ? page : 'light'), forced: mode !== null, avail: 0, picking: false };
 }
 
 /** 枠が知らせた高さの検査：`{ __rikai: 1, type: 'resize', height }`（余分なキーは、無視）。数（有限・正）だけ。整数に丸めて、上下限に収める。それ以外は null */
@@ -202,9 +218,10 @@ export function registerFrame(
   const notify = (): void => {
     for (const cb of subs) cb();
   };
+  const remember = handlers.remember !== false;
   const set = (next: FrameState): void => {
     state = next;
-    memory.set(n, { width: next.width, mode: next.forced ? next.mode : null });
+    if (remember) memory.set(n, { width: next.width, mode: next.forced ? next.mode : null });
     showMode();
     notify();
   };
@@ -312,7 +329,7 @@ export function registerFrame(
       if (mode === state.mode && !state.forced) return;
       const changed = mode !== state.mode;
       state = { ...state, mode, forced: false };
-      memory.set(n, { width: state.width, mode: null });
+      if (remember) memory.set(n, { width: state.width, mode: null });
       showMode();
       notify();
       if (changed) postTheme('auto');
@@ -367,7 +384,7 @@ export function registerFrame(
         setPicking(false); // 1 つ選ぶと、終わる（続けて届いても、受けない：洪水で、下書きが増えない）
         handlers.onPick?.(pick, stateJson);
       } else if (type === 'esc') {
-        if (!handlers.onEsc || !parseEsc(data)) return; // 個別表示の枠だけ。形の検査
+        if (!handlers.onEsc || !parseEsc(data)) return; // 個別表示・比べる画面の枠だけ。形の検査
         const now = Date.now();
         escTimes = escTimes.filter((t) => now - t < 1000);
         if (escTimes.length >= ESC_LIMIT) return; // 頻度の上限
@@ -424,6 +441,11 @@ export function followPageTheme(mode: ResolvedTheme): void {
 export function latestStateOf(box: ParentNode): string | null {
   for (const f of frames) if (box.contains(f.iframe)) return f.latestState();
   return null;
+}
+
+/** `container` の中の、登録した枠（文書の順）。版を並べて比べる画面（F44）の、比較用ツールバーが、左右の枠に、同じ幅・外観を適用する */
+export function framesIn(container: ParentNode): AppFrame[] {
+  return [...frames].filter((f) => container.contains(f.iframe));
 }
 
 /** この iframe（登録した枠）に、自分の見た目を画像にさせる。枠でない・応答しない・不正なときは null */

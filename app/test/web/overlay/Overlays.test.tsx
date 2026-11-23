@@ -242,6 +242,25 @@ test('範囲の枠：.regionbox（解決済みは .resolved）。基準の画像
   expect(b.querySelector('.rh')).toBeNull();
 });
 
+test('範囲の枠：F25 の範囲内の広い範囲（はみ出す比率）は、画像・図・文のブロックでは、切らずに描く。html-app の枠のブロックだけ、基準の周り（-1〜2 倍）に収める', () => {
+  const wide = { x: 0, y: -0.5, w: 1, h: 3 }; // 縦に広い（横は、本文の領域で切れるので、はみ出させない。横の収め方は layout.test.ts）
+  const drawn = (cls: string | null) => {
+    const w = world();
+    if (cls) (w.blocks[2] as HTMLElement).classList.add(cls);
+    const model = modelOf(w);
+    model.locs.set('t3', { kind: 'region', el: w.blocks[2] as HTMLElement, frame: w.img, rect: wide });
+    const { layer } = mount(w, model);
+    const b = layer().querySelector<HTMLElement>('.regionbox') as HTMLElement;
+    return [b.style.left, b.style.top, b.style.width, b.style.height];
+  };
+  // 基準：左 340 上 300 幅 400 高さ 200（層での位置：左 340 − 100・上 300 − 50）。そのまま：左 240・上 250 − 100 = 150・幅 400・高さ 600
+  const asIs = ['240px', '150px', '400px', '600px'];
+  expect(drawn(null)).toEqual(asIs); // 段落（画像を含む）
+  expect(drawn('mermaid-block')).toEqual(asIs); // 図
+  // html-app：基準は、ブロックの箱（幅 600・高さ 400。`.appview` がないとき）。下端は 2 倍まで：上 -0.5 から 2.5 × 400 = 1000（収めなければ、1200）
+  expect(drawn('htmlapp')).toEqual(['240px', '50px', '600px', '1000px']);
+});
+
 test('入力中：対象が範囲なら、アクセントの破線の枠（.regionbox.pending と 8 つのハンドル）と「新」。文・ブロックなら、「新」だけ', () => {
   const w = world();
   const pendingRect: Rect = { x: 0.1, y: 0.1, w: 0.5, h: 0.5 };
