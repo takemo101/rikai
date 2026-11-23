@@ -7,6 +7,7 @@ import type { View } from '../lib/view';
 import { toast, useUi } from '../store/ui';
 import { sideAutoHidden, usePanelGeometry } from './geometry';
 import type { ServerStatus } from './status';
+import { TurnPill, useTurn } from './TurnPill';
 
 export interface TopBarProps {
   view: View | null;
@@ -33,6 +34,7 @@ export function TopBar({ view, status }: TopBarProps) {
   const unsent = topic?.unsent ?? 0;
   const label = topic ? progressLabel(topic.threads) : null;
   const pending = !!topic?.meta.pending?.length;
+  const turn = useTurn(view);
 
   return (
     <header id="top">
@@ -61,12 +63,6 @@ export function TopBar({ view, status }: TopBarProps) {
         <ThemeIcon aria-hidden="true" focusable="false" />
       </button>
       <div id="top-status">
-        {label ? (
-          <span className="chip" title={PROGRESS_TITLE}>
-            <CircleCheck aria-hidden="true" focusable="false" />
-            {label}
-          </span>
-        ) : null}
         {status.offline ? (
           <span className="chip warn">
             <TriangleAlert aria-hidden="true" focusable="false" />
@@ -77,12 +73,23 @@ export function TopBar({ view, status }: TopBarProps) {
             <TriangleAlert aria-hidden="true" focusable="false" />
             サーバーのエラー: {trunc(status.error, 40)}
           </span>
-        ) : pending && view ? (
+        ) : view && turn ? (
+          <TurnPill view={view} turn={turn} />
+        ) : null}
+        {label ? (
+          <span className="chip" title={PROGRESS_TITLE}>
+            <CircleCheck aria-hidden="true" focusable="false" />
+            <span className="chip-t">{label}</span>
+          </span>
+        ) : null}
+        {!status.offline && !status.error && pending && view ? (
           <>
-            <span className="chip wait">
-              <Hourglass aria-hidden="true" focusable="false" />
-              AIの返信待ち
-            </span>
+            {turn?.kind === 'unsent' ? (
+              <span className="chip wait">
+                <Hourglass aria-hidden="true" focusable="false" />
+                AIの返信待ち
+              </span>
+            ) : null}
             <span className="hint">Claude Code 以外は「rikai に送りました」と伝えてください</span>
             <button
               type="button"
@@ -104,7 +111,7 @@ export function TopBar({ view, status }: TopBarProps) {
       <button
         id="btn-submit"
         type="button"
-        className="primary"
+        className={turn?.kind === 'unsent' ? 'primary attn' : 'primary'}
         disabled={!topic || !unsent}
         onClick={() => {
           if (topic && unsent) useUi.getState().openDialog('submit');
