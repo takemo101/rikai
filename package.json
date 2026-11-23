@@ -1,6 +1,6 @@
 {
   "name": "rikai",
-  "version": "0.22.1",
+  "version": "0.23.0",
   "private": true,
   "description": "資料にコメントして Submit すると、AI が返信と資料の修正（版）で答える。理解できるまで回すスキル",
   "keywords": [

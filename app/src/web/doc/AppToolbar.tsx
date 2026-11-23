@@ -1,7 +1,8 @@
 // 実行できる枠（html-app）の見出しの行の、小さなツールバー：枠の幅（スマートフォン・タブレット・デスクトップ・本文の幅いっぱい）と、枠だけのライト／ダーク。
 // デザインの比較・UI のレビューのため：同じ枠を、幅と外観を変えて、見比べられる。アイコンだけ（`aria-label`・`title`。**本文の DOM に、文字を増やさない**）。
+// 「要素を選ぶ」ボタン（F42）：押すと、枠が選択モードに入り、枠の中で押した要素の情報が、下書きのコメントになる（自動では、送らない）。選んでいる間は、見出しに、説明（`aria-live`）を出す。
 // 本文は、命令的な島（`render/apps.ts`）なので、ここは、枠ごとに、小さな React の根を作って載せる（`mountToolbar`）。状態は、橋（`appBridge.ts`）が持つ。
-import { ArrowLeftRight, Monitor, Moon, Smartphone, Sun, Tablet, Tv } from 'lucide-react';
+import { ArrowLeftRight, Crosshair, Monitor, Moon, Smartphone, Sun, Tablet, Tv } from 'lucide-react';
 import { useSyncExternalStore } from 'react';
 import { createRoot } from 'react-dom/client';
 import { type AppFrame, FRAME_WIDTHS, type FrameWidth, frameScale, frameScrolls } from './appBridge';
@@ -14,6 +15,8 @@ const WIDTH_UI: Record<FrameWidth, { Icon: typeof Monitor; name: string; px?: nu
   1920: { Icon: Tv, name: 'ワイドデスクトップ', px: 1920 },
   auto: { Icon: ArrowLeftRight, name: '本文の幅いっぱい' },
 };
+
+const PICK_LABEL = '枠の中の要素を選んでコメント';
 
 function AppToolbar({ frame }: { frame: AppFrame }) {
   const state = useSyncExternalStore(frame.subscribe, frame.get);
@@ -55,6 +58,20 @@ function AppToolbar({ frame }: { frame: AppFrame }) {
       >
         {dark ? <Moon aria-hidden="true" focusable="false" /> : <Sun aria-hidden="true" focusable="false" />}
       </button>
+      <button
+        type="button"
+        className="iconbtn"
+        data-pick
+        title={PICK_LABEL}
+        aria-label={PICK_LABEL}
+        aria-pressed={state.picking}
+        onClick={() => (state.picking ? frame.cancelPick() : frame.startPick())}
+      >
+        <Crosshair aria-hidden="true" focusable="false" />
+      </button>
+      <span className="apppick" role="status" aria-live="polite">
+        {state.picking ? '枠の中で、要素を押してください（Esc で中止）' : ''}
+      </span>
     </>
   );
 }

@@ -4,7 +4,7 @@ import type { Anchor, Thread } from '../../../shared/types';
 import type { View } from '../../lib/view';
 import { type DocModel, nextEpoch } from '../../store/doc';
 import { releaseApps } from '../appBridge';
-import { fillApps } from './apps';
+import { type AppsContext, fillApps } from './apps';
 import { markBlocks } from './blocks';
 import { addDiff } from './diff';
 import { applyHighlights, markPending } from './highlights';
@@ -21,6 +21,8 @@ export interface RenderInput {
   threads: readonly Thread[];
   /** 「この枠にコメント」を押した（枠を、コメントの対象にする） */
   onComment: (box: HTMLElement) => void;
+  /** 利用者が、枠の中の要素を選んだ（枠から届いた、検査済みの情報。下書きを作る） */
+  onPick?: AppsContext['onPick'];
   /** 描き終えたとき、入力中の対象（あれば）を、本文で強調するために読む（描いている間に、変わりうる） */
   pendingAnchor: () => Anchor | null;
 }
@@ -43,7 +45,7 @@ export async function renderDoc(
       : null;
   releaseApps(art); // いまの枠（描き直しで消える）を、橋から外す
   art.replaceChildren(frag);
-  fillApps(art, { view, onComment: input.onComment });
+  fillApps(art, { view, onComment: input.onComment, onPick: input.onPick });
   await fillMermaid(art);
   if (!isCurrent()) return null;
   const layout = applyHighlights(art, input.threads, view.version);

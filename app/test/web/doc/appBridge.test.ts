@@ -2,6 +2,7 @@
 // 実行できる枠（html-app）の橋（画面の側）：知らせの検査（送り元の窓・形・数・上下限）・別の枠の高さを変えられない・固定の高さは無視・rAF でまとめる・
 // 1 秒あたりの反映の上限・受け口の参照カウントと後始末（二重の効果でも漏れない）・外観（theme）の送信・幅・同じ版の中で覚える。
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
+import type { PickInfo } from '../../../src/shared/htmlapp-bridge';
 import {
   APPLY_LIMIT,
   type AppFrame,
@@ -9,6 +10,7 @@ import {
   frameScale,
   frameScrolls,
   initialFrameState,
+  latestStateOf,
   MAX_HEIGHT,
   MIN_HEIGHT,
   MIN_SCALE,
@@ -16,6 +18,7 @@ import {
   registeredFrames,
   registerFrame,
   releaseApps,
+  requestFrameSnapshot,
 } from '../../../src/web/doc/appBridge';
 
 const added = vi.spyOn(window, 'addEventListener');
@@ -54,7 +57,16 @@ afterEach(() => {
 });
 
 /** 枠を作って、橋に登録する（iframe は、画面に付ける：contentWindow が、できる） */
-function addFrame(opts: { n?: number; auto?: boolean; key?: string; page?: 'light' | 'dark'; follows?: boolean } = {}) {
+function addFrame(
+  opts: {
+    n?: number;
+    auto?: boolean;
+    key?: string;
+    page?: 'light' | 'dark';
+    follows?: boolean;
+    onPick?: (pick: PickInfo, stateJson: string | null) => void;
+  } = {},
+) {
   // host（本文の幅の箱）> inner（縮小後の大きさを持つ箱）> iframe
   const iframe = document.createElement('iframe');
   iframe.setAttribute('height', '200');
@@ -67,6 +79,7 @@ function addFrame(opts: { n?: number; auto?: boolean; key?: string; page?: 'ligh
     opts.auto ?? true,
     opts.follows ?? true,
     initialFrameState(opts.key ?? viewKey, opts.n ?? 0, opts.page ?? 'light', opts.follows ?? true),
+    { onPick: opts.onPick },
   );
   return { iframe, frame, win: iframe.contentWindow as Window };
 }
@@ -257,7 +270,7 @@ test('外観：枠だけの切り替えは、theme を送る（形・送り先 *
   const send = vi.spyOn(a.win, 'postMessage');
   a.frame.setMode('dark');
   expect(send).toHaveBeenCalledWith({ __rikai: 1, type: 'theme', mode: 'dark', by: 'user' }, '*');
-  expect(a.frame.get()).toEqual({ width: 'auto', mode: 'dark', forced: true, avail: 0 });
+  expect(a.frame.get()).toEqual({ width: 'auto', mode: 'dark', forced: true, avail: 0, picking: false });
   a.frame.setMode('dark'); // 同じ値は、送らない
   expect(send).toHaveBeenCalledTimes(1);
   a.iframe.dispatchEvent(new Event('load'));
@@ -506,12 +519,14 @@ test('同じ版の中で、描き直しても（コメントの追加など）�
     mode: 'dark',
     forced: true,
     avail: 0,
+    picking: false,
   });
   expect(initialFrameState('topic/root/2', 4, 'light', true)).toEqual({
     width: 'auto',
     mode: 'light',
     forced: false,
     avail: 0,
+    picking: false,
   });
   // 外観が変わったあと（followPageTheme）は、枠だけの指定を覚えていない
   const again = addFrame({ n: 3, key: 'topic/root/2' });
@@ -522,6 +537,7 @@ test('同じ版の中で、描き直しても（コメントの追加など）�
     mode: 'dark',
     forced: false,
     avail: 0,
+    picking: false,
   });
   expect(again.frame.get().forced).toBe(false);
   // 別の版：捨てる
@@ -530,12 +546,14 @@ test('同じ版の中で、描き直しても（コメントの追加など）�
     mode: 'light',
     forced: false,
     avail: 0,
+    picking: false,
   });
   expect(initialFrameState('topic/root/2', 3, 'light', true)).toEqual({
     width: 'auto',
     mode: 'light',
     forced: false,
     avail: 0,
+    picking: false,
   });
 });
 
@@ -546,4 +564,284 @@ test('後始末：onRelease の関数が、外すときに、呼ばれる（1 �
   releaseApps(host);
   releaseApps(host);
   expect(fn).toHaveBeenCalledTimes(1);
+});
+
+// ---- 書き戻し（F42）：要素を選ぶ・状態 ----
+const pickMsg = (over: Record<string, unknown> = {}) => ({
+  __rikai: 1,
+  type: 'pick',
+  selector: 'button.primary',
+  tag: 'button',
+  text: 'ログイン',
+  rect: { x: 24, y: 312, w: 320, h: 40 },
+  styles: { display: 'block' },
+  frame: { w: 634, h: 400 },
+  ...over,
+});
+const stateMsg = (json: string) => ({ __rikai: 1, type: 'state', json });
+const keydown = (key: string): void => void document.dispatchEvent(new KeyboardEvent('keydown', { key }));
+const keyCalls = (spy: typeof added): number => spy.mock.calls.filter((c) => c[0] === 'keydown').length;
+const docAdd = vi.spyOn(document, 'addEventListener');
+const docDel = vi.spyOn(document, 'removeEventListener');
+
+test('要素を選ぶ：押すと選択モード（pick-start を、その枠へだけ送る）。1 つ選ぶと、検査済みの情報と、その枠の最新の状態が渡って、終わる', () => {
+  const onPick = vi.fn();
+  const a = addFrame({ n: 0, onPick });
+  const b = addFrame({ n: 1 });
+  const sa = vi.spyOn(a.win, 'postMessage');
+  const sb = vi.spyOn(b.win, 'postMessage');
+  const cb = vi.fn();
+  a.frame.subscribe(cb);
+  post(a.win, stateMsg('{"step":2}'));
+  a.frame.startPick();
+  expect(a.frame.get().picking).toBe(true);
+  expect(sa).toHaveBeenCalledWith({ __rikai: 1, type: 'pick-start' }, '*');
+  expect(sb).not.toHaveBeenCalled();
+  expect(cb).toHaveBeenCalled();
+  post(a.win, pickMsg());
+  expect(onPick).toHaveBeenCalledTimes(1);
+  expect(onPick).toHaveBeenCalledWith(
+    expect.objectContaining({
+      selector: 'button.primary',
+      tag: 'button',
+      text: 'ログイン',
+      rect: { x: 24, y: 312, w: 320, h: 40 },
+    }),
+    '{"step":2}',
+  );
+  expect(a.frame.get().picking).toBe(false);
+});
+
+test('要素を選ぶ：選択モードでない枠からの pick は、無視（枠のコードが、勝手に、下書きを作れない）。洪水でも、1 つ選ぶと終わるので、下書きは、1 つだけ', () => {
+  const onPick = vi.fn();
+  const a = addFrame({ onPick });
+  for (let i = 0; i < 50; i++) post(a.win, pickMsg()); // ボタンを押していない
+  expect(onPick).not.toHaveBeenCalled();
+  a.frame.startPick();
+  for (let i = 0; i < 1000; i++) post(a.win, pickMsg({ text: `洪水 ${i}` }));
+  expect(onPick).toHaveBeenCalledTimes(1);
+  expect(onPick.mock.calls[0]?.[0].text).toBe('洪水 0');
+});
+
+test('要素を選ぶ：不正な pick（型違い・巨大・NaN・余分なキー）は、捨てる。選択モードは、そのまま続く', () => {
+  const onPick = vi.fn();
+  const a = addFrame({ onPick });
+  a.frame.startPick();
+  for (const bad of [
+    pickMsg({ rect: { x: Number.NaN, y: 0, w: 1, h: 1 } }),
+    pickMsg({ text: 'x'.repeat(5000) }),
+    pickMsg({ extra: 1 }),
+    pickMsg({ styles: { 'background-image': 'url(x)' } }),
+    pickMsg({ selector: 1 }),
+    null,
+    'pick',
+  ])
+    post(a.win, bad);
+  expect(onPick).not.toHaveBeenCalled();
+  expect(a.frame.get().picking).toBe(true);
+});
+
+test('兄弟の枠・ほかの窓からの pick・state・pick-cancel は、効かない（送り元の窓で、枠ごとに照合する）', () => {
+  const onPickA = vi.fn();
+  const onPickB = vi.fn();
+  const a = addFrame({ n: 0, onPick: onPickA });
+  const b = addFrame({ n: 1, onPick: onPickB });
+  b.frame.startPick();
+  post(a.win, pickMsg({ text: 'A がなりすまし' })); // B が選んでいるが、送ったのは A
+  expect(onPickB).not.toHaveBeenCalled();
+  expect(onPickA).not.toHaveBeenCalled();
+  post(a.win, { __rikai: 1, type: 'pick-cancel' });
+  expect(b.frame.get().picking).toBe(true);
+  post(a.win, stateMsg('{"from":"A"}'));
+  post(window, stateMsg('{"from":"window"}'));
+  post(null, stateMsg('{"from":"null"}'));
+  expect(a.frame.latestState()).toBe('{"from":"A"}'); // A 自身の状態になる
+  expect(b.frame.latestState()).toBeNull(); // B には、入らない
+  post(b.win, pickMsg());
+  expect(onPickB).toHaveBeenCalledTimes(1);
+});
+
+test('要素を選ぶ：中止（枠の pick-cancel・もう一度ボタン・親の Esc）。同時に選べるのは 1 つの枠（あとから始めると、前の枠は、中止して、知らせる）', () => {
+  const a = addFrame({ n: 0 });
+  const b = addFrame({ n: 1 });
+  const sa = vi.spyOn(a.win, 'postMessage');
+  a.frame.startPick();
+  post(a.win, { __rikai: 1, type: 'pick-cancel' }); // 枠の中の Esc
+  expect(a.frame.get().picking).toBe(false);
+  a.frame.startPick();
+  b.frame.startPick();
+  expect(a.frame.get().picking).toBe(false);
+  expect(sa).toHaveBeenLastCalledWith({ __rikai: 1, type: 'pick-cancel' }, '*');
+  expect(b.frame.get().picking).toBe(true);
+  const sb = vi.spyOn(b.win, 'postMessage');
+  keydown('Enter');
+  expect(b.frame.get().picking).toBe(true);
+  keydown('Escape'); // 親の Esc
+  expect(b.frame.get().picking).toBe(false);
+  expect(sb).toHaveBeenLastCalledWith({ __rikai: 1, type: 'pick-cancel' }, '*');
+  b.frame.startPick();
+  b.frame.cancelPick(); // もう一度ボタン
+  expect(b.frame.get().picking).toBe(false);
+});
+
+test('要素を選ぶ：Esc の受け口は、選んでいる枠があるあいだだけ。終われば外れる（枠が消えても）', () => {
+  docAdd.mockClear();
+  docDel.mockClear();
+  const a = addFrame({ n: 0 });
+  a.frame.startPick();
+  expect(keyCalls(docAdd)).toBe(1);
+  a.frame.cancelPick();
+  expect(keyCalls(docDel)).toBe(1);
+  a.frame.startPick();
+  releaseApps(host); // 選んでいる最中に、枠が消えた
+  expect(keyCalls(docAdd) - keyCalls(docDel)).toBe(0);
+});
+
+test('要素を選ぶ：選んでいる最中に、枠が読み込み直されたら（load）、pick-start を、もう一度送る', () => {
+  const a = addFrame();
+  a.frame.startPick();
+  const send = vi.spyOn(a.win, 'postMessage');
+  a.iframe.dispatchEvent(new Event('load'));
+  expect(send).toHaveBeenCalledWith({ __rikai: 1, type: 'pick-start' }, '*');
+});
+
+test('状態：枠ごとに、最新の 1 つ（検査済みの、書き直した JSON）。不正（8KB 超・読めない・深すぎる）は、前の状態を残して、捨てる。latestStateOf で、枠の箱から引ける', () => {
+  const a = addFrame({ n: 0 });
+  const b = addFrame({ n: 1 });
+  expect(a.frame.latestState()).toBeNull();
+  post(a.win, stateMsg('{ "step": 1 }'));
+  post(a.win, stateMsg('{ "step": 2 }'));
+  expect(a.frame.latestState()).toBe('{"step":2}');
+  for (const bad of ['{bad', JSON.stringify({ a: 'x'.repeat(9000) }), '['.repeat(20) + ']'.repeat(20), '5'])
+    post(a.win, stateMsg(bad));
+  expect(a.frame.latestState()).toBe('{"step":2}');
+  expect(b.frame.latestState()).toBeNull();
+  expect(latestStateOf(a.iframe.parentElement as HTMLElement)).toBe('{"step":2}');
+  expect(latestStateOf(document.createElement('div'))).toBeNull();
+});
+
+test('状態：頻度の上限（1 秒に 8 回）。洪水でも、上限の分しか読まない（親は、固まらない）。窓が空くと、また受ける', () => {
+  const a = addFrame();
+  for (let i = 1; i <= 100; i++) post(a.win, stateMsg(`{"n":${i}}`));
+  expect(a.frame.latestState()).toBe('{"n":8}');
+  vi.advanceTimersByTime(1100);
+  post(a.win, stateMsg('{"n":101}'));
+  expect(a.frame.latestState()).toBe('{"n":101}');
+});
+
+test('状態：メモリだけ（枠を外すと、なくなる。描き直して作った枠には、引き継がない）', () => {
+  const a = addFrame({ n: 0 });
+  post(a.win, stateMsg('{"x":1}'));
+  releaseApps(host);
+  const again = addFrame({ n: 0 });
+  expect(again.frame.latestState()).toBeNull();
+});
+
+// ---- 枠の画像（snapshot-req → snapshot） ----
+const PNG = `data:image/png;base64,${'iVBORw0KGgo'.padEnd(40, 'A')}`;
+/** 画像の読み込み：jsdom には、ない。大きさ・成否を、テストが決める */
+function stubImage(size: { w: number; h: number } | 'error' = { w: 200, h: 100 }): void {
+  vi.stubGlobal(
+    'Image',
+    class {
+      onload: (() => void) | null = null;
+      onerror: (() => void) | null = null;
+      naturalWidth = size === 'error' ? 0 : size.w;
+      naturalHeight = size === 'error' ? 0 : size.h;
+      set src(_v: string) {
+        queueMicrotask(() => (size === 'error' ? this.onerror?.() : this.onload?.()));
+      }
+    },
+  );
+}
+const flush = async (): Promise<void> => {
+  for (let i = 0; i < 5; i++) await Promise.resolve();
+};
+const reqId = (send: { mock: { calls: unknown[][] } }): string => {
+  const m = send.mock.calls.find((c) => (c[0] as { type?: string }).type === 'snapshot-req')?.[0] as { id: string };
+  return m.id;
+};
+const reply = (win: Window, id: string, over: Record<string, unknown> = {}) =>
+  post(win, { __rikai: 1, type: 'snapshot', id, png: PNG, ...over });
+
+test('枠の画像：頼む（snapshot-req と id）→ その枠の、その id の応答だけを受ける。読めて、大きさが上限の中なら、PNG の data URL が返る', async () => {
+  stubImage();
+  const a = addFrame();
+  const send = vi.spyOn(a.win, 'postMessage');
+  const p = a.frame.requestSnapshot();
+  const id = reqId(send);
+  expect(send).toHaveBeenCalledWith({ __rikai: 1, type: 'snapshot-req', id }, '*');
+  expect(id).toMatch(/^s[0-9]+$/);
+  reply(a.win, id);
+  await expect(p).resolves.toBe(PNG);
+});
+
+test('枠の画像：偽・古い・二重・兄弟の枠の応答は、捨てる（id の結びつけ・送り元の窓）', async () => {
+  stubImage();
+  const a = addFrame({ n: 0 });
+  const b = addFrame({ n: 1 });
+  const sa = vi.spyOn(a.win, 'postMessage');
+  const p = a.frame.requestSnapshot();
+  const id = reqId(sa);
+  reply(b.win, id, { png: `${PNG}ZZZZ` }); // 兄弟の枠が、同じ id で、偽の画像を送る
+  reply(a.win, 's999999'); // 頼んでいない id
+  reply(window as unknown as Window, id); // 枠でない窓
+  await flush();
+  let settled = false;
+  void p.then(() => {
+    settled = true;
+  });
+  await flush();
+  expect(settled).toBe(false); // まだ、本物を待っている
+  reply(a.win, id); // 本物
+  await expect(p).resolves.toBe(PNG);
+  reply(a.win, id, { png: `${PNG}ZZZZ` }); // 二重の応答
+  const again = a.frame.requestSnapshot();
+  reply(a.win, id); // 前の id を、新しい要求に使い回す
+  vi.advanceTimersByTime(2100);
+  await expect(again).resolves.toBeNull();
+});
+
+test('枠の画像：不正（形・id・PNG でない・巨大・読めない・大きさが上限超え）と、枠の失敗（png: null）は、null。時間切れ（2 秒）も null', async () => {
+  const a = addFrame();
+  const send = vi.spyOn(a.win, 'postMessage');
+  const ask = async (replyWith: (id: string) => void, size?: Parameters<typeof stubImage>[0]) => {
+    stubImage(size);
+    send.mockClear();
+    const p = a.frame.requestSnapshot();
+    replyWith(reqId(send));
+    await flush();
+    vi.advanceTimersByTime(2100);
+    return p;
+  };
+  expect(await ask((id) => reply(a.win, id, { png: null }))).toBeNull();
+  expect(await ask((id) => reply(a.win, id, { png: 'data:image/jpeg;base64,AAAA' }))).toBeNull();
+  expect(await ask((id) => reply(a.win, id, { png: `data:image/png;base64,${'A'.repeat(2_000_000)}` }))).toBeNull(); // 巨大
+  expect(await ask((id) => reply(a.win, id, { extra: 1 }))).toBeNull();
+  expect(await ask((id) => reply(a.win, id), 'error')).toBeNull(); // PNG として読めない
+  expect(await ask((id) => reply(a.win, id), { w: 5000, h: 100 })).toBeNull(); // 大きさが上限超え
+  expect(await ask((id) => reply(a.win, id), { w: 0, h: 0 })).toBeNull();
+  expect(await ask(() => {})).toBeNull(); // 応答しない：時間切れ
+});
+
+test('枠の画像：時間切れは 2 秒。待っている間に枠が消えたら（release）、すぐ null（箱に戻る）。登録していない iframe は null', async () => {
+  const a = addFrame();
+  let result: string | null | undefined;
+  void a.frame.requestSnapshot().then((r) => {
+    result = r;
+  });
+  vi.advanceTimersByTime(1900);
+  await flush();
+  expect(result).toBeUndefined();
+  vi.advanceTimersByTime(200);
+  await flush();
+  expect(result).toBeNull();
+  let result2: string | null | undefined;
+  void a.frame.requestSnapshot().then((r) => {
+    result2 = r;
+  });
+  releaseApps(host);
+  await flush();
+  expect(result2).toBeNull();
+  await expect(requestFrameSnapshot(document.createElement('iframe'))).resolves.toBeNull();
 });

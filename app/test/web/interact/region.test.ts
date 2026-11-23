@@ -2,6 +2,7 @@
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 import { topicKey } from '../../../src/web/api/queries';
 import { queryClient } from '../../../src/web/api/queryClient';
+import { requestFrameSnapshot } from '../../../src/web/doc/appBridge';
 import { markBlocks } from '../../../src/web/doc/render/blocks';
 import {
   FRAME_PLACEHOLDER_TEXT,
@@ -13,6 +14,13 @@ import {
 import { useUi } from '../../../src/web/store/ui';
 import { meta, resetAll, topicState } from '../helpers';
 
+// 枠自身に画像を作らせる（F42）：枠は、テストが決める。既定は、応答しない（null：箱）
+vi.mock('../../../src/web/doc/appBridge', async (orig) => ({
+  ...(await orig<typeof import('../../../src/web/doc/appBridge')>()),
+  requestFrameSnapshot: vi.fn(async () => null),
+}));
+const frameSnap = vi.mocked(requestFrameSnapshot);
+
 const rects = new Map<Element, DOMRect>();
 function place(el: Element, left: number, top: number, width: number, height: number): void {
   rects.set(el, new DOMRect(left, top, width, height));
@@ -21,6 +29,8 @@ const spy = vi.spyOn(Element.prototype, 'getBoundingClientRect');
 let article: HTMLElement;
 
 beforeEach(() => {
+  frameSnap.mockReset();
+  frameSnap.mockResolvedValue(null);
   resetAll();
   rects.clear();
   spy.mockImplementation(function (this: Element) {
@@ -80,7 +90,7 @@ test('文・複数のブロックにまたがる範囲：左上のブロック�
     label: '範囲：最初のブロックの文字',
     rect: { x: 0.25, y: 0.25, w: 0.25, h: 1.75 },
   });
-  expect(d.raster).toHaveBeenCalledWith(vr, article);
+  expect(d.raster).toHaveBeenCalledWith(vr, article, expect.objectContaining({ onFrameImages: expect.any(Function) }));
   expect(d.crop).not.toHaveBeenCalled();
   await vi.waitFor(() => expect(ui().composer?.regionImg).toBe('c-abc.png'));
   expect(d.attach).toHaveBeenCalledWith('demo', 'AQID'); // 画像の中身（base64）
@@ -321,7 +331,7 @@ afterEach(() => {
 const FRAME_BLOCK =
   '<div class="htmlapp"><div class="cap">実行できる枠 1</div><div class="appview"><div class="appscale"><iframe class="appframe"></iframe></div></div></div>';
 const placeholders = (svg: string): string[] => svg.match(/<div[^>]*data-frame-placeholder[^>]*>[^<]*<\/div>/g) ?? [];
-const styleOf = (tag: string, prop: string): string => new RegExp(`${prop}:([^;"]+)`).exec(tag)?.[1] ?? '';
+const styleOf = (tag: string, prop: string): string => new RegExp(`(?<![\\w-])${prop}:([^;"]+)`).exec(tag)?.[1] ?? '';
 
 test('範囲に html-app の枠：複製に iframe が残らず、画面で見えている位置・大きさの箱に置き換わる（文字つき）', async () => {
   const cap = captureRaster();
@@ -443,4 +453,124 @@ test('範囲が html-app の枠の中だけ：切り出し（crop）ではなく
   expect(d.raster).toHaveBeenCalledTimes(1);
   expect(d.crop).not.toHaveBeenCalled();
   expect(ui().composer?.anchor.label).toMatch(/^範囲：/);
+});
+
+// ---- 枠自身が作った画像（F42）：箱の代わりに、使う ----
+const PNG = `data:image/png;base64,${'iVBORw0KGgo'.padEnd(40, 'A')}`;
+const framed = () => {
+  const [blk] = body(FRAME_BLOCK);
+  const iframe = article.querySelector('iframe') as HTMLIFrameElement;
+  if (!blk) throw new Error();
+  place(blk, 100, 100, 400, 300);
+  place(iframe, 110, 150, 380, 240);
+  return { blk, iframe };
+};
+
+test('枠の画像：枠が作った画像が届けば、箱の代わりに、枠の位置・大きさに置く（箱は、出ない）。フックが、呼ばれる', async () => {
+  const cap = captureRaster();
+  const { iframe } = framed();
+  frameSnap.mockResolvedValue(PNG);
+  const onFrameImages = vi.fn();
+  await rasterRegion({ left: 90, top: 90, width: 420, height: 320 }, article, { onFrameImages });
+  expect(frameSnap).toHaveBeenCalledTimes(1);
+  expect(frameSnap).toHaveBeenCalledWith(iframe);
+  const svg = cap.svg();
+  expect(svg).not.toContain('<iframe');
+  expect(placeholders(svg)).toHaveLength(0);
+  expect(svg).toContain('data-frame-image');
+  expect(svg).toContain(`src="${PNG}"`);
+  const wrap = /<div[^>]*data-frame-image[^>]*>/.exec(svg)?.[0] as string;
+  expect([styleOf(wrap, 'left'), styleOf(wrap, 'top'), styleOf(wrap, 'width'), styleOf(wrap, 'height')]).toEqual([
+    '20px',
+    '60px',
+    '380px',
+    '240px',
+  ]);
+  expect(onFrameImages).toHaveBeenCalledTimes(1);
+});
+
+test('枠の画像：応答しない・不正（null）は、箱のまま（範囲の画像全体は、失敗しない）。フックは、呼ばれない', async () => {
+  const cap = captureRaster();
+  framed();
+  frameSnap.mockResolvedValue(null);
+  const onFrameImages = vi.fn();
+  const file = await rasterRegion({ left: 90, top: 90, width: 420, height: 320 }, article, { onFrameImages });
+  expect(file).not.toBeNull();
+  expect(placeholders(cap.svg())).toHaveLength(1);
+  expect(cap.svg()).not.toContain('data-frame-image');
+  expect(onFrameImages).not.toHaveBeenCalled();
+  // 頼むこと自体が、失敗しても（例外）、範囲の画像は、作る…のではなく、箱に戻る：requestFrameSnapshot は、例外を投げない（null を返す）
+});
+
+test('枠の画像：複数の枠（範囲に 2 つ）は、枠ごとに 1 回ずつ頼む。片方だけ届いても、その枠だけ画像・もう片方は箱', async () => {
+  const cap = captureRaster();
+  const [a, b] = body(FRAME_BLOCK + FRAME_BLOCK);
+  const frames = [...article.querySelectorAll('iframe')];
+  if (!a || !b) throw new Error();
+  place(a, 100, 100, 400, 200);
+  place(b, 100, 320, 400, 200);
+  place(frames[0] as Element, 100, 120, 400, 180);
+  place(frames[1] as Element, 100, 340, 400, 180);
+  frameSnap.mockImplementation(async (f) => (f === frames[0] ? PNG : null));
+  const onFrameImages = vi.fn();
+  await rasterRegion({ left: 90, top: 90, width: 420, height: 450 }, article, { onFrameImages });
+  expect(frameSnap).toHaveBeenCalledTimes(2);
+  const svg = cap.svg();
+  expect(svg.match(/data-frame-image/g)).toHaveLength(1);
+  expect(placeholders(svg)).toHaveLength(1);
+  expect(onFrameImages).toHaveBeenCalledTimes(1);
+});
+
+test('枠の画像：枠の一部が隠れている（縮小・横スクロール）：見えている分で切り、画像は、枠の見た目の全体の大きさ・位置で置く', async () => {
+  const cap = captureRaster();
+  const { blk, iframe } = framed();
+  const view = article.querySelector('.appview') as HTMLElement;
+  view.style.overflowX = 'auto';
+  place(view, 100, 150, 300, 240);
+  place(iframe, 40, 150, 640, 240); // 左へ 60px、スクロールされている：見えているのは 100〜400
+  void blk;
+  frameSnap.mockResolvedValue(PNG);
+  await rasterRegion({ left: 100, top: 100, width: 400, height: 300 }, article);
+  const svg = cap.svg();
+  const wrap = /<div[^>]*data-frame-image[^>]*>/.exec(svg)?.[0] as string;
+  expect([styleOf(wrap, 'left'), styleOf(wrap, 'width')]).toEqual(['0px', '300px']);
+  const img = /<img[^>]*>/.exec(svg)?.[0] as string;
+  expect([styleOf(img, 'left'), styleOf(img, 'width'), styleOf(img, 'height')]).toEqual(['-60px', '640px', '240px']);
+});
+
+test('枠の画像：枠のない範囲は、頼まない（いまと同じ）', async () => {
+  captureRaster();
+  const [p] = body('<p>ふつうの段落</p>');
+  if (!p) throw new Error();
+  place(p, 0, 0, 400, 30);
+  await rasterRegion({ left: 0, top: 0, width: 400, height: 30 }, article);
+  expect(frameSnap).not.toHaveBeenCalled();
+});
+
+test('枠の画像が入ったら、入力欄の錨のラベルに注記・本文の先頭に「【枠から（画像）】」の 1 行（利用者が消せる）。入力欄をやめていれば、何もしない', async () => {
+  framed();
+  const d = deps({
+    raster: vi.fn(async (_vr, _art, hooks) => {
+      await Promise.resolve(); // 枠の画像は、あとから届く（入力欄が開いたあと）
+      hooks?.onFrameImages?.();
+      return png();
+    }),
+  });
+  ui().setComposerDraft('');
+  finishRegion({ left: 150, top: 200, width: 100, height: 80 }, d);
+  await vi.waitFor(() => expect(ui().composer?.anchor.label).toContain('（枠の画像は、枠自身が作ったもの）'));
+  expect(ui().drafts.composer.startsWith('【枠から（画像）】枠の画像は、枠の中のコードが作ったものです\n\n')).toBe(
+    true,
+  );
+  expect(ui().composer?.anchor.label.length).toBeLessThanOrEqual(120);
+  // 2 回目（同じ入力欄）：二重に付かない
+  ui().noteFrameImage(ui().composer?.id as number);
+  expect(ui().drafts.composer.match(/【枠から（画像）】/g)).toHaveLength(1);
+  // 古い入力欄の番号：何もしない
+  const before = ui().drafts.composer;
+  ui().noteFrameImage(-1);
+  expect(ui().drafts.composer).toBe(before);
+  ui().closeComposer();
+  ui().noteFrameImage(1);
+  expect(ui().composer).toBeNull();
 });

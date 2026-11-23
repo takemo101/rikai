@@ -1,4 +1,5 @@
 // 実行できる枠（html-app）の置き場に、隔離した iframe を入れる（旧 app.js の `fillApps`）。
+import type { PickInfo } from '../../../shared/htmlapp-bridge';
 import { followsTheme } from '../../../shared/htmlapp-theme';
 import { $$, h } from '../../lib/dom';
 import { resolvedTheme } from '../../lib/theme';
@@ -13,6 +14,8 @@ export interface AppsContext {
   view: View;
   /** 「この枠にコメント」を押した。枠（`.htmlapp`）を渡す */
   onComment: (box: HTMLElement) => void;
+  /** 利用者が、枠の中の要素を選んだ（検査済み）。枠（`.htmlapp`）・要素の情報・その枠の最新の状態（JSON）を渡す */
+  onPick?: (box: HTMLElement, pick: PickInfo, stateJson: string | null) => void;
 }
 
 /**
@@ -51,7 +54,9 @@ export function fillApps(container: ParentNode, ctx: AppsContext): void {
       // 枠の置き場：`.appview`（本文の幅の基準。縮小しきれないときは、横にスクロール）> `.appscale`（縮小後の大きさを持つ箱）> iframe。選んだ幅が、本文より広いときは、縮小して見せる（appBridge.ts）。登録は、画面に付けたあと（幅を測る）
       const wrap = h('div', { class: 'appview' }, h('div', { class: 'appscale' }, iframe));
       box.append(wrap);
-      const frame = registerFrame(iframe, n, auto, follows, state);
+      const frame = registerFrame(iframe, n, auto, follows, state, {
+        onPick: (pick, stateJson) => ctx.onPick?.(box, pick, stateJson),
+      });
       if (cap) {
         const tools = h('span', { class: 'apptools', role: 'group', 'aria-label': '枠の表示（幅・外観）' });
         cap.append(' ', tools);

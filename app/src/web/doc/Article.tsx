@@ -1,11 +1,12 @@
 // 本文（`<article id="article" class="md">`）。**命令的な島**：子を持たない要素で出し、中身は、`render/renderDoc.ts` が DOM を作って `replaceChildren` する。React は、中身を触らない。
 // 描き終えたら、DocModel（どのブロック・強調・番号が、どこにあるか）を、`useDoc` へ入れる（パネル・番号の層・入口のバーが読む）。
 import { useEffect, useRef } from 'react';
+import { type PickInfo, pickDraft, stateDraft } from '../../shared/htmlapp-bridge';
 import type { ArticleProps } from '../contracts';
 import { $$ } from '../lib/dom';
 import { type BlockEl, type DocModel, locEl, nextEpoch, useDoc } from '../store/doc';
 import { toast, useUi } from '../store/ui';
-import { releaseApps } from './appBridge';
+import { latestStateOf, releaseApps } from './appBridge';
 import { articleTid } from './hit';
 import { blockAnchor } from './render/blocks';
 import { markPending } from './render/highlights';
@@ -26,14 +27,26 @@ function applyLinked(art: HTMLElement, model: DocModel, tid: string | null): voi
   locEl(model.locs.get(tid))?.classList.add('linked'); // 1 つのブロックに複数のコメントがあるとき、data-tid は、最後の 1 つだけ。位置は、ここから取る
 }
 
-/** 「この枠にコメント」：枠を対象に、入力欄を開く（開けたら、入力欄へフォーカスを移し、選択を外す） */
-function commentOn(box: BlockEl): void {
-  if (!useUi.getState().startComposer(blockAnchor(box))) return;
+/** 入力欄を開いたあと：入力欄へフォーカスを移し、選択を外す */
+function focusComposer(): void {
   getSelection()?.removeAllRanges();
   requestAnimationFrame(() => {
     document.querySelector<HTMLElement>('[data-key="composer"]')?.focus();
     document.querySelector('.thread.composer')?.scrollIntoView({ block: 'center', behavior: 'smooth' });
   });
+}
+
+/** 「この枠にコメント」：枠を対象に、入力欄を開く（開けたら、入力欄へフォーカスを移し、選択を外す）。枠が、`rikai.state(obj)` で知らせた状態があれば、本文に添える（F42） */
+function commentOn(box: BlockEl): void {
+  if (!useUi.getState().startComposer(blockAnchor(box), stateDraft(latestStateOf(box)) ?? undefined)) return;
+  focusComposer();
+}
+
+/** 利用者が、枠の中の要素を選んだ（枠から届いて、検査を通ったもの）：その枠への下書きを作る。本文には、「【枠から】」の 1 行と、JSON のブロック。送るのは、利用者（自動では、送らない） */
+function pickOn(box: BlockEl, pick: PickInfo, stateJson: string | null): void {
+  const d = pickDraft(pick, stateJson);
+  if (!useUi.getState().startComposer({ ...blockAnchor(box), label: d.label }, d.text)) return;
+  focusComposer();
 }
 
 export function Article({ view, markdown, prevMarkdown }: ArticleProps) {
@@ -85,6 +98,7 @@ export function Article({ view, markdown, prevMarkdown }: ArticleProps) {
         showChanges: cur.showChanges,
         threads: cur.threads,
         onComment: commentOn,
+        onPick: pickOn,
         pendingAnchor: () => useUi.getState().composer?.anchor ?? null,
       },
       () => tok === renderTok.current,

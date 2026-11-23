@@ -2,7 +2,9 @@
 // 範囲は、**左上にあるブロック**（画像・図があれば、その最初の画像・図）の大きさに対する比率 `{x,y,w,h}`（左上が原点）で持つ。範囲がブロックの外へ出れば、0〜1 を超える。
 // 範囲の画像：1 つの画像・図の中に収まるなら、元の解像度から切り出す（`cropMedia`）。そうでなければ、表示されている本文を複製して画像にする（`rasterRegion`）。
 // 画像にできなくても、位置だけで、コメントできる（トーストで知らせる）。
+
 import type { Rect } from '../../shared/types';
+import { requestFrameSnapshot } from '../doc/appBridge';
 import { blockAnchor, frameOf } from '../doc/render/blocks';
 import { $, $$, trunc } from '../lib/dom';
 import { getView } from '../lib/view';
@@ -25,11 +27,16 @@ export class UserError extends Error {
   }
 }
 
+export interface RasterHooks {
+  onFrameImages?: () => void;
+}
+
 /** 範囲の画像を作る部品（テストで、差し替える） */
 export interface RegionDeps {
   /** 画像（base64）を、いまのトピックの assets/ に保存する。失敗（トーストを出した）なら null */
   attach: (slug: string, data: string) => Promise<{ name: string } | null>;
-  raster?: (vr: ViewportRect, article: HTMLElement) => Promise<File | null>;
+  /** `hooks.onFrameImages`：html-app の枠が、自分の見た目の画像を作って、範囲の画像に入った（F42） */
+  raster?: (vr: ViewportRect, article: HTMLElement, hooks?: RasterHooks) => Promise<File | null>;
   crop?: (media: Element, rect: Rect) => Promise<File | null>;
 }
 
@@ -73,8 +80,13 @@ export function finishRegion(vr: ViewportRect, deps: RegionDeps): void {
   // 画像にする作業は、入力欄を開く前に始める（入力中の強調が、画像に写らないように。スタイルを写す所までは、同期で終わる）
   const raster = deps.raster ?? rasterRegion;
   const crop = deps.crop ?? cropMedia;
-  const job = inside && media ? crop(media, rect) : raster(vr, article);
+  let compId = -1; // 入力欄（このあと開く）。枠の画像が入ったとき、その入力欄に、印を付ける
+  const job =
+    inside && media
+      ? crop(media, rect)
+      : raster(vr, article, { onFrameImages: () => useUi.getState().noteFrameImage(compId) });
   const comp = openComposer({ ...blockAnchor(blk), label, rect });
+  compId = comp?.id ?? -1;
   if (!comp) {
     job.catch(() => {}); // 最新版でないとき、入力欄の起動が断った
     return;
@@ -233,7 +245,7 @@ export async function cropMedia(media: Element, rect: Rect): Promise<File | null
  * **html-app の枠（iframe）は、別オリジンの隔離した文書で、複製の中では読み込まれず、空になる**（地の色だけが写って、真っ黒・真っ白になる）。複製からは外し、
  * 画面で見えているとおりの位置・大きさに、「実行できる枠（画像にできません）」の箱を重ねる（`framePlaceholder`）
  */
-export async function rasterRegion(vr: ViewportRect, art: HTMLElement): Promise<File | null> {
+export async function rasterRegion(vr: ViewportRect, art: HTMLElement, hooks: RasterHooks = {}): Promise<File | null> {
   const W = Math.max(1, Math.round(vr.width));
   const H = Math.max(1, Math.round(vr.height));
   const k = Math.min(2, OUT_MAX / Math.max(W, H));
@@ -242,7 +254,7 @@ export async function rasterRegion(vr: ViewportRect, art: HTMLElement): Promise<
   root.setAttribute('xmlns', 'http://www.w3.org/1999/xhtml');
   root.style.cssText = `position:relative;width:${W}px;height:${H}px;overflow:hidden;background:${paper}`;
   const imgs: [HTMLImageElement, HTMLImageElement][] = [];
-  const boxes: HTMLElement[] = []; // html-app の枠の代わりの箱（複製のあと、重ねる）
+  const boxes: FramePlaceholder[] = []; // html-app の枠の代わりの箱（複製のあと、重ねる。枠自身が作った画像が届けば、その画像に入れ替える）
   const targets = [...art.children].filter((el) => overlaps(el.getBoundingClientRect(), vr));
   let count = 0;
   for (const el of targets) count += 1 + el.querySelectorAll('*').length;
@@ -273,8 +285,8 @@ export async function rasterRegion(vr: ViewportRect, art: HTMLElement): Promise<
         d.setAttribute('style', `${css}outline:none;${pendingMarks.has(s) ? 'background:none;' : ''}`);
         if (s instanceof HTMLImageElement && d instanceof HTMLImageElement) imgs.push([s, d]);
         if (s instanceof HTMLIFrameElement) {
-          const box = framePlaceholder(s, art, vr, paper);
-          if (box) boxes.push(box);
+          const ph = framePlaceholder(s, art, vr, paper);
+          if (ph) boxes.push(ph);
           d.remove(); // 複製の中の iframe は、空（読み込まれない）。祖先の transform・overflow の複製に、位置を左右されないよう、箱は、root に直接置く
         }
       }
@@ -292,11 +304,23 @@ export async function rasterRegion(vr: ViewportRect, art: HTMLElement): Promise<
         for (const [name, value] of Object.entries(place)) c.style.setProperty(name, value, 'important');
       root.append(c);
     }
-    root.append(...boxes);
+    root.append(...boxes.map((b) => b.box));
   } finally {
     for (const [e, cl] of pend) e.classList.add(...cl);
   }
+  // 枠自身に、自分の見た目を画像にさせる（スタイルを写し終えたあと・並行して）。届いた画像は、箱の代わりに使う。応答しない・不正なときは、箱のまま
+  const snaps = boxes.map((b) => requestFrameSnapshot(b.iframe));
   await Promise.all(imgs.map(([a, b]) => inlineImage(a, b))); // 画像は、あとで（スタイルを写し終えてから）data: にする
+  const pngs = await Promise.all(snaps);
+  let framed = 0;
+  for (const [i, ph] of boxes.entries()) {
+    const png = pngs[i];
+    if (png) {
+      ph.box.replaceWith(frameImageBox(ph, png));
+      framed++;
+    }
+  }
+  if (framed) hooks.onFrameImages?.();
   // XML として不正な文字（制御文字・対になっていないサロゲート）は、除く（画像として読めなくなるため）
   const xml = new XMLSerializer().serializeToString(root).replace(
     // biome-ignore lint/suspicious/noControlCharactersInRegex: 制御文字を除くのが目的
@@ -322,6 +346,16 @@ function lightnessOf(color: string): number {
   return (0.2126 * Number(m[1]) + 0.7152 * Number(m[2]) + 0.0722 * Number(m[3])) / 255;
 }
 
+/** html-app の枠の代わりの箱と、その位置（範囲の左上が原点）：`view`＝見えている分（祖先の切れを引いた）・`full`＝枠の見た目の全体（縮小後） */
+export interface FramePlaceholder {
+  box: HTMLElement;
+  iframe: HTMLIFrameElement;
+  view: { x: number; y: number; w: number; h: number };
+  full: { x: number; y: number; w: number; h: number };
+  /** 枠の地の色（枠の中の文書が、地を描かない所に、見える色：従来の資料は、白・ダークは黒） */
+  paper: string;
+}
+
 /**
  * html-app の枠の代わりの箱：画面で見えている位置・大きさ（`getBoundingClientRect`。縮小表示の transform・横スクロールの切れ目も、その値に入っている）に、
  * 点線の枠・地と区別できる背景・中央の文字。文字・枠の色は、画像の地（paper）の明るさで決める（ライト・ダークの両方で、読める）。
@@ -332,7 +366,7 @@ export function framePlaceholder(
   art: HTMLElement,
   vr: ViewportRect,
   paper: string,
-): HTMLElement | null {
+): FramePlaceholder | null {
   const r = iframe.getBoundingClientRect();
   let [left, top, right, bottom] = [r.left, r.top, r.right, r.bottom];
   for (let e = iframe.parentElement; e && e !== art; e = e.parentElement) {
@@ -372,7 +406,34 @@ export function framePlaceholder(
       'font:600 14px/1.4 -apple-system,BlinkMacSystemFont,"Hiragino Sans","Noto Sans JP","Segoe UI",sans-serif',
     ].join(';'),
   );
-  return box;
+  return {
+    box,
+    iframe,
+    view: { x: left - vr.left, y: top - vr.top, w: right - left, h: bottom - top },
+    full: { x: r.left - vr.left, y: r.top - vr.top, w: r.width, h: r.height },
+    paper: getComputedStyle(iframe).backgroundColor,
+  };
+}
+
+/**
+ * 枠自身が作った画像（検査・読み込み済みの PNG の data URL）の箱：見えている分（view）で切り、枠の見た目の全体（full）の大きさに、画像を置く
+ * （縮小表示・横スクロールで一部が隠れていても、位置が合う）。画像が透明な所は、枠の地の色
+ */
+function frameImageBox(ph: FramePlaceholder, png: string): HTMLElement {
+  const wrap = document.createElement('div');
+  wrap.setAttribute('data-frame-image', '');
+  wrap.setAttribute(
+    'style',
+    `position:absolute;overflow:hidden;box-sizing:border-box;left:${ph.view.x}px;top:${ph.view.y}px;width:${ph.view.w}px;height:${ph.view.h}px;background:${ph.paper}`,
+  );
+  const img = document.createElement('img');
+  img.setAttribute('src', png); // data URL（検査済み）。属性としてだけ入れる
+  img.setAttribute(
+    'style',
+    `position:absolute;display:block;max-width:none;left:${ph.full.x - ph.view.x}px;top:${ph.full.y - ph.view.y}px;width:${ph.full.w}px;height:${ph.full.h}px`,
+  );
+  wrap.append(img);
+  return wrap;
 }
 
 /** 複製の img に、元の画像を、data: として入れる（SVG の中の画像は、外のファイルを読めないため）。表示の大きさの 2 倍まで */

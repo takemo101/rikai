@@ -446,6 +446,33 @@ test('入力欄：対象の位置の順に、スレッドの間へ入る（い�
   expect(order()).toEqual(['composer']);
 });
 
+test('「枠から」の札（F42）：枠（DIV）の錨の入力欄・保存したカードにだけ付く。本文の文を選んだ（引用あり）・段落（P）の、ラベルが似たコメントには、付かない', () => {
+  const frame = anchor('', { blockTag: 'DIV', label: '枠から：button' });
+  const fakeQuote = anchor('枠から：button', { blockTag: 'DIV', label: '枠から：button' }); // 利用者が、本文の「枠から：button」という文を選んだ
+  const fakePara = anchor('', { blockTag: 'P', label: '枠から：button' });
+  renderPanel([
+    thread({ id: 't1', anchor: frame, messages: [user('枠の要素')] }),
+    thread({ id: 't2', anchor: fakeQuote }),
+    thread({ id: 't3', anchor: fakePara }),
+  ]);
+  act(() => {
+    useUi.getState().startComposer(frame);
+  });
+  expect(q('.thread.composer .fromframe')?.textContent).toBe('枠から');
+  expect(q('.thread.composer')?.hasAttribute('data-from-frame')).toBe(true);
+  expect(q('.thread[data-tid="t1"] .fromframe')).not.toBeNull();
+  expect(q('.thread[data-tid="t1"]')?.hasAttribute('data-from-frame')).toBe(true);
+  for (const id of ['t2', 't3']) {
+    expect(q(`.thread[data-tid="${id}"] .fromframe`), id).toBeNull();
+    expect(q(`.thread[data-tid="${id}"]`)?.hasAttribute('data-from-frame'), id).toBe(false);
+  }
+  act(() => {
+    useUi.getState().closeComposer();
+    useUi.getState().startComposer(fakeQuote);
+  });
+  expect(q('.thread.composer .fromframe')).toBeNull();
+});
+
 test('入力欄：対象が本文にない（pending が null）なら、先頭。入力欄だけ（スレッドなし）でも、説明は出さない', () => {
   renderPanel([thread({ id: 't1' }), thread({ id: 't2' })]);
   act(() => {

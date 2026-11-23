@@ -13,8 +13,8 @@ function whenFound(selector: string, then: (el: HTMLElement) => void, frames = 2
  * 入力欄を、この対象で開く。最新版でなければ、トーストを出して（ストアが）、null。
  * 開いたら、入力欄の textarea にフォーカスを移し、入力欄のカードを見える所へ動かし、文の選択を外す
  */
-export function openComposer(anchor: Anchor): ComposerState | null {
-  if (!useUi.getState().startComposer(anchor)) return null;
+export function openComposer(anchor: Anchor, seed?: string): ComposerState | null {
+  if (!useUi.getState().startComposer(anchor, seed)) return null;
   whenFound('textarea[data-key="composer"]', (ta) => ta.focus());
   whenFound('.thread.composer', (card) => card.scrollIntoView({ block: 'center', behavior: 'smooth' }));
   getSelection()?.removeAllRanges();
