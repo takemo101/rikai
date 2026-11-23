@@ -148,7 +148,7 @@ test.describe('文・ブロックの選択', () => {
 
     // 解決すると、丸の色が変わる（青 → 灰色）
     const before = await u.bno.nth(0).evaluate((e) => getComputedStyle(e).backgroundColor);
-    await u.threads.nth(0).getByRole('button', { name: '理解できた（解決）' }).click();
+    await u.threads.nth(0).getByRole('button', { name: '解決', exact: true }).click();
     await expect(page.locator('.tab', { hasText: '解決済み' })).toHaveText('解決済み1');
     await expect(u.bno).toHaveCount(3);
     const after = await u.bno.nth(0).evaluate((e) => getComputedStyle(e).backgroundColor);

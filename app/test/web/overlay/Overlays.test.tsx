@@ -159,6 +159,68 @@ test('番号の丸：文・ブロック・範囲を、同じ見た目（.bno）�
   ]);
 });
 
+test('同じ行に 7 件：1 つの組に、4 つの丸（.bno）と「+3」（.bno-more）。まとめた 3 つ（.bno.fold）は、ポップオーバー（.bno-pop）の中。「+N」は、最初のカードを指す。まとめた分のどれかが光ると、「+N」も光る', () => {
+  const w = world();
+  const ids = ['t1', 't2', 't3', 't4', 't5', 't6', 't7'];
+  const locs = new Map<string, ThreadLoc>(ids.map((id) => [id, { kind: 'block', el: w.blocks[0] as HTMLElement }]));
+  const nums = new Map(ids.map((id, i) => [id, i + 1]));
+  const { layer } = mount(w, modelOf(w, { locs, nums }));
+  expect(layer().querySelectorAll('.bbadge')).toHaveLength(1);
+  const box = layer().querySelector('.bbadge') as HTMLElement;
+  const kids = [...box.children] as HTMLElement[];
+  // 並べるのは 4 つと「+3」。まとめた 3 つは、ポップオーバー（.bno-pop）の中
+  expect(kids.map((k) => k.className)).toEqual(['bno', 'bno', 'bno resolved', 'bno', 'bno-more d2', 'bno-pop']); // t3 は、解決済み
+  expect(kids.slice(0, 5).map((k) => k.textContent)).toEqual(['1', '2', '3', '4', '+3']);
+  const pop = kids[5] as HTMLElement;
+  const folded = [...pop.children] as HTMLElement[];
+  expect(folded.map((k) => [k.className, k.textContent, k.dataset.tid])).toEqual([
+    ['bno fold', '5', 't5'],
+    ['bno fold', '6', 't6'],
+    ['bno fold', '7', 't7'],
+  ]);
+  const more = kids[4] as HTMLElement;
+  expect(more.dataset.tid).toBe('t5');
+  expect(more.dataset.tids).toBe('t5 t6 t7');
+  expect(more.title).toContain('3 件');
+  // ポップオーバーの左端は、本文の見える範囲の左 + 4px（組の左 228 → -224）
+  expect(pop.style.left).toBe('-224px');
+  act(() => useUi.getState().setLinked('t6'));
+  expect(layer().querySelector('.bno-more')?.classList.contains('linked')).toBe(true);
+  expect(layer().querySelector('.bno.fold[data-tid="t6"]')?.classList.contains('linked')).toBe(true);
+  expect(layer().querySelector('.bno[data-tid="t1"]')?.classList.contains('linked')).toBe(false);
+  act(() => useUi.getState().setLinked('t2'));
+  expect(layer().querySelector('.bno-more')?.classList.contains('linked')).toBe(false);
+});
+
+test('ポップオーバーは、開くとき（mouseenter）に置く：右端は「+N」の右端にそろえ（隣接）、左へは、見える範囲の左 +4px まで。下に入りきらなければ、行の上（上にも入らなければ、下）', () => {
+  const w = world();
+  const ids = ['t1', 't2', 't3', 't4', 't5', 't6', 't7'];
+  const locs = new Map<string, ThreadLoc>(ids.map((id) => [id, { kind: 'block', el: w.blocks[0] as HTMLElement }]));
+  const nums = new Map(ids.map((id, i) => [id, i + 1]));
+  const { layer } = mount(w, modelOf(w, { locs, nums }));
+  const box = layer().querySelector('.bbadge') as HTMLElement;
+  const pop = box.querySelector('.bno-pop') as HTMLElement;
+  geometry(w.scroller, rect(100, 50, 800, 600)); // 見える範囲：左 100・上 50・下 650
+  const hover = (boxRect: DOMRect, popRect: DOMRect) => {
+    geometry(box, boxRect);
+    geometry(pop, popRect);
+    box.dispatchEvent(new MouseEvent('mouseenter'));
+  };
+  // 広い：「+N」の右端（346）から、幅 120 の分だけ左へ（隣接）。下に入る
+  hover(rect(300, 300, 46, 18), rect(0, 0, 120, 40));
+  expect(pop.style.left).toBe(`${346 - 120 - 300}px`);
+  expect(pop.classList.contains('up')).toBe(false);
+  // 見える範囲の左（+4px）で止まる：幅 400 は、346 − 400 より、100 + 4 の方が、右
+  hover(rect(300, 300, 46, 18), rect(0, 0, 400, 40));
+  expect(pop.style.left).toBe(`${104 - 300}px`);
+  // 本文の下端の行（下に入らない）：行の上に開く
+  hover(rect(300, 618, 46, 18), rect(0, 0, 120, 40));
+  expect(pop.classList.contains('up')).toBe(true);
+  // 上にも入らない（見える範囲が低い）：下のまま
+  hover(rect(300, 60, 46, 18), rect(0, 0, 120, 600));
+  expect(pop.classList.contains('up')).toBe(false);
+});
+
 test('上の組に重ならない：組の高さ（実測）の 2px 下まで、次の組を下げる', () => {
   const w = world();
   geometry(w.blocks[1] as HTMLElement, rect(340, 108, 600, 40)); // t2 を、別の組（108）に。1 つ目の組の下端は 100+22+2 = 124

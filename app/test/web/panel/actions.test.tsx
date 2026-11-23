@@ -221,7 +221,7 @@ test('「やめる」：入力欄・書きかけの文・画像が消える（�
 });
 
 // ---- 返信 ----
-test('返信：書いて「返信を追加」→ POST（文・画像）→ 下書きが消える。⌘+Enter でも。空は送らない', async () => {
+test('返信：書いて「追加」→ POST（文・画像）→ 下書きが消える。⌘+Enter でも。空は送らない', async () => {
   const view = renderPanel([thread({ id: 't1', anchor: anchor('x'), messages: [user('質問', { sent: true })] })], {
     onPost: (path, body, server) => {
       if (path === '/api/reply')
@@ -233,7 +233,7 @@ test('返信：書いて「返信を追加」→ POST（文・画像）→ 下�
   });
   const ta = q('textarea[data-key="reply-t1"]') as HTMLTextAreaElement;
   expect(ta.placeholder).toContain('⌘/Ctrl+Enter で追加');
-  await userEvent.click(screen.getByRole('button', { name: '返信を追加' }));
+  await userEvent.click(screen.getByRole('button', { name: '追加' }));
   expect(view.posts).toHaveLength(0);
   await userEvent.type(ta, '  追加の質問  ');
   expect(useUi.getState().drafts.reply.t1).toBe('  追加の質問  ');
@@ -255,7 +255,7 @@ test('返信が失敗したら、トースト・書きかけは残る', async ()
     vi.fn(async () => new Response(JSON.stringify({ ok: false, error: '送信済みです' }), { status: 400 })),
   );
   await userEvent.type(q('textarea[data-key="reply-t1"]') as HTMLElement, 'x');
-  await userEvent.click(screen.getByRole('button', { name: '返信を追加' }));
+  await userEvent.click(screen.getByRole('button', { name: '追加' }));
   await waitFor(() => expect(useUi.getState().toast).toMatchObject({ msg: '送信済みです', err: true }));
   expect(useUi.getState().drafts.reply.t1).toBe('x');
 });
@@ -366,7 +366,7 @@ test('削除：確認なしで POST → 取り直して、消える', async () =
 });
 
 // ---- 解決・再開 ----
-test('「理解できた（解決）」→ POST（resolved: true）→ 進行中から消え、解決済みの 1 行へ。開いていた行の状態は、戻る', async () => {
+test('「解決」→ POST（resolved: true）→ 進行中から消え、解決済みの 1 行へ。開いていた行の状態は、戻る', async () => {
   const view = renderPanel(
     [thread({ id: 't1', anchor: anchor('文'), messages: [user('質問'), ai('答え')] }), thread({ id: 't2' })],
     {
@@ -381,7 +381,7 @@ test('「理解できた（解決）」→ POST（resolved: true）→ 進行中
   );
   act(() => useUi.getState().setRowOpen('t1', true)); // 古い「開いた」状態が残っていても、解決で、行に戻る
   const card = q('.thread[data-tid="t1"]') as HTMLElement;
-  await userEvent.click(within(card).getByRole('button', { name: '理解できた（解決）' }));
+  await userEvent.click(within(card).getByRole('button', { name: '解決' }));
   await waitFor(() => expect(qa('#threads .thread')).toHaveLength(1));
   expect(view.posts[0]).toMatchObject({ path: '/api/resolve', body: { topic: 'demo', thread: 't1', resolved: true } });
   expect(useUi.getState().rowOpen.has('t1')).toBe(false);

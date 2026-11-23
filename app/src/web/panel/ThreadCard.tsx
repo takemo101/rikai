@@ -1,4 +1,4 @@
-// スレッドのカード（`.thread`）：札・対象の引用・発言（古いやり取りは折りたたむ：F29）・返信の入力・「理解できた（解決）」／「再開する」。
+// スレッドのカード（`.thread`）：札・対象の引用・発言（古いやり取りは折りたたむ：F29）・返信の入力・「解決」／「再開する」。
 import {
   Check,
   ChevronRight,
@@ -199,19 +199,25 @@ function ThreadFoot({ view, thread: t }: { view: View; thread: Thread }) {
       <ImageBar imgKey={key} slug={slug} />
       <div className="row">
         <AttachButton imgKey={key} slug={slug} />
-        <button type="button" className="primary small" onClick={() => void sendReply()}>
+        <button
+          type="button"
+          className="primary small"
+          title="返信を追加します（⌘/Ctrl＋Enter）"
+          onClick={() => void sendReply()}
+        >
           <Send aria-hidden="true" focusable="false" />
-          返信を追加
+          追加
         </button>
         <button
           type="button"
           className="ghost small"
+          title="理解できたら、解決にします"
           onClick={() =>
             void resolve({ topic: slug, thread: t.id, resolved: true }, { onOk: () => setRowOpen(t.id, false) })
           }
         >
           <Check aria-hidden="true" focusable="false" />
-          理解できた（解決）
+          解決
         </button>
       </div>
     </div>

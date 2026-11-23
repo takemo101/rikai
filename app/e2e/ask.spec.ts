@@ -236,7 +236,7 @@ test.describe('AI の質問と回答', () => {
     await expect(card.getByLabel('魚')).toBeVisible();
     // 未送信の発言は、会話が進んだことにならない
     await card.locator('textarea').fill('質問に答える前に、ひとつ聞きたいです');
-    await card.getByRole('button', { name: '返信を追加' }).click();
+    await card.getByRole('button', { name: '追加', exact: true }).click();
     await expect(card).toContainText('質問に答える前に');
     await expect(card.getByLabel('魚')).toBeVisible();
     await expect(card).not.toContainText('答えずに、会話が進みました');
@@ -287,7 +287,7 @@ test.describe('AI の質問と回答', () => {
     await one.getByRole('button', { name: 'はい', exact: true }).click();
     await one.getByRole('button', { name: '回答を保存' }).click();
     await one.locator('textarea').fill('追加の発言');
-    await one.getByRole('button', { name: '返信を追加' }).click();
+    await one.getByRole('button', { name: '追加', exact: true }).click();
     await submitAll(page);
     await expect(one).toContainText('回答を送信済み');
     await expect(one).not.toContainText('答えずに、会話が進みました'); // 答えたので
