@@ -230,6 +230,8 @@ export async function cropMedia(media: Element, rect: Rect): Promise<File | null
  * 本文の、任意の範囲（vr。画面の座標）を、画像にする。表示されている本文のブロックを、見た目（computed style）を写して複製し、SVG の foreignObject に入れて画像にし、canvas に描く。
  * 複製は、画像として読むだけで、スクリプトは動かない（無害化した本文を、そのまま写す）。img は、先に data: にする（同じオリジンのものだけ。canvas は汚れない）。
  * 番号・枠・強調の層は、入らない（本文だけ）。::before などの疑似要素は、写らない
+ * **html-app の枠（iframe）は、別オリジンの隔離した文書で、複製の中では読み込まれず、空になる**（地の色だけが写って、真っ黒・真っ白になる）。複製からは外し、
+ * 画面で見えているとおりの位置・大きさに、「実行できる枠（画像にできません）」の箱を重ねる（`framePlaceholder`）
  */
 export async function rasterRegion(vr: ViewportRect, art: HTMLElement): Promise<File | null> {
   const W = Math.max(1, Math.round(vr.width));
@@ -240,6 +242,7 @@ export async function rasterRegion(vr: ViewportRect, art: HTMLElement): Promise<
   root.setAttribute('xmlns', 'http://www.w3.org/1999/xhtml');
   root.style.cssText = `position:relative;width:${W}px;height:${H}px;overflow:hidden;background:${paper}`;
   const imgs: [HTMLImageElement, HTMLImageElement][] = [];
+  const boxes: HTMLElement[] = []; // html-app の枠の代わりの箱（複製のあと、重ねる）
   const targets = [...art.children].filter((el) => overlaps(el.getBoundingClientRect(), vr));
   let count = 0;
   for (const el of targets) count += 1 + el.querySelectorAll('*').length;
@@ -269,6 +272,11 @@ export async function rasterRegion(vr: ViewportRect, art: HTMLElement): Promise<
         // 選んでいるコメントの枠線（outline）・入力中の文の強調は、画像に入れない
         d.setAttribute('style', `${css}outline:none;${pendingMarks.has(s) ? 'background:none;' : ''}`);
         if (s instanceof HTMLImageElement && d instanceof HTMLImageElement) imgs.push([s, d]);
+        if (s instanceof HTMLIFrameElement) {
+          const box = framePlaceholder(s, art, vr, paper);
+          if (box) boxes.push(box);
+          d.remove(); // 複製の中の iframe は、空（読み込まれない）。祖先の transform・overflow の複製に、位置を左右されないよう、箱は、root に直接置く
+        }
       }
       // 位置は、!important で決める（写した computed style の、論理プロパティ〔inset-inline-start など〕に、負けないように）
       const place: Record<string, string> = {
@@ -284,6 +292,7 @@ export async function rasterRegion(vr: ViewportRect, art: HTMLElement): Promise<
         for (const [name, value] of Object.entries(place)) c.style.setProperty(name, value, 'important');
       root.append(c);
     }
+    root.append(...boxes);
   } finally {
     for (const [e, cl] of pend) e.classList.add(...cl);
   }
@@ -301,6 +310,69 @@ export async function rasterRegion(vr: ViewportRect, art: HTMLElement): Promise<
   const { cv, ctx } = canvas2d(Math.round(W * k), Math.round(H * k), paper);
   ctx.drawImage(im, 0, 0, cv.width, cv.height);
   return canvasFile(cv);
+}
+
+/** 画像にできない枠（html-app の iframe）の箱の文字 */
+export const FRAME_PLACEHOLDER_TEXT = '実行できる枠（画像にできません）';
+
+/** 「rgb(r, g, b)」「rgba(…)」の明るさ（0〜1）。読めなければ、明るい（1）とみなす */
+function lightnessOf(color: string): number {
+  const m = /rgba?\(\s*(\d+(?:\.\d+)?)[,\s]+(\d+(?:\.\d+)?)[,\s]+(\d+(?:\.\d+)?)/.exec(color);
+  if (!m) return 1;
+  return (0.2126 * Number(m[1]) + 0.7152 * Number(m[2]) + 0.0722 * Number(m[3])) / 255;
+}
+
+/**
+ * html-app の枠の代わりの箱：画面で見えている位置・大きさ（`getBoundingClientRect`。縮小表示の transform・横スクロールの切れ目も、その値に入っている）に、
+ * 点線の枠・地と区別できる背景・中央の文字。文字・枠の色は、画像の地（paper）の明るさで決める（ライト・ダークの両方で、読める）。
+ * 祖先に overflow の切れ（`.appscale`・横スクロールする `.appview`）があれば、見えている分だけ。範囲（vr）の外は、root の overflow:hidden が切る。見える所がなければ null
+ */
+export function framePlaceholder(
+  iframe: HTMLIFrameElement,
+  art: HTMLElement,
+  vr: ViewportRect,
+  paper: string,
+): HTMLElement | null {
+  const r = iframe.getBoundingClientRect();
+  let [left, top, right, bottom] = [r.left, r.top, r.right, r.bottom];
+  for (let e = iframe.parentElement; e && e !== art; e = e.parentElement) {
+    const cs = getComputedStyle(e);
+    if (cs.overflowX === 'visible' && cs.overflowY === 'visible') continue;
+    const b = e.getBoundingClientRect();
+    left = Math.max(left, b.left);
+    top = Math.max(top, b.top);
+    right = Math.min(right, b.right);
+    bottom = Math.min(bottom, b.bottom);
+  }
+  if (right - left < 1 || bottom - top < 1) return null;
+  const light = lightnessOf(paper) > 0.5;
+  const ink = light ? '#3f3f46' : '#e4e4e7';
+  const box = document.createElement('div');
+  box.textContent = FRAME_PLACEHOLDER_TEXT;
+  box.setAttribute('data-frame-placeholder', '');
+  box.setAttribute(
+    'style',
+    [
+      'position:absolute',
+      'box-sizing:border-box',
+      `left:${left - vr.left}px`,
+      `top:${top - vr.top}px`,
+      `width:${right - left}px`,
+      `height:${bottom - top}px`,
+      `border:2px dashed ${light ? '#71717a' : '#a1a1aa'}`,
+      'border-radius:6px',
+      `background:${light ? 'rgba(0,0,0,0.07)' : 'rgba(255,255,255,0.12)'}`,
+      `color:${ink}`,
+      'display:flex',
+      'align-items:center',
+      'justify-content:center',
+      'text-align:center',
+      'padding:4px',
+      'overflow:hidden',
+      'font:600 14px/1.4 -apple-system,BlinkMacSystemFont,"Hiragino Sans","Noto Sans JP","Segoe UI",sans-serif',
+    ].join(';'),
+  );
+  return box;
 }
 
 /** 複製の img に、元の画像を、data: として入れる（SVG の中の画像は、外のファイルを読めないため）。表示の大きさの 2 倍まで */
