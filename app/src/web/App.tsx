@@ -3,6 +3,7 @@ import { type CSSProperties, type ReactNode, type RefObject, useEffect, useRef }
 import { usePage, useTopic, useTopics } from './api/queries';
 import type { ArticleProps } from './contracts';
 import { Article } from './doc/Article';
+import { fillMermaid } from './doc/render';
 import { Interact } from './interact/Interact';
 import { DocBar } from './layout/DocBar';
 import { EndDialog } from './layout/EndDialog';
@@ -16,6 +17,7 @@ import { serverStatus } from './layout/status';
 import { Toast } from './layout/Toast';
 import { TopBar } from './layout/TopBar';
 import { navigate, type Route, useRoute } from './lib/route';
+import { useResolvedTheme } from './lib/theme';
 import { buildView, type View } from './lib/view';
 import { Connectors } from './overlay/Connectors';
 import { Overlays } from './overlay/Overlays';
@@ -43,6 +45,7 @@ export function App() {
   const { w } = usePanelGeometry();
 
   useNavigationEffects(route, view, scrollRef);
+  useRedrawDiagrams();
   useUpdateToast(view, route?.version ?? null);
 
   // ページの読み込みの失敗（版が範囲外・サーバーのエラー）は、トーストで知らせる
@@ -184,4 +187,18 @@ function useUpdateToast(view: View | null, explicitVersion: number | null): void
     if (p && p.page === id && !explicitVersion && latest > p.latest) toast(`資料が v${latest} に更新されました`);
     last.current = { page: id, latest };
   }, [slug, page, latest, explicitVersion]);
+}
+
+/** 外観が変わったら（ボタン・OS の外観の変化）、描いてある Mermaid の図を、その外観で描き直す（本文・AI の返信の、どちらも）。最初の描画は、各部品が、その外観で描く */
+function useRedrawDiagrams(): void {
+  const theme = useResolvedTheme();
+  const first = useRef(true);
+  // biome-ignore lint/correctness/useExhaustiveDependencies: theme が変わったときだけ（最初は、描かない）
+  useEffect(() => {
+    if (first.current) {
+      first.current = false;
+      return;
+    }
+    void fillMermaid(document);
+  }, [theme]);
 }

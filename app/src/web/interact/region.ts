@@ -143,13 +143,22 @@ function loadImage(src: string, failure: string): Promise<HTMLImageElement> {
   return promise;
 }
 
-function canvas2d(w: number, h: number): { cv: HTMLCanvasElement; ctx: CanvasRenderingContext2D } {
+/** 要素の、見えている背景色（親をたどって、最初の不透明でない色。なければ白）。ダークでも、画像の地を、画面の紙の色にする（暗い文字が、暗い地に沈まないように） */
+export function paperOf(el: Element): string {
+  for (let e: Element | null = el; e; e = e.parentElement) {
+    const c = getComputedStyle(e).backgroundColor;
+    if (c && c !== 'rgba(0, 0, 0, 0)' && c !== 'transparent') return c;
+  }
+  return '#fff';
+}
+
+function canvas2d(w: number, h: number, paper = '#fff'): { cv: HTMLCanvasElement; ctx: CanvasRenderingContext2D } {
   const cv = document.createElement('canvas');
   cv.width = Math.max(1, w);
   cv.height = Math.max(1, h);
   const ctx = cv.getContext('2d');
   if (!ctx) throw new Error('canvas を使えません');
-  ctx.fillStyle = '#fff'; // 透明な図は、PNG にしたとき、見えなくならないよう、白地に
+  ctx.fillStyle = paper; // 透明な図は、PNG にしたとき、見えなくならないよう、地を付ける（画像は白地・図は、画面の紙の色）
   ctx.fillRect(0, 0, cv.width, cv.height);
   return { cv, ctx };
 }
@@ -211,7 +220,7 @@ export async function cropMedia(media: Element, rect: Rect): Promise<File | null
   const cw = Math.max(1, Math.min(sw - sx, Math.round(rect.w * sw)));
   const ch = Math.max(1, Math.min(sh - sy, Math.round(rect.h * sh)));
   const k = Math.min(1, OUT_MAX / Math.max(cw, ch)); // 出力の縮小
-  const { cv, ctx } = canvas2d(Math.round(cw * k), Math.round(ch * k));
+  const { cv, ctx } = canvas2d(Math.round(cw * k), Math.round(ch * k), isImg ? '#fff' : paperOf(media));
   const f = fit ?? { x: 0, y: 0, w: sw, h: sh };
   ctx.drawImage(src, (f.x - sx) * k, (f.y - sy) * k, f.w * k, f.h * k); // 全体を、ずらして描く（はみ出す所は、切れる）。k が 1 なら、切り出しと同じ
   return canvasFile(cv);
@@ -226,10 +235,10 @@ export async function rasterRegion(vr: ViewportRect, art: HTMLElement): Promise<
   const W = Math.max(1, Math.round(vr.width));
   const H = Math.max(1, Math.round(vr.height));
   const k = Math.min(2, OUT_MAX / Math.max(W, H));
-  const paper = getComputedStyle(art).backgroundColor;
+  const paper = paperOf(art);
   const root = document.createElement('div');
   root.setAttribute('xmlns', 'http://www.w3.org/1999/xhtml');
-  root.style.cssText = `position:relative;width:${W}px;height:${H}px;overflow:hidden;background:${paper === 'rgba(0, 0, 0, 0)' ? '#fff' : paper}`;
+  root.style.cssText = `position:relative;width:${W}px;height:${H}px;overflow:hidden;background:${paper}`;
   const imgs: [HTMLImageElement, HTMLImageElement][] = [];
   const targets = [...art.children].filter((el) => overlaps(el.getBoundingClientRect(), vr));
   let count = 0;
@@ -289,7 +298,7 @@ export async function rasterRegion(vr: ViewportRect, art: HTMLElement): Promise<
     throw new UserError('範囲が大きすぎて、画像にできません。小さい範囲を選んでください。位置だけで、コメントできます');
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${Math.round(W * k)}" height="${Math.round(H * k)}" viewBox="0 0 ${W} ${H}"><foreignObject x="0" y="0" width="${W}" height="${H}">${xml}</foreignObject></svg>`;
   const im = await loadImage(`data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`, '範囲を画像にできません');
-  const { cv, ctx } = canvas2d(Math.round(W * k), Math.round(H * k));
+  const { cv, ctx } = canvas2d(Math.round(W * k), Math.round(H * k), paper);
   ctx.drawImage(im, 0, 0, cv.width, cv.height);
   return canvasFile(cv);
 }

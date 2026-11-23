@@ -25,13 +25,28 @@ test('seen：壊れていたら、空（配列でない・文字列でない要�
 
 test('ui：既定・保存・読み戻し・壊れていたら既定', () => {
   expect(loadUi()).toEqual(DEFAULT_UI);
-  expect(DEFAULT_UI).toEqual({ sideOpen: true, panelW: 380, links: true });
-  saveUi({ sideOpen: false, panelW: 450, links: true });
-  expect(loadUi()).toEqual({ sideOpen: false, panelW: 450, links: true });
+  expect(DEFAULT_UI).toEqual({ sideOpen: true, panelW: 380, links: true, theme: 'system' });
+  saveUi({ sideOpen: false, panelW: 450, links: true, theme: 'system' });
+  expect(loadUi()).toEqual({ sideOpen: false, panelW: 450, links: true, theme: 'system' });
   localStorage.setItem(UI_KEY, 'not json');
   expect(loadUi()).toEqual(DEFAULT_UI);
   localStorage.setItem(UI_KEY, JSON.stringify({ sideOpen: 'yes', panelW: 'abc' }));
   expect(loadUi()).toEqual(DEFAULT_UI);
   localStorage.setItem(UI_KEY, JSON.stringify({ panelW: '420' }));
-  expect(loadUi()).toEqual({ sideOpen: true, panelW: 420, links: true });
+  expect(loadUi()).toEqual({ sideOpen: true, panelW: 420, links: true, theme: 'system' });
+});
+
+test('ui：外観のモード（theme）は、light・dark・system だけ。壊れた値・知らない値は、system に戻す。ほかの設定は、そのまま', () => {
+  for (const t of ['light', 'dark', 'system'] as const) {
+    saveUi({ sideOpen: false, panelW: 450, links: false, theme: t });
+    expect(loadUi()).toEqual({ sideOpen: false, panelW: 450, links: false, theme: t });
+  }
+  // 古い保存（theme がない）：既定
+  localStorage.setItem(UI_KEY, JSON.stringify({ sideOpen: false, panelW: 420, links: false }));
+  expect(loadUi()).toEqual({ sideOpen: false, panelW: 420, links: false, theme: 'system' });
+  // 知らない値・型違い：system。ほかの設定は、読める
+  for (const bad of ['Dark', 'auto', 1, null, {}, true]) {
+    localStorage.setItem(UI_KEY, JSON.stringify({ sideOpen: false, theme: bad }));
+    expect(loadUi()).toMatchObject({ sideOpen: false, theme: 'system' });
+  }
 });
