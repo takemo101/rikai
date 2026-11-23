@@ -92,6 +92,10 @@ export interface UiState {
   toast: ToastState | null;
   /** 画面の広さ（左の一覧の開閉・右の幅・関連の線。localStorage `rikai-ui`） */
   ui: UiPrefs;
+  /** 自動で隠す窓（788px 未満）で、☰ で、左の一覧を、本文の上に重ねて（ドロワー）出しているか（保存しない。保存した `ui.sideOpen` は、書き換えない：F23(3)） */
+  narrowSideOpen: boolean;
+  /** 狭い窓（〜900px）で、取っ手で変えた右の幅（保存しない：リロード・窓を広げると、保存した幅に戻る。保存した `ui.panelW` は、書き換えない：F23(3)）。null は、保存した幅のまま */
+  panelWNarrow: number | null;
   /** 開いているダイアログ（`<dialog>`。`confirm()` は使わない：F34） */
   dialog: DialogKind | null;
   /** ライトボックスで大きく見ている画像の URL */
@@ -154,7 +158,12 @@ export interface UiActions {
   openLightbox: (src: string) => void;
   closeLightbox: () => void;
   // ---- 画面の広さ ----
-  toggleSide: () => void;
+  /** 左の一覧を、しまう・出す。autoHidden（788px 未満の、自動で隠す窓）では、保存せず、本文の上に重ねて出す・しまう。広い窓では、保存して、重ねて出したものは、しまう */
+  toggleSide: (autoHidden?: boolean) => void;
+  /** 重ねて出した左の一覧（ドロワー）を、しまう */
+  closeSideDrawer: () => void;
+  /** 狭い窓で、取っ手で変えた右の幅（保存しない）。null で、保存した幅に戻す */
+  setPanelWNarrow: (w: number | null) => void;
   /** 関連の線（コメントと本文の対象を結ぶ線）の、出す・隠す */
   toggleLinks: () => void;
   /** 外観のモードを選ぶ（ライト・ダーク・システム）。`<html data-theme>` に反映して、保存する */
@@ -189,6 +198,8 @@ export function initialUi(): UiState {
     regDrag: false,
     toast: null,
     ui: loadUi(),
+    narrowSideOpen: false,
+    panelWNarrow: null,
     dialog: null,
     lightbox: null,
   };
@@ -328,10 +339,16 @@ export const useUi = create<UiStore>()((set, get) => {
     openLightbox: (lightbox) => set({ lightbox }),
     closeLightbox: () => set({ lightbox: null }),
 
-    toggleSide: () => {
-      set((s) => ({ ui: { ...s.ui, sideOpen: !s.ui.sideOpen } }));
+    toggleSide: (autoHidden = false) => {
+      if (autoHidden) {
+        set((s) => ({ narrowSideOpen: !s.narrowSideOpen }));
+        return;
+      }
+      set((s) => ({ narrowSideOpen: false, ui: { ...s.ui, sideOpen: !s.ui.sideOpen } }));
       saveUi(get().ui);
     },
+    closeSideDrawer: () => set({ narrowSideOpen: false }),
+    setPanelWNarrow: (w) => set({ panelWNarrow: w }),
     setTheme: (mode) => {
       applyTheme(mode);
       set((s) => ({ ui: { ...s.ui, theme: mode } }));

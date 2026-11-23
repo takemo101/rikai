@@ -89,3 +89,53 @@ test('ドラッグ：左の一覧をしまっていれば、上限は 70%・右�
   fireEvent.pointerMove(sep(), { pointerId: 3, clientX: 0 });
   expect(useUi.getState().ui.panelW).toBe(1120);
 });
+
+// 狭い窓（〜900px）の取っ手は、保存した幅（ui.panelW）を書き換えない（F23(3)）：その窓の間だけ、panelWNarrow に持つ
+test('狭い窓（800px）：下限 220・上限は、本文に 400px 残す幅（232）。取っ手の値・矢印キー・ドラッグが、その範囲。保存した幅（380）は、書き換えない・localStorage にも書かない', () => {
+  Object.defineProperty(window, 'innerWidth', { value: 800, configurable: true });
+  render(<Resizer />);
+  expect(sep()).toHaveAttribute('aria-valuemin', '220');
+  expect(sep()).toHaveAttribute('aria-valuemax', '232'); // 800 − 168 − 400
+  expect(sep()).toHaveAttribute('aria-valuenow', '232'); // 覚えている 380 を、上限で抑えた表示
+  expect(useUi.getState().ui.panelW).toBe(380);
+  expect(savedW()).toBeUndefined();
+  // 矢印キー：→ で狭める（下限 220 で止まる）・← は、上限（232）で止まる
+  fireEvent.keyDown(sep(), { key: 'ArrowRight' });
+  expect(sep()).toHaveAttribute('aria-valuenow', '220');
+  fireEvent.keyDown(sep(), { key: 'ArrowRight' });
+  expect(useUi.getState().panelWNarrow).toBe(220);
+  fireEvent.keyDown(sep(), { key: 'ArrowLeft' });
+  fireEvent.keyDown(sep(), { key: 'ArrowLeft' });
+  expect(useUi.getState().panelWNarrow).toBe(232);
+  // ドラッグ：下限・上限で止まる
+  fireEvent.pointerDown(sep(), { button: 0, pointerId: 4, clientX: 600 });
+  fireEvent.pointerMove(sep(), { pointerId: 4, clientX: 790 });
+  expect(useUi.getState().panelWNarrow).toBe(220);
+  fireEvent.pointerMove(sep(), { pointerId: 4, clientX: 0 });
+  expect(useUi.getState().panelWNarrow).toBe(232);
+  fireEvent.pointerUp(sep(), { pointerId: 4 });
+  // ダブルクリック：もとの幅（既定 380 を、上限で抑える）
+  fireEvent.doubleClick(sep());
+  expect(sep()).toHaveAttribute('aria-valuenow', '232');
+  // 保存した幅は、どの操作でも、そのまま
+  expect(useUi.getState().ui.panelW).toBe(380);
+  expect(savedW()).toBeUndefined();
+});
+
+test('回帰：保存 380・800px で ← を 1 回 → 保存は 380 のまま。1200px に広げると、380（280 に縮まない）', () => {
+  Object.defineProperty(window, 'innerWidth', { value: 800, configurable: true });
+  const { rerender } = render(<Resizer />);
+  fireEvent.keyDown(sep(), { key: 'ArrowRight' });
+  expect(useUi.getState().ui.panelW).toBe(380);
+  Object.defineProperty(window, 'innerWidth', { value: 1200, configurable: true });
+  act(() => void window.dispatchEvent(new Event('resize')));
+  rerender(<Resizer />);
+  expect(sep()).toHaveAttribute('aria-valuenow', '380');
+});
+
+test('狭い窓（600px）：左の一覧は、自動で隠れている。上限は、下限 220（本文は 380px）', () => {
+  Object.defineProperty(window, 'innerWidth', { value: 600, configurable: true });
+  render(<Resizer />);
+  expect(sep()).toHaveAttribute('aria-valuemax', '220');
+  expect(sep()).toHaveAttribute('aria-valuenow', '220');
+});

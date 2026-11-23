@@ -250,3 +250,33 @@ test('外観：setTheme は、<html data-theme> に反映し（system は外す�
   expect(JSON.parse(localStorage.getItem(UI_KEY) ?? '{}')).toMatchObject({ theme: 'system' });
   expect(initialUi().ui.theme).toBe('system');
 });
+
+test('自動で隠す窓の「しまう／出す」：重ねて出す・しまうだけ。保存した開閉（sideOpen）は、書き換えない。localStorage にも書かない', () => {
+  expect(ui().narrowSideOpen).toBe(false);
+  ui().toggleSide(true);
+  expect(ui().narrowSideOpen).toBe(true);
+  expect(ui().ui.sideOpen).toBe(true);
+  expect(localStorage.getItem(UI_KEY)).toBeNull();
+  ui().toggleSide(true);
+  expect(ui().narrowSideOpen).toBe(false);
+  ui().toggleSide(true);
+  ui().closeSideDrawer();
+  expect(ui().narrowSideOpen).toBe(false);
+});
+
+test('広い窓の開閉（保存）は、重ねて出した左の一覧を、しまう：あとで、狭い窓に戻ったとき、勝手に出てこない', () => {
+  ui().toggleSide(true); // 狭い窓で、重ねて出す
+  expect(ui().narrowSideOpen).toBe(true);
+  ui().toggleSide(); // 広い窓の開閉（保存）
+  expect(ui().ui.sideOpen).toBe(false);
+  expect(ui().narrowSideOpen).toBe(false);
+});
+
+test('狭い窓の取っ手の幅は、保存した幅（ui.panelW）と別：書き換えない・localStorage に書かない。null で、保存した幅に戻る', () => {
+  ui().setPanelWNarrow(232);
+  expect(ui().panelWNarrow).toBe(232);
+  expect(ui().ui.panelW).toBe(380);
+  expect(localStorage.getItem(UI_KEY)).toBeNull();
+  ui().setPanelWNarrow(null);
+  expect(ui().panelWNarrow).toBeNull();
+});

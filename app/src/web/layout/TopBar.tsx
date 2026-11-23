@@ -5,6 +5,7 @@ import { trunc } from '../lib/dom';
 import { nextTheme, THEME_LABEL } from '../lib/theme';
 import type { View } from '../lib/view';
 import { toast, useUi } from '../store/ui';
+import { sideAutoHidden, usePanelGeometry } from './geometry';
 import type { ServerStatus } from './status';
 
 export interface TopBarProps {
@@ -23,7 +24,8 @@ export function progressLabel(threads: View['topic']['threads']): string | null 
 }
 
 export function TopBar({ view, status }: TopBarProps) {
-  const sideOpen = useUi((s) => s.ui.sideOpen);
+  const { sideShown, drawer, autoHidden } = usePanelGeometry();
+  const sideVisible = autoHidden ? drawer : sideShown;
   const theme = useUi((s) => s.ui.theme);
   const ThemeIcon = { system: Monitor, light: Sun, dark: Moon }[theme];
   const themeLabel = `外観：${THEME_LABEL[theme]}。押すと、${THEME_LABEL[nextTheme(theme)]}にします`;
@@ -39,8 +41,8 @@ export function TopBar({ view, status }: TopBarProps) {
         type="button"
         title="左の一覧を、しまう／出す"
         aria-label="左の一覧を、しまう／出す"
-        aria-expanded={sideOpen}
-        onClick={() => useUi.getState().toggleSide()}
+        aria-expanded={sideVisible}
+        onClick={() => useUi.getState().toggleSide(sideAutoHidden(window.innerWidth))}
       >
         <PanelLeft aria-hidden="true" focusable="false" />
       </button>

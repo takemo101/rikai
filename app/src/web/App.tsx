@@ -17,6 +17,7 @@ import { serverStatus } from './layout/status';
 import { Toast } from './layout/Toast';
 import { TopBar } from './layout/TopBar';
 import { navigate, type Route, useRoute } from './lib/route';
+import { PANEL_MIN } from './lib/storage';
 import { useResolvedTheme } from './lib/theme';
 import { buildView, type View } from './lib/view';
 import { Connectors } from './overlay/Connectors';
@@ -41,8 +42,8 @@ export function App() {
   const ready = !!view && pageQ.data !== undefined && (view.version === 1 || prevQ.data !== undefined);
 
   const scrollRef = useRef<HTMLDivElement>(null);
-  const sideOpen = useUi((s) => s.ui.sideOpen);
-  const { w } = usePanelGeometry();
+  const { w, sideShown, drawer, autoHidden, narrow } = usePanelGeometry();
+  useLayoutReset({ drawer, autoHidden, narrow });
 
   useNavigationEffects(route, view, scrollRef);
   useRedrawDiagrams();
@@ -106,7 +107,11 @@ export function App() {
     <>
       <div
         id="app"
-        className={sideOpen ? undefined : 'side-collapsed'}
+        className={
+          [sideShown ? '' : 'side-collapsed', drawer ? 'side-drawer' : '', w < PANEL_MIN ? 'panel-tight' : '']
+            .filter(Boolean)
+            .join(' ') || undefined
+        }
         style={{ '--panel-w': `${w}px` } as CSSProperties}
       >
         <TopBar view={view} status={status} />
@@ -187,6 +192,50 @@ function useUpdateToast(view: View | null, explicitVersion: number | null): void
     if (p && p.page === id && !explicitVersion && latest > p.latest) toast(`資料が v${latest} に更新されました`);
     last.current = { page: id, latest };
   }, [slug, page, latest, explicitVersion]);
+}
+
+/**
+ * 窓の大きさに合わせて、一時の状態を片づける：自動で隠す窓（788px 未満）を出たら、重ねて出した左の一覧（ドロワー）をしまう・狭い窓（〜900px）を出たら、取っ手で変えた幅を捨てる
+ * （どちらも保存しない値。あとで、狭い窓に戻ったとき、勝手に出てこない・古い幅にならない）。ドロワーを出している間は、外を押す・Esc・一覧の中のリンクで、しまう
+ */
+function useLayoutReset({
+  drawer,
+  autoHidden,
+  narrow,
+}: {
+  drawer: boolean;
+  autoHidden: boolean;
+  narrow: boolean;
+}): void {
+  const staleDrawer = useUi((s) => s.narrowSideOpen) && !autoHidden;
+  useEffect(() => {
+    if (staleDrawer) useUi.getState().closeSideDrawer();
+  }, [staleDrawer]);
+  const staleWidth = useUi((s) => s.panelWNarrow !== null) && !narrow;
+  useEffect(() => {
+    if (staleWidth) useUi.getState().setPanelWNarrow(null);
+  }, [staleWidth]);
+  useEffect(() => {
+    if (!drawer) return;
+    const close = () => useUi.getState().closeSideDrawer();
+    const onDown = (e: PointerEvent) => {
+      if (!(e.target as Element | null)?.closest('#side, #btn-side')) close();
+    };
+    const onClick = (e: MouseEvent) => {
+      if ((e.target as Element | null)?.closest('#side a')) close();
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') close();
+    };
+    document.addEventListener('pointerdown', onDown);
+    document.addEventListener('click', onClick);
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('pointerdown', onDown);
+      document.removeEventListener('click', onClick);
+      document.removeEventListener('keydown', onKey);
+    };
+  }, [drawer]);
 }
 
 /** 外観が変わったら（ボタン・OS の外観の変化）、描いてある Mermaid の図を、その外観で描き直す（本文・AI の返信の、どちらも）。最初の描画は、各部品が、その外観で描く */

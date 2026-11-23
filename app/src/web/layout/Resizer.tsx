@@ -1,11 +1,18 @@
 // 右のコメントの幅を変える取っ手（コメントの左端の線の上）。F23：ドラッグ・左右の矢印キー・ダブルクリック（もとの幅）。幅は localStorage に覚える。
 import { useEffect, useState } from 'react';
-import { PANEL_DEFAULT, PANEL_MIN } from '../lib/storage';
+import { PANEL_DEFAULT } from '../lib/storage';
 import { useUi } from '../store/ui';
-import { KEY_STEP, panelMax, usePanelGeometry } from './geometry';
+import { isNarrow, KEY_STEP, panelMax, panelMin, sideShown, usePanelGeometry } from './geometry';
+
+/** 取っ手で変えた幅：広い窓は、保存した幅（save: false は、ドラッグの途中）。狭い窓（〜900px）は、保存せず、その窓の間だけ（F23(3)：窓の大きさでは、保存した幅を、書き換えない） */
+function setWidth(w: number, save = true): void {
+  const ui = useUi.getState();
+  if (isNarrow(window.innerWidth)) ui.setPanelWNarrow(w);
+  else ui.setPanelW(w, { save });
+}
 
 export function Resizer() {
-  const { w, max } = usePanelGeometry();
+  const { w, min, max } = usePanelGeometry();
   const [drag, setDrag] = useState(false);
 
   // ドラッグの間、全体を、選択できない・左右リサイズのカーソルにする（旧 body.resizing）
@@ -24,7 +31,7 @@ export function Resizer() {
       aria-label="コメントの幅（ドラッグ、または左右の矢印キーで変える。ダブルクリックでもとの幅）"
       title="ドラッグで、コメントの幅を変える（ダブルクリックで、もとの幅）"
       tabIndex={0}
-      aria-valuemin={PANEL_MIN}
+      aria-valuemin={min}
       aria-valuemax={max}
       aria-valuenow={w}
       onPointerDown={(e) => {
@@ -36,23 +43,20 @@ export function Resizer() {
       }}
       onPointerMove={(e) => {
         if (!e.currentTarget.hasPointerCapture(e.pointerId)) return;
-        const limit = panelMax(useUi.getState().ui.sideOpen, window.innerWidth);
-        useUi
-          .getState()
-          .setPanelW(Math.round(Math.min(Math.max(window.innerWidth - e.clientX, PANEL_MIN), limit)), { save: false });
+        const width = window.innerWidth;
+        const limit = panelMax(sideShown(useUi.getState().ui.sideOpen, width), width);
+        setWidth(Math.round(Math.min(Math.max(width - e.clientX, panelMin(width)), limit)), false);
       }}
       // ドラッグの終わり（離す・取り消し・取り込みを失う、のどれでも）。ここで、必ず、元に戻して、保存する
       onLostPointerCapture={() => {
         setDrag(false);
-        useUi.getState().persistUi();
+        if (!isNarrow(window.innerWidth)) useUi.getState().persistUi(); // 狭い窓の幅は、保存しない
       }}
-      onDoubleClick={() => useUi.getState().setPanelW(PANEL_DEFAULT)}
+      onDoubleClick={() => setWidth(PANEL_DEFAULT)}
       onKeyDown={(e) => {
         if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
         e.preventDefault();
-        useUi
-          .getState()
-          .setPanelW(Math.min(Math.max(w + (e.key === 'ArrowLeft' ? KEY_STEP : -KEY_STEP), PANEL_MIN), max));
+        setWidth(Math.min(Math.max(w + (e.key === 'ArrowLeft' ? KEY_STEP : -KEY_STEP), min), max));
       }}
     />
   );
