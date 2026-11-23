@@ -120,6 +120,7 @@ test('ツールバー：見出しの行に、幅（4 つの数＋自動）と枠
     '枠の幅：ワイドデスクトップ（1920px）',
     '枠の幅：本文の幅いっぱい',
     '枠の外観：ライト。押すと、ダークにします',
+    '枠の中の要素を選んでコメント',
   ]);
   for (const b of buttons) {
     const label = b.getAttribute('aria-label') as string;
@@ -136,8 +137,9 @@ test('ツールバー：見出しの行に、幅（4 つの数＋自動）と枠
           ?.getAttribute('class')
           ?.match(/lucide-([a-z-]+)/)?.[1],
     ),
-  ).toEqual(['smartphone', 'tablet', 'monitor', 'tv', 'arrow-left-right', 'sun']);
-  expect(tools.textContent).toBe('');
+  ).toEqual(['smartphone', 'tablet', 'monitor', 'tv', 'arrow-left-right', 'sun', 'crosshair']);
+  expect(tools.textContent).toBe(''); // 選んでいないときは、説明も、文字なし（選んでいる間だけ、出る：aria-live）
+  expect(tools.querySelector('[role="status"][aria-live="polite"]')).not.toBeNull();
   // コメントのボタン：ツールバーの外・あとに、そのまま
   const link = cap.querySelector('button.link') as HTMLButtonElement;
   expect(tools.contains(link)).toBe(false);

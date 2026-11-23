@@ -7,6 +7,7 @@
 // サーバーの状態（topics・topic・md・offline・error）と、導出（page・version）は、ここにない（queries.ts・lib/view.ts）。
 // 本文の DOM を指すもの（locs・nums・approx・pendingEl・regions・blkBadges…）は、store/doc.ts の DocModel。
 import { create } from 'zustand';
+import { FRAME_IMAGE_LINE, FRAME_IMAGE_NOTE, FROM_FRAME_IMAGE } from '../../shared/htmlapp-bridge';
 import type { Anchor, Thread } from '../../shared/types';
 import { loadSeen, loadUi, saveSeen, saveUi, type UiPrefs } from '../lib/storage';
 import { applyTheme, type ThemeMode } from '../lib/theme';
@@ -33,6 +34,8 @@ export interface ComposerState {
   anchor: Anchor;
   /** 範囲の切り出し画像を、自動で付けたときの名前（対象を選び直したとき、この画像だけを外す） */
   regionImg?: string;
+  /** 枠から来た情報（要素・状態）で、本文に入れた初期値（F42）。対象を選び直したとき、利用者が書き足していなければ、これを入れ替える */
+  seed?: string;
 }
 
 /** 質問の、回答の下書き（選びかけ・書きかけ。保存した回答は、AskAnswer）。型ごとに、使う項目が違う */
@@ -118,8 +121,11 @@ export interface UiState {
 export interface UiActions {
   // ---- 入力欄（コメントの新規） ----
   /** 最新版でなければ、トーストを出して、false。入力欄を開いた（対象を選び直した）ら、true。前の入力欄の切り出し画像は、外す。書きかけの文は、残す */
-  startComposer: (anchor: Anchor) => boolean;
+  /** `seed`：本文の初期値（html-app の枠から来た情報。F42）。書きかけがあれば、空行をあけて、あとに足す */
+  startComposer: (anchor: Anchor, seed?: string) => boolean;
   /** 入力欄を閉じる（やめる・送った・別のページへ移った）：対象・書きかけの文・画像を消し、画像の世代を進める */
+  /** 範囲の画像に、枠自身が作った画像が入った：錨のラベルに注記・本文の先頭に 1 行（F42）。その入力欄が、まだ開いているときだけ */
+  noteFrameImage: (composerId: number) => void;
   closeComposer: () => void;
   /** 対象だけを、閉じる（書きかけの文・画像は、残す。ページ内のリンクを押したとき：旧と同じ） */
   dropComposerTarget: () => void;
@@ -266,7 +272,7 @@ export const useUi = create<UiStore>()((set, get) => {
   return {
     ...initialUi(),
 
-    startComposer: (anchor) => {
+    startComposer: (anchor, seed) => {
       if (!getView()?.isLatest) {
         get().showToast('コメントは最新版にだけ付けられます', true);
         return false;
@@ -276,9 +282,25 @@ export const useUi = create<UiStore>()((set, get) => {
       const imgs = prevCrop
         ? { ...drafts.imgs, composer: (drafts.imgs.composer ?? []).filter((n) => n !== prevCrop) }
         : drafts.imgs;
-      set({ composer: { id: ++composerSeq, anchor }, drafts: { ...drafts, imgs } });
+      // 本文：前の枠からの初期値（`composer.seed`）が、そのままなら、新しい対象のものに入れ替える（別の対象に、前の枠の情報が残らない）。書き足していれば、書きかけを残す
+      const prev = drafts.composer === composer?.seed ? '' : drafts.composer;
+      const text = seed ? (prev.trim() ? `${prev.replace(/\s+$/, '')}\n\n${seed}` : seed) : prev;
+      set({
+        composer: { id: ++composerSeq, anchor, ...(seed ? { seed } : {}) },
+        drafts: { ...drafts, composer: text, imgs },
+      });
       return true;
     },
+    noteFrameImage: (composerId) =>
+      set((s) => {
+        const c = s.composer;
+        if (!c || c.id !== composerId || c.anchor.label.includes(FRAME_IMAGE_NOTE)) return s;
+        const label = `${c.anchor.label.slice(0, 120 - FRAME_IMAGE_NOTE.length)}${FRAME_IMAGE_NOTE}`;
+        const text = s.drafts.composer.startsWith(FROM_FRAME_IMAGE)
+          ? s.drafts.composer
+          : `${FRAME_IMAGE_LINE}${s.drafts.composer}`;
+        return { composer: { ...c, anchor: { ...c.anchor, label } }, drafts: { ...s.drafts, composer: text } };
+      }),
     closeComposer: () => {
       set((s) => ({ composer: null, drafts: { ...s.drafts, composer: '' } }));
       resetImgs('composer');

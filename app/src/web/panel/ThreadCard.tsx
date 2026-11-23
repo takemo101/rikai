@@ -13,12 +13,14 @@ import {
   TriangleAlert,
 } from 'lucide-react';
 import { type ReactNode, useRef } from 'react';
+import { fromFrameAnchor } from '../../shared/htmlapp-bridge';
 import type { Thread } from '../../shared/types';
 import { useMutations } from '../api/mutations';
 import { trunc } from '../lib/dom';
 import type { View } from '../lib/view';
 import type { DocModel } from '../store/doc';
 import { useUi } from '../store/ui';
+import { FromFrame } from './Composer';
 import { caretAtEnd } from './caret';
 import { AttachButton, ImageBar } from './ImageBar';
 import { foldMessages, quoteOf, threadStatus } from './logic';
@@ -72,7 +74,7 @@ export function ThreadCard({ view, thread: t, full = false, model, seen, editing
   const segments = foldMessages(t, { full, seen, editing });
 
   return (
-    <div className={cls} data-tid={t.id}>
+    <div className={cls} data-tid={t.id} {...(t.anchor && fromFrameAnchor(t.anchor) ? { 'data-from-frame': '' } : {})}>
       {/* biome-ignore lint/a11y/useKeyWithClickEvents: 旧と同じ DOM（見出しの押下は、マウスの近道。キーボードは、カード内のボタン） */}
       {/* biome-ignore lint/a11y/noStaticElementInteractions: 同上 */}
       <div className="th-head" onClick={() => focusThread(t.id, true)}>
@@ -101,6 +103,7 @@ export function ThreadCard({ view, thread: t, full = false, model, seen, editing
           </span>
         ) : null}
         {future ? <span className="chip small">後の版のコメント</span> : null}
+        {t.anchor && fromFrameAnchor(t.anchor) ? <FromFrame /> : null}
         <div className="quote">{trunc(quoteOf(t), 90)}</div>
       </div>
       {segments.map((s) =>

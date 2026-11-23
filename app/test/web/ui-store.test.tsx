@@ -282,3 +282,32 @@ test('狭い窓の取っ手の幅は、保存した幅（ui.panelW）と別：�
   ui().setPanelWNarrow(null);
   expect(ui().panelWNarrow).toBeNull();
 });
+
+test('startComposer(anchor, seed)：初期値を入れる。書きかけがあれば、空行をあけて、あとに足す。前の初期値のままなら、新しい対象で入れ替える（別の対象には、残らない）', () => {
+  const a = (label: string) => ({
+    blockId: 'b0',
+    blockHash: '',
+    blockTag: 'DIV',
+    blockText: '',
+    quote: '',
+    prefix: '',
+    suffix: '',
+    label,
+  });
+  location.hash = '#/demo/root';
+  queryClient.setQueryData(topicKey('demo'), topicState());
+  const ui = useUi.getState();
+  expect(ui.startComposer(a('枠から：a'), 'SEED-A\n')).toBe(true);
+  expect(useUi.getState().drafts.composer).toBe('SEED-A\n');
+  expect(useUi.getState().composer?.seed).toBe('SEED-A\n');
+  useUi.getState().startComposer(a('枠から：b'), 'SEED-B\n'); // 前の初期値のまま：入れ替える
+  expect(useUi.getState().drafts.composer).toBe('SEED-B\n');
+  useUi.getState().setComposerDraft('SEED-B\n私の一言');
+  useUi.getState().startComposer(a('枠から：c'), 'SEED-C\n'); // 書き足している：残して、足す
+  expect(useUi.getState().drafts.composer).toBe('SEED-B\n私の一言\n\nSEED-C\n');
+  useUi.getState().closeComposer();
+  useUi.getState().startComposer(a('枠から：d'), 'SEED-D\n');
+  useUi.getState().startComposer(a('普通'));
+  expect(useUi.getState().drafts.composer).toBe(''); // 初期値のまま、初期値のない対象へ：消える
+  expect(useUi.getState().composer?.seed).toBeUndefined();
+});

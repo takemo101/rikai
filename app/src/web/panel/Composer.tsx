@@ -2,6 +2,7 @@
 // 開く（対象を選んだ・選び直した）たびに、欄にフォーカスを移し、カードを真ん中へ（旧 `startComposer`）。
 import { Send } from 'lucide-react';
 import { useEffect, useRef } from 'react';
+import { fromFrameAnchor } from '../../shared/htmlapp-bridge';
 import { useMutations } from '../api/mutations';
 import { trunc } from '../lib/dom';
 import type { View } from '../lib/view';
@@ -17,6 +18,18 @@ interface Props {
   composer: ComposerState;
   /** 入力中の対象を、本文で強調した要素（DocModel.pending）。見つからなければ null */
   pending: BlockEl | null;
+}
+
+/** 「枠から」の札：枠の中のコードが作った情報（要素・状態・画像）が入っている下書き・コメント。AI の文章・あなたの文章と、見分ける（F42） */
+export function FromFrame() {
+  return (
+    <span
+      className="chip small fromframe"
+      title="html-app の枠の中のコードが作った情報が、入っています（要素・状態・画像）"
+    >
+      枠から
+    </span>
+  );
 }
 
 export function Composer({ view, composer, pending }: Props) {
@@ -71,11 +84,12 @@ export function Composer({ view, composer, pending }: Props) {
   };
 
   return (
-    <div className="thread composer" ref={card}>
+    <div className="thread composer" ref={card} {...(fromFrameAnchor(a) ? { 'data-from-frame': '' } : {})}>
       <div className="th-head">
         <span className="no pending" title="本文の、点線の部分へのコメントです">
           新
         </span>
+        {fromFrameAnchor(a) ? <FromFrame /> : null}
         <div className="quote">{trunc(a.quote || a.label, 90)}</div>
         {pending ? (
           <div className="hint">
@@ -87,7 +101,7 @@ export function Composer({ view, composer, pending }: Props) {
       </div>
       <textarea
         ref={area}
-        rows={3}
+        rows={fromFrameAnchor(a) ? 8 : 3} // 枠からの下書き（見出し＋ JSON）は、長い：読める高さにする
         data-key="composer"
         placeholder="わからない点・確認したい点・直してほしい点（⌘/Ctrl+Enter で追加。画像は、貼り付け・ドラッグでも）"
         value={draft}

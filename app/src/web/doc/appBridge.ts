@@ -9,7 +9,19 @@
 // 枠の幅：選んだ幅で、枠の中のレイアウトを計算する（iframe の実際の幅＝選んだ幅。`@media`・`vw`・`100%` が、その幅で効く）。本文の幅より広いときは、
 // `transform: scale()` で、本文の幅に収めて見せる（DevTools のデバイスモードと同じ。ラッパーの高さ＝枠の高さ × 縮小率）。選んだ幅が、本文の幅以下なら、縮小しない。
 // 縮小率の下限は 50%（それ以下は読めない）：下限で止まって、まだ本文の幅に収まらないときは、枠の置き場を、横にスクロールさせる。
+// 書き戻し（F42）：枠 → 画面は、`pick`（利用者が、要素を選んだとき）・`state`（`rikai.state(obj)`）・`pick-cancel`。**`pick` は、その枠が、選択モード（利用者が、ボタンを押した）のときだけ**受ける
+// （枠のコードが、利用者の操作なしに、下書きを作れない）。値は、`shared/htmlapp-bridge.ts` の検査を通ったものだけ。枠ごとの最新の `state` は、メモリだけに持つ（保存しない）。
+// 枠の画像（`snapshot-req` → `snapshot`）：範囲選択の画像（F25）に枠が入るとき、枠自身に、自分の見た目を画像にさせる。応答は、**こちらが出した id の、その枠からの、1 回だけ**を受ける
+// （古い・偽・兄弟の枠の応答は、捨てる）。2 秒で、時間切れ（枠が応答しない：null → 箱に戻る）。画像は、PNG の data URL・長さ・形を確かめ、**画像として読めて、大きさが上限の中**のものだけ使う。
 // 枠の幅・外観の切り替えは、保存しない（再読み込みで、自動・画面の外観に戻る）。本文を描き直しても（コメントの追加など）、同じ版の中では、覚えている。
+import {
+  type PickInfo,
+  parsePick,
+  parseSnapshot,
+  parseState,
+  SNAPSHOT_MAX_SIDE,
+  snapshotId,
+} from '../../shared/htmlapp-bridge';
 import type { ResolvedTheme } from '../lib/theme';
 
 /** 枠の高さの上下限（px）。枠が知らせた値は、この範囲に収める */
@@ -29,6 +41,8 @@ export interface FrameState {
   mode: ResolvedTheme;
   forced: boolean;
   avail: number;
+  /** 要素を選んでいる（選択モード）：利用者が、ボタンを押してから、1 つ選ぶ・中止する・Esc・枠が消える、まで */
+  picking: boolean;
 }
 
 /** 縮小率の下限（これより小さくすると、読めない）。本文の幅に、これでも収まらないときは、横にスクロールさせる */
@@ -53,9 +67,44 @@ export interface AppFrame {
   setMode(mode: ResolvedTheme): void;
   /** 枠を外すとき（`releaseApps`）に呼ぶ後始末を足す */
   onRelease(fn: () => void): void;
+  /** 要素を選ぶ（選択モードに入る）／やめる。同時に選べる枠は、1 つ（ほかの枠は、中止する） */
+  startPick(): void;
+  cancelPick(): void;
+  /** この枠が知らせた、最新の状態（検査済みの JSON）。なければ null */
+  latestState(): string | null;
+  /** 枠自身に、自分の見た目を、画像（PNG の data URL）にさせる。応答しない・不正・読めない・大きすぎるときは null（時間切れは 2 秒） */
+  requestSnapshot(): Promise<string | null>;
+}
+
+/** 枠の画像を待つ時間（ms） */
+export const SNAPSHOT_TIMEOUT_MS = 2000;
+let snapshotSeq = 0;
+
+/** PNG の data URL が、画像として読めて、大きさ（幅・高さ）が上限の中か */
+function decodesWithinLimit(png: string): Promise<boolean> {
+  return new Promise((resolve) => {
+    const im = new Image();
+    im.onload = () =>
+      resolve(
+        im.naturalWidth > 0 &&
+          im.naturalHeight > 0 &&
+          im.naturalWidth <= SNAPSHOT_MAX_SIDE &&
+          im.naturalHeight <= SNAPSHOT_MAX_SIDE,
+      );
+    im.onerror = () => resolve(false);
+    im.src = png;
+  });
+}
+
+/** 枠 → 画面の、書き戻しの受け口（`registerFrame` に渡す） */
+export interface FrameHandlers {
+  /** 利用者が、枠の中の要素を選んだ（検査済み）。`stateJson`：その枠の、最新の状態 */
+  onPick?: (pick: PickInfo, stateJson: string | null) => void;
 }
 
 interface Entry extends AppFrame {
+  /** 枠から届いたメッセージ（この枠の contentWindow から来たもの）を、種類ごとに、検査して使う */
+  receive(data: unknown): void;
   /** 画面の外観が変わったとき：枠だけの外観を解いて、画面に合わせる */
   follow(mode: ResolvedTheme): void;
   /** 枠が知らせた高さ（検査済み）を、反映の列に入れる */
@@ -79,7 +128,13 @@ export function initialFrameState(viewKey: string, n: number, page: ResolvedThem
     memory.clear();
   }
   const m = memory.get(n);
-  return { width: m?.width ?? 'auto', mode: m?.mode ?? (follows ? page : 'light'), forced: m?.mode != null, avail: 0 };
+  return {
+    width: m?.width ?? 'auto',
+    mode: m?.mode ?? (follows ? page : 'light'),
+    forced: m?.mode != null,
+    avail: 0,
+    picking: false,
+  };
 }
 
 /** 枠が知らせた高さの検査：`{ __rikai: 1, type: 'resize', height }`（余分なキーは、無視）。数（有限・正）だけ。整数に丸めて、上下限に収める。それ以外は null */
@@ -92,15 +147,24 @@ export function parseResize(data: unknown): number | null {
   return Math.min(MAX_HEIGHT, Math.max(MIN_HEIGHT, Math.round(h)));
 }
 
+/** 1 つの枠の、`state` を受ける頻度の上限（1 秒あたり。橋は、1 秒に 4 回まで）。超えた分は、捨てる */
+const STATE_LIMIT = 8;
+
 function onMessage(e: MessageEvent): void {
   if (!e.source) return; // 送り元の窓がない（detached な枠の contentWindow も null：一致させない）
   for (const f of frames) {
     if (f.iframe.contentWindow !== e.source) continue;
-    const h = f.auto ? parseResize(e.data) : null;
-    if (h !== null) f.push(h);
-    return; // この枠のメッセージは、ここで終わり（ほかの枠は、見ない）
+    f.receive(e.data); // この枠のメッセージは、この枠だけが受ける（ほかの枠は、見ない）
+    return;
   }
 }
+
+/** 選択モードの枠があるあいだ、親の Esc で、中止する（枠の中の Esc は、枠が自分で中止して、知らせる） */
+function onPickKey(e: KeyboardEvent): void {
+  if (e.key !== 'Escape') return;
+  for (const f of frames) f.cancelPick();
+}
+const pickingFrames = (except?: AppFrame): boolean => [...frames].some((f) => f !== except && f.get().picking);
 
 /**
  * 枠（iframe）を、橋に登録する。`iframe` の親が、縮小後の大きさを持つ箱・その親が、本文の幅の箱（幅の基準。横にスクロールする箱）。`n`：枠の番号（覚えるときの印。`initialFrameState` と同じ版の中）。
@@ -112,8 +176,12 @@ export function registerFrame(
   auto: boolean,
   follows: boolean,
   initial: FrameState,
+  handlers: FrameHandlers = {},
 ): AppFrame {
   let state = initial;
+  let stateJson: string | null = null; // この枠の、最新の状態（メモリだけ。描き直しで消えてよい）
+  let stateTimes: number[] = [];
+  const snapshots = new Map<string, { resolve: (png: string | null) => void; timer: number }>(); // 頼んで、まだ応答のない画像（id → 待っている人）
   const subs = new Set<() => void>();
   const cleanups: Array<() => void> = [];
   let wanted = 0;
@@ -161,6 +229,17 @@ export function registerFrame(
   const onLoad = (): void => {
     if (state.forced) postTheme('user');
     else if (follows) postTheme('auto');
+    if (state.picking) iframe.contentWindow?.postMessage({ __rikai: 1, type: 'pick-start' }, '*'); // 選んでいる途中に、読み込み直した
+  };
+  const setPicking = (picking: boolean): void => {
+    if (state.picking === picking) return;
+    const others = pickingFrames(entry); // ほかに、選んでいる枠があれば、Esc の受け口は、そのまま
+    state = { ...state, picking };
+    if (!others) {
+      if (picking) document.addEventListener('keydown', onPickKey);
+      else document.removeEventListener('keydown', onPickKey);
+    }
+    notify();
   };
   iframe.addEventListener('load', onLoad);
   // 本文の幅の変化（窓・パネル・一覧の開閉）に追従する。ResizeObserver の通知の中で、観測している要素を変えないよう、rAF で（幅が変わったときだけ）
@@ -236,8 +315,75 @@ export function registerFrame(
     onRelease: (fn) => {
       cleanups.push(fn);
     },
+    latestState: () => stateJson,
+    requestSnapshot() {
+      const id = snapshotId(++snapshotSeq);
+      return new Promise<string | null>((resolve) => {
+        const timer = window.setTimeout(() => {
+          snapshots.delete(id);
+          resolve(null); // 時間切れ：枠は、応答しない
+        }, SNAPSHOT_TIMEOUT_MS);
+        snapshots.set(id, { resolve, timer });
+        iframe.contentWindow?.postMessage({ __rikai: 1, type: 'snapshot-req', id }, '*');
+      });
+    },
+    startPick() {
+      if (state.picking) return;
+      for (const f of frames) if (f !== entry) f.cancelPick(); // 選べるのは、同時に 1 つの枠
+      setPicking(true);
+      iframe.contentWindow?.postMessage({ __rikai: 1, type: 'pick-start' }, '*');
+    },
+    cancelPick() {
+      if (!state.picking) return;
+      setPicking(false);
+      iframe.contentWindow?.postMessage({ __rikai: 1, type: 'pick-cancel' }, '*');
+    },
+    receive(data) {
+      if (typeof data !== 'object' || data === null) return;
+      const type = (data as { type?: unknown }).type;
+      if (type === 'resize') {
+        const h = auto ? parseResize(data) : null;
+        if (h !== null) entry.push(h);
+      } else if (type === 'state') {
+        const now = Date.now();
+        stateTimes = stateTimes.filter((t) => now - t < 1000);
+        if (stateTimes.length >= STATE_LIMIT) return; // 頻度の上限
+        stateTimes.push(now);
+        const json = parseState(data);
+        if (json !== null) stateJson = json;
+      } else if (type === 'pick') {
+        if (!state.picking) return; // 利用者が、ボタンを押したときだけ。枠が、勝手に送っても、下書きは作らない
+        const pick = parsePick(data);
+        if (!pick) return;
+        setPicking(false); // 1 つ選ぶと、終わる（続けて届いても、受けない：洪水で、下書きが増えない）
+        handlers.onPick?.(pick, stateJson);
+      } else if (type === 'pick-cancel') {
+        setPicking(false);
+      } else if (type === 'snapshot') {
+        const r = parseSnapshot(data);
+        const waiting = r ? snapshots.get(r.id) : undefined;
+        if (!r || !waiting) return; // 頼んでいない id・古い・二重の応答は、捨てる
+        snapshots.delete(r.id);
+        clearTimeout(waiting.timer);
+        if (r.png === null) waiting.resolve(null);
+        else {
+          const png = r.png;
+          void decodesWithinLimit(png).then((ok) => waiting.resolve(ok ? png : null));
+        }
+      }
+    },
     release() {
       if (!frames.delete(entry)) return;
+      if (state.picking) {
+        const others = pickingFrames(entry);
+        state = { ...state, picking: false };
+        if (!others) document.removeEventListener('keydown', onPickKey);
+      }
+      for (const [, w] of snapshots) {
+        clearTimeout(w.timer);
+        w.resolve(null); // 枠が消えた：待っている人には、箱に戻らせる
+      }
+      snapshots.clear();
       cancelAnimationFrame(raf);
       clearTimeout(timer);
       raf = timer = 0;
@@ -256,6 +402,18 @@ export function registerFrame(
 /** 画面の外観が変わった：対応を示した枠を、その外観にする（枠だけの外観は、解く）。対応を示さない枠は、触らない。再読み込みしない（枠の中の状態は、保たれる） */
 export function followPageTheme(mode: ResolvedTheme): void {
   for (const f of frames) f.follow(mode);
+}
+
+/** この枠（`.htmlapp`・iframe の祖先）の、最新の状態（検査済みの JSON）。なければ null（「この枠にコメント」が、本文に添える） */
+export function latestStateOf(box: ParentNode): string | null {
+  for (const f of frames) if (box.contains(f.iframe)) return f.latestState();
+  return null;
+}
+
+/** この iframe（登録した枠）に、自分の見た目を画像にさせる。枠でない・応答しない・不正なときは null */
+export function requestFrameSnapshot(iframe: HTMLIFrameElement): Promise<string | null> {
+  for (const f of frames) if (f.iframe === iframe) return f.requestSnapshot();
+  return Promise.resolve(null);
 }
 
 /** `container` の中の枠を、すべて外す（本文を描き直す前・本文が消えるとき）。枠が 0 になったら、メッセージの受け口も外す */

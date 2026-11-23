@@ -3,7 +3,7 @@
 // （本物のコードを、疑似の窓で動かす：揺れ防止・報告の回数・theme の検査〔by・data-follow〕）。
 import assert from 'node:assert/strict';
 import vm from 'node:vm';
-import { afterEach, beforeEach, test } from 'vitest';
+import { afterEach, beforeEach, expect, test } from 'vitest';
 import { createApp } from '../../src/server/app';
 import { BASE_STYLE, BRIDGE_SOURCE, frameDocument, parseMode } from '../../src/server/appframe-bridge';
 import { BRIDGE_COLORS } from '../../src/shared/htmlapp-theme';
@@ -177,6 +177,7 @@ test('/appframe：合言葉なしは 403（?mode を付けても）', async () =
 // ---- 橋のスクリプト：本物のコードを、疑似の窓で動かす ----
 
 type Msg = { data: Record<string, unknown>; origin: string; at: number };
+type Fake = { style: Record<string, string>; [k: string]: unknown };
 
 /**
  * 橋を、疑似の窓の中で動かす。時計・タイマーは、テストが進める。`layout(h)`：枠の高さが h のときの、中身（body）の高さ。
@@ -187,6 +188,10 @@ function runBridge(
   opts: { initial?: number; reflect?: boolean; follow?: boolean } = {},
 ) {
   const rootStyle: Record<string, string> = {};
+  const computed: Record<string, string> = {};
+  const listenerOptions: Record<string, unknown> = {};
+  const appended: Fake[] = [];
+  let nodeCount = 10;
   let now = 100_000;
   let viewport = opts.initial ?? 360;
   let seq = 0;
@@ -214,6 +219,7 @@ function runBridge(
     Math,
     parseFloat,
     setTimeout: (fn: () => void, ms: number) => setT(fn, ms),
+    clearTimeout: (id: number) => void timers.delete(id),
     parent: parentWin,
     ResizeObserver: class {
       constructor(cb: () => void) {
@@ -221,9 +227,17 @@ function runBridge(
       }
       observe(): void {}
     },
-    getComputedStyle: () => ({ marginBottom: '0px' }),
+    getComputedStyle: () => ({ marginBottom: '0px', getPropertyValue: (k: string) => computed[k] ?? '' }),
+    Event: FakeEvent,
+    TextEncoder,
+    JSON,
+    String,
+    Object,
     scrollY: 0,
-    addEventListener: (t: string, fn: (e: unknown) => void) => on(t, fn),
+    addEventListener: (t: string, fn: (e: unknown) => void, o?: unknown) => {
+      listenerOptions[t] = o;
+      on(t, fn);
+    },
     document: {
       documentElement: {
         setAttribute: (k: string, v: string) => {
@@ -231,7 +245,18 @@ function runBridge(
         },
         hasAttribute: (k: string) => k === 'data-follow' && opts.follow !== false,
         style: rootStyle,
+        appendChild: (el: Fake) => {
+          appended.push(el);
+          return el;
+        },
       },
+      createElement: (): Fake => ({
+        style: {},
+        setAttribute() {},
+        parentNode: { removeChild: (el: Fake) => void appended.splice(appended.indexOf(el), 1) },
+      }),
+      querySelectorAll: () => [0],
+      getElementsByTagName: () => ({ length: nodeCount }),
       body: {
         getBoundingClientRect: () => ({ top: 0 }),
         get scrollHeight() {
@@ -243,6 +268,7 @@ function runBridge(
     },
   };
   Object.defineProperty(sandbox, 'innerHeight', { get: () => viewport });
+  sandbox.innerWidth = 634.4;
   sandbox.window = sandbox;
   vm.createContext(sandbox);
   function resize(h: number): void {
@@ -270,6 +296,14 @@ function runBridge(
     now = end;
   };
   return {
+    setNodeCount: (n: number) => {
+      nodeCount = n;
+    },
+    listenerOptions,
+    context: sandbox,
+    computed,
+    appended,
+    rikai: () => (sandbox.window as { rikai: { state: (o: unknown) => boolean } }).rikai,
     rootStyle,
     parentWin,
     posts,
@@ -491,4 +525,232 @@ test('橋：画面の外観の変化（by: auto）は、資料が対応を示し
   assert.equal(follow.attrs['data-theme'], 'dark');
   send(follow, 'light', 'user');
   assert.equal(follow.attrs['data-theme'], 'light');
+});
+
+// ---- 書き戻し（F42）：rikai.state・要素を選ぶ（選択モード） ----
+
+// 疑似のイベント：止める関数は、prototype にある（本物と同じ。橋は、動いた時点のものを退避する）
+class FakeEvent {
+  calls = { prevented: 0, stopped: 0 };
+  preventDefault(): void {
+    this.calls.prevented++;
+  }
+  stopImmediatePropagation(): void {
+    this.calls.stopped++;
+  }
+}
+const ev = (type: string, extra: Record<string, unknown> = {}) => Object.assign(new FakeEvent(), { type, ...extra });
+const button = () => ({
+  nodeType: 1,
+  tagName: 'BUTTON',
+  id: '',
+  classList: ['primary', 'big', 'third'],
+  parentElement: null,
+  firstElementChild: null,
+  textContent: `  ログ\n  イン  ${'あ'.repeat(200)}`,
+  getBoundingClientRect: () => ({ left: 24.4, top: 312.6, width: 320.2, height: 40 }),
+});
+const states = (b: ReturnType<typeof runBridge>) =>
+  b.posts.filter((m) => m.data.type === 'state').map((m) => m.data.json);
+
+test('橋：rikai.state(obj)：object・配列だけ true。プリミティブ・循環・8KB（UTF-8）超・JSON にできないものは false（何も送らない）', () => {
+  const b = runBridge(() => 300);
+  const st = b.rikai().state;
+  expect(st({ step: 1 })).toBe(true);
+  expect(st([1, 2])).toBe(true);
+  expect(st(5)).toBe(false);
+  expect(st('x')).toBe(false);
+  expect(st(null)).toBe(false);
+  expect(st(undefined)).toBe(false);
+  expect(st(() => 1)).toBe(false);
+  const loop: Record<string, unknown> = {};
+  loop.self = loop;
+  expect(st(loop)).toBe(false);
+  expect(st({ big: 1n })).toBe(false); // JSON にできない（BigInt）
+  expect(st({ a: 'x'.repeat(9000) })).toBe(false);
+  expect(st({ a: 'あ'.repeat(3000) })).toBe(false); // 9000 バイト
+  expect(st({ a: 'あ'.repeat(2600) })).toBe(true); // 7800 バイト
+  b.advance(1000);
+  assert.deepEqual(states(b), [`{"a":"${'あ'.repeat(2600)}"}`], '最新の 1 つだけ（超えたものは、送らない）');
+});
+
+test('橋：rikai.state：最新の 1 つだけ送る。同じ内容は、送らない。1 秒に 4 回まで。window.rikai は、書き換えられない', () => {
+  const b = runBridge(() => 300);
+  const st = b.rikai().state;
+  for (let i = 1; i <= 50; i++) {
+    st({ n: i });
+    b.advance(20);
+  }
+  b.advance(1000);
+  const sent = states(b) as string[];
+  expect(sent.at(-1)).toBe('{"n":50}');
+  assert.ok(sent.length <= 6, `${sent.length}`); // 約 1 秒に 4 回
+  assert.ok(maxPerSecond(b.posts.filter((m) => m.data.type === 'state')) <= 5);
+  const before = states(b).length;
+  st({ n: 50 }); // 同じ内容
+  b.advance(1000);
+  expect(states(b).length).toBe(before);
+  expect(() => {
+    (b.rikai() as { state: unknown }).state = () => true;
+  }).toThrow();
+  const w = vm.runInContext('window', b.context) as Record<string, unknown>;
+  expect(() => Object.defineProperty(w, 'rikai', { value: {} })).toThrow();
+});
+
+test('橋：pick-start は、親（e.source === parent）からだけ。そうでない窓からは、選択モードに入らない（クリックは、そのまま、要素に届く）', () => {
+  const b = runBridge(() => 300);
+  const click = ev('click', { target: button() });
+  b.fire('message', { source: {}, data: { __rikai: 1, type: 'pick-start' } });
+  b.fire('message', { source: null, data: { __rikai: 1, type: 'pick-start' } });
+  b.fire('message', { source: b.parentWin, data: { __rikai: 2, type: 'pick-start' } });
+  b.fire('click', click);
+  expect(click.calls.prevented).toBe(0);
+  expect(b.appended).toHaveLength(0);
+  b.fire('message', { source: b.parentWin, data: { __rikai: 1, type: 'pick-start' } });
+  expect(b.appended).toHaveLength(1); // 要素を示す層
+});
+
+test('橋：選択モードの間、クリック・マウス・ポインタ・キー・submit は、要素に届かない（キャプチャで止める）。選ぶと、モードが終わり、クリックは、また届く', () => {
+  const b = runBridge(() => 300);
+  b.fire('message', { source: b.parentWin, data: { __rikai: 1, type: 'pick-start' } });
+  const types = [
+    'click',
+    'dblclick',
+    'auxclick',
+    'mousedown',
+    'mouseup',
+    'pointerdown',
+    'pointerup',
+    'touchstart',
+    'touchend',
+    'contextmenu',
+    'submit',
+    'keydown',
+    'keypress',
+    'keyup',
+    'dragstart',
+  ];
+  for (const t of types) {
+    expect(b.listenerOptions[t], `${t}：キャプチャで登録`).toMatchObject({ capture: true, passive: false });
+    const e = ev(t, { target: button(), key: 'Enter' });
+    if (t === 'click') continue; // click は、あとで
+    b.fire(t, e);
+    expect(e.calls.prevented, t).toBe(1);
+    expect(e.calls.stopped, t).toBe(1);
+  }
+  const click = ev('click', { target: button() });
+  b.fire('click', click);
+  expect(click.calls.prevented).toBe(1);
+  expect(click.calls.stopped).toBe(1);
+  const picks = b.posts.filter((m) => m.data.type === 'pick');
+  expect(picks).toHaveLength(1);
+  expect(b.appended).toHaveLength(0); // 層は、外れた
+  const after = ev('click', { target: button() });
+  b.fire('click', after);
+  expect(after.calls.prevented).toBe(0); // モードが終わった：要素に届く
+});
+
+test('橋：選ぶと、pick を 1 つ送る：セレクタ・タグ・文字（80 字・空白を整える）・位置（整数）・見た目（許可リストだけ）・枠の大きさ', () => {
+  const b = runBridge(() => 300);
+  b.computed.display = 'inline-block';
+  b.computed['background-color'] = 'rgb(37, 99, 235)';
+  b.computed['font-family'] = 'x'.repeat(200); // 80 字に切る
+  b.computed.content = '"邪魔"'; // 許可リストにない：送らない
+  b.computed['background-image'] = 'url(x)';
+  b.fire('message', { source: b.parentWin, data: { __rikai: 1, type: 'pick-start' } });
+  b.fire('click', ev('click', { target: button() }));
+  const m = b.posts.find((p) => p.data.type === 'pick')?.data as Record<string, unknown>;
+  assert.equal(m.__rikai, 1);
+  assert.equal(m.selector, 'button.primary.big');
+  assert.equal(m.tag, 'button');
+  assert.equal((m.text as string).length, 80);
+  assert.ok((m.text as string).startsWith('ログ イン'));
+  assert.deepEqual({ ...(m.rect as object) }, { x: 24, y: 313, w: 320, h: 40 });
+  const styles = { ...(m.styles as Record<string, string>) };
+  assert.equal(styles.display, 'inline-block');
+  assert.equal(styles['font-family']?.length, 80);
+  assert.ok(!('content' in styles) && !('background-image' in styles));
+  assert.deepEqual(Object.keys(styles).sort(), ['background-color', 'display', 'font-family']);
+  assert.deepEqual({ ...(m.frame as object) }, { w: 634, h: 360 });
+});
+
+test('橋：選択モードで Esc：中止して、pick-cancel を送る（モードが終わる）。モードでないときの Esc は、止めない。Esc 以外のキーは、止める', () => {
+  const b = runBridge(() => 300);
+  const idle = ev('keydown', { key: 'Escape' });
+  b.fire('keydown', idle);
+  expect(idle.calls.prevented).toBe(0);
+  b.fire('message', { source: b.parentWin, data: { __rikai: 1, type: 'pick-start' } });
+  const tab = ev('keydown', { key: 'Tab' });
+  b.fire('keydown', tab);
+  expect(tab.calls.prevented).toBe(1);
+  const esc = ev('keydown', { key: 'Escape' });
+  b.fire('keydown', esc);
+  expect(esc.calls.prevented).toBe(1);
+  expect(b.posts.filter((m) => m.data.type === 'pick-cancel')).toHaveLength(1);
+  expect(b.posts.filter((m) => m.data.type === 'pick')).toHaveLength(0);
+  expect(b.appended).toHaveLength(0);
+  const again = ev('click', { target: button() });
+  b.fire('click', again);
+  expect(again.calls.prevented).toBe(0);
+});
+
+test('橋：親の pick-cancel でも、モードが終わる（親以外からの pick-cancel は、効かない）', () => {
+  const b = runBridge(() => 300);
+  b.fire('message', { source: b.parentWin, data: { __rikai: 1, type: 'pick-start' } });
+  b.fire('message', { source: {}, data: { __rikai: 1, type: 'pick-cancel' } });
+  const stillBlocked = ev('click', { target: button() });
+  b.fire('click', stillBlocked);
+  expect(stillBlocked.calls.prevented).toBe(1);
+  b.fire('message', { source: b.parentWin, data: { __rikai: 1, type: 'pick-start' } });
+  b.fire('message', { source: b.parentWin, data: { __rikai: 1, type: 'pick-cancel' } });
+  const free = ev('click', { target: button() });
+  b.fire('click', free);
+  expect(free.calls.prevented).toBe(0);
+});
+
+test('橋：snapshot-req は、親からだけ・id が決まった形のときだけ。要素が 3000 を超える文書は、png: null（失敗）で、同じ id を返す', () => {
+  const b = runBridge(() => 300);
+  const snaps = () => b.posts.filter((m) => m.data.type === 'snapshot');
+  b.setNodeCount(3001);
+  b.fire('message', { source: {}, data: { __rikai: 1, type: 'snapshot-req', id: 's1' } }); // 親でない
+  b.fire('message', { source: null, data: { __rikai: 1, type: 'snapshot-req', id: 's1' } });
+  b.fire('message', { source: b.parentWin, data: { __rikai: 1, type: 'snapshot-req', id: 'x1' } }); // id の形が違う
+  b.fire('message', { source: b.parentWin, data: { __rikai: 1, type: 'snapshot-req', id: 's1; alert(1)' } });
+  b.fire('message', { source: b.parentWin, data: { __rikai: 1, type: 'snapshot-req', id: 5 } });
+  b.fire('message', { source: b.parentWin, data: { __rikai: 2, type: 'snapshot-req', id: 's1' } });
+  expect(snaps()).toHaveLength(0);
+  b.fire('message', { source: b.parentWin, data: { __rikai: 1, type: 'snapshot-req', id: 's42' } });
+  expect(snaps()).toHaveLength(1);
+  expect({ ...(snaps()[0]?.data as object) }).toEqual({ __rikai: 1, type: 'snapshot', id: 's42', png: null });
+});
+
+test('橋：snapshot：画像にできない環境（描画の部品がない）でも、例外を出さず、png: null で、応答する', () => {
+  const b = runBridge(() => 300);
+  b.fire('message', { source: b.parentWin, data: { __rikai: 1, type: 'snapshot-req', id: 's7' } });
+  const snap = b.posts.find((m) => m.data.type === 'snapshot');
+  expect(snap?.data.id).toBe('s7');
+  expect(snap?.data.png).toBeNull();
+});
+
+test('橋：選択モードで、中身のコードが Event.prototype の止める関数を置き換えても（あとから）、退避した本物で止める（click は、要素に届かない）', () => {
+  const b = runBridge(() => 300);
+  const proto = FakeEvent.prototype;
+  const [pd, sip] = [proto.preventDefault, proto.stopImmediatePropagation];
+  try {
+    proto.preventDefault = () => {};
+    proto.stopImmediatePropagation = () => {};
+    b.fire('message', { source: b.parentWin, data: { __rikai: 1, type: 'pick-start' } });
+    const click = ev('click', { target: button() });
+    b.fire('click', click);
+    expect(click.calls.prevented).toBe(1);
+    expect(click.calls.stopped).toBe(1);
+    expect(b.posts.filter((m) => m.data.type === 'pick')).toHaveLength(1);
+    b.fire('message', { source: b.parentWin, data: { __rikai: 1, type: 'pick-start' } });
+    const esc = ev('keydown', { key: 'Escape' });
+    b.fire('keydown', esc);
+    expect(esc.calls.stopped).toBe(1);
+  } finally {
+    proto.preventDefault = pd;
+    proto.stopImmediatePropagation = sip;
+  }
 });

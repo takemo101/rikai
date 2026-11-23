@@ -249,6 +249,7 @@ label.chk { font-size: var(--fs-s); color: var(--muted); display: flex; gap: 6px
 .htmlapp .cap { display: flex; flex-wrap: wrap; align-items: center; gap: 2px 8px; font-size: var(--fs-s); color: var(--muted); margin-bottom: 4px; user-select: none; }
 .htmlapp .apptools { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 1px; max-width: 100%; }
 .htmlapp .apptools button.iconbtn { width: 24px; height: 24px; }
+.htmlapp .apppick { color: var(--accent-ink); font-size: var(--fs-s); margin-left: 6px; }
 .htmlapp .apptools button.iconbtn[aria-pressed="true"] { background: var(--accent-a10); color: var(--accent-ink); }
 .htmlapp .appframe { display: block; width: 100%; margin-inline: auto; border: 0; box-shadow: 0 0 0 1px var(--line); border-radius: var(--r); } /* 枠の線は、box-shadow（border は、border-box の枠の見える高さを削り、中身が、2px 隠れて、スクロールバーが出る）。枠の中は、別の文書（AI が書いたもの）。橋が、画面の外観（?mode=）と配色の土台を渡す。幅の切り替え（375/768/1280/1920px）は、style.width（appBridge.ts） */
 .htmlapp .appframe[data-mode="light"] { background: #fff; color-scheme: light; } /* 枠の地：ライトは白（従来どおり）・ダークは黒。中の文書が、地を描かない従来の資料でも、文字が読める（data-mode は、appBridge.ts が付ける：画面の外観に従う枠は画面の外観・従来の枠は、利用者が選ぶまでライト） */
@@ -549,3 +550,7 @@ dialog p { margin: 0 0 12px; color: var(--ink-2); }
   .md { font-size: 14px; }
   .md h1 { font-size: 20px; }
 }
+
+/* 「枠から」の札（F42）：html-app の枠の中のコードが作った情報が入ったコメント。アクセントの枠線で、AI・あなたの文章と、見分ける */
+.thread .chip.fromframe { color: var(--accent-ink); border: 1px solid var(--accent-line); background: var(--accent-soft); font-weight: 600; }
+.thread[data-from-frame] { border-left: 3px solid var(--accent); }

@@ -400,10 +400,11 @@ test.describe('範囲を選ぶ', () => {
 });
 
 // html-app の枠は、別オリジンの隔離した iframe：範囲の画像の複製の中では、読み込まれず、空になる（地の色だけが写って、1 色になる）。
-// 画像では、「実行できる枠（画像にできません）」の箱で表す（画面で見えている位置・大きさ）
+// 枠が答えないとき（時間切れ・不正）は、「実行できる枠（画像にできません）」の箱で表す（画面で見えている位置・大きさ）。枠が答えれば、枠自身が作った画像（F42）
 test.describe('範囲の画像：html-app の枠', () => {
   const BT = '```';
-  const DOC_APP = `# 枠のある資料\n\n前の段落です。\n\n${BT}html-app height=200\n<p>枠の中の文字</p><button>押す</button>\n${BT}\n\n後の段落です。\n`;
+  // F42：枠は、通常、自分の見た目を画像にして答える（htmlapp-writeback.spec.ts）。ここは、**答えない枠**（snapshot-req で、3.5 秒、固まる）：2 秒で、0.22.1 の「箱」に戻ることを確かめる
+  const DOC_APP = `# 枠のある資料\n\n前の段落です。\n\n${BT}html-app height=200\n<p>枠の中の文字</p><button>押す</button>\n<script>window.addEventListener('message', function (e) { if (e.data && e.data.type === 'snapshot-req') { var t = Date.now(); while (Date.now() - t < 3500) {} } });</script>\n${BT}\n\n後の段落です。\n`;
 
   // 画像（サムネイル）の統計：いちばん多い色の割合・その色と違う画素の数・文字の色（地と、はっきり違う）の画素の数
   const stats = (thumb: Locator) =>
