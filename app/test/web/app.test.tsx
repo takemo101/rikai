@@ -384,7 +384,7 @@ test('左の一覧の開閉・右の幅は、保存した設定から。#app に
     Object.defineProperty(window, 'innerWidth', { value: 900, configurable: true });
     window.dispatchEvent(new Event('resize'));
   });
-  expect(byId('app').style.getPropertyValue('--panel-w')).toBe('310px'); // 900 − 230 − 360
+  expect(byId('app').style.getPropertyValue('--panel-w')).toBe('332px'); // 900 − 168（狭い窓の左の一覧）− 400（狭い窓の、本文の最小）。狭い窓（〜900px）は、本文を広く残す（RIK-040）
 });
 
 test('トースト：出る・エラーは 6 秒・通常は 2.8 秒で消える', async () => {
@@ -550,4 +550,73 @@ test('本文の取得に失敗した：トピックの更新が来たら、取�
   } finally {
     vi.useRealTimers();
   }
+});
+
+// 自動で隠す窓（788px 未満）の左の一覧（ドロワー）・狭い窓の取っ手の幅：どちらも保存しない一時の状態（RIK-040）
+const resizeTo = (w: number) =>
+  act(() => {
+    Object.defineProperty(window, 'innerWidth', { value: w, configurable: true });
+    window.dispatchEvent(new Event('resize'));
+  });
+
+test('〜787px：☰ で、左の一覧が、本文の上に重なる（side-drawer）。本文・右の幅は、変わらない。Esc・外を押す・☰ で、しまう', async () => {
+  server([]);
+  renderWithClient(<App />);
+  await screen.findByText('トピックがありません。/rikai で資料を作ってください。');
+  resizeTo(600);
+  const panelW = () => byId('app').style.getPropertyValue('--panel-w');
+  expect(byId('app')).toHaveClass('side-collapsed');
+  expect(byId('app')).not.toHaveClass('side-drawer');
+  expect(byId('btn-side')).toHaveAttribute('aria-expanded', 'false');
+  const before = panelW();
+  fireEvent.click(byId('btn-side'));
+  expect(byId('app')).toHaveClass('side-collapsed', 'side-drawer'); // 列の幅は 0 のまま（本文は、つぶれない）
+  expect(byId('btn-side')).toHaveAttribute('aria-expanded', 'true');
+  expect(panelW()).toBe(before);
+  fireEvent.keyDown(document, { key: 'Escape' });
+  expect(byId('app')).not.toHaveClass('side-drawer');
+  fireEvent.click(byId('btn-side'));
+  fireEvent.pointerDown(byId('doc'));
+  expect(byId('app')).not.toHaveClass('side-drawer');
+  fireEvent.click(byId('btn-side'));
+  fireEvent.pointerDown(byId('side')); // 一覧の中は、閉じない
+  expect(byId('app')).toHaveClass('side-drawer');
+  fireEvent.pointerDown(byId('btn-side'));
+  fireEvent.click(byId('btn-side')); // ☰ で、しまう
+  expect(byId('app')).not.toHaveClass('side-drawer');
+  expect(localStorage.getItem(UI_KEY)).toBeNull(); // どれも、保存しない
+});
+
+test('回帰：600px で ☰ → 800px で ☰（しまう：保存）→ 600px に戻しても、左の一覧は、勝手に出てこない', async () => {
+  server([]);
+  renderWithClient(<App />);
+  await screen.findByText('トピックがありません。/rikai で資料を作ってください。');
+  resizeTo(600);
+  fireEvent.click(byId('btn-side'));
+  expect(byId('app')).toHaveClass('side-drawer');
+  resizeTo(800); // 自動で隠す窓を出る：重ねた一覧は、しまう
+  expect(byId('app')).not.toHaveClass('side-drawer');
+  expect(useUi.getState().narrowSideOpen).toBe(false);
+  expect(byId('app')).not.toHaveClass('side-collapsed'); // 保存した開閉（開）：並ぶ
+  fireEvent.click(byId('btn-side')); // しまう（保存）
+  expect(byId('app')).toHaveClass('side-collapsed');
+  expect(JSON.parse(localStorage.getItem(UI_KEY) ?? '{}').sideOpen).toBe(false);
+  resizeTo(600);
+  expect(byId('app')).not.toHaveClass('side-drawer');
+  expect(byId('btn-side')).toHaveAttribute('aria-expanded', 'false');
+});
+
+test('狭い窓の取っ手の幅は、窓を広げると、捨てる：保存した幅（380）のまま、書き換わらない', async () => {
+  server([]);
+  renderWithClient(<App />);
+  await screen.findByText('トピックがありません。/rikai で資料を作ってください。');
+  resizeTo(800);
+  expect(byId('app').style.getPropertyValue('--panel-w')).toBe('232px');
+  fireEvent.keyDown(screen.getByRole('separator'), { key: 'ArrowRight' });
+  expect(byId('app').style.getPropertyValue('--panel-w')).toBe('220px');
+  expect(useUi.getState().ui.panelW).toBe(380);
+  expect(localStorage.getItem(UI_KEY)).toBeNull();
+  resizeTo(1200);
+  expect(useUi.getState().panelWNarrow).toBeNull();
+  expect(byId('app').style.getPropertyValue('--panel-w')).toBe('380px');
 });
