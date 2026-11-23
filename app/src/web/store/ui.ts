@@ -183,6 +183,8 @@ export interface UiActions {
   setPanelWNarrow: (w: number | null) => void;
   /** 関連の線（コメントと本文の対象を結ぶ線）の、出す・隠す */
   toggleLinks: () => void;
+  /** ブラウザの通知（F41）を、オン・オフにする（保存する）。許可を求めるのは、呼ぶ側（ベルの押下） */
+  setNotify: (on: boolean) => void;
   /** 外観のモードを選ぶ（ライト・ダーク・システム）。`<html data-theme>` に反映して、保存する */
   setTheme: (mode: ThemeMode) => void;
   /** 右の幅を変える。save: false は、ドラッグの途中（離したとき、persistUi で保存する） */
@@ -369,6 +371,10 @@ export const useUi = create<UiStore>()((set, get) => {
     },
     closeSideDrawer: () => set({ narrowSideOpen: false }),
     setPanelWNarrow: (w) => set({ panelWNarrow: w }),
+    setNotify: (on) => {
+      set((s) => ({ ui: { ...s.ui, notify: on } }));
+      saveUi(get().ui);
+    },
     setTheme: (mode) => {
       applyTheme(mode);
       set((s) => ({ ui: { ...s.ui, theme: mode } }));

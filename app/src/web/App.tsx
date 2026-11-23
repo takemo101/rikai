@@ -19,6 +19,7 @@ import { serverStatus } from './layout/status';
 import { Toast } from './layout/Toast';
 import { TopBar } from './layout/TopBar';
 import { useTurn } from './layout/TurnPill';
+import { useBrowserNotify } from './layout/useBrowserNotify';
 import { navigate, type Route, useRoute } from './lib/route';
 import { PANEL_MIN } from './lib/storage';
 import { useResolvedTheme } from './lib/theme';
@@ -54,6 +55,7 @@ export function App() {
   useNavigationEffects(route, view, scrollRef);
   useRedrawDiagrams();
   useDocumentTitle(view);
+  useBrowserNotify();
   useUpdateToast(view, route?.version ?? null);
 
   // ページの読み込みの失敗（版が範囲外・サーバーのエラー）は、トーストで知らせる

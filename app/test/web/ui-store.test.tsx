@@ -36,7 +36,7 @@ test('初期値：進行中のタブ・差分を表示・左の一覧は開い�
   const s = initialUi();
   expect(s.tab).toBe('live');
   expect(s.showChanges).toBe(true);
-  expect(s.ui).toEqual({ sideOpen: true, panelW: 380, links: true, theme: 'system' });
+  expect(s.ui).toEqual({ sideOpen: true, panelW: 380, links: true, theme: 'system', notify: false });
   expect(s.regMode).toBe('idle');
   expect(s.composer).toBeNull();
   expect(s.solo).toBeNull();
@@ -196,6 +196,7 @@ test('画面の広さ：開閉・幅を localStorage に保存する。ドラッ
     panelW: 380,
     links: true,
     theme: 'system',
+    notify: false,
   });
   ui().setPanelW(500, { save: false });
   expect(JSON.parse(localStorage.getItem(UI_KEY) ?? '{}').panelW).toBe(380);
@@ -205,9 +206,10 @@ test('画面の広さ：開閉・幅を localStorage に保存する。ドラッ
     panelW: 500,
     links: true,
     theme: 'system',
+    notify: false,
   });
   ui().setPanelW(410);
-  expect(initialUi().ui).toEqual({ sideOpen: false, panelW: 410, links: true, theme: 'system' });
+  expect(initialUi().ui).toEqual({ sideOpen: false, panelW: 410, links: true, theme: 'system', notify: false });
 });
 
 test('トースト：出すたびに id が変わる。古い id では消えない', () => {
@@ -247,7 +249,7 @@ test('外観：setTheme は、<html data-theme> に反映し（system は外す�
   expect(root.getAttribute('data-theme')).toBe('light');
   ui().setTheme('system');
   expect(root.hasAttribute('data-theme')).toBe(false);
-  expect(JSON.parse(localStorage.getItem(UI_KEY) ?? '{}')).toMatchObject({ theme: 'system' });
+  expect(JSON.parse(localStorage.getItem(UI_KEY) ?? '{}')).toMatchObject({ theme: 'system', notify: false });
   expect(initialUi().ui.theme).toBe('system');
 });
 

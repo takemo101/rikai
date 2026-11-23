@@ -367,8 +367,11 @@ test('左の一覧：進み具合・待ち・終了の印と、ページの木�
 });
 
 test('左の一覧の開閉・右の幅は、保存した設定から。#app に、side-collapsed と --panel-w', async () => {
-  localStorage.setItem(UI_KEY, JSON.stringify({ sideOpen: false, panelW: 500, links: true, theme: 'system' }));
-  useUi.setState({ ui: { sideOpen: false, panelW: 500, links: true, theme: 'system' } });
+  localStorage.setItem(
+    UI_KEY,
+    JSON.stringify({ sideOpen: false, panelW: 500, links: true, theme: 'system', notify: false }),
+  );
+  useUi.setState({ ui: { sideOpen: false, panelW: 500, links: true, theme: 'system', notify: false } });
   server([]);
   renderWithClient(<App />);
   await screen.findByText('トピックがありません。/rikai で資料を作ってください。');
