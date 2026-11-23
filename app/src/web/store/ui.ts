@@ -111,6 +111,8 @@ export interface UiState {
   dialog: DialogKind | null;
   /** ライトボックスで大きく見ているもの（添付の画像・本文の画像・図） */
   lightbox: LightboxTarget | null;
+  /** サーバーからの通知（SSE：`api/events.ts`）がつながっている間 true。true の間は、1.5 秒ごとの取得（ポーリング）を止める（保険：切れたら、取得に戻る） */
+  live: boolean;
 }
 
 export interface UiActions {
@@ -171,6 +173,7 @@ export interface UiActions {
   /** 本文・返信の画像・図を、大きく出す（ズーム・移動ができる） */
   openZoom: (target: LightboxTarget) => void;
   closeLightbox: () => void;
+  setLive: (live: boolean) => void;
   // ---- 画面の広さ ----
   /** 左の一覧を、しまう・出す。autoHidden（788px 未満の、自動で隠す窓）では、保存せず、本文の上に重ねて出す・しまう。広い窓では、保存して、重ねて出したものは、しまう */
   toggleSide: (autoHidden?: boolean) => void;
@@ -216,6 +219,7 @@ export function initialUi(): UiState {
     panelWNarrow: null,
     dialog: null,
     lightbox: null,
+    live: false,
   };
 }
 
@@ -353,6 +357,7 @@ export const useUi = create<UiStore>()((set, get) => {
     openLightbox: (src) => set({ lightbox: { kind: 'img', src, alt: ATTACHED_ALT, zoom: false } }),
     openZoom: (lightbox) => set({ lightbox }),
     closeLightbox: () => set({ lightbox: null }),
+    setLive: (live) => set({ live }),
 
     toggleSide: (autoHidden = false) => {
       if (autoHidden) {

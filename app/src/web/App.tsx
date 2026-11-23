@@ -1,5 +1,6 @@
 // 画面の全体（旧 index.html の静的なシェルと、app.js のルーティング・更新）。W1〜W3 の部品を、旧 DOM の場所に置く（contracts.ts）。
 import { type CSSProperties, type ReactNode, type RefObject, useEffect, useRef } from 'react';
+import { useServerEvents } from './api/events';
 import { usePage, useTopic, useTopics } from './api/queries';
 import type { ArticleProps } from './contracts';
 import { Article } from './doc/Article';
@@ -27,6 +28,7 @@ import { useDoc } from './store/doc';
 import { toast, useUi } from './store/ui';
 
 export function App() {
+  useServerEvents();
   const route = useRoute();
   const topicsQ = useTopics();
   const topics = topicsQ.data;
