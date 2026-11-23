@@ -199,7 +199,9 @@ test('Mermaid：描けた図は svg に・描けなかった図は、エラー�
   expect(blocks[1]?.querySelector('.mm-err')?.textContent).toBe('図を描画できませんでした');
   expect(blocks[1]?.querySelector('pre')?.textContent).toBe('BAD');
   // 図の描画は、strict（図の中の HTML・スクリプトを、動かさない）
-  expect(initArgs).toEqual([expect.objectContaining({ securityLevel: 'strict', startOnLoad: false })]);
+  // 描画は 1 つずつで、毎回、外観を指定して初期化する（Mermaid の設定は、グローバル）：どの初期化も、strict
+  expect(initArgs.length).toBeGreaterThan(0);
+  for (const c of initArgs) expect(c).toEqual(expect.objectContaining({ securityLevel: 'strict', startOnLoad: false }));
   expect(useDoc.getState().model?.blocks).toHaveLength(2);
 });
 

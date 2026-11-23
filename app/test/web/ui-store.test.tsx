@@ -36,7 +36,7 @@ test('初期値：進行中のタブ・差分を表示・左の一覧は開い�
   const s = initialUi();
   expect(s.tab).toBe('live');
   expect(s.showChanges).toBe(true);
-  expect(s.ui).toEqual({ sideOpen: true, panelW: 380, links: true });
+  expect(s.ui).toEqual({ sideOpen: true, panelW: 380, links: true, theme: 'system' });
   expect(s.regMode).toBe('idle');
   expect(s.composer).toBeNull();
   expect(s.solo).toBeNull();
@@ -191,13 +191,23 @@ test('closeComposer：対象・書きかけ・画像を消し、世代を進め�
 test('画面の広さ：開閉・幅を localStorage に保存する。ドラッグ中（save: false）は保存せず、persistUi で保存', () => {
   ui().toggleSide();
   expect(ui().ui.sideOpen).toBe(false);
-  expect(JSON.parse(localStorage.getItem(UI_KEY) ?? '{}')).toEqual({ sideOpen: false, panelW: 380, links: true });
+  expect(JSON.parse(localStorage.getItem(UI_KEY) ?? '{}')).toEqual({
+    sideOpen: false,
+    panelW: 380,
+    links: true,
+    theme: 'system',
+  });
   ui().setPanelW(500, { save: false });
   expect(JSON.parse(localStorage.getItem(UI_KEY) ?? '{}').panelW).toBe(380);
   ui().persistUi();
-  expect(JSON.parse(localStorage.getItem(UI_KEY) ?? '{}')).toEqual({ sideOpen: false, panelW: 500, links: true });
+  expect(JSON.parse(localStorage.getItem(UI_KEY) ?? '{}')).toEqual({
+    sideOpen: false,
+    panelW: 500,
+    links: true,
+    theme: 'system',
+  });
   ui().setPanelW(410);
-  expect(initialUi().ui).toEqual({ sideOpen: false, panelW: 410, links: true });
+  expect(initialUi().ui).toEqual({ sideOpen: false, panelW: 410, links: true, theme: 'system' });
 });
 
 test('トースト：出すたびに id が変わる。古い id では消えない', () => {
@@ -223,4 +233,20 @@ test('ダイアログ・ライトボックス・範囲の状態', () => {
   ui().setRegDrag(true);
   expect(ui().regMode).toBe('selecting');
   expect(ui().regDrag).toBe(true);
+});
+
+test('外観：setTheme は、<html data-theme> に反映し（system は外す）、rikai-ui に保存する。ほかの設定は、壊さない', () => {
+  const root = document.documentElement;
+  root.removeAttribute('data-theme');
+  ui().setPanelW(410);
+  ui().setTheme('dark');
+  expect(ui().ui.theme).toBe('dark');
+  expect(root.getAttribute('data-theme')).toBe('dark');
+  expect(JSON.parse(localStorage.getItem(UI_KEY) ?? '{}')).toMatchObject({ theme: 'dark', panelW: 410 });
+  ui().setTheme('light');
+  expect(root.getAttribute('data-theme')).toBe('light');
+  ui().setTheme('system');
+  expect(root.hasAttribute('data-theme')).toBe(false);
+  expect(JSON.parse(localStorage.getItem(UI_KEY) ?? '{}')).toMatchObject({ theme: 'system' });
+  expect(initialUi().ui.theme).toBe('system');
 });

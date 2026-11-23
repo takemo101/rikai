@@ -44,7 +44,7 @@ app/                   開発用のワークスペース（TypeScript）。依�
   src/cli/             コマンドの入口（main.ts）と引数の解釈（args.ts）
   src/server/          util・store・ask・actions・agent・app（Hono）・appframe・serve・image・htmlapp・htmlapp-core・htmlapp-worker
   src/shared/          共有の純粋な関数・型：anchor・diff・progress・types・api
-  src/web/             画面（React）：api/・store/・doc/（本文の島。render/）・overlay/・panel/・interact/・layout/・lib/・styles/・public/（favicon）・index.html・main.tsx・App.tsx
+  src/web/             画面（React）：api/・store/・doc/（本文の島。render/）・overlay/・panel/・interact/・layout/・lib/・styles/・public/（favicon・`assets/theme-init.js`：外観を、描く前に付ける）・index.html・main.tsx・App.tsx
   scripts/             ビルド：build.ts（サーバー・CLI）・licenses-plugin.ts（画面のライセンス表。`vite.config.ts` が使う）
   test/                自動テスト（Vitest）。server/・shared/・web/（jsdom）・build.test.ts・setup/
   e2e/                 e2e（Playwright。実際の Chrome。`pnpm run test:e2e`）。*.spec.ts・fixtures.ts・env.ts

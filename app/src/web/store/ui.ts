@@ -9,6 +9,7 @@
 import { create } from 'zustand';
 import type { Anchor, Thread } from '../../shared/types';
 import { loadSeen, loadUi, saveSeen, saveUi, type UiPrefs } from '../lib/storage';
+import { applyTheme, type ThemeMode } from '../lib/theme';
 import { getView } from '../lib/view';
 
 export type Tab = 'live' | 'done' | 'all';
@@ -156,6 +157,8 @@ export interface UiActions {
   toggleSide: () => void;
   /** 関連の線（コメントと本文の対象を結ぶ線）の、出す・隠す */
   toggleLinks: () => void;
+  /** 外観のモードを選ぶ（ライト・ダーク・システム）。`<html data-theme>` に反映して、保存する */
+  setTheme: (mode: ThemeMode) => void;
   /** 右の幅を変える。save: false は、ドラッグの途中（離したとき、persistUi で保存する） */
   setPanelW: (w: number, opts?: { save?: boolean }) => void;
   persistUi: () => void;
@@ -327,6 +330,11 @@ export const useUi = create<UiStore>()((set, get) => {
 
     toggleSide: () => {
       set((s) => ({ ui: { ...s.ui, sideOpen: !s.ui.sideOpen } }));
+      saveUi(get().ui);
+    },
+    setTheme: (mode) => {
+      applyTheme(mode);
+      set((s) => ({ ui: { ...s.ui, theme: mode } }));
       saveUi(get().ui);
     },
     toggleLinks: () => {
