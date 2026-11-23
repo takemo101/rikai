@@ -41,12 +41,14 @@ export function h<K extends keyof HTMLElementTagNameMap>(
 /** DOMPurify は、属性値に `-->` や `</style` を含むと、属性ごと消すので、図のソースは、URI エンコードして持つ */
 export const encSrc = (s: string): string => encodeURIComponent(String(s));
 
-/** 空白をつぶして、n 文字（…を含む）に切り詰める */
+/** 空白をつぶして、n 文字（…を含む）に切り詰める。文字は、コードポイント単位（絵文字などのサロゲートペアを、半分に割らない） */
 export function trunc(s: unknown, n: number): string {
-  const t = String(s ?? '')
-    .replace(/\s+/g, ' ')
-    .trim();
-  return t.length > n ? `${t.slice(0, n - 1)}…` : t;
+  const chars = [
+    ...String(s ?? '')
+      .replace(/\s+/g, ' ')
+      .trim(),
+  ];
+  return chars.length > n ? `${chars.slice(0, n - 1).join('')}…` : chars.join('');
 }
 
 /** 文字列の短いハッシュ（djb2。ブロックの内容の目印） */

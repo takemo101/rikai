@@ -3,7 +3,7 @@ import { act, fireEvent, screen, waitFor, within } from '@testing-library/react'
 import { afterEach, beforeAll, beforeEach, expect, test, vi } from 'vitest';
 import type { Anchor, Meta, Thread } from '../../src/shared/types';
 import { App } from '../../src/web/App';
-import type { TopicState } from '../../src/web/api/queries';
+import { type TopicState, topicKey } from '../../src/web/api/queries';
 import { queryClient } from '../../src/web/api/queryClient';
 import { UI_KEY } from '../../src/web/lib/storage';
 import { useDoc } from '../../src/web/store/doc';
@@ -619,4 +619,27 @@ test('狭い窓の取っ手の幅は、窓を広げると、捨てる：保存�
   resizeTo(1200);
   expect(useUi.getState().panelWNarrow).toBeNull();
   expect(byId('app').style.getPropertyValue('--panel-w')).toBe('380px');
+});
+
+test('タブのタイトル（F39）：いま、誰の番か・資料の題。状態が変わると、変わる。トピックがないとき rikai', async () => {
+  location.hash = '#/demo/root';
+  server([summary('demo')], { demo: topicState({ unsent: 3, threads: [thread()] }) });
+  renderWithClient(<App />);
+  await waitFor(() => expect(document.title).toBe('未送信 3 件 | デモの資料 | rikai'));
+  // Submit 済み → AI の返信待ち
+  queryClient.setQueryData(
+    topicKey('demo'),
+    topicState({ rev: 2, meta: meta({ rev: 2, pending: [1] }), threads: [thread()] }),
+  );
+  await waitFor(() => expect(document.title).toBe('AIの返信待ち | デモの資料 | rikai'));
+  // AI が返信：あなたの番（新着の返信 1）
+  queryClient.setQueryData(
+    topicKey('demo'),
+    topicState({
+      rev: 3,
+      meta: meta({ rev: 3 }),
+      threads: [thread({ messages: [msg({ id: 'a1', author: 'ai', kind: 'reply', sent: true })] })],
+    }),
+  );
+  await waitFor(() => expect(document.title).toBe('(1) あなたの番 | デモの資料 | rikai'));
 });

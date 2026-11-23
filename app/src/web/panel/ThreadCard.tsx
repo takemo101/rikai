@@ -5,6 +5,8 @@ import {
   CircleCheck,
   CircleDot,
   Clock,
+  Hourglass,
+  MessageCircleQuestion,
   RotateCcw,
   Send,
   Sparkles,
@@ -41,7 +43,14 @@ interface Props {
 }
 
 /** 札のアイコン（`threadStatus` のクラスごと） */
-const STATUS_ICON = { ok: CircleCheck, draft: CircleDot, new: Sparkles, wait: Clock } as const;
+const STATUS_ICON = {
+  ok: CircleCheck,
+  draft: CircleDot,
+  new: Sparkles,
+  wait: Clock,
+  yours: MessageCircleQuestion,
+  aiwait: Hourglass,
+} as const;
 
 export function ThreadCard({ view, thread: t, full = false, model, seen, editing }: Props) {
   const { focusThread } = usePanel();
@@ -50,7 +59,7 @@ export function ThreadCard({ view, thread: t, full = false, model, seen, editing
   // カードの縁の印は、見たらすぐ消える（旧は、DOM を直接。折りたたみは、上の `seen`）
   const fresh = useUi((s) => t.messages.some((m) => m.author === 'ai' && !s.seen.has(m.id)));
 
-  const [stText, stCls] = threadStatus(t);
+  const [stText, stCls] = threadStatus(t, view.topic.meta.pending);
   const StatusIcon = STATUS_ICON[stCls];
   const loc = model?.locs.get(t.id);
   // 位置が「見つからない」と分かっているものだけ（まだ、本文を描いていないものは、印を出さない）

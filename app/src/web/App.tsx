@@ -17,9 +17,11 @@ import { SubmitDialog } from './layout/SubmitDialog';
 import { serverStatus } from './layout/status';
 import { Toast } from './layout/Toast';
 import { TopBar } from './layout/TopBar';
+import { useTurn } from './layout/TurnPill';
 import { navigate, type Route, useRoute } from './lib/route';
 import { PANEL_MIN } from './lib/storage';
 import { useResolvedTheme } from './lib/theme';
+import { docTitle } from './lib/turn';
 import { buildView, type View } from './lib/view';
 import { Connectors } from './overlay/Connectors';
 import { Overlays } from './overlay/Overlays';
@@ -49,6 +51,7 @@ export function App() {
 
   useNavigationEffects(route, view, scrollRef);
   useRedrawDiagrams();
+  useDocumentTitle(view);
   useUpdateToast(view, route?.version ?? null);
 
   // ページの読み込みの失敗（版が範囲外・サーバーのエラー）は、トーストで知らせる
@@ -238,6 +241,15 @@ function useLayoutReset({
       document.removeEventListener('keydown', onKey);
     };
   }, [drawer]);
+}
+
+/** タブのタイトル（F39）：いま、誰の番か・資料の題。別のタブを見ていても、気づける。文字のまま入れる（HTML として解釈されない） */
+function useDocumentTitle(view: View | null): void {
+  const turn = useTurn(view);
+  const title = view?.topic.meta.title;
+  useEffect(() => {
+    document.title = docTitle(turn, title);
+  }, [turn, title]);
 }
 
 /** 外観が変わったら（ボタン・OS の外観の変化）、描いてある Mermaid の図を、その外観で描き直す（本文・AI の返信の、どちらも）。最初の描画は、各部品が、その外観で描く */
