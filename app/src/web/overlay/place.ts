@@ -12,6 +12,7 @@ import {
   type Box,
   badgeLeft,
   badgeTopIn,
+  clampRegionRect,
   foldBadges,
   groupBadges,
   regionBox,
@@ -42,6 +43,10 @@ interface Region {
   pending?: boolean;
   m?: Box;
 }
+
+/** 描く比率：html-app の枠のブロックは、基準の周りに収める（古い基準の極端な値で、本文の高さが伸びない）。それ以外は、そのまま */
+const drawable = (el: BlockEl, rect: Rect): Rect | null =>
+  el.classList.contains('htmlapp') ? clampRegionRect(rect) : rect;
 
 const boxOf = (r: DOMRect): Box => ({ left: r.left, top: r.top, width: r.width, height: r.height });
 
@@ -84,11 +89,13 @@ function build(input: PlaceInput): HTMLElement[] {
   const regions: Region[] = [];
   for (const [tid] of ordered) {
     const loc = model.locs.get(tid);
-    if (loc?.kind === 'region') regions.push({ tid, el: loc.el, rect: loc.rect, resolved: resolved.has(tid) });
+    const rect = loc?.kind === 'region' ? drawable(loc.el, loc.rect) : null;
+    if (loc?.kind === 'region' && rect) regions.push({ tid, el: loc.el, rect, resolved: resolved.has(tid) });
   }
   const pendingEl = input.composer ? model.pending : null; // 入力欄を開いている間だけ
   const pendingRect = input.composer?.rect ?? null;
-  if (pendingRect && pendingEl) regions.push({ tid: 'pending', el: pendingEl, rect: pendingRect, pending: true });
+  const pendingDraw = pendingRect && pendingEl ? drawable(pendingEl, pendingRect) : null;
+  if (pendingDraw && pendingEl) regions.push({ tid: 'pending', el: pendingEl, rect: pendingDraw, pending: true });
   const regionTop = new Map<string, number>();
   for (const g of regions) {
     // 本文から外れた要素（描き直しの前の、古いもの）には、枠を出さない

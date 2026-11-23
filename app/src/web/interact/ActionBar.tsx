@@ -1,4 +1,4 @@
-// 入口のバー（`#actbar`。「コメント」。画像・図を含むブロックでは、「拡大」も）。文を選ぶと、選んだ文の上に・ブロックにマウスを置くと、そのブロックの右上に出る（範囲は、右下に浮かぶ「範囲を選ぶ」）。
+// 入口のバー（`#actbar`。「コメント」。画像・図・html-app の枠を含むブロックでは、「拡大」（個別表示。F43）も）。文を選ぶと、選んだ文の上に・ブロックにマウスを置くと、そのブロックの右上に出る（範囲は、右下に浮かぶ「範囲を選ぶ」）。
 // ブロックにマウスを置くと、入口のバーを、そのブロックの右上（ブロックの上）に出す。バーへ向かう間に消えない・別のブロックへ飛ばないように、
 // ポインターが「そのブロックの、バーの高さ上〜下端 × 箱の右端まで」の帯にいる間は、同じブロックのまま出し続ける（`inBand`）。
 // 帯の外でも、本文の箱の右の余白にいる間は、同じ高さにある本文のブロックを探す（左の余白は、探さない）。
@@ -6,7 +6,7 @@ import { MessageSquarePlus, ZoomIn } from 'lucide-react';
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import type { Anchor } from '../../shared/types';
 import { blockAnchor } from '../doc/render/blocks';
-import { openZoomOf, zoomTargetOfBlock } from '../doc/zoomOpen';
+import { openFocusOf, zoomTargetOfBlock } from '../doc/zoomOpen';
 import { $ } from '../lib/dom';
 import { useUi } from '../store/ui';
 import { openComposer } from './compose';
@@ -22,7 +22,7 @@ interface Bar {
   /** バーの右端・上端（画面の座標） */
   right: number;
   top: number;
-  /** 「拡大」を出すか：ブロックのバーで、そのブロックが、画像・Mermaid の図・インラインの svg を含むとき */
+  /** 「拡大」（個別表示）を出すか：ブロックのバーで、そのブロックが、画像・Mermaid の図・インラインの svg を含む・html-app の枠のとき */
   zoom: boolean;
 }
 /** イベントの処理が読む、いまの状態（再描画を起こさない） */
@@ -189,12 +189,12 @@ export function ActionBar({ scroller, latest }: Props) {
     if (a) openComposer(a);
   };
 
-  /** 「拡大」：そのブロックの（最初の）画像・図を、大きく出す（コメントの有無に関係なく）。コメントの入力欄は、開かない */
+  /** 「拡大」：そのブロックの（最初の）画像・図・html-app の枠を、個別表示で、大きく出す（コメントの有無に関係なく。F43）。コメントの入力欄は、開かない */
   const onZoom = (): void => {
     const c = ctl.current;
     const el = c.mode === 'blk' && c.blk?.isConnected ? zoomTargetOfBlock(c.blk) : null;
     hide();
-    if (el) openZoomOf(el);
+    if (el) openFocusOf(el);
   };
 
   return (
@@ -211,7 +211,13 @@ export function ActionBar({ scroller, latest }: Props) {
       }}
     >
       {bar?.mode === 'blk' && bar.zoom ? (
-        <button id="act-zoom" type="button" aria-label="拡大" title="この画像・図を、大きく見ます" onClick={onZoom}>
+        <button
+          id="act-zoom"
+          type="button"
+          aria-label="拡大"
+          title="この画像・図・枠を、個別表示で、大きく見ます（範囲を選んで、コメントもできます）"
+          onClick={onZoom}
+        >
           <ZoomIn aria-hidden="true" focusable="false" />
           拡大
         </button>

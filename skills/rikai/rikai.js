@@ -25579,12 +25579,20 @@ var STYLE_KEYS = [
   "align-items",
   "flex-direction"
 ];
+var KNOWN_TAGS = new Set(
+  "a abbr address area article aside audio b base bdi bdo blockquote body br button canvas caption cite code col colgroup data datalist dd del details dfn dialog div dl dt em embed fieldset figcaption figure footer form h1 h2 h3 h4 h5 h6 head header hgroup hr html i iframe img input ins kbd label legend li link main map mark menu meta meter nav noscript object ol optgroup option output p param picture pre progress q rp rt ruby s samp script search section select slot small source span strong style sub summary sup table tbody td template textarea tfoot th thead time title tr track u ul var video wbr svg path circle rect g line text ellipse polygon polyline tspan defs use image symbol marker mask pattern stop clippath lineargradient radialgradient foreignobject".split(" ")
+);
 var STYLE_SET = new Set(STYLE_KEYS);
+var HIDDEN = new RegExp("\\p{M}{3,}|(?!(?<=\\p{Extended_Pictographic})[\\uFE0E\\uFE0F])[\\p{Cc}\\p{Cf}\\p{Co}\\p{Cn}\\p{Cs}\\p{Default_Ignorable_Code_Point}\\u2800\\u2028\\u2029]", "gu");
+var EMOJI_UNIT = "\\p{Extended_Pictographic}(?:\\uFE0F|\\p{Emoji_Modifier})?";
+var SAFE_EMOJI = new RegExp(`[0-9#*]\\uFE0F?\\u20E3|${EMOJI_UNIT}(?:\\u200D${EMOJI_UNIT}){1,19}`, "gu");
 var SNAPSHOT_MAX_SIDE = 2400;
+var FROM_FRAME = "\u3010\u67A0\u304B\u3089\u3011";
 var FROM_FRAME_IMAGE = "\u3010\u67A0\u304B\u3089\uFF08\u753B\u50CF\uFF09\u3011";
 var FRAME_IMAGE_LINE = `${FROM_FRAME_IMAGE}\u67A0\u306E\u753B\u50CF\u306F\u3001\u67A0\u306E\u4E2D\u306E\u30B3\u30FC\u30C9\u304C\u4F5C\u3063\u305F\u3082\u306E\u3067\u3059
 
 `;
+var PICK_HEAD = `${FROM_FRAME}\u8981\u7D20\u3092\u9078\u3073\u307E\u3057\u305F\uFF08\u67A0\u306E\u81EA\u5DF1\u7533\u544A\u3002\u4E0B\u306E JSON\uFF09\uFF1A`;
 
 // src/shared/htmlapp-theme.ts
 var BRIDGE_COLORS = {
@@ -25631,7 +25639,9 @@ ${bridgeColorDecls()};
 var BRIDGE_SOURCE = `(function(){
 var GAP=250,STEP=50,FLIP=1000,HOLD=10000,ECHO=2,SLACK=64,MAXH=2400;
 var root=document.documentElement;
-// \u9078\u629E\u30E2\u30FC\u30C9\u3067\u3001\u30A4\u30D9\u30F3\u30C8\u3092\u6B62\u3081\u308B\u95A2\u6570\u306F\u3001**\u3053\u306E\u30B9\u30AF\u30EA\u30D7\u30C8\u304C\u52D5\u3044\u305F\u6642\u70B9\u306E\u672C\u7269**\u3092\u3001\u9000\u907F\u3057\u3066\u4F7F\u3046\uFF08\u4E2D\u8EAB\u306E\u30B3\u30FC\u30C9\u304C\u3001\u3042\u3068\u304B\u3089 Event.prototype \u306E\u95A2\u6570\u3092\u7F6E\u304D\u63DB\u3048\u3066\u3082\u3001\u6B62\u3081\u3089\u308C\u308B\uFF09
+// \u9078\u629E\u30E2\u30FC\u30C9\u3067\u3001\u30A4\u30D9\u30F3\u30C8\u3092\u6B62\u3081\u308B\u95A2\u6570\u306F\u3001**\u3053\u306E\u30B9\u30AF\u30EA\u30D7\u30C8\u304C\u52D5\u3044\u305F\u6642\u70B9\u306E\u672C\u7269**\u3092\u3001\u9000\u907F\u3057\u3066\u4F7F\u3046\uFF08\u4E2D\u8EAB\u306E\u30B3\u30FC\u30C9\u304C\u3001\u3042\u3068\u304B\u3089 Event.prototype \u306E\u95A2\u6570\u3092\u7F6E\u304D\u63DB\u3048\u3066\u3082\u3001\u6B62\u3081\u3089\u308C\u308B\uFF09\u3002
+// \u547C\u3076\u306E\u3082\u3001\u9000\u907F\u3057\u305F Reflect.apply \u3067\uFF08Function.prototype.call\u30FBapply \u3092\u3001\u4E2D\u8EAB\u306E\u30B3\u30FC\u30C9\u304C\u7F6E\u304D\u63DB\u3048\u3066\u3082\u3001\u3059\u308A\u629C\u3051\u3089\u308C\u306A\u3044\u3002\u3053\u306E\u6A4B\u306F\u3001head \u306E\u5148\u982D\uFF1D\u4E2D\u8EAB\u3088\u308A\u524D\u306B\u52D5\u304F\uFF09\u3002\u6A4B\u306E\u4E2D\u3067\u3001call\u30FBapply\u30FBbind \u306F\u3001\u4F7F\u308F\u306A\u3044
+var RA=Reflect.apply,SL=Array.prototype.slice;
 var PD=Event.prototype.preventDefault,SIP=Event.prototype.stopImmediatePropagation;
 var last=0,prev=0,prevAt=0,lastAt=-GAP,ranAt=0,timer=0,echo=0,seenH=innerHeight,lastExcess=-1,flipLow=0,flipUntil=0,flips=0,frozen=false,frozenExcess=0,excess=0;
 function measure(){
@@ -25756,9 +25766,9 @@ hl.style.left=r.left+'px';hl.style.top=r.top+'px';hl.style.width=r.width+'px';hl
 }
 function block(e){
 if(!picking)return;
-if(e.type==='keydown'&&e.key==='Escape'){PD.call(e);SIP.call(e);pickEnd();post({__rikai:1,type:'pick-cancel'});return;}
-PD.call(e);
-SIP.call(e);
+if(e.type==='keydown'&&e.key==='Escape'){RA(PD,e,[]);RA(SIP,e,[]);pickEnd();post({__rikai:1,type:'pick-cancel'});return;}
+RA(PD,e,[]);
+RA(SIP,e,[]);
 if(e.type==='click'){
 var t=e.target;
 if(!t||t.nodeType!==1||t===hl)return;
@@ -25767,6 +25777,14 @@ pickEnd();
 post(m);
 }
 }
+var ESC_GAP=150,escAt=0;
+addEventListener('keydown',function(e){
+if(picking||!inFrame||e.key!=='Escape'||e.repeat||e.isComposing||e.keyCode===229)return;
+var n=Date.now();
+if(n-escAt<ESC_GAP)return;
+escAt=n;
+post({__rikai:1,type:'esc'});
+},true);
 ['click','dblclick','auxclick','mousedown','mouseup','pointerdown','pointerup','touchstart','touchend','contextmenu','submit','keydown','keypress','keyup','dragstart'].forEach(function(t){addEventListener(t,block,{capture:true,passive:false});});
 var SNAP_SIDE=${SNAPSHOT_MAX_SIDE},SNAP_CHARS=1500000,SNAP_NODES=3000;
 function snapshot(id){
@@ -25781,7 +25799,7 @@ if(!bg||bg==='rgba(0, 0, 0, 0)'||bg==='transparent')bg=getComputedStyle(b).backg
 var box=document.createElement('div');
 box.setAttribute('xmlns','http://www.w3.org/1999/xhtml');
 box.style.cssText='position:relative;overflow:hidden;width:'+W+'px;height:'+H+'px;background:'+(bg||'transparent');
-var src=[b].concat([].slice.call(b.querySelectorAll('*'))),c=b.cloneNode(true),dst=[c].concat([].slice.call(c.querySelectorAll('*'))),drop=[];
+var c=b.cloneNode(true),src=[b].concat(RA(SL,b.querySelectorAll('*'),[])),dst=[c].concat(RA(SL,c.querySelectorAll('*'),[])),drop=[];
 for(var i=0;i<src.length;i++){
 var s=src[i],d=dst[i];
 if(!s||!d)continue;

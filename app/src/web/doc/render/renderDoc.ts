@@ -7,6 +7,7 @@ import { releaseApps } from '../appBridge';
 import { type AppsContext, fillApps } from './apps';
 import { markBlocks } from './blocks';
 import { addDiff } from './diff';
+import { markFocusEntries } from './focusable';
 import { applyHighlights, markPending } from './highlights';
 import { mdToFragment } from './markdown';
 import { fillMermaid } from './mermaid';
@@ -23,6 +24,8 @@ export interface RenderInput {
   onComment: (box: HTMLElement) => void;
   /** 利用者が、枠の中の要素を選んだ（枠から届いた、検査済みの情報。下書きを作る） */
   onPick?: AppsContext['onPick'];
+  /** 「個別表示」を押した（F43）。枠（`.htmlapp`）を渡す */
+  onFocus?: AppsContext['onFocus'];
   /** 描き終えたとき、入力中の対象（あれば）を、本文で強調するために読む（描いている間に、変わりうる） */
   pendingAnchor: () => Anchor | null;
 }
@@ -45,9 +48,10 @@ export async function renderDoc(
       : null;
   releaseApps(art); // いまの枠（描き直しで消える）を、橋から外す
   art.replaceChildren(frag);
-  fillApps(art, { view, onComment: input.onComment, onPick: input.onPick });
+  fillApps(art, { view, onComment: input.onComment, onPick: input.onPick, onFocus: input.onFocus });
   await fillMermaid(art);
   if (!isCurrent()) return null;
+  markFocusEntries(art); // 画像・図を、キーボードで開ける入口に（F43）
   const layout = applyHighlights(art, input.threads, view.version);
   const pending = markPending(art, input.pendingAnchor(), null);
   return { epoch: nextEpoch(), key: view.key, ...layout, pending, diff };

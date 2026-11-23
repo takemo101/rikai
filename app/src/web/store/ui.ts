@@ -15,15 +15,32 @@ import { getView } from '../lib/view';
 
 export type Tab = 'live' | 'done' | 'all';
 export type RegMode = 'idle' | 'selecting';
+/** 個別表示（F43）のステージの道具。`region`：画像・図・枠の上で、範囲をドラッグで選んでいる（Esc で中止）。要素を選ぶ道具（html-app）は、橋が持つ（`appBridge.ts`） */
+export type FocusTool = 'idle' | 'region';
 export type DialogKind = 'submit' | 'end';
 
 /**
- * ライトボックスに出すもの。img：画像（zoom: false は、コメントに添付した画像：押すと閉じる・F31。zoom: true は、本文・返信の画像：ズーム・移動ができる）。
- * svg：図（Mermaid・インラインの SVG）の複製（id を付け替え済み：lib/zoomSvg.ts）。ズーム・移動ができる
+ * 個別表示の対象のブロックを、DocModel の中から探し直すための印（F43）。本文は、更新のたびに描き直されて、要素が作り直されるので、要素ではなく、内容で指す：
+ * `id`・`hash` は、ブロックの `data-bid`・`data-bhash`。`src`：画像の `src` 属性（画像のブロックは、内容の文字がなく、ハッシュが、どれも同じになるので、見分ける）。
+ * `base`：押された画像・図が、範囲の基準（`frameOf`：ブロックの最初の画像・図）か。範囲の比率は、基準に対するものなので、基準でないものでは、範囲を選べない
+ */
+export interface FocusRef {
+  id: string;
+  hash: string;
+  src: string | null;
+  base: boolean;
+}
+
+/**
+ * ライトボックス（個別表示）に出すもの。img：画像（zoom: false は、コメントに添付した画像：押すと閉じる・F31。zoom: true は、本文・返信の画像：ズーム・移動ができる）。
+ * svg：図（Mermaid・インラインの SVG）の複製（id を付け替え済み：lib/zoomSvg.ts）。ズーム・移動ができる。
+ * app：html-app の枠（F43）。**新しい iframe を作る**（本文の枠は、動かさない）。`app`：枠の番号・固定の高さ（なければ自動）・配色への対応。
+ * `focus`：本文（`#article`）のブロックを指す印（右のドックに、そのブロックのコメントを出し、範囲・要素のコメントを付けられる）。返信の中の画像・図には、ない（ステージだけ）
  */
 export type LightboxTarget =
-  | { kind: 'img'; src: string; alt: string; zoom: boolean }
-  | { kind: 'svg'; node: SVGSVGElement; alt: string; size: { w: number; h: number } };
+  | { kind: 'img'; src: string; alt: string; zoom: boolean; focus?: FocusRef }
+  | { kind: 'svg'; node: SVGSVGElement; alt: string; size: { w: number; h: number }; focus?: FocusRef }
+  | { kind: 'app'; alt: string; focus: FocusRef; app: { n: number; fixed: number | null; follows: boolean } };
 
 /** コメントに添付した画像の、ライトボックスの名前 */
 export const ATTACHED_ALT = '添付の画像（大きく）';
@@ -103,6 +120,8 @@ export interface UiState {
   regMode: RegMode;
   /** 範囲の枠（入力中の対象）を、ドラッグでつかんでいる間 true（番号の層を、作り直さない） */
   regDrag: boolean;
+  /** 個別表示のステージの道具（範囲をドラッグで選んでいるか）。個別表示を開く・閉じるたびに、idle に戻る */
+  focusTool: FocusTool;
   toast: ToastState | null;
   /** 画面の広さ（左の一覧の開閉・右の幅・関連の線。localStorage `rikai-ui`） */
   ui: UiPrefs;
@@ -168,6 +187,7 @@ export interface UiActions {
   // ---- 範囲 ----
   setRegMode: (mode: RegMode) => void;
   setRegDrag: (dragging: boolean) => void;
+  setFocusTool: (tool: FocusTool) => void;
   // ---- トースト・ダイアログ・ライトボックス ----
   showToast: (msg: string, err?: boolean) => void;
   /** id の表示が、まだ出ているときだけ、消す */
@@ -221,6 +241,7 @@ export function initialUi(): UiState {
     solo: null,
     regMode: 'idle',
     regDrag: false,
+    focusTool: 'idle',
     toast: null,
     ui: loadUi(),
     narrowSideOpen: false,
@@ -373,14 +394,15 @@ export const useUi = create<UiStore>()((set, get) => {
 
     setRegMode: (regMode) => set({ regMode }),
     setRegDrag: (regDrag) => set({ regDrag }),
+    setFocusTool: (focusTool) => set({ focusTool }),
 
     showToast: (msg, err = false) => set({ toast: { id: ++toastSeq, msg, err } }),
     clearToast: (id) => set((s) => (s.toast?.id === id ? { toast: null } : s)),
     openDialog: (dialog) => set({ dialog }),
     closeDialog: () => set({ dialog: null }),
     openLightbox: (src) => set({ lightbox: { kind: 'img', src, alt: ATTACHED_ALT, zoom: false } }),
-    openZoom: (lightbox) => set({ lightbox }),
-    closeLightbox: () => set({ lightbox: null }),
+    openZoom: (lightbox) => set({ lightbox, focusTool: 'idle' }),
+    closeLightbox: () => set({ lightbox: null, focusTool: 'idle' }),
     setLive: (live) => set({ live }),
 
     toggleSide: (autoHidden = false) => {

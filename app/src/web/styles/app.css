@@ -251,17 +251,17 @@ label.chk { font-size: var(--fs-s); color: var(--muted); display: flex; gap: 6px
 .htmlapp .apptools button.iconbtn { width: 24px; height: 24px; }
 .htmlapp .apppick { color: var(--accent-ink); font-size: var(--fs-s); margin-left: 6px; }
 .htmlapp .apptools button.iconbtn[aria-pressed="true"] { background: var(--accent-a10); color: var(--accent-ink); }
-.htmlapp .appframe { display: block; width: 100%; margin-inline: auto; border: 0; box-shadow: 0 0 0 1px var(--line); border-radius: var(--r); } /* 枠の線は、box-shadow（border は、border-box の枠の見える高さを削り、中身が、2px 隠れて、スクロールバーが出る）。枠の中は、別の文書（AI が書いたもの）。橋が、画面の外観（?mode=）と配色の土台を渡す。幅の切り替え（375/768/1280/1920px）は、style.width（appBridge.ts） */
-.htmlapp .appframe[data-mode="light"] { background: #fff; color-scheme: light; } /* 枠の地：ライトは白（従来どおり）・ダークは黒。中の文書が、地を描かない従来の資料でも、文字が読める（data-mode は、appBridge.ts が付ける：画面の外観に従う枠は画面の外観・従来の枠は、利用者が選ぶまでライト） */
-.htmlapp .appframe[data-mode="dark"] { background: #09090b; color-scheme: dark; }
+:is(.htmlapp, .fv-app) .appframe { display: block; width: 100%; margin-inline: auto; border: 0; box-shadow: 0 0 0 1px var(--line); border-radius: var(--r); } /* 枠の線は、box-shadow（border は、border-box の枠の見える高さを削り、中身が、2px 隠れて、スクロールバーが出る）。枠の中は、別の文書（AI が書いたもの）。橋が、画面の外観（?mode=）と配色の土台を渡す。幅の切り替え（375/768/1280/1920px）は、style.width（appBridge.ts） */
+:is(.htmlapp, .fv-app) .appframe[data-mode="light"] { background: #fff; color-scheme: light; } /* 枠の地：ライトは白（従来どおり）・ダークは黒。中の文書が、地を描かない従来の資料でも、文字が読める（data-mode は、appBridge.ts が付ける：画面の外観に従う枠は画面の外観・従来の枠は、利用者が選ぶまでライト） */
+:is(.htmlapp, .fv-app) .appframe[data-mode="dark"] { background: #09090b; color-scheme: dark; }
 /* 選んだ幅が、本文より広いとき：枠は、その幅のまま（中のレイアウトは、その幅で計算される）、左上を基点に縮小して、本文の幅に収める。`.appscale` が、縮小後の大きさを持ち、はみ出す分を切る
    （transform は、スクロールできる範囲を、縮小前の幅にしてしまうので、箱で受ける。枠の線・輪は、少し外まで残す） */
-.htmlapp .appscale { position: relative; }
-.htmlapp .appscaled { overflow: clip; overflow-clip-margin: 3px; }
-.htmlapp .appscaled .appframe { margin-inline: 0; transform-origin: top left; }
+:is(.htmlapp, .fv-app) .appscale { position: relative; }
+:is(.htmlapp, .fv-app) .appscaled { overflow: clip; overflow-clip-margin: 3px; }
+:is(.htmlapp, .fv-app) .appscaled .appframe { margin-inline: 0; transform-origin: top left; }
 /* 縮小率の下限（50%）で止まって、まだ本文の幅に収まらないとき：置き場を、横にスクロールさせる（枠の操作は、そのまま。輪は、内側に） */
-.htmlapp .appscroll { overflow-x: auto; overflow-y: hidden; }
-.htmlapp .appscroll .appframe:focus-visible { outline-offset: -2px; }
+:is(.htmlapp, .fv-app) .appscroll { overflow-x: auto; overflow-y: hidden; }
+:is(.htmlapp, .fv-app) .appscroll .appframe:focus-visible { outline-offset: -2px; }
 .htmlapp .appsrc { margin-top: 6px; font-size: var(--fs-s); }
 .htmlapp .appsrc pre { max-height: 320px; overflow: auto; }
 
@@ -384,7 +384,7 @@ mark.hl.pending { background: var(--accent-soft); outline: 1.5px dashed var(--ac
 /* ---- 画像のライトボックス・トースト ---- */
 #lightbox { position: fixed; inset: 0; z-index: 50; display: flex; align-items: center; justify-content: center; background: var(--scrim-image); cursor: zoom-out; outline: 0; }
 #lightbox[hidden] { display: none; }
-#lightbox img { max-width: 92vw; max-height: 90vh; background: #fff; border-radius: var(--r); box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4); }
+#lightbox > img { max-width: 92vw; max-height: 90vh; background: #fff; border-radius: var(--r); box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4); }
 #lightbox > .close { position: absolute; top: 16px; right: 16px; display: inline-flex; padding: 6px; color: #fff; background: rgba(255, 255, 255, 0.14); border-radius: var(--r); pointer-events: none; }
 #lightbox .close svg.lucide { width: 18px; height: 18px; }
 /* 本文・返信の画像・図の拡大（F37）：ズーム・移動。舞台は、自然な大きさで、窓の中心に置き、transform で、拡大・移動する */
@@ -395,7 +395,7 @@ mark.hl.pending { background: var(--accent-soft); outline: 1.5px dashed var(--ac
 #lightbox .lb-stage img { display: block; width: 100%; height: 100%; max-width: none; max-height: none; border-radius: var(--r); box-shadow: none; }
 #lightbox .lb-stage.img { background: #fff; } /* 画像の地は、白（透明な画像が、暗い地に沈まない） */
 #lightbox .lb-stage.svg { background: var(--paper); overflow: hidden; outline: 1px solid var(--line-strong); } /* 図の地は、画面の紙の色（ダークは暗い地：Mermaid の色が、正しく見える） */
-#lightbox .lb-tools { position: absolute; top: 16px; right: 16px; display: flex; align-items: center; gap: 2px; padding: 4px; color: #fff; background: rgba(24, 24, 27, 0.92); border: 1px solid rgba(255, 255, 255, 0.2); border-radius: var(--r); box-shadow: 0 2px 12px rgba(0, 0, 0, 0.4); cursor: default; } /* 白い図の上でも、見える：暗い地 */
+#lightbox .lb-tools { position: absolute; z-index: 5; top: 16px; right: 16px; display: flex; align-items: center; gap: 2px; padding: 4px; color: #fff; background: rgba(24, 24, 27, 0.92); border: 1px solid rgba(255, 255, 255, 0.2); border-radius: var(--r); box-shadow: 0 2px 12px rgba(0, 0, 0, 0.4); cursor: default; } /* 白い図の上でも、見える：暗い地 */
 #lightbox .lb-tools button { display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; padding: 0; color: #fff; background: transparent; border: 0; border-radius: var(--r-s); }
 #lightbox .lb-tools button:hover:not(:disabled) { background: rgba(255, 255, 255, 0.2); }
 #lightbox .lb-tools button:active:not(:disabled) { background: rgba(255, 255, 255, 0.3); }
@@ -554,3 +554,56 @@ dialog p { margin: 0 0 12px; color: var(--ink-2); }
 /* 「枠から」の札（F42）：html-app の枠の中のコードが作った情報が入ったコメント。アクセントの枠線で、AI・あなたの文章と、見分ける */
 .thread .chip.fromframe { color: var(--accent-ink); border: 1px solid var(--accent-line); background: var(--accent-soft); font-weight: 600; }
 .thread[data-from-frame] { border-left: 3px solid var(--accent); }
+
+/* ---- 個別表示（F43）：左にステージ・右にコメントのドック。窓が 760px 未満のときは、ドックは、下からのシート ---- */
+#lightbox.fv { align-items: stretch; justify-content: flex-start; cursor: default; color: var(--ink); font-size: var(--fs); }
+#lightbox .fv-main { position: relative; flex: 1 1 0; min-width: 0; min-height: 0; }
+.fv-dock { flex: none; width: 340px; min-height: 0; display: flex; flex-direction: column; background: var(--surface); border-left: 1px solid var(--line); box-shadow: -8px 0 24px rgba(0, 0, 0, 0.25); cursor: default; }
+.fv-dock-h { display: flex; flex-wrap: wrap; align-items: center; gap: 2px 8px; padding: 10px 14px 8px; border-bottom: 1px solid var(--line); }
+.fv-dock-t { font-size: var(--fs-s); font-weight: 600; color: var(--muted); }
+.fv-dock-target { flex: 1 1 0; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--fs-s); color: var(--ink-2); }
+.fv-dock-body { flex: 1 1 auto; min-height: 0; overflow: auto; padding: 4px 14px 28px; }
+.fv-dock .fv-start { margin: 10px 0 4px; display: flex; flex-direction: column; gap: 8px; align-items: flex-start; }
+.fv-dock .fv-start .hint, .fv-dock .fv-note { margin: 10px 0 4px; }
+.fv-dock .fv-empty { padding: 8px 0; }
+#lightbox .fv-dock img { max-width: 100%; max-height: 220px; box-shadow: none; }
+#lightbox .fv-dock .thumb img { height: 72px; max-width: 128px; }
+.fv-dock .thumb img, .fv-dock .msg .imgs img, .fv-dock .msg .body.md img, .fv-dock .msg .body.md svg { cursor: default; } /* ドックの中の画像は、拡大しない（個別表示の上に、別の拡大は、重ねない） */
+@media (max-width: 759.98px) {
+  #lightbox.fv { flex-direction: column; }
+  .fv-dock { width: auto; height: min(46vh, 420px); border-left: 0; border-top: 1px solid var(--line); box-shadow: 0 -8px 24px rgba(0, 0, 0, 0.3); }
+}
+/* ステージの上部の道具（左上）：右上の拡大の道具（.lb-tools）と、同じ暗い地 */
+#lightbox .fv-tools { position: absolute; z-index: 5; top: 16px; left: 16px; max-width: calc(100% - 96px); display: flex; flex-wrap: wrap; align-items: center; gap: 2px; padding: 4px; color: #fff; background: rgba(24, 24, 27, 0.92); border: 1px solid rgba(255, 255, 255, 0.2); border-radius: var(--r); box-shadow: 0 2px 12px rgba(0, 0, 0, 0.4); cursor: default; }
+#lightbox .fv-tools button { display: inline-flex; align-items: center; justify-content: center; gap: 6px; height: 28px; padding: 0 10px; font-size: var(--fs-s); color: #fff; background: transparent; border: 0; border-radius: var(--r-s); }
+#lightbox .fv-tools button.iconbtn { width: 28px; padding: 0; }
+#lightbox .fv-tools button:hover:not(:disabled) { background: rgba(255, 255, 255, 0.2); }
+#lightbox .fv-tools button[aria-pressed="true"] { background: var(--fill); }
+#lightbox .fv-tools button:focus-visible { outline: 2px solid #fff; outline-offset: 0; }
+#lightbox .fv-tools button:disabled { opacity: 0.4; }
+#lightbox .fv-tools svg.lucide { width: 16px; height: 16px; }
+#lightbox .fv-apptools { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 1px; padding-right: 6px; margin-right: 4px; border-right: 1px solid rgba(255, 255, 255, 0.2); }
+#lightbox .fv-hint:empty, #lightbox .fv-tools .apppick:empty { display: none; }
+#lightbox .fv-hint, #lightbox .fv-tools .apppick { position: absolute; left: 0; top: calc(100% + 6px); width: max-content; max-width: calc(100vw - 32px); padding: 3px 10px; font-size: var(--fs-s); color: var(--tip-ink); background: var(--tip-bg); border: 1px solid var(--tip-edge); border-radius: var(--r-s); pointer-events: none; }
+/* html-app の枠のステージ：利用できる幅いっぱい。縦に長いときは、ステージがスクロールする */
+#lightbox .fv-main.app { display: flex; flex-direction: column; }
+#lightbox .fv-appbar { flex: none; display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: 8px; padding: 16px 16px 4px; }
+#lightbox .fv-appbar .fv-tools, #lightbox .fv-appbar .lb-tools { position: relative; top: auto; left: auto; right: auto; max-width: none; }
+#lightbox .fv-appstage { flex: 1 1 0; min-height: 0; overflow: auto; padding: 12px 20px 24px; }
+#lightbox .fv-app { max-width: 100%; }
+/* ステージに重ねる、既存の範囲コメントの枠・番号（F35・F23 の見た目）。押すと、ドックの、そのスレッドが選ばれる */
+.fv-regions, .fv-layer { position: absolute; inset: 0; pointer-events: none; }
+.fv-layer { inset: auto; }
+.fv-box { position: absolute; box-sizing: border-box; border: 1.5px solid var(--accent); background: var(--accent-a8); border-radius: 2px; pointer-events: auto; cursor: pointer; }
+.fv-box.resolved { border: 1px solid var(--done); background: transparent; }
+.fv-box.linked, .fv-box.active { border: 2px solid var(--accent); background: var(--accent-a12); }
+.fv-box.pending, .fv-box.pending.linked { border: 1.5px dashed var(--accent); background: var(--accent-a8); pointer-events: none; }
+.fv-box .fv-no { position: absolute; left: -2px; top: -22px; display: inline-block; min-width: 18px; padding: 0 5px; font-size: 11px; font-weight: 600; line-height: 18px; text-align: center; border-radius: 999px; background: var(--fill); color: #fff; pointer-events: none; }
+.fv-box.resolved .fv-no { background: var(--done-fill); }
+.fv-box.pending .fv-no { background: var(--accent-deep); }
+.fv-box.top .fv-no { top: 2px; left: 2px; }
+/* 範囲を選ぶ層 */
+.fv-sel { position: absolute; inset: 0; z-index: 3; pointer-events: auto; cursor: crosshair; touch-action: none; user-select: none; background: rgba(0, 0, 0, 0.1); outline: 1.5px dashed var(--accent); outline-offset: -1.5px; }
+.fv-sel .box { position: absolute; border: 1.5px solid var(--accent); background: var(--accent-a22); pointer-events: none; }
+#article [data-focus-entry]:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; border-radius: var(--r-s); }
+#lightbox .fv-widthnote { align-self: center; padding: 0 8px; font-size: var(--fs-s); color: #fcd34d; white-space: nowrap; } /* 暗い帯の上：琥珀（注意）。文字は、帯の暗い地で AA */

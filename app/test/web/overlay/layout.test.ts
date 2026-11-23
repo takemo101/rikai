@@ -7,6 +7,7 @@ import {
   badgeLeft,
   badgeTopIn,
   badgeWidth,
+  clampRegionRect,
   foldBadges,
   groupBadges,
   regionBox,
@@ -172,4 +173,21 @@ test('ハンドルの名前：8 つ。知らない名前・なしは、本体（
     width: 30,
     height: 60,
   });
+});
+
+test('clampRegionRect：html-app の範囲の枠は、基準の箱の周り（-1〜2 倍）に収める。古い基準の極端な値でも、枠が巨大にならない。収めた結果が空なら描かない', () => {
+  // 正当な範囲は、そのまま（基準の外へ出てもよい。限度の中）
+  const ok = clampRegionRect({ x: 0.1, y: 0.2, w: 0.5, h: 0.4 });
+  expect([ok?.x, ok?.y]).toEqual([0.1, 0.2]);
+  expect(ok?.w).toBeCloseTo(0.5);
+  expect(ok?.h).toBeCloseTo(0.4);
+  expect(clampRegionRect({ x: -0.5, y: 0, w: 2, h: 1.5 })).toEqual({ x: -0.5, y: 0, w: 2, h: 1.5 });
+  // 古い基準（15px のアイコン）の値：幅 40・高さ 8 → 限度で、切る
+  expect(clampRegionRect({ x: 0.5, y: 0.5, w: 40, h: 8 })).toEqual({ x: 0.5, y: 0.5, w: 1.5, h: 1.5 });
+  expect(clampRegionRect({ x: -60, y: -3, w: 100, h: 100 })).toEqual({ x: -1, y: -1, w: 3, h: 3 });
+  // 外へ出きっている：描かない
+  expect(clampRegionRect({ x: 2.5, y: 0, w: 1, h: 1 })).toBeNull();
+  expect(clampRegionRect({ x: 0, y: 26, w: 13, h: 7 })).toBeNull();
+  expect(clampRegionRect({ x: 0, y: 0, w: 0, h: 1 })).toBeNull();
+  expect(clampRegionRect({ x: Number.NaN, y: 0, w: 1, h: 1 })).toBeNull();
 });

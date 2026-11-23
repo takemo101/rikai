@@ -107,6 +107,24 @@ export interface Box {
   height: number;
 }
 
+/** html-app の範囲の枠を、基準の箱の周りに収める限度（基準の箱の幅・高さの何倍まで、外へ出してよいか） */
+export const APP_REGION_MARGIN = 1;
+
+/**
+ * html-app の範囲の枠の、描画用の比率：基準（枠の置き場）の箱を基準に、周り（`-APP_REGION_MARGIN`〜`1 + APP_REGION_MARGIN`）に、収める。収めた結果が空なら null（描かない）。
+ * 0.24.0 より前に、見出しのアイコン（15px）を基準に保存された範囲は、新しい基準では、極端な値（幅 40・高さ 8 など）になる：描くと、本文の高さを伸ばす・巨大な枠になる。
+ * 保存した値（`.rikai/`）は、書き換えない：描くときだけ、収める。画像・図・文の範囲には、使わない（広い範囲も、そのまま描く）
+ */
+export function clampRegionRect(rect: Rect): Rect | null {
+  const lo = -APP_REGION_MARGIN;
+  const hi = 1 + APP_REGION_MARGIN;
+  const clamp = (v: number): number => Math.min(hi, Math.max(lo, v));
+  const [x0, y0, x1, y1] = [clamp(rect.x), clamp(rect.y), clamp(rect.x + rect.w), clamp(rect.y + rect.h)];
+  return x1 > x0 && y1 > y0 && [x0, y0, x1, y1].every(Number.isFinite)
+    ? { x: x0, y: y0, w: x1 - x0, h: y1 - y0 }
+    : null;
+}
+
 /** 範囲の上端（ビューポート）：基準の要素 `m` の高さに対する比率 */
 export const regionTopOf = (m: Pick<Box, 'top' | 'height'>, rect: Rect): number => m.top + rect.y * m.height;
 

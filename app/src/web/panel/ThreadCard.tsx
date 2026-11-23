@@ -72,9 +72,12 @@ export function ThreadCard({ view, thread: t, full = false, model, seen, editing
 
   const cls = ['thread', stCls, active && 'active', fresh && 'fresh', linked && 'linked'].filter(Boolean).join(' ');
   const segments = foldMessages(t, { full, seen, editing });
+  // 「枠から」の札：錨の形＋利用者の最初の発言の見出しの行（資料の本文の、似た錨に、付かない。AI の返信は、見ない）
+  const first = t.messages[0];
+  const fromFrame = !!t.anchor && fromFrameAnchor(t.anchor, first?.author === 'user' ? (first.text ?? '') : '');
 
   return (
-    <div className={cls} data-tid={t.id} {...(t.anchor && fromFrameAnchor(t.anchor) ? { 'data-from-frame': '' } : {})}>
+    <div className={cls} data-tid={t.id} {...(fromFrame ? { 'data-from-frame': '' } : {})}>
       {/* biome-ignore lint/a11y/useKeyWithClickEvents: 旧と同じ DOM（見出しの押下は、マウスの近道。キーボードは、カード内のボタン） */}
       {/* biome-ignore lint/a11y/noStaticElementInteractions: 同上 */}
       <div className="th-head" onClick={() => focusThread(t.id, true)}>
@@ -103,7 +106,7 @@ export function ThreadCard({ view, thread: t, full = false, model, seen, editing
           </span>
         ) : null}
         {future ? <span className="chip small">後の版のコメント</span> : null}
-        {t.anchor && fromFrameAnchor(t.anchor) ? <FromFrame /> : null}
+        {fromFrame ? <FromFrame /> : null}
         <div className="quote">{trunc(quoteOf(t), 90)}</div>
       </div>
       {segments.map((s) =>
@@ -201,7 +204,7 @@ function ThreadFoot({ view, thread: t }: { view: View; thread: Thread }) {
         value={draft}
         onChange={(e) => setReplyDraft(t.id, e.target.value)}
         onKeyDown={(e) => {
-          if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
+          if ((e.metaKey || e.ctrlKey) && e.key === 'Enter' && !e.nativeEvent.isComposing && e.keyCode !== 229) {
             e.preventDefault();
             void sendReply();
           }

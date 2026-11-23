@@ -18,6 +18,8 @@ interface Props {
   composer: ComposerState;
   /** 入力中の対象を、本文で強調した要素（DocModel.pending）。見つからなければ null */
   pending: BlockEl | null;
+  /** 個別表示（F43）の、右のドックの入力欄か。下書き・対象は、パネルの入力欄と同じ状態。個別表示が開いている間は、ドックのものだけが、フォーカスを受ける */
+  dock?: boolean;
 }
 
 /** 「枠から」の札：枠の中のコードが作った情報（要素・状態・画像）が入っている下書き・コメント。AI の文章・あなたの文章と、見分ける（F42） */
@@ -32,7 +34,7 @@ export function FromFrame() {
   );
 }
 
-export function Composer({ view, composer, pending }: Props) {
+export function Composer({ view, composer, pending, dock = false }: Props) {
   const a = composer.anchor;
   const slug = view.slug;
   const draft = useUi((s) => s.drafts.composer);
@@ -43,10 +45,12 @@ export function Composer({ view, composer, pending }: Props) {
   const card = useRef<HTMLDivElement>(null);
   const area = useRef<HTMLTextAreaElement>(null);
   const busy = useRef(false);
+  const fromFrame = fromFrameAnchor(a, draft); // 札：錨の形＋下書きの見出しの行（資料の本文の、似た錨に、付かない）
 
   // 対象を選び直すたびに（id が変わるたびに）、欄へ移す
   // biome-ignore lint/correctness/useExhaustiveDependencies: id が変わったときだけ（本文は、使わない）
   useEffect(() => {
+    if (!dock && useUi.getState().lightbox?.focus) return; // 個別表示の間は、窓の後ろのパネルの入力欄に、フォーカスを移さない
     area.current?.focus();
     caretAtEnd(area.current);
     card.current?.scrollIntoView({ block: 'center', behavior: 'smooth' });
@@ -84,14 +88,15 @@ export function Composer({ view, composer, pending }: Props) {
   };
 
   return (
-    <div className="thread composer" ref={card} {...(fromFrameAnchor(a) ? { 'data-from-frame': '' } : {})}>
+    <div className="thread composer" ref={card} {...(fromFrame ? { 'data-from-frame': '' } : {})}>
       <div className="th-head">
         <span className="no pending" title="本文の、点線の部分へのコメントです">
           新
         </span>
-        {fromFrameAnchor(a) ? <FromFrame /> : null}
+        {fromFrame ? <FromFrame /> : null}
         <div className="quote">{trunc(a.quote || a.label, 90)}</div>
-        {pending ? (
+        {dock && a.rect ? <div className="hint">選んだ範囲（ステージの、点線の枠）へのコメントです</div> : null}
+        {!dock && pending ? (
           <div className="hint">
             {a.rect
               ? '本文の、点線の枠へのコメントです（枠は、ドラッグで動かし、角・辺で大きさを変えられます）'
@@ -101,13 +106,13 @@ export function Composer({ view, composer, pending }: Props) {
       </div>
       <textarea
         ref={area}
-        rows={fromFrameAnchor(a) ? 8 : 3} // 枠からの下書き（見出し＋ JSON）は、長い：読める高さにする
+        rows={fromFrame ? 8 : 3} // 枠からの下書き（見出し＋ JSON）は、長い：読める高さにする
         data-key="composer"
         placeholder="わからない点・確認したい点・直してほしい点（⌘/Ctrl+Enter で追加。画像は、貼り付け・ドラッグでも）"
         value={draft}
         onChange={(e) => useUi.getState().setComposerDraft(e.target.value)}
         onKeyDown={(e) => {
-          if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
+          if ((e.metaKey || e.ctrlKey) && e.key === 'Enter' && !e.nativeEvent.isComposing && e.keyCode !== 229) {
             e.preventDefault();
             void submit();
           }

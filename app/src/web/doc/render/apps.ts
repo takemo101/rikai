@@ -2,7 +2,7 @@
 import type { PickInfo } from '../../../shared/htmlapp-bridge';
 import { followsTheme } from '../../../shared/htmlapp-theme';
 import { $$, h } from '../../lib/dom';
-import { resolvedTheme } from '../../lib/theme';
+import { type ResolvedTheme, resolvedTheme } from '../../lib/theme';
 import type { View } from '../../lib/view';
 import { mountToolbar } from '../AppToolbar';
 import { initialFrameState, registerFrame } from '../appBridge';
@@ -16,43 +16,73 @@ export interface AppsContext {
   onComment: (box: HTMLElement) => void;
   /** 利用者が、枠の中の要素を選んだ（検査済み）。枠（`.htmlapp`）・要素の情報・その枠の最新の状態（JSON）を渡す */
   onPick?: (box: HTMLElement, pick: PickInfo, stateJson: string | null) => void;
+  /** 「個別表示」を押した（F43）。枠（`.htmlapp`）を渡す */
+  onFocus?: (box: HTMLElement) => void;
+}
+
+/** 枠の置き場（`.htmlapp`）の、枠の仕様：番号・固定の高さ（`height=480`。なければ null＝自動）・資料のソース・画面の配色への対応。番号が読めなければ null */
+export interface AppSpec {
+  n: number;
+  fixed: number | null;
+  source: string;
+  follows: boolean;
+}
+
+export function appSpecOf(box: HTMLElement): AppSpec | null {
+  const n = Number(box.dataset.n);
+  if (!Number.isInteger(n) || n < 0) return null;
+  const fixed = Number(box.dataset.h);
+  // 資料が、画面の配色への対応を示しているか（サーバーが、同じ判定で、土台・ダークへの追従を付ける：示さない従来の枠は、常にライト）
+  const source = box.dataset.src ? safeDecodeStrict(box.dataset.src) : '';
+  return { n, fixed: fixed > 0 ? fixed : null, source, follows: followsTheme(source) };
 }
 
 /**
- * 枠の置き場に、隔離した iframe を入れる。**sandbox は allow-scripts だけ**（allow-same-origin を付けない：オリジンのない文書になり、この画面に触れない。
- * ポップアップ・上の画面の移動・フォーム・ダウンロードも、できない）。allow は空（カメラ・位置情報・クリップボードなどを、渡さない）。src は、数だけから組み立てる
+ * 隔離した iframe と、その置き場（`.appview` > `.appscale` > iframe）。**sandbox は allow-scripts だけ**（allow-same-origin を付けない：オリジンのない文書になり、この画面に触れない。
+ * ポップアップ・上の画面の移動・フォーム・ダウンロードも、できない）。allow は空（カメラ・位置情報・クリップボードなどを、渡さない）。src は、数だけから組み立てる。
+ * 本文の枠と、個別表示（F43）の枠が、同じ形・同じ隔離で作る
+ */
+export function appFrameDom(
+  view: View,
+  n: number,
+  fixed: number | null,
+  mode: ResolvedTheme,
+  opts: { title?: string; eager?: boolean } = {},
+): { wrap: HTMLElement; iframe: HTMLIFrameElement } {
+  // 高さ：`height=480`（数）は固定・それ以外は自動（枠の中身が知らせる：appBridge.ts）。自動の最初の高さは、小さめ（知らせが届くまで）
+  const ht = fixed === null ? AUTO_INITIAL_HEIGHT : Math.min(1200, Math.max(120, fixed));
+  const iframe = h('iframe', {
+    class: 'appframe',
+    title: opts.title ?? `実行できる枠 ${n + 1}`,
+    loading: opts.eager ? 'eager' : 'lazy',
+    referrerpolicy: 'no-referrer',
+    sandbox: 'allow-scripts',
+    allow: '',
+    src: `/appframe/${encodeURIComponent(view.slug)}/${encodeURIComponent(view.page)}/${view.version}/${n}?mode=${mode}`,
+    height: String(ht),
+  });
+  // 枠の置き場：`.appview`（本文の幅の基準。縮小しきれないときは、横にスクロール）> `.appscale`（縮小後の大きさを持つ箱）> iframe。選んだ幅が、本文より広いときは、縮小して見せる（appBridge.ts）。登録は、画面に付けたあと（幅を測る）
+  return { wrap: h('div', { class: 'appview' }, h('div', { class: 'appscale' }, iframe)), iframe };
+}
+
+/**
+ * 枠の置き場に、隔離した iframe を入れる。
  */
 export function fillApps(container: ParentNode, ctx: AppsContext): void {
   const { view } = ctx;
   // 古いサーバー（0.8 以前）は、/appframe を持たず、画面の CSP も古い。枠は、灰色の四角になるので、説明を出す
   const live = view.topic.appframe === true;
   for (const box of $$('.htmlapp', container)) {
-    const n = Number(box.dataset.n);
-    if (!Number.isInteger(n) || n < 0) continue;
-    // 高さ：`height=480`（数）は固定・それ以外は自動（枠の中身が知らせる：appBridge.ts）。自動の最初の高さは、小さめ（知らせが届くまで）
-    const fixed = Number(box.dataset.h);
-    const auto = !(fixed > 0);
-    const ht = auto ? AUTO_INITIAL_HEIGHT : Math.min(1200, Math.max(120, fixed));
+    const spec = appSpecOf(box);
+    if (!spec) continue;
+    const { n, fixed, source, follows } = spec;
+    const auto = fixed === null;
     // 枠の中は、別の文書なので、枠の上では、入口のバーが出ない（マウスの動きが、画面に届かない）。見出しの行に、幅・外観のツールバーと、コメントのボタンを置く
     const cap = box.querySelector('.cap');
-    // 資料が、画面の配色への対応を示しているか（サーバーが、同じ判定で、土台・ダークへの追従を付ける：示さない従来の枠は、常にライト）
-    const source = box.dataset.src ? safeDecodeStrict(box.dataset.src) : '';
-    const follows = followsTheme(source);
     if (live) {
       // 外観は、画面のいまの外観（`?mode=`）。同じ版の中で覚えている、枠だけの外観・幅があれば、それ
       const state = initialFrameState(view.key, n, resolvedTheme(), follows);
-      const iframe = h('iframe', {
-        class: 'appframe',
-        title: `実行できる枠 ${n + 1}`,
-        loading: 'lazy',
-        referrerpolicy: 'no-referrer',
-        sandbox: 'allow-scripts',
-        allow: '',
-        src: `/appframe/${encodeURIComponent(view.slug)}/${encodeURIComponent(view.page)}/${view.version}/${n}?mode=${state.mode}`,
-        height: String(ht),
-      });
-      // 枠の置き場：`.appview`（本文の幅の基準。縮小しきれないときは、横にスクロール）> `.appscale`（縮小後の大きさを持つ箱）> iframe。選んだ幅が、本文より広いときは、縮小して見せる（appBridge.ts）。登録は、画面に付けたあと（幅を測る）
-      const wrap = h('div', { class: 'appview' }, h('div', { class: 'appscale' }, iframe));
+      const { wrap, iframe } = appFrameDom(view, n, fixed, state.mode);
       box.append(wrap);
       const frame = registerFrame(iframe, n, auto, follows, state, {
         onPick: (pick, stateJson) => ctx.onPick?.(box, pick, stateJson),
@@ -60,7 +90,7 @@ export function fillApps(container: ParentNode, ctx: AppsContext): void {
       if (cap) {
         const tools = h('span', { class: 'apptools', role: 'group', 'aria-label': '枠の表示（幅・外観）' });
         cap.append(' ', tools);
-        mountToolbar(tools, frame);
+        mountToolbar(tools, frame, ctx.onFocus ? () => ctx.onFocus?.(box) : undefined);
       }
     } else {
       box.append(

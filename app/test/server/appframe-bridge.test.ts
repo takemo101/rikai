@@ -185,7 +185,7 @@ type Fake = { style: Record<string, string>; [k: string]: unknown };
  */
 function runBridge(
   layout: (iframeHeight: number) => number,
-  opts: { initial?: number; reflect?: boolean; follow?: boolean } = {},
+  opts: { initial?: number; reflect?: boolean; follow?: boolean; preScript?: string } = {},
 ) {
   const rootStyle: Record<string, string> = {};
   const computed: Record<string, string> = {};
@@ -278,6 +278,7 @@ function runBridge(
   const fire = (t: string, e: unknown = {}): void => {
     for (const fn of listeners[t] ?? []) fn(e);
   };
+  if (opts.preScript) vm.runInContext(opts.preScript, sandbox); // 橋より前に、その窓の中で動かす（窓の中の関数・prototype を、用意する）
   vm.runInContext(BRIDGE_SOURCE, sandbox);
   // 最初の ResizeObserver の通知（observe した直後に来る）。DOMContentLoaded・load も
   for (const cb of roCallbacks) cb();
@@ -694,6 +695,46 @@ test('橋：選択モードで Esc：中止して、pick-cancel を送る（モ�
   expect(again.calls.prevented).toBe(0);
 });
 
+test('橋：枠の中の Esc を、親へ転送する（esc。形は、これだけ）：150ms に 1 回まで・Esc 以外・押しっぱなしは、送らない。止めない（枠の中の処理は、そのまま）', () => {
+  const b = runBridge(() => 300);
+  const escs = () => b.posts.filter((m) => m.data.type === 'esc');
+  const e1 = ev('keydown', { key: 'Escape' });
+  b.fire('keydown', e1);
+  expect(escs()).toHaveLength(1);
+  expect({ ...escs()[0]?.data }).toEqual({ __rikai: 1, type: 'esc' });
+  expect(e1.calls.prevented).toBe(0);
+  expect(e1.calls.stopped).toBe(0);
+  b.fire('keydown', ev('keydown', { key: 'Escape' })); // 150ms 以内
+  expect(escs()).toHaveLength(1);
+  b.advance(400);
+  b.fire('keydown', ev('keydown', { key: 'Escape', repeat: true })); // 押しっぱなし
+  b.fire('keydown', ev('keydown', { key: 'Enter' }));
+  b.fire('keydown', ev('keydown', { key: 'a' }));
+  expect(escs()).toHaveLength(1);
+  b.fire('keydown', ev('keydown', { key: 'Escape' }));
+  expect(escs()).toHaveLength(2);
+});
+
+test('橋：変換中（isComposing・keyCode 229）の Esc は、親へ転送しない', () => {
+  const b = runBridge(() => 300);
+  b.fire('keydown', ev('keydown', { key: 'Escape', isComposing: true }));
+  b.fire('keydown', ev('keydown', { key: 'Escape', keyCode: 229 }));
+  expect(b.posts.filter((m) => m.data.type === 'esc')).toHaveLength(0);
+  b.fire('keydown', ev('keydown', { key: 'Escape', isComposing: false, keyCode: 27 }));
+  expect(b.posts.filter((m) => m.data.type === 'esc')).toHaveLength(1);
+});
+
+test('橋：選択モードの Esc は、pick-cancel だけ（esc を送らない：親が、二重に、閉じない）。モードが終わったあとの Esc は、転送する', () => {
+  const b = runBridge(() => 300);
+  b.fire('message', { source: b.parentWin, data: { __rikai: 1, type: 'pick-start' } });
+  b.fire('keydown', ev('keydown', { key: 'Escape' }));
+  expect(b.posts.filter((m) => m.data.type === 'pick-cancel')).toHaveLength(1);
+  expect(b.posts.filter((m) => m.data.type === 'esc')).toHaveLength(0);
+  b.advance(400);
+  b.fire('keydown', ev('keydown', { key: 'Escape' }));
+  expect(b.posts.filter((m) => m.data.type === 'esc')).toHaveLength(1);
+});
+
 test('橋：親の pick-cancel でも、モードが終わる（親以外からの pick-cancel は、効かない）', () => {
   const b = runBridge(() => 300);
   b.fire('message', { source: b.parentWin, data: { __rikai: 1, type: 'pick-start' } });
@@ -753,4 +794,44 @@ test('橋：選択モードで、中身のコードが Event.prototype の止め
     proto.preventDefault = pd;
     proto.stopImmediatePropagation = sip;
   }
+});
+
+test('橋：選択モードで、中身のコードが Function.prototype の call・apply・bind を置き換えても（あとから）、退避した Reflect.apply で止める（click は、要素に届かない）', () => {
+  // 止める関数は、橋と同じ窓（vm の窓）の関数にする：`.call` は、その窓の Function.prototype のもの（中身のコードが、置き換えるもの）
+  const b = runBridge(() => 300, {
+    preScript:
+      'Event=function(){};Event.prototype.preventDefault=function(){this.calls.prevented++};Event.prototype.stopImmediatePropagation=function(){this.calls.stopped++};',
+  });
+  const mk = vm.runInContext(
+    '(function(t,x){var e=Object.create(Event.prototype);e.calls={prevented:0,stopped:0};e.type=t;for(var k in x)e[k]=x[k];return e;})',
+    b.context,
+  ) as (t: string, x: Record<string, unknown>) => { calls: { prevented: number; stopped: number } };
+  const fp = vm.runInContext('Function.prototype', b.context) as typeof Function.prototype;
+  const [call, apply, bind] = [fp.call, fp.apply, fp.bind];
+  const noop = () => undefined;
+  try {
+    fp.call = noop as typeof fp.call;
+    fp.apply = noop as typeof fp.apply;
+    fp.bind = noop as typeof fp.bind;
+    b.fire('message', { source: b.parentWin, data: { __rikai: 1, type: 'pick-start' } });
+    const click = mk('click', { target: button() });
+    b.fire('click', click);
+    expect(click.calls.prevented).toBe(1);
+    expect(click.calls.stopped).toBe(1);
+    expect(b.posts.filter((m) => m.data.type === 'pick')).toHaveLength(1);
+    b.fire('message', { source: b.parentWin, data: { __rikai: 1, type: 'pick-start' } });
+    const esc = mk('keydown', { key: 'Escape' });
+    b.fire('keydown', esc);
+    expect(esc.calls.prevented).toBe(1);
+    expect(esc.calls.stopped).toBe(1);
+  } finally {
+    fp.call = call;
+    fp.apply = apply;
+    fp.bind = bind;
+  }
+});
+
+test('橋：スクリプトの中で、.call(・.apply(・.bind( を使わない（中身のコードに置き換えられる）。Reflect.apply を、先頭で退避する', () => {
+  expect(BRIDGE_SOURCE).not.toMatch(/\.(call|apply|bind)\(/);
+  expect(BRIDGE_SOURCE).toContain('var RA=Reflect.apply');
 });

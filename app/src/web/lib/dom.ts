@@ -43,13 +43,14 @@ export const encSrc = (s: string): string => encodeURIComponent(String(s));
 
 /**
  * 空白をつぶして、n 文字（…を含む）に切り詰める。文字は、コードポイント単位（絵文字などのサロゲートペアを、半分に割らない）。
- * 制御文字と、双方向文字の制御（U+200E・U+200F・U+202A〜202E・U+2066〜2069）は、取り除く（通知・タイトルで、表示の向きを、乱されないように）
+ * 見えない文字は、取り除く（通知・タイトルで、表示の向きを乱されない・見えない文を、読ませない）：制御文字（Cc）・書式の文字（Cf：ゼロ幅・方向の制御・タグ文字・BOM）・
+ * Default_Ignorable_Code_Point（異体字セレクタ・結合書記素結合子・ハングルの空白に見える字など）・点字の空白（U+2800）。ただし、絵文字を作る U+200D（ZWJ）と U+FE0F（絵文字の表示形式）は、残す（除くと、絵文字が割れる）
  */
 export function trunc(s: unknown, n: number): string {
   const chars = [
     ...String(s ?? '')
       .replace(/\s+/g, ' ')
-      .replace(/[\p{Cc}\u200e\u200f\u202a-\u202e\u2066-\u2069]/gu, '')
+      .replace(/(?![\u200d\ufe0f])[\p{Cc}\p{Cf}\p{Default_Ignorable_Code_Point}\u2800]/gu, '')
       .trim(),
   ];
   return chars.length > n ? `${chars.slice(0, n - 1).join('')}…` : chars.join('');

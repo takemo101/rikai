@@ -2,7 +2,7 @@
 // デザインの比較・UI のレビューのため：同じ枠を、幅と外観を変えて、見比べられる。アイコンだけ（`aria-label`・`title`。**本文の DOM に、文字を増やさない**）。
 // 「要素を選ぶ」ボタン（F42）：押すと、枠が選択モードに入り、枠の中で押した要素の情報が、下書きのコメントになる（自動では、送らない）。選んでいる間は、見出しに、説明（`aria-live`）を出す。
 // 本文は、命令的な島（`render/apps.ts`）なので、ここは、枠ごとに、小さな React の根を作って載せる（`mountToolbar`）。状態は、橋（`appBridge.ts`）が持つ。
-import { ArrowLeftRight, Crosshair, Monitor, Moon, Smartphone, Sun, Tablet, Tv } from 'lucide-react';
+import { ArrowLeftRight, Crosshair, Expand, Monitor, Moon, Smartphone, Sun, Tablet, Tv } from 'lucide-react';
 import { useSyncExternalStore } from 'react';
 import { createRoot } from 'react-dom/client';
 import { type AppFrame, FRAME_WIDTHS, type FrameWidth, frameScale, frameScrolls } from './appBridge';
@@ -18,7 +18,8 @@ const WIDTH_UI: Record<FrameWidth, { Icon: typeof Monitor; name: string; px?: nu
 
 const PICK_LABEL = '枠の中の要素を選んでコメント';
 
-function AppToolbar({ frame }: { frame: AppFrame }) {
+/** `onFocus`：「個別表示」ボタン（F43）。本文の枠の見出しだけに付ける（個別表示の中の枠には、付けない） */
+export function AppToolbar({ frame, onFocus }: { frame: AppFrame; onFocus?: (() => void) | undefined }) {
   const state = useSyncExternalStore(frame.subscribe, frame.get);
   const dark = state.mode === 'dark';
   const modeLabel = `枠の外観：${dark ? 'ダーク' : 'ライト'}。押すと、${dark ? 'ライト' : 'ダーク'}にします`;
@@ -69,6 +70,19 @@ function AppToolbar({ frame }: { frame: AppFrame }) {
       >
         <Crosshair aria-hidden="true" focusable="false" />
       </button>
+      {onFocus ? (
+        <button
+          type="button"
+          className="iconbtn"
+          data-focus-open
+          title="この枠を、個別表示で、大きく見ます（範囲・要素を選んで、コメントもできます）"
+          aria-label="個別表示"
+          aria-haspopup="dialog"
+          onClick={onFocus}
+        >
+          <Expand aria-hidden="true" focusable="false" />
+        </button>
+      ) : null}
       <span className="apppick" role="status" aria-live="polite">
         {state.picking ? '枠の中で、要素を押してください（Esc で中止）' : ''}
       </span>
@@ -77,8 +91,8 @@ function AppToolbar({ frame }: { frame: AppFrame }) {
 }
 
 /** `host`（見出しの行の中の空の要素）に、ツールバーを載せる。外す（`releaseApps`）と、根も外れる（React の描画の最中に、外さないよう、あとで） */
-export function mountToolbar(host: HTMLElement, frame: AppFrame): void {
+export function mountToolbar(host: HTMLElement, frame: AppFrame, onFocus?: () => void): void {
   const root = createRoot(host);
-  root.render(<AppToolbar frame={frame} />);
+  root.render(<AppToolbar frame={frame} onFocus={onFocus} />);
   frame.onRelease(() => queueMicrotask(() => root.unmount()));
 }

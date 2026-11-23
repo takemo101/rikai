@@ -9,9 +9,10 @@ import { toast, useUi } from '../store/ui';
 import { latestStateOf, releaseApps } from './appBridge';
 import { articleTid } from './hit';
 import { blockAnchor } from './render/blocks';
+import { FOCUS_ENTRY, mediaOfEntry } from './render/focusable';
 import { markPending } from './render/highlights';
 import { renderDoc } from './render/renderDoc';
-import { noteMouseDown, zoomOnClick } from './zoomOpen';
+import { noteMouseDown, openFocusApp, openFocusOf, zoomOnClick } from './zoomOpen';
 
 /** 選んでいるスレッドの、本文の強調に、`.active` を付ける（付けなおす） */
 function applyActive(art: HTMLElement, tid: string | null): void {
@@ -99,6 +100,7 @@ export function Article({ view, markdown, prevMarkdown }: ArticleProps) {
         threads: cur.threads,
         onComment: commentOn,
         onPick: pickOn,
+        onFocus: openFocusApp,
         pendingAnchor: () => useUi.getState().composer?.anchor ?? null,
       },
       () => tok === renderTok.current,
@@ -134,7 +136,7 @@ export function Article({ view, markdown, prevMarkdown }: ArticleProps) {
     if (ref.current && settled.current) applyActive(ref.current, active);
   }, [active]);
 
-  // 本文の強調・範囲の枠を押す：選ぶ（本文の強調を押したときは、1 枚だけ見る状態を解く）。コメントのない画像・図を押す：拡大（F37。委譲：このリスナー 1 つ）
+  // 本文の強調・範囲の枠を押す：選ぶ（本文の強調を押したときは、1 枚だけ見る状態を解く）。コメントのない画像・図を押す：個別表示（F37・F43。委譲：このリスナー 1 つ）。Enter・Space：フォーカスした画像・図を、個別表示
   useEffect(() => {
     const art = ref.current;
     if (!art) return;
@@ -151,11 +153,22 @@ export function Article({ view, markdown, prevMarkdown }: ArticleProps) {
       if (ui.solo) ui.closeSolo();
       ui.focusThread(thread);
     };
+    // キーボードの入口（F43）：フォーカスした画像・図（`markFocusEntries`）で、Enter・Space → 個別表示。コメントの有無に関係なく開く（コメントは、右のドックにある）
+    const onKey = (e: KeyboardEvent): void => {
+      if ((e.key !== 'Enter' && e.key !== ' ') || e.metaKey || e.ctrlKey || e.altKey || e.shiftKey) return;
+      const entry = e.target instanceof Element && e.target.hasAttribute(FOCUS_ENTRY) ? e.target : null;
+      const el = entry ? mediaOfEntry(entry, art) : null;
+      if (!el) return;
+      e.preventDefault();
+      openFocusOf(el);
+    };
     art.addEventListener('mousedown', noteMouseDown); // 押した位置（押す・ドラッグの区別）
     art.addEventListener('click', onClick);
+    art.addEventListener('keydown', onKey);
     return () => {
       art.removeEventListener('mousedown', noteMouseDown);
       art.removeEventListener('click', onClick);
+      art.removeEventListener('keydown', onKey);
     };
   }, []);
 

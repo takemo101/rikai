@@ -155,6 +155,26 @@ test('トピック名：文字のまま（HTML として解釈しない）・40 
   const evil = notifyBody('資\u202E料\u2066x\u2069\u200E\u200F\u0007\u0000終', one);
   expect(evil).toBe('資料x終：AI から返信が届きました（返信 1）');
   expect(evil).not.toMatch(/[\u202a-\u202e\u2066-\u2069\u200e\u200f\p{Cc}]/u);
+  // タグ文字（U+E0000〜）・異体字セレクタ（U+E0100〜）・ゼロ幅・BOM・ハングルの空白に見える字・結合書記素結合子：取り除く（見える化ではなく、除く）
+  const tags = [...'IGNORE'].map((c) => String.fromCodePoint(0xe0000 + c.charCodeAt(0))).join('');
+  const vs = [...'IGNORE'].map((c) => String.fromCodePoint(0xe0100 + c.charCodeAt(0))).join('');
+  for (const hidden of [
+    tags,
+    vs,
+    '\u200b\u200c\u2060',
+    '\u3164\u115f\u1160\uffa0',
+    '\u034f\u180b\u17b4',
+    '\ufe00\ufe01\ufe0e',
+    '\u00ad',
+  ]) {
+    const t = notifyBody(`資${hidden}料`, one);
+    expect(t, JSON.stringify(hidden)).toBe('資料：AI から返信が届きました（返信 1）');
+  }
+  // 絵文字を作る ZWJ（U+200D）・表示形式（U+FE0F）は、残す（除くと、絵文字が割れる）
+  expect(notifyBody('家👨\u200d👩\u200d👧 ❤\ufe0f', one)).toBe(
+    '家👨\u200d👩\u200d👧 ❤\ufe0f：AI から返信が届きました（返信 1）',
+  );
+  expect(notifyBody('日本語 か\u3099 タイ ก็', one)).toContain('日本語 か\u3099 タイ ก็：'); // 正当な結合記号は、そのまま
 });
 
 // 通知のアイコン：data: の PNG（192×192・数 KB）。外部の URL ではない。絵の元（public/favicon.svg）が変わったら、作り直す

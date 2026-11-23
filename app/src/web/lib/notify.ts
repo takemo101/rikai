@@ -102,7 +102,7 @@ export const NOTIFY_TITLE_MAX = 40;
 /**
  * 通知の本文：「（トピック名）：AI から返信が届きました（返信 2・新しい版 1・質問 1）」。0 の項目は省く。
  * 返信も質問もなく、版だけ増えたときは、「資料が更新されました」。トピック名は、文字のまま（`Notification` の本文は、文字として扱われる）・
- * 制御文字・双方向文字の制御を除いて・40 字に切る（`trunc`）
+ * 見えない文字（制御・書式・異体字セレクタなど。絵文字の ZWJ・U+FE0F は残す）を除いて・40 字に切る（`trunc`）
  */
 export function notifyBody(topicTitle: string, d: Delta): string {
   const parts: string[] = [];

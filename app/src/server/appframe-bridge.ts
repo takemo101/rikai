@@ -48,6 +48,8 @@ ${bridgeColorDecls()};
 //   - 枠の高さを変えると、中身が、同じだけ（`100vh` + 余白）伸びる循環は、増えかたが同じ（2 回）続いたら、**最後に測った高さ（大きい側）を、1 回報告して、止める**。
 //     止めたあと、**超える分が小さい**（枠の高さに追従する余白だけ：SLACK=64px 以下・報告する高さが上限 MAXH=2400 〔画面の上限と同じ〕以下）ときだけ、枠の中の縦のスクロールバーが出ないよう、
 //     `overflow-y: hidden` にする。**それより大きい**（`100vh` のヒーローの下に、本物の節が続く）ときは、`auto`（枠の中を、スクロールして、全部読める）。止めたあとの、同じ増えかたは、無視する。
+// Esc の転送（F43）：枠の中にフォーカスがあるとき、Esc は、枠の文書が受けて、親（個別表示）に届かない：親へ `{ __rikai: 1, type: 'esc' }` を送る（150ms に 1 回まで。形は、これだけ）。
+// 親が、送り元の窓・形・頻度を検査し、**個別表示の枠だけ**が使う。選択モード（pick）の Esc は、`block` が処理して `pick-cancel` を送る：二重にならないよう、`block` より先に登録して、選択モードのときは、送らない。
 // 画面からの `theme`：`e.source === parent`・`mode` が 2 つの値・`by` が 2 つの値のどちらか、のときだけ。`by: 'auto'`（画面の外観の変化）は、
 // 資料が対応を示した枠（サーバーが付けた `<html data-follow>`）だけ。`by: 'user'`（ツールバー：利用者の明示の操作）は、どの枠でも効く。
 // 効くときは、`<html data-theme>` と `color-scheme` を更新する（再読み込みしない。枠の中の状態は、保たれる）。
@@ -55,7 +57,9 @@ ${bridgeColorDecls()};
 export const BRIDGE_SOURCE = `(function(){
 var GAP=250,STEP=50,FLIP=1000,HOLD=10000,ECHO=2,SLACK=64,MAXH=2400;
 var root=document.documentElement;
-// 選択モードで、イベントを止める関数は、**このスクリプトが動いた時点の本物**を、退避して使う（中身のコードが、あとから Event.prototype の関数を置き換えても、止められる）
+// 選択モードで、イベントを止める関数は、**このスクリプトが動いた時点の本物**を、退避して使う（中身のコードが、あとから Event.prototype の関数を置き換えても、止められる）。
+// 呼ぶのも、退避した Reflect.apply で（Function.prototype.call・apply を、中身のコードが置き換えても、すり抜けられない。この橋は、head の先頭＝中身より前に動く）。橋の中で、call・apply・bind は、使わない
+var RA=Reflect.apply,SL=Array.prototype.slice;
 var PD=Event.prototype.preventDefault,SIP=Event.prototype.stopImmediatePropagation;
 var last=0,prev=0,prevAt=0,lastAt=-GAP,ranAt=0,timer=0,echo=0,seenH=innerHeight,lastExcess=-1,flipLow=0,flipUntil=0,flips=0,frozen=false,frozenExcess=0,excess=0;
 function measure(){
@@ -180,9 +184,9 @@ hl.style.left=r.left+'px';hl.style.top=r.top+'px';hl.style.width=r.width+'px';hl
 }
 function block(e){
 if(!picking)return;
-if(e.type==='keydown'&&e.key==='Escape'){PD.call(e);SIP.call(e);pickEnd();post({__rikai:1,type:'pick-cancel'});return;}
-PD.call(e);
-SIP.call(e);
+if(e.type==='keydown'&&e.key==='Escape'){RA(PD,e,[]);RA(SIP,e,[]);pickEnd();post({__rikai:1,type:'pick-cancel'});return;}
+RA(PD,e,[]);
+RA(SIP,e,[]);
 if(e.type==='click'){
 var t=e.target;
 if(!t||t.nodeType!==1||t===hl)return;
@@ -191,6 +195,14 @@ pickEnd();
 post(m);
 }
 }
+var ESC_GAP=150,escAt=0;
+addEventListener('keydown',function(e){
+if(picking||!inFrame||e.key!=='Escape'||e.repeat||e.isComposing||e.keyCode===229)return;
+var n=Date.now();
+if(n-escAt<ESC_GAP)return;
+escAt=n;
+post({__rikai:1,type:'esc'});
+},true);
 ['click','dblclick','auxclick','mousedown','mouseup','pointerdown','pointerup','touchstart','touchend','contextmenu','submit','keydown','keypress','keyup','dragstart'].forEach(function(t){addEventListener(t,block,{capture:true,passive:false});});
 var SNAP_SIDE=${SNAPSHOT_MAX_SIDE},SNAP_CHARS=1500000,SNAP_NODES=3000;
 function snapshot(id){
@@ -205,7 +217,7 @@ if(!bg||bg==='rgba(0, 0, 0, 0)'||bg==='transparent')bg=getComputedStyle(b).backg
 var box=document.createElement('div');
 box.setAttribute('xmlns','http://www.w3.org/1999/xhtml');
 box.style.cssText='position:relative;overflow:hidden;width:'+W+'px;height:'+H+'px;background:'+(bg||'transparent');
-var src=[b].concat([].slice.call(b.querySelectorAll('*'))),c=b.cloneNode(true),dst=[c].concat([].slice.call(c.querySelectorAll('*'))),drop=[];
+var c=b.cloneNode(true),src=[b].concat(RA(SL,b.querySelectorAll('*'),[])),dst=[c].concat(RA(SL,c.querySelectorAll('*'),[])),drop=[];
 for(var i=0;i<src.length;i++){
 var s=src[i],d=dst[i];
 if(!s||!d)continue;

@@ -395,11 +395,11 @@ function addBlocks(): void {
   });
 }
 
-test('「拡大」：画像・Mermaid の図・インラインの svg を含むブロックの入口のバーだけに出る（「コメント」の左）。コード・表・外部画像・html-app・文では、出ない', () => {
+test('「拡大」：画像・Mermaid の図・インラインの svg・html-app の枠（F43：個別表示）を含むブロックの入口のバーだけに出る（「コメント」の左）。コード・表・外部画像・文では、出ない', () => {
   mountDoc(viewOf(1));
   addBlocks();
-  for (const id of ['im', 'mm', 'inl']) {
-    hover(q(`#${id}`), 300, 230 + ['im', 'mm', 'inl'].indexOf(id) * 60);
+  for (const id of ['im', 'mm', 'inl', 'ha']) {
+    hover(q(`#${id}`), 300, id === 'ha' ? 230 + 180 + 3 * 60 : 230 + ['im', 'mm', 'inl'].indexOf(id) * 60);
     const z = document.getElementById('act-zoom');
     expect(z, id).not.toBeNull();
     expect(z?.textContent).toBe('拡大');
@@ -408,8 +408,8 @@ test('「拡大」：画像・Mermaid の図・インラインの svg を含む�
     // 「コメント」が、バーの右端（バーの右端の位置は、これまでどおり）
     expect(z?.nextElementSibling).toBe(q('#act-comment'));
   }
-  for (const id of ['cd', 'tb', 'bl', 'ha', 'p2']) {
-    hover(q(`#${id}`), 300, id === 'p2' ? 180 : 230 + 180 + ['cd', 'tb', 'bl', 'ha'].indexOf(id) * 60);
+  for (const id of ['cd', 'tb', 'bl', 'p2']) {
+    hover(q(`#${id}`), 300, id === 'p2' ? 180 : 230 + 180 + ['cd', 'tb', 'bl'].indexOf(id) * 60);
     expect(bar().hasAttribute('hidden'), id).toBe(false); // コメントのバーは、出る
     expect(document.getElementById('act-zoom'), id).toBeNull();
     expect(q('#act-comment')).toBeTruthy();
