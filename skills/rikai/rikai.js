@@ -197,6 +197,58 @@ function normAnswer(ask, a) {
 // src/server/store.ts
 var import_node_fs2 = __toESM(require("node:fs"), 1);
 var import_node_path = __toESM(require("node:path"), 1);
+
+// src/shared/fresh.ts
+var FRESH_MAX = 200;
+var FRESH_MIN = 20;
+var FRESH_TOTAL_MAX = 4e3;
+var FRESH_TOPICS_MAX = FRESH_TOTAL_MAX / FRESH_MIN;
+var freshWindow = (topics) => Math.min(FRESH_MAX, Math.max(FRESH_MIN, Math.floor(FRESH_TOTAL_MAX / Math.max(1, topics))));
+function answerOf(t, q2) {
+  for (let i = t.messages.length - 1; i >= 0; i--) {
+    const m = t.messages[i];
+    if (m && m.kind === "answer" && m.to === q2.id) return m;
+  }
+  return null;
+}
+function askStale(t, q2) {
+  if (answerOf(t, q2) || t.resolved) return false;
+  const i = t.messages.findIndex((x2) => x2.id === q2.id);
+  return t.messages.slice(i + 1).some((m) => m.author === "user" && m.sent && m.kind !== "answer");
+}
+var awaitsAnswer = (t, q2) => !t.resolved && !!q2.ask && q2.author === "ai" && !answerOf(t, q2) && !askStale(t, q2);
+var seqOf = (id) => Number(/(\d+)$/.exec(id)?.[1] ?? 0);
+var versionOf = (key) => Number(key.slice(key.lastIndexOf("@") + 1));
+function newest(ids, max, order2) {
+  if (ids.length <= max) return ids;
+  return ids.map((id, i) => [id, order2(id), i]).sort((a, b) => a[1] - b[1] || a[2] - b[2]).slice(-max).map((x2) => x2[0]);
+}
+function freshOf(threads, pages, max = Number.POSITIVE_INFINITY) {
+  const replies = [];
+  const asks = [];
+  const open2 = /* @__PURE__ */ new Set();
+  for (const t of Array.isArray(threads) ? threads : []) {
+    for (const m of Array.isArray(t.messages) ? t.messages : []) {
+      if (m.author !== "ai") continue;
+      if (!m.ask) replies.push(m.id);
+      else {
+        asks.push(m.id);
+        if (awaitsAnswer(t, m)) open2.add(m.id);
+      }
+    }
+  }
+  const versions = [];
+  for (const [id, p] of Object.entries(pages ?? {})) for (let v2 = 1; v2 <= p.versions; v2++) versions.push(`${id}@${v2}`);
+  const keptAsks = newest(asks, max, seqOf);
+  return {
+    replies: newest(replies, max, seqOf),
+    asks: keptAsks,
+    openAsks: keptAsks.filter((id) => open2.has(id)),
+    versions: newest(versions, max, versionOf)
+  };
+}
+
+// src/server/store.ts
 var SLUG_RE = /^[a-z0-9][a-z0-9-]{0,47}$/;
 function checkSlug(s, what = "\u30C8\u30D4\u30C3\u30AF\u540D") {
   if (!SLUG_RE.test(String(s || "")))
@@ -333,15 +385,35 @@ function createStore(root) {
     return meta3;
   }
   const warnedThreads = /* @__PURE__ */ new Set();
-  function progressOrNull(slug) {
+  const summaries = /* @__PURE__ */ new Map();
+  function summaryOrNull(m, window = FRESH_MAX) {
+    const file2 = import_node_path.default.join(tdir(m.slug), "threads.json");
+    let key = `${m.rev}:${window}:none`;
     try {
-      return progressOf(loadThreads(slug).threads);
+      const st2 = import_node_fs2.default.statSync(file2);
+      key = `${m.rev}:${window}:${st2.mtimeMs}:${st2.size}`;
+    } catch {
+    }
+    const hit = summaries.get(m.slug);
+    if (hit && hit.key === key) return hit.value;
+    let value = null;
+    try {
+      const threads = loadThreads(m.slug).threads;
+      value = { progress: progressOf(threads), fresh: { ...freshOf(threads, m.pages, window), window } };
     } catch (e) {
-      if (!warnedThreads.has(slug)) {
-        warnedThreads.add(slug);
-        console.error(`threads.json \u3092\u8AAD\u3081\u307E\u305B\u3093\uFF08${slug}: ${e.name}\uFF09`);
+      if (!warnedThreads.has(m.slug)) {
+        warnedThreads.add(m.slug);
+        console.error(`threads.json \u3092\u8AAD\u3081\u307E\u305B\u3093\uFF08${m.slug}: ${e.name}\uFF09`);
       }
-      return null;
+    }
+    summaries.set(m.slug, { key, value });
+    return value;
+  }
+  function updatedAt(slug) {
+    try {
+      return import_node_fs2.default.statSync(import_node_path.default.join(tdir(slug), "meta.json")).mtimeMs;
+    } catch {
+      return 0;
     }
   }
   return {
@@ -362,7 +434,8 @@ function createStore(root) {
     countUnsent,
     topicState,
     newTopic,
-    progressOrNull
+    summaryOrNull,
+    updatedAt
   };
 }
 
@@ -1839,7 +1912,7 @@ var KNOWN_TAGS = new Set(
   "a abbr address area article aside audio b base bdi bdo blockquote body br button canvas caption cite code col colgroup data datalist dd del details dfn dialog div dl dt em embed fieldset figcaption figure footer form h1 h2 h3 h4 h5 h6 head header hgroup hr html i iframe img input ins kbd label legend li link main map mark menu meta meter nav noscript object ol optgroup option output p param picture pre progress q rp rt ruby s samp script search section select slot small source span strong style sub summary sup table tbody td template textarea tfoot th thead time title tr track u ul var video wbr svg path circle rect g line text ellipse polygon polyline tspan defs use image symbol marker mask pattern stop clippath lineargradient radialgradient foreignobject".split(" ")
 );
 var STYLE_SET = new Set(STYLE_KEYS);
-var STYLE_VALUE_MAX = 80;
+var STYLE_VALUE_MAX = 300;
 var SELECTOR_MAX = 200;
 var TEXT_MAX = 80;
 var COORD_MAX = 1e5;
@@ -25881,7 +25954,7 @@ return sel.slice(0,200);
 }
 function describe(el){
 var r=el.getBoundingClientRect(),cs=getComputedStyle(el),st={};
-for(var i=0;i<STYLES.length;i++){var v=cs.getPropertyValue(STYLES[i]);if(v)st[STYLES[i]]=String(v).slice(0,80);}
+for(var i=0;i<STYLES.length;i++){var v=cs.getPropertyValue(STYLES[i]);if(v)st[STYLES[i]]=String(v).slice(0,${STYLE_VALUE_MAX});}
 return{__rikai:1,type:'pick',selector:selectorOf(el),tag:el.tagName.toLowerCase(),
 text:(el.textContent||'').replace(/\\s+/g,' ').trim().slice(0,80),
 rect:{x:Math.round(r.left),y:Math.round(r.top),w:Math.round(r.width),h:Math.round(r.height)},
@@ -26221,24 +26294,33 @@ function createApp(opts) {
     if (!tokenOk(given)) return "\u5408\u8A00\u8449\u304C\u9055\u3044\u307E\u3059";
     return null;
   }
-  const api = new Hono3().get("/ping", (c) => c.json({ ok: true, root: store.root }, 200, JSON_HEADERS)).get(
-    "/topics",
-    (c) => c.json(
-      store.listTopics().map(
-        (m) => isSupported(m) ? {
+  const api = new Hono3().get("/ping", (c) => c.json({ ok: true, root: store.root }, 200, JSON_HEADERS)).get("/topics", (c) => {
+    const metas = store.listTopics();
+    const targets = metas.filter((m) => isSupported(m) && !m.closed);
+    const window = freshWindow(targets.length);
+    const withFresh = new Set(
+      (targets.length > FRESH_TOPICS_MAX ? [...targets].sort((x2, y2) => store.updatedAt(y2.slug) - store.updatedAt(x2.slug)).slice(0, FRESH_TOPICS_MAX) : targets).map((m) => m.slug)
+    );
+    return c.json(
+      metas.map((m) => {
+        if (!isSupported(m)) return { slug: m.slug, title: topicTitle(m), unsupported: true };
+        const sum = store.summaryOrNull(m, window);
+        const fresh = sum && withFresh.has(m.slug) ? sum.fresh : void 0;
+        return {
           slug: m.slug,
           title: m.title,
           closed: !!m.closed,
           pending: (m.pending || []).length,
           rev: m.rev,
-          progress: store.progressOrNull(m.slug),
+          progress: sum?.progress ?? null,
+          ...fresh ? { fresh } : {},
           unsupported: false
-        } : { slug: m.slug, title: topicTitle(m), unsupported: true }
-      ),
+        };
+      }),
       200,
       JSON_HEADERS
-    )
-  ).get(
+    );
+  }).get(
     "/topic/:slug",
     zValidator("query", topicQuery, () => void 0),
     (c) => {

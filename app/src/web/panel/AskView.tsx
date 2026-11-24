@@ -3,11 +3,12 @@
 // 回答の下書きは、ストア（`drafts.ask[質問のメッセージ ID]`）。キーがなければ、保存した回答から作る（描くとき、書き込まない）。
 import { CircleCheck, MessageCircleQuestionMark, Save, Undo2 } from 'lucide-react';
 import { type ReactNode, useRef } from 'react';
+import { answerOf, askStale } from '../../shared/fresh';
 import type { Ask, Message, Thread } from '../../shared/types';
 import { useMutations } from '../api/mutations';
 import { type AskDraft, useUi } from '../store/ui';
 import { caretAtEnd } from './caret';
-import { answerOf, askDraftValid, askStale, pickOption, typeOther } from './logic';
+import { askDraftValid, pickOption, typeOther } from './logic';
 
 interface Props {
   slug: string;

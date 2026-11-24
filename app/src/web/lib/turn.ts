@@ -10,8 +10,8 @@
 //   done       すべて解決（スレッドが 1 つ以上あり、全部が解決済み）
 // 他のトピック（開いていない）は、一覧の要約（pending・progress・closed）だけで決める：unsent と、内訳・AI の新着返信（要約から分からない）は、ない。
 // 見える数字・タイトルの `(n)` は、「あなたの番のスレッド」の数（1 つの返信に質問が付いていても 1）。内訳（AI の返信 n・未回答の質問 m）は、項目の数で、title・aria-label に出す。
-import type { Message, Thread } from '../../shared/types';
-import { answerOf, askStale } from '../panel/logic';
+import { awaitsAnswer } from '../../shared/fresh';
+import type { Thread } from '../../shared/types';
 import { trunc } from './dom';
 
 export type TurnKind = 'closed' | 'unsent' | 'waiting-ai' | 'empty' | 'your-turn' | 'open' | 'done';
@@ -32,10 +32,6 @@ export interface Turn {
 }
 
 const NONE = { unsent: 0, replies: 0, asks: 0, mine: 0, open: 0, detailed: false } as const;
-
-/** 質問 q が、まだ答えを求められているか：回答がなく、会話が先へ進んでいない（スレッドが未解決） */
-export const awaitsAnswer = (t: Pick<Thread, 'resolved' | 'messages'>, q: Message): boolean =>
-  !t.resolved && !!q.ask && q.author === 'ai' && !answerOf(t, q) && !askStale(t, q);
 
 /** スレッドの、答えを求められている質問の数 */
 export const openAsksOf = (t: Pick<Thread, 'resolved' | 'messages'>): number =>

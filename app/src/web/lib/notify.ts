@@ -5,10 +5,11 @@
 //
 // **新着は、ID で決める**（件数の差では、読んだこと・解決の取り消し・自分のメッセージの削除で、数え直されて、見落とす／誤って出す）。
 // 前回までに知っていた、AI の発言の ID・質問付きの AI の発言の ID・ページごとの版の集合を持ち、**前回の集合に無い ID だけ**を、新着とする（既読・未解決・解決済みは、関係ない。ID が減っても、出さない）。
+
+import { type Fresh, freshOf } from '../../shared/fresh';
 import type { TopicState } from '../api/queries';
 import { trunc } from './dom';
 import { NOTIFY_ICON } from './notifyIcon';
-import { awaitsAnswer } from './turn';
 
 /** 前回までに、知っていたもの（ID の集合） */
 export interface Snapshot {
@@ -20,13 +21,20 @@ export interface Snapshot {
   openAsks: ReadonlySet<string>;
   /** ページごとの版のキー（`ページ@版`） */
   versions: ReadonlySet<string>;
+  /** 一覧の `fresh` の窓の大きさ（各項目の上限）。上限なし（開いているトピック）は、ない。新着の件数が、窓に達したら、「以上」と出す */
+  window?: number;
 }
+
+/** 窓に達した（それ以上あるかもしれない）項目 */
+export type Capped = { replies?: true; asks?: true; versions?: true };
 
 /** 新着の件数（0 以上）。0 の項目は、文言に出さない。**返信と質問は、別の発言**：質問付きの 1 通は、「質問 1」だけ（返信にも数えない） */
 export interface Delta {
   replies: number;
   asks: number;
   versions: number;
+  /** 件数が、一覧の窓の上限に達した項目（「返信 200 以上」の「以上」）。なければ、省く */
+  capped?: Capped;
 }
 
 export type Permission = 'granted' | 'denied' | 'default' | 'unsupported';
@@ -40,25 +48,20 @@ export interface NotifyEnv {
   hidden: boolean;
 }
 
-/** トピックの状態から、見た状態を作る。AI の発言の ID は、threads の履歴から、直接集める（F39 の判定は、変えない：未回答は `awaitsAnswer` を再利用） */
+/** `fresh`（ID の要約）から、見た状態を作る。ほかのトピックは、一覧の API の `fresh`（サーバーが、上限つきで作る）から（F46） */
+export function snapshotFromFresh(f: Fresh): Snapshot {
+  return {
+    replies: new Set(f.replies),
+    asks: new Set(f.asks),
+    openAsks: new Set(f.openAsks),
+    versions: new Set(f.versions),
+    ...(f.window === undefined ? {} : { window: f.window }),
+  };
+}
+
+/** トピックの状態から、見た状態を作る（開いているトピック：取得した全体から。上限なし）。ID の集め方は、サーバーの `fresh` と同じ関数（`freshOf`：未回答は `awaitsAnswer`） */
 export function snapshotOf(topic: Pick<TopicState, 'threads' | 'meta'>): Snapshot {
-  const replies = new Set<string>();
-  const asks = new Set<string>();
-  const openAsks = new Set<string>();
-  for (const t of topic.threads) {
-    for (const m of t.messages) {
-      if (m.author !== 'ai') continue;
-      if (!m.ask) replies.add(m.id);
-      else {
-        asks.add(m.id);
-        if (awaitsAnswer(t, m)) openAsks.add(m.id);
-      }
-    }
-  }
-  const versions = new Set<string>();
-  for (const [id, p] of Object.entries(topic.meta.pages ?? {}))
-    for (let v = 1; v <= p.versions; v++) versions.add(`${id}@${v}`);
-  return { replies, asks, openAsks, versions };
+  return snapshotFromFresh(freshOf(topic.threads, topic.meta.pages));
 }
 
 const newIn = (next: ReadonlySet<string>, prev: ReadonlySet<string>): number => {
@@ -70,12 +73,22 @@ const newIn = (next: ReadonlySet<string>, prev: ReadonlySet<string>): number => 
 /** 前回に無かった、新着の件数。前回がない（最初の読み込み・再接続の直後：ベースライン）か、新着がなければ null */
 export function deltaOf(prev: Snapshot | null, next: Snapshot): Delta | null {
   if (!prev) return null;
-  const d = {
+  const d: Delta = {
     replies: newIn(next.replies, prev.replies),
     asks: newIn(next.openAsks, prev.asks), // 質問：前回に無く、いま、未回答
     versions: newIn(next.versions, prev.versions),
   };
-  return d.replies + d.asks + d.versions > 0 ? d : null;
+  if (d.replies + d.asks + d.versions === 0) return null;
+  // 一覧の窓は、新しい側の上限つき：件数が窓に達したら、それ以上かもしれない
+  const w = next.window;
+  if (w !== undefined) {
+    const capped: Capped = {};
+    if (d.replies >= w) capped.replies = true;
+    if (d.asks >= w) capped.asks = true;
+    if (d.versions >= w) capped.versions = true;
+    if (Object.keys(capped).length) d.capped = capped;
+  }
+  return d;
 }
 
 /** 通知を出すか：出すなら新着の件数、出さないなら null。オン・許可あり・画面を見ていない・前回に無い新着がある、のすべてのとき */
@@ -88,11 +101,15 @@ export function shouldNotify(prev: Snapshot | null, next: Snapshot, env: NotifyE
  * 画面を見ていない間に溜まった新着の、累計。同じトピックの通知は、`tag` で置き換わる（前の件数が消える）ので、累計で出す。
  * 画面が見える状態に戻ったら、呼ぶ側が捨てる
  */
-export const addDelta = (a: Delta | undefined, b: Delta): Delta => ({
-  replies: (a?.replies ?? 0) + b.replies,
-  asks: (a?.asks ?? 0) + b.asks,
-  versions: (a?.versions ?? 0) + b.versions,
-});
+export const addDelta = (a: Delta | undefined, b: Delta): Delta => {
+  const capped = { ...a?.capped, ...b.capped };
+  return {
+    replies: (a?.replies ?? 0) + b.replies,
+    asks: (a?.asks ?? 0) + b.asks,
+    versions: (a?.versions ?? 0) + b.versions,
+    ...(Object.keys(capped).length ? { capped } : {}),
+  };
+};
 
 /** 通知の題 */
 export const NOTIFY_TITLE = 'rikai';
@@ -106,9 +123,10 @@ export const NOTIFY_TITLE_MAX = 40;
  */
 export function notifyBody(topicTitle: string, d: Delta): string {
   const parts: string[] = [];
-  if (d.replies) parts.push(`返信 ${d.replies}`);
-  if (d.versions) parts.push(`新しい版 ${d.versions}`);
-  if (d.asks) parts.push(`質問 ${d.asks}`);
+  const n = (count: number, k: keyof Capped): string => `${count}${d.capped?.[k] ? ' 以上' : ''}`;
+  if (d.replies) parts.push(`返信 ${n(d.replies, 'replies')}`);
+  if (d.versions) parts.push(`新しい版 ${n(d.versions, 'versions')}`);
+  if (d.asks) parts.push(`質問 ${n(d.asks, 'asks')}`);
   const what = d.replies || d.asks ? 'AI から返信が届きました' : '資料が更新されました';
   return `${trunc(topicTitle, NOTIFY_TITLE_MAX)}：${what}（${parts.join('・')}）`;
 }

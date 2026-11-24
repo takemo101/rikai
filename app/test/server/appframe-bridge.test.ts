@@ -655,7 +655,7 @@ test('橋：選ぶと、pick を 1 つ送る：セレクタ・タグ・文字（
   const b = runBridge(() => 300);
   b.computed.display = 'inline-block';
   b.computed['background-color'] = 'rgb(37, 99, 235)';
-  b.computed['font-family'] = 'x'.repeat(200); // 80 字に切る
+  b.computed['font-family'] = 'x'.repeat(400); // 300 字に切る（text は 80 字のまま）
   b.computed.content = '"邪魔"'; // 許可リストにない：送らない
   b.computed['background-image'] = 'url(x)';
   b.fire('message', { source: b.parentWin, data: { __rikai: 1, type: 'pick-start' } });
@@ -669,7 +669,7 @@ test('橋：選ぶと、pick を 1 つ送る：セレクタ・タグ・文字（
   assert.deepEqual({ ...(m.rect as object) }, { x: 24, y: 313, w: 320, h: 40 });
   const styles = { ...(m.styles as Record<string, string>) };
   assert.equal(styles.display, 'inline-block');
-  assert.equal(styles['font-family']?.length, 80);
+  assert.equal(styles['font-family']?.length, 300);
   assert.ok(!('content' in styles) && !('background-image' in styles));
   assert.deepEqual(Object.keys(styles).sort(), ['background-color', 'display', 'font-family']);
   assert.deepEqual({ ...(m.frame as object) }, { w: 634, h: 360 });

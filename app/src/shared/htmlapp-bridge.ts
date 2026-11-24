@@ -59,7 +59,8 @@ export const CUSTOM_TAG = 'custom';
 /** 見出し・錨のラベルに出すタグ名：標準の要素なら小文字の名前、それ以外（カスタム要素）は `custom` */
 export const shownTag = (tag: string): string => (KNOWN_TAGS.has(tag.toLowerCase()) ? tag.toLowerCase() : CUSTOM_TAG);
 const STYLE_SET: ReadonlySet<string> = new Set(STYLE_KEYS);
-const STYLE_VALUE_MAX = 80;
+/** 見た目の値 1 つの長さの上限（`font-family` などが、切れないように 300。橋のスクリプトも、この値で切る）。`text` は 80・`selector` は 200 のまま */
+export const STYLE_VALUE_MAX = 300;
 const SELECTOR_MAX = 200;
 const TEXT_MAX = 80;
 const COORD_MAX = 100_000;

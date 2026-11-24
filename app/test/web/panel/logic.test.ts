@@ -1,11 +1,10 @@
 // @vitest-environment jsdom
 // パネルの純粋な判定：折りたたみ（F29）・答えずに進んだ質問（F30）・札・解決済みの 1 行（F33）・入力欄の位置（F22）・回答の下書き・画像の検査（F24）
 import { expect, test } from 'vitest';
+import { answerOf, askStale } from '../../../src/shared/fresh';
 import type { Ask, Message } from '../../../src/shared/types';
 import {
-  answerOf,
   askDraftValid,
-  askStale,
   checkImage,
   composerSlot,
   foldMessages,
