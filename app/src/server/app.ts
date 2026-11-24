@@ -11,12 +11,12 @@ import { HTTPException } from 'hono/http-exception';
 import { streamSSE } from 'hono/streaming';
 import { apiBodies, topicQuery } from '../shared/api';
 import { FRESH_TOPICS_MAX, freshWindow } from '../shared/fresh';
+import { IMG_MAX_BYTES } from '../shared/image';
 import type { PageInfo } from '../shared/types';
 import type { Actions } from './actions';
 import { createAppFrames } from './appframe';
 import { frameDocument, parseMode } from './appframe-bridge';
 import { APP_MAX } from './htmlapp';
-import { IMG_MAX } from './image';
 import { checkSlug, isSupported, type Store, topicTitle } from './store';
 import { HttpError } from './util';
 import { type ChangeFeed, createChangeFeed } from './watch';
@@ -42,7 +42,7 @@ export const MAX_EVENTS = 20;
 export const PING_MS = 15_000;
 
 const MAX_BODY = 2 * 1024 * 1024;
-const MAX_ATTACH_BODY = Math.ceil(IMG_MAX / 3) * 4 + 4096; // 画像（base64 で 4/3 倍）と、JSON の枠
+const MAX_ATTACH_BODY = Math.ceil(IMG_MAX_BYTES / 3) * 4 + 4096; // 画像（base64 で 4/3 倍）と、JSON の枠
 
 const MIME: Record<string, string> = {
   '.html': 'text/html; charset=utf-8',

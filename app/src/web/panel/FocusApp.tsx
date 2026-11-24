@@ -12,12 +12,12 @@ import { type AppFrame, initialFrameState, registerFrame, releaseApps } from '..
 import { appFrameDom } from '../doc/render/apps';
 import { blockAnchor, frameOf } from '../doc/render/blocks';
 import { openComposer } from '../interact/compose';
-import { boxToRatio, type DragSelection, ratioToBox } from '../interact/focusGeom';
+import type { DragSelection } from '../interact/focusGeom';
 import { finishFocusApp } from '../interact/focusRegion';
-import type { Box } from '../interact/geometry';
 import type { RegionDeps } from '../interact/region';
 import { escapeStep } from '../lib/escape';
 import { frameMetaOf } from '../lib/frameMeta';
+import { type Box, fromRatio, ratioOf } from '../lib/geom';
 import { resolvedTheme } from '../lib/theme';
 import { clampRegionRect } from '../overlay/layout';
 import { type LightboxTarget, useUi } from '../store/ui';
@@ -213,8 +213,8 @@ function AppOverlay({ built, ctx, deps }: { built: Built; ctx: FocusCtx; deps: R
       const next: AppMark[] = [];
       for (const m of regions) {
         const rect = clampRegionRect(m.rect); // 古い基準の極端な値で、巨大な枠にならない
-        const abs = rect ? ratioToBox(rect, base) : null;
-        const frac = abs ? boxToRatio(abs, home) : null;
+        const abs = rect ? fromRatio(rect, base) : null;
+        const frac = abs ? ratioOf(abs, home) : null;
         const shown = frac ? clampRegionRect(frac) : null;
         if (shown) next.push({ ...m, frac: shown });
       }

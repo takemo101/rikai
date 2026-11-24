@@ -2,8 +2,8 @@
 // 点は、画面の座標（clientX・clientY）で受け、**選ぶ対象（`getBox`：画像・図・枠の、いまの見た目の箱。ズーム・移動・縮小表示の後）の中**に収める。
 // 比率への換算は、`interact/focusGeom.ts`（純粋）。画面で 8px 未満・比率が小さすぎる範囲は、断る（F25 と同じ）。選び終えたら、道具は、やめる（`focusTool: 'idle'`）。
 import { type PointerEvent, useRef, useState } from 'react';
-import { clampToBox, type DragSelection, dragSelection, type Pt } from '../interact/focusGeom';
-import type { Box } from '../interact/geometry';
+import { type DragSelection, dragSelection } from '../interact/focusGeom';
+import { type Box, clampToBox, type Pt } from '../lib/geom';
 import { RANGE_TOO_SMALL } from '../lib/messages';
 import { toast, useUi } from '../store/ui';
 

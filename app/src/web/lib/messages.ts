@@ -8,3 +8,5 @@ export const RANGE_TOO_SMALL = '範囲が小さすぎます。ドラッグで、
 export const RANGE_UNMEASURABLE = '範囲が小さすぎるか、本文の枠の位置を測れません。もう一度、範囲を選んでください';
 /** クリップボードへ書けない */
 export const COPY_FAILED = 'コピーできませんでした。文を選んで、コピーしてください';
+/** 画像のアップロード中は、コメント・返信を追加できない */
+export const UPLOADING_NOW = '画像のアップロード中です。終わってから、追加してください';

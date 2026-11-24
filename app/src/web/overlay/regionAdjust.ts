@@ -6,23 +6,17 @@
 // `detail` は、ビューポートの座標（`getBoundingClientRect` と同じ系）の矩形。`finishRegion(vr)` と同じ形。
 // 離したときだけ送る（Esc・pointercancel で、やめたときは、送らない）。
 
-/** ビューポートの座標の矩形（`finishRegion` の引数と同じ形） */
-export interface ViewportRect {
-  left: number;
-  top: number;
-  width: number;
-  height: number;
-}
+import { type Box, clamp, type Edges } from '../lib/geom';
 
-export type AdjustEvent = CustomEvent<ViewportRect>;
+export type AdjustEvent = CustomEvent<Box>;
 
-/** 範囲の枠を、離したとき、調整後の矩形（`ViewportRect`）を、`'adjust'` イベントで受け取る場所 */
+/** 範囲の枠を、離したとき、調整後の矩形（ビューポートの座標。`finishRegion` の引数と同じ形）を、`'adjust'` イベントで受け取る場所 */
 export const regionAdjustTarget = new EventTarget();
 
 export const ADJUST_EVENT = 'adjust';
 
-export function dispatchAdjust(vr: ViewportRect): void {
-  regionAdjustTarget.dispatchEvent(new CustomEvent<ViewportRect>(ADJUST_EVENT, { detail: vr }));
+export function dispatchAdjust(vr: Box): void {
+  regionAdjustTarget.dispatchEvent(new CustomEvent<Box>(ADJUST_EVENT, { detail: vr }));
 }
 
 /** つかむ所：本体（move）と、8 つのハンドル */
@@ -31,13 +25,6 @@ export const HANDLES: readonly Exclude<HandleMode, 'move'>[] = ['nw', 'n', 'ne',
 
 export const parseHandle = (v: string | undefined): HandleMode =>
   (HANDLES as readonly string[]).includes(v ?? '') ? (v as HandleMode) : 'move';
-
-export interface Edges {
-  left: number;
-  top: number;
-  right: number;
-  bottom: number;
-}
 
 /** 枠の最小の大きさ（px） */
 export const MIN_REGION = 12;
@@ -70,8 +57,8 @@ export function adjustEdges(mode: HandleMode, r0: Edges, dx: number, dy: number,
   const w = right - left;
   const h = bottom - top;
   if (mode === 'move') {
-    left = Math.min(Math.max(left, bounds.left), bounds.right - w);
-    top = Math.min(Math.max(top, bounds.top), bounds.bottom - h);
+    left = clamp(left, bounds.left, bounds.right - w);
+    top = clamp(top, bounds.top, bounds.bottom - h);
     right = left + w;
     bottom = top + h;
   } else {
@@ -82,10 +69,3 @@ export function adjustEdges(mode: HandleMode, r0: Edges, dx: number, dy: number,
   }
   return { left, top, right, bottom };
 }
-
-export const toViewportRect = (e: Edges): ViewportRect => ({
-  left: e.left,
-  top: e.top,
-  width: e.right - e.left,
-  height: e.bottom - e.top,
-});

@@ -1279,6 +1279,23 @@
 
 **数字**：上の件数（Vitest 965・e2e 360・3 回連続）は、親が、全体で確認した。6 回の繰り返し（最初の実装）・実測（36 通り・帯の高さ・見出しの高さ）・壊して確かめた件数は、担当の報告による。独立レビューが、957/353 の通過と、本文の幅の実測を、確認した。
 
+### 整理フェーズ ③c：幾何・画像・送る手順・キー判定の統合（2026-11-24。RIK-058。SPEC §6・§8。見える動きは変えない）
+
+**対象**：整理分析（C5・C6）の、重複の統合のうち、振る舞いが同じと確かめられる部分。**見える動きは、変えない**。**独立レビューは、受けていない**（全テストと、壊して確かめた結果で確認）。
+
+**自動テスト**：新規：`web/lib/geom.test.ts`・`image.test.ts`・`keys.test.ts` ほか。**全体は、親が確認した：Vitest 977 件（87 ファイル）・e2e 360 件（`workers: 4`・2.8 分）を、ビルドのあと、3 回連続で全件成功（lint もエラー 0・`RIKAI_CHROME` を環境変数で渡した・2026-11-24）**。
+
+- **幾何**（`web/lib/geom.ts`）：`Box` の 3 つの型・`Pt` の 2 つ・`Size`・`ViewportRect`・`toViewportRect`・`r4`・`boxAt`・`clampToBox`・`boxToRatio`／`ratioToBox`・clamp の手書き 5 か所を、1 か所に。**NaN の扱いが 1 点、変わった**：`ratioRect` は、NaN・無限大・負の幅の入力で、NaN 入りの矩形でなく `null` を返す（DOM の矩形では起きない入力。見える動きは、変わらない見込み）。触らない：`connectorPath.ts` の曲線の式・`place.ts`・`layout.regionBox`。
+- **画像**（`shared/image.ts`・`web/lib/image.ts`）：上限（5MB・4 枚・2400px・4 形式。**値は不変**）の源を 1 つに。サーバーの `IMG_MAX`・`MAX_IMAGES`・`OUT_MAX` ×3 を、同じ源に。`checkImage`・`readBase64`。**変わりうる点**：`readBase64` の失敗時のエラーは、`region.ts` 側の形に揃えた・`attachRegionImage` で、「`slug` がなく、かつ枚数が上限」のときだけ、トーストが出る（到達しない見込み）。
+- **送る手順**（`panel/useSendGuard.ts`）：`Composer` と `ThreadCard` が呼ぶ。`UPLOADING_NOW` は `lib/messages.ts` へ。`<DraftField>` は、見送り。
+- **キー判定**（`web/lib/keys.ts`）：5 か所を呼び替え。`appframe-bridge.ts`（枠の中）は、触らない。**`useEscape()` へのリスナー統合は、見送り**（SPEC §8）：Esc 関連の `document`／`window` の `keydown` リスナーは、最大 5 個（`Interact.tsx`・`Overlays.tsx`・`Lightbox.tsx`・`App.tsx`・`appBridge.ts`）。**`App.tsx` のドロワーの Esc には、IME ガードがない**（6 か所目。**未対応**：変換中の Esc で、ドロワーが閉じる）。
+- **バンドル**：`public/assets/*` の合計：5,740,455 → 5,739,154 バイト（−1,301。担当の報告）。
+- **壊して、落ちることを確かめた（担当の報告）**：ステップ 1〜4 のすべて：落ちた（6・5・6・2〜件）。
+
+**確認していない範囲**：実際のマウス・Safari・Firefox（見える動きは変えていないが、幾何と画像の読み込みは、実画面の範囲選択・画像の貼り付けに関わる）。独立レビューは、受けていない。
+
+**数字**：上の件数（Vitest 977・e2e 360・3 回連続）は、親が、全体で確認した。バンドルの差・壊して確かめた件数は、担当の報告による。
+
 ### 人間の確認待ち
 
 AI は、これらを合格にしない。

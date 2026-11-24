@@ -178,27 +178,6 @@ export function lastSpeech(t: Msgs): string {
 export const quoteOf = (t: Pick<Thread, 'anchor'>): string =>
   t.anchor ? t.anchor.quote || t.anchor.label : 'AI からの質問';
 
-// ---- 画像の添付（F24）。形式・大きさ・枚数の最終の検査は、サーバー ----
-
-export const IMG_TYPES: readonly string[] = ['image/png', 'image/jpeg', 'image/gif', 'image/webp'];
-export const IMG_MAX_MB = 5;
-export const IMG_MAX_N = 4;
-
-export interface ImageRejection {
-  reason: 'type' | 'size' | 'count';
-  message: string;
-}
-
-/** 付ける前の検査。`count`：すでに付けている枚数。通れば null */
-export function checkImage(file: { type: string; size: number }, count: number): ImageRejection | null {
-  if (!IMG_TYPES.includes(file.type))
-    return { reason: 'type', message: '画像は、png・jpeg・gif・webp だけ付けられます' };
-  if (file.size > IMG_MAX_MB * 1024 * 1024)
-    return { reason: 'size', message: `画像が大きすぎます（${IMG_MAX_MB}MB まで）` };
-  if (count >= IMG_MAX_N) return { reason: 'count', message: `画像は ${IMG_MAX_N} 枚までです` };
-  return null;
-}
-
 /** 添付の画像の URL（トピックの assets/） */
 export const imgUrl = (slug: string, name: string): string =>
   `/asset/${encodeURIComponent(slug)}/${encodeURIComponent(name)}`;

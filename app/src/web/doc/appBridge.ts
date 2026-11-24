@@ -23,6 +23,7 @@ import {
   SNAPSHOT_MAX_SIDE,
   snapshotId,
 } from '../../shared/htmlapp-bridge';
+import { isImeKey } from '../lib/keys';
 import type { ResolvedTheme } from '../lib/theme';
 
 /** 枠の高さの上下限（px）。枠が知らせた値は、この範囲に収める */
@@ -185,7 +186,7 @@ function onMessage(e: MessageEvent): void {
 
 /** 選択モードの枠があるあいだ、親の Esc で、中止する（枠の中の Esc は、枠が自分で中止して、知らせる） */
 function onPickKey(e: KeyboardEvent): void {
-  if (e.key !== 'Escape' || e.isComposing || e.keyCode === 229) return; // 変換中の Esc は、変換の取り消し
+  if (e.key !== 'Escape' || isImeKey(e)) return; // 変換中の Esc は、変換の取り消し
   for (const f of frames) f.cancelPick();
 }
 const pickingFrames = (except?: AppFrame): boolean => [...frames].some((f) => f !== except && f.get().picking);

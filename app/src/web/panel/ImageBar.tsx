@@ -3,8 +3,9 @@
 // サムネイルを押すと、ライトボックスで大きく出る（ThreadsPanel の、パネル全体のクリックの受け口）。
 import { ImagePlus, X } from 'lucide-react';
 import { useRef } from 'react';
+import { IMG_TYPES } from '../../shared/image';
 import { useUi } from '../store/ui';
-import { IMG_TYPES, imgUrl } from './logic';
+import { imgUrl } from './logic';
 import { useDraftImgs, useImageAttach } from './useImageAttach';
 
 interface Props {

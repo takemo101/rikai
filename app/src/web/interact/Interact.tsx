@@ -4,10 +4,10 @@
 import { useEffect, useState } from 'react';
 import type { InteractProps } from '../contracts';
 import { escapeStep } from '../lib/escape';
+import type { Box } from '../lib/geom';
 import { regionAdjustTarget } from '../overlay/regionAdjust';
 import { ActionBar } from './ActionBar';
 import { subscribeRegionAdjust } from './adjust';
-import type { ViewportRect } from './geometry';
 import { installHoverLink } from './hoverLink';
 import { RegionSelect } from './RegionSelect';
 import { finishRegion } from './region';
@@ -19,7 +19,7 @@ export function Interact({ view, scrollRef }: InteractProps) {
   useEffect(() => setScroller(scrollRef.current), [scrollRef]);
   const latest = !!view?.isLatest;
 
-  const finish = (vr: ViewportRect): void => finishRegion(vr, deps);
+  const finish = (vr: Box): void => finishRegion(vr, deps);
 
   // 範囲の枠を、ドラッグで調整したとき（離したあと）：その範囲で、入力欄の対象と画像を、作り直す
   useEffect(() => subscribeRegionAdjust(regionAdjustTarget, (vr) => finishRegion(vr, deps)), [deps]);

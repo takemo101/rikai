@@ -11,16 +11,16 @@ import {
   useRef,
   useState,
 } from 'react';
-import { boxAt, type DragSelection, ratioToBox, stageBox } from '../interact/focusGeom';
+import { type DragSelection, stageBox } from '../interact/focusGeom';
 import { finishFocusMedia } from '../interact/focusRegion';
 import type { RegionDeps } from '../interact/region';
+import { boxAt, fromRatio, type Size } from '../lib/geom';
 import {
   clampPan,
   fitPose,
   fitScale,
   isClickGesture,
   type Pose,
-  type Size,
   toggleScale,
   wheelFactor,
   ZOOM_MAX,
@@ -255,7 +255,7 @@ export function ZoomView({
         {box && marks.length ? (
           <div className="fv-regions" aria-hidden="true">
             {marks.map((m) => {
-              const b = ratioToBox(m.rect, box);
+              const b = fromRatio(m.rect, box);
               if (!b) return null;
               const cls = [
                 'fv-box',

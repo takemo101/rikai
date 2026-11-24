@@ -1,10 +1,7 @@
 // 拡大表示（ライトボックス）の計算：全体表示の大きさ・ズームの範囲・カーソルを中心にしたズーム・移動の範囲・ドラッグと押すの区別。DOM に触れない（純粋関数）。
 // 座標：`Pose` の x・y は、中身の中心が、窓の中心から、どれだけ離れているか（px）。scale は、中身の大きさ（自然な大きさ＝等倍 1）に対する倍率。
+import { clamp, type Size } from './geom';
 
-export interface Size {
-  w: number;
-  h: number;
-}
 export interface Pose {
   scale: number;
   x: number;
@@ -33,7 +30,7 @@ export function fitScale(nat: Size, view: Size, kind: ZoomKind): number {
 
 /** ズームの範囲：全体表示（fit）〜 800%（fit が、それより大きければ fit） */
 export function clampScale(scale: number, fit: number): number {
-  return Math.min(Math.max(scale, fit), Math.max(ZOOM_MAX, fit));
+  return clamp(scale, fit, Math.max(ZOOM_MAX, fit));
 }
 
 /** 移動の範囲：中身が窓より大きい方向だけ動かせて、縁が窓の縁を越えない。窓に収まる方向は、中央 */
@@ -41,7 +38,7 @@ export function clampPan(pose: Pose, nat: Size, view: Size): Pose {
   const lim = (content: number, port: number): number => Math.max(0, (content * pose.scale - port) / 2);
   const mx = lim(nat.w, view.w);
   const my = lim(nat.h, view.h);
-  return { scale: pose.scale, x: Math.min(Math.max(pose.x, -mx), mx) + 0, y: Math.min(Math.max(pose.y, -my), my) + 0 }; // + 0 は、-0 を 0 にする
+  return { scale: pose.scale, x: clamp(pose.x, -mx, mx) + 0, y: clamp(pose.y, -my, my) + 0 }; // + 0 は、-0 を 0 にする
 }
 
 /** 全体表示の姿勢（中央・fit） */

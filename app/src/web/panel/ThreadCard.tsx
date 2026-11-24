@@ -12,10 +12,11 @@ import {
   Sparkles,
   TriangleAlert,
 } from 'lucide-react';
-import { type ReactNode, useRef } from 'react';
+import type { ReactNode } from 'react';
 import { isLegacyFromFrame } from '../../shared/htmlapp-bridge';
 import type { Thread } from '../../shared/types';
 import { useMutations } from '../api/mutations';
+import { isModEnter } from '../lib/keys';
 import type { View } from '../lib/view';
 import type { DocModel } from '../store/doc';
 import { useUi } from '../store/ui';
@@ -27,6 +28,7 @@ import { MessageView } from './Message';
 import { usePanel } from './panelContext';
 import { Quote } from './Quote';
 import { useDraftImgs, useImageAttach } from './useImageAttach';
+import { useSendGuard } from './useSendGuard';
 
 interface Props {
   view: View;
@@ -154,19 +156,10 @@ function ThreadFoot({ view, thread: t }: { view: View; thread: Thread }) {
   const { reply, resolve } = useMutations();
   const imgs = useDraftImgs(key);
   const { handlers } = useImageAttach(key, slug);
-  const busy = useRef(false);
+  const guard = useSendGuard();
 
-  const sendReply = async (): Promise<void> => {
-    if (busy.current) return;
-    const text = draft.trim();
-    const state = useUi.getState();
-    if (state.uploading) {
-      state.showToast('画像のアップロード中です。終わってから、追加してください', true);
-      return;
-    }
-    if (!text && !imgs.length) return;
-    busy.current = true; // 送っている間の、2 回押し（同じ返信が 2 件になる）を防ぐ
-    try {
+  const sendReply = (): Promise<void> =>
+    guard({ draft, imgCount: imgs.length }, async (text) => {
       await reply(
         { topic: slug, thread: t.id, text, images: [...imgs] },
         {
@@ -176,10 +169,7 @@ function ThreadFoot({ view, thread: t }: { view: View; thread: Thread }) {
           },
         },
       );
-    } finally {
-      busy.current = false;
-    }
-  };
+    });
 
   if (t.resolved) {
     return (
@@ -207,7 +197,7 @@ function ThreadFoot({ view, thread: t }: { view: View; thread: Thread }) {
         value={draft}
         onChange={(e) => setReplyDraft(t.id, e.target.value)}
         onKeyDown={(e) => {
-          if ((e.metaKey || e.ctrlKey) && e.key === 'Enter' && !e.nativeEvent.isComposing && e.keyCode !== 229) {
+          if (isModEnter(e.nativeEvent)) {
             e.preventDefault();
             void sendReply();
           }

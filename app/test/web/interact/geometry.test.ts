@@ -1,6 +1,5 @@
 import { expect, test } from 'vitest';
 import {
-  type Box,
   barPosition,
   blockBarSpot,
   dragRect,
@@ -11,25 +10,13 @@ import {
   pickBase,
   probeX,
   RASTER_MAX_ELEMENTS,
-  r4,
   rasterTooBig,
   ratioRect,
   toViewport,
 } from '../../../src/web/interact/geometry';
+import { boxAt } from '../../../src/web/lib/geom';
 
-const box = (left: number, top: number, width: number, height: number): Box => ({
-  left,
-  top,
-  width,
-  height,
-  right: left + width,
-  bottom: top + height,
-});
-
-test('r4：4 桁に丸める', () => {
-  expect(r4(0.123456)).toBe(0.1235);
-  expect(r4(-1.00004)).toBe(-1);
-});
+const box = boxAt;
 
 test('overlaps：重なる・接するだけは重ならない・大きさのない要素は重ならない', () => {
   const vr = { left: 10, top: 10, width: 20, height: 20 };
@@ -68,6 +55,14 @@ test('ratioRect：基準に大きさがない・0.05% 未満は null', () => {
   // 幅 0.04%（4000px の基準に 1.6px）
   expect(ratioRect({ left: 0, top: 0, width: 1.6, height: 10 }, box(0, 0, 4000, 100))).toBeNull();
   expect(ratioRect({ left: 0, top: 0, width: 2.4, height: 10 }, box(0, 0, 4000, 100))).not.toBeNull();
+});
+
+test('ratioRect：数が有限でない（NaN・無限大）範囲・基準は、null（NaN の比率を、返さない）', () => {
+  const fr = box(100, 200, 400, 100);
+  expect(ratioRect({ left: Number.NaN, top: 0, width: 10, height: 10 }, fr)).toBeNull();
+  expect(ratioRect({ left: 0, top: 0, width: 10, height: Number.POSITIVE_INFINITY }, fr)).toBeNull();
+  expect(ratioRect({ left: 0, top: 0, width: 10, height: 10 }, box(0, 0, Number.NaN, 100))).toBeNull();
+  expect(ratioRect({ left: 0, top: 0, width: 10, height: 10 }, box(0, 0, Number.POSITIVE_INFINITY, 100))).toBeNull();
 });
 
 test('isInsideFrame：画像・図の中に収まる（1px の誤差は許す）。基準が画像・図でない・読み込み前なら false', () => {

@@ -1,8 +1,8 @@
 // 関連の線の幾何：端点を見える範囲へ寄せる・同じ側の外は引かない・パスの形・クリップの箱・本文の順の線が、交わらない。
 import { expect, test } from 'vitest';
+import { type Box, bottom, fromEdges, type Pt, right } from '../../../src/web/lib/geom';
 import {
   BELOW,
-  type Box,
   clampTo,
   clipBox,
   connectorPath,
@@ -15,7 +15,6 @@ import {
   lastLineBottom,
   linkBetween,
   MIN_CURVE,
-  type Pt,
   rightMiddle,
   STUB,
   sameFrame,
@@ -23,11 +22,13 @@ import {
   sideOf,
 } from '../../../src/web/overlay/connectorPath';
 
-const doc: Box = { left: 230, top: 44, right: 1000, bottom: 844 };
-const panel: Box = { left: 1010, top: 130, right: 1400, bottom: 844 }; // 130 までは、固定の見出し
+const edges = (left: number, top: number, right: number, bottom: number): Box =>
+  fromEdges({ left, top, right, bottom });
+const doc: Box = edges(230, 44, 1000, 844);
+const panel: Box = edges(1010, 130, 1400, 844); // 130 までは、固定の見出し
 
 test('rightMiddle：箱の右端の縦の中央', () => {
-  expect(rightMiddle({ left: 10, top: 20, right: 110, bottom: 60 })).toEqual({ x: 110, y: 40 });
+  expect(rightMiddle(edges(10, 20, 110, 60))).toEqual({ x: 110, y: 40 });
 });
 
 test('clampTo：範囲の中は、そのまま（edge なし）。外は、縁へ寄せる', () => {
@@ -68,17 +69,17 @@ test('linkBetween：選んでいる線で、本文の端が上の外：本文の
   const l = linkBetween('t1', { x: 600, y: -300 }, { x: 1010, y: 300 }, doc, panel, true);
   expect(l?.doc).toBeNull();
   expect(l?.card).toEqual({ x: 1010, y: 300 });
-  expect(l?.d.startsWith(`M${doc.right - STUB} ${doc.top + EDGE_INSET}C`)).toBe(true);
+  expect(l?.d.startsWith(`M${right(doc) - STUB} ${doc.top + EDGE_INSET}C`)).toBe(true);
   // 下の外
   const b = linkBetween('t1', { x: 300, y: 3000 }, { x: 1010, y: 300 }, doc, panel, true);
-  expect(b?.d.startsWith(`M${doc.right - STUB} ${doc.bottom - EDGE_INSET}C`)).toBe(true);
+  expect(b?.d.startsWith(`M${right(doc) - STUB} ${bottom(doc) - EDGE_INSET}C`)).toBe(true);
 });
 
 test('linkBetween：選んでいる線で、カードの端が外：パネルの縁の内側に止める。棒は出さない', () => {
   const below = linkBetween('t1', { x: 600, y: 300 }, { x: 1010, y: 5000 }, doc, panel, true);
   expect(below?.card).toBeNull();
   expect(below?.doc).toEqual({ x: 600, y: 300 });
-  expect(below?.d.endsWith(` 1010 ${panel.bottom - EDGE_INSET}`)).toBe(true);
+  expect(below?.d.endsWith(` 1010 ${bottom(panel) - EDGE_INSET}`)).toBe(true);
   const above = linkBetween('t1', { x: 600, y: 300 }, { x: 1010, y: 100 }, doc, panel, true);
   expect(above?.d.endsWith(` 1010 ${panel.top + EDGE_INSET}`)).toBe(true);
 });
@@ -90,22 +91,22 @@ test('linkBetween：両方が同じ側の外（ともに上・ともに下）な
 
 test('endOfLastLine：複数行の強調は、最後の行の右端の縦の中央（先頭の矩形ではない）。矩形の順に、よらない', () => {
   const lines: Box[] = [
-    { left: 300, top: 100, right: 900, bottom: 120 }, // 1 行目（いちばん右まで）
-    { left: 230, top: 120, right: 900, bottom: 140 },
-    { left: 230, top: 140, right: 420, bottom: 160 }, // 最後の行（短い）
+    edges(300, 100, 900, 120), // 1 行目（いちばん右まで）
+    edges(230, 120, 900, 140),
+    edges(230, 140, 420, 160), // 最後の行（短い）
   ];
   expect(endOfLastLine(lines)).toEqual({ x: 420, y: 150 });
   expect(endOfLastLine([...lines].reverse())).toEqual({ x: 420, y: 150 });
   // 最後の行が、複数の矩形（太字などで分かれた）に分かれていても、その行の、いちばん右
-  expect(endOfLastLine([...lines, { left: 420, top: 140, right: 505, bottom: 160 }])).toEqual({ x: 505, y: 150 });
+  expect(endOfLastLine([...lines, edges(420, 140, 505, 160)])).toEqual({ x: 505, y: 150 });
   expect(endOfLastLine([])).toBeNull();
 });
 
 test('lastLineBottom：最後の行の下端（同じ行の、いちばん下）', () => {
   const lines: Box[] = [
-    { left: 300, top: 100, right: 900, bottom: 120 },
-    { left: 230, top: 120, right: 420, bottom: 140 },
-    { left: 420, top: 118, right: 505, bottom: 143 }, // 同じ行で、背が高い（太字など）
+    edges(300, 100, 900, 120),
+    edges(230, 120, 420, 140),
+    edges(420, 118, 505, 143), // 同じ行で、背が高い（太字など）
   ];
   expect(lastLineBottom(lines)).toBe(143);
   expect(lastLineBottom([])).toBeNull();
@@ -251,8 +252,8 @@ test('connectorPath：水平に出て、水平に入る、S 字の cubic bezier�
 });
 
 test('clipBox：本文・パネル・そのすきまの、縦は重なり。左の一覧・上のバーには出ない', () => {
-  expect(clipBox(doc, { ...panel, top: 44 })).toEqual({ left: 230, top: 44, right: 1400, bottom: 844 });
-  expect(clipBox({ ...doc, bottom: 700 }, panel)).toMatchObject({ top: 130, bottom: 700 });
+  expect(clipBox(doc, edges(1010, 44, 1400, 844))).toEqual(edges(230, 44, 1400, 844));
+  expect(clipBox(edges(230, 44, 1000, 700), panel)).toMatchObject({ top: 130, height: 570 });
 });
 
 test('単調性：本文の順の端点（上から下）の線は、交わらない（同じ x の端点で、y の大小が、全体で保たれる）', () => {
