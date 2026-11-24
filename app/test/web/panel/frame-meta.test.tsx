@@ -114,28 +114,29 @@ test('すべて文字として描く：HTML・スクリプト・見えない文�
   expect(q('pre', body)?.textContent).toContain('<iframe src=//evil></iframe>');
 });
 
-test('送信後のカード：同じ情報の行（開ける・「外す」は、ない）・札「枠から」。本文（text）は、利用者の言葉だけ', async () => {
+test('送信後のカード：同じ情報の行（開ける・「外す」は、ない）。見出しの行に札「枠から」は出さない（左の線だけ）。本文（text）は、利用者の言葉だけ', async () => {
   renderPanel([thread({ id: 't1', anchor: frameAnchor, messages: [user('この色にしたい', { frameMeta: META })] })]);
   const card = q('.thread[data-tid="t1"]') as HTMLElement;
   expect(card.hasAttribute('data-from-frame')).toBe(true);
-  expect(q('.th-head .fromframe', card)?.textContent).toBe('枠から');
+  expect(q('.th-head .fromframe', card)).toBeNull(); // 引用の行（枠から：button）と情報の行で足りる（P5）
   expect(q('.msg.user .body', card)?.textContent).toBe('この色にしたい'); // 機械的な文章・JSON は、入らない
   expect(screen.queryByRole('button', { name: /外す/ })).toBeNull();
-  expect(q('.msg .fromframe', card)).toBeNull(); // 札は、見出しに 1 つ（行の中では、二重にしない）
+  expect(q('.msg .fromframe', card)).toBeNull(); // 行の中にも、札は出ない
   const toggle = q('.msg .fm-toggle', card) as HTMLButtonElement;
   expect(toggle.textContent).toContain('要素を選びました（button・x:113 y:133 w:93 h:34）');
   await userEvent.click(toggle);
   expect(q('.fm-body', card)?.textContent).toContain('button.primary');
 });
 
-test('旧い形のコメント（frameMeta なし・本文に見出しと JSON）：そのまま表示される（情報の行は出ない・札は、旧い判定で付く）', () => {
+test('旧い形のコメント（frameMeta なし・本文に見出しと JSON）：そのまま表示される（情報の行は出ない。左の線は、旧い判定で付く）', () => {
   const legacy =
     '【枠から】要素を選びました（枠の自己申告。下の JSON）：button（x:1 y:2 w:3 h:4）\n\n```json\n{\n  "selector": "button.primary"\n}\n```\n\n色を変えたい';
   renderPanel([thread({ id: 't1', anchor: frameAnchor, messages: [user(legacy)] })]);
   const card = q('.thread[data-tid="t1"]') as HTMLElement;
   expect(q('.msg.user .body', card)?.textContent).toBe(legacy); // 文字として、そのまま
   expect(q('.framemeta', card)).toBeNull();
-  expect(q('.th-head .fromframe', card)).not.toBeNull();
+  expect(card.hasAttribute('data-from-frame')).toBe(true);
+  expect(q('.th-head .fromframe', card)).toBeNull();
 });
 
 test('コメントを追加：frameMeta は、本文（text）とは別の項目で送る。利用者の言葉だけが text。送ったあと、入力欄は閉じる', async () => {

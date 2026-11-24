@@ -10,7 +10,7 @@ import type { View } from '../lib/view';
 import { useUi } from '../store/ui';
 import { AskView } from './AskView';
 import { caretAtEnd } from './caret';
-import { imgUrl } from './logic';
+import { imgUrl, latestRevisionId } from './logic';
 
 interface Props {
   view: View;
@@ -120,16 +120,30 @@ export function MessageView({ view, thread, m, seen }: Props) {
       <div className="who">AI</div>
       <ReplyBody text={m.text} slug={view.slug} />
       {m.revision ? (
-        <div className="row meta">
-          <span className="chip ok small">
-            <RefreshCw aria-hidden="true" focusable="false" />
-            資料を v{m.revision} に更新
-          </span>
-          <a className="btnlink" href={`#/${view.slug}/${thread.page}/v${m.revision}`}>
-            v{m.revision} を見る
-            <ArrowRight aria-hidden="true" focusable="false" />
-          </a>
-        </div>
+        m.id === latestRevisionId(thread) ? (
+          <div className="row meta">
+            <span className="chip ok small">
+              <RefreshCw aria-hidden="true" focusable="false" />
+              資料を v{m.revision} に更新
+            </span>
+            <a className="btnlink" href={`#/${view.slug}/${thread.page}/v${m.revision}`}>
+              v{m.revision} を見る
+              <ArrowRight aria-hidden="true" focusable="false" />
+            </a>
+          </div>
+        ) : (
+          // 古い更新：小さなリンク `↻v2` だけ（最新の更新だけが、文字つき）。名前は、読み上げにも残す
+          <div className="row meta">
+            <a
+              className="btnlink rev-old"
+              href={`#/${view.slug}/${thread.page}/v${m.revision}`}
+              aria-label={`資料を v${m.revision} に更新した版を見る`}
+              title={`資料を v${m.revision} に更新した版を見る`}
+            >
+              <RefreshCw aria-hidden="true" focusable="false" />v{m.revision}
+            </a>
+          </div>
+        )
       ) : null}
       {m.page && page ? (
         <a className="pagecard" href={`#/${view.slug}/${m.page}`}>

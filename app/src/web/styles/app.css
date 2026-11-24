@@ -132,10 +132,11 @@ button.link { display: inline-flex; align-items: center; gap: 4px; background: n
 button.link:hover { text-decoration: underline; }
 .btnlink { display: inline-flex; align-items: center; gap: 3px; color: var(--accent-ink); font-size: var(--fs-s); text-decoration: none; }
 .btnlink:hover { text-decoration: underline; }
+button.link, .btnlink, .older > summary { min-height: 24px; } /* 押す領域は、24px 以上（P5） */
+.btnlink.rev-old { gap: 2px; min-width: 24px; justify-content: center; }
 
 /* ---- 状態の小さな表示（塗らない：文字とアイコンの色だけ） ---- */
 .chip { display: inline-flex; align-items: center; gap: 4px; font-size: var(--fs-s); line-height: 1.4; color: var(--muted); white-space: nowrap; }
-.chip.small { font-size: 11.5px; }
 .chip.ok { color: var(--ok); }
 .chip.warn, .chip.draft { color: var(--warn); }
 .chip.new, .chip.yours { color: var(--accent-ink); } /* あなたの番（青） */
@@ -402,7 +403,7 @@ mark.hl.pending { background: var(--accent-soft); outline: 1.5px dashed var(--ac
 .tab { flex: 1; border: 0; background: transparent; color: var(--muted); font-size: var(--fs-s); padding: 3px 8px; border-radius: var(--r); }
 .tab:hover { color: var(--ink); }
 .tab.on { background: var(--raised); color: var(--ink); font-weight: 600; box-shadow: 0 0 0 1px var(--line); }
-.tab .n { margin-left: 5px; font-size: 11px; color: var(--muted); font-weight: 400; font-variant-numeric: tabular-nums; }
+.tab .n { margin-left: 5px; font-size: var(--fs-s); color: var(--muted); font-weight: 400; font-variant-numeric: tabular-nums; }
 .solobar { display: flex; align-items: center; gap: 10px; margin: 6px 0 2px; }
 .rowopen { margin: 6px 0; }
 .rowopen > button.link { margin: -4px 0 4px 4px; }
@@ -427,7 +428,7 @@ mark.hl.pending { background: var(--accent-soft); outline: 1.5px dashed var(--ac
 .older > summary svg.lucide { transition: transform 0.12s; }
 .older[open] > summary svg.lucide { transform: rotate(90deg); }
 .msg.user .body { background: var(--hover); border-radius: var(--r); padding: 6px 10px; }
-.msg.ai .who { display: flex; align-items: center; gap: 4px; font-size: 11.5px; font-weight: 600; color: var(--muted); }
+.msg.ai .who { display: flex; align-items: center; gap: 4px; font-size: var(--fs-s); font-weight: 600; color: var(--muted); }
 .msg.ai .body { padding: 2px 2px; }
 .msg.ai.fresh .who::after { content: ""; width: 6px; height: 6px; border-radius: 50%; background: var(--accent); }
 .msg .body.md { font-size: 14px; line-height: 1.7; }
@@ -440,6 +441,8 @@ mark.hl.pending { background: var(--accent-soft); outline: 1.5px dashed var(--ac
 .row.meta { margin-top: 3px; gap: 6px; }
 .thread textarea, dialog textarea { width: 100%; resize: vertical; }
 .th-foot { margin-top: 8px; border-top: 1px solid var(--line); padding-top: 8px; }
+.th-foot.fold { margin-top: 6px; border-top: 0; padding-top: 0; } /* 選んでいないカードの返信欄：1 行（「返信…」）に畳む。欄は DOM に残る（Tab・読み上げで届く・書きかけも残る） */
+.thread textarea.fold { resize: none; min-height: 0; padding-block: 3px; }
 
 /* 解決済みの 1 行 */
 .donerow { display: flex; align-items: center; gap: 8px; width: 100%; margin: 6px 0; padding: 6px 10px; text-align: left; background: var(--card); border: 1px solid var(--line); border-radius: var(--r); color: var(--muted); font-size: var(--fs-s); }
@@ -450,7 +453,7 @@ mark.hl.pending { background: var(--accent-soft); outline: 1.5px dashed var(--ac
 /* 詳しく見る（子ページへのカード） */
 .pagecard { display: flex; align-items: center; gap: 8px; margin-top: 8px; padding: 7px 10px; border: 1px solid var(--line); border-radius: var(--r); text-decoration: none; color: var(--accent-ink); background: var(--card); }
 .pagecard:hover { background: var(--accent-soft); border-color: var(--accent-line); }
-.pc-l { font-size: 11px; color: var(--muted); }
+.pc-l { font-size: var(--fs-s); color: var(--muted); }
 .pc-t { flex: 1; font-weight: 600; color: var(--ink); }
 
 /* AI の質問 */
@@ -460,7 +463,7 @@ mark.hl.pending { background: var(--accent-soft); outline: 1.5px dashed var(--ac
 .ask.stale { padding: 6px 10px; }
 .ask.stale .ask-q { font-weight: 400; font-size: var(--fs-s); color: var(--muted); margin-bottom: 2px; }
 .ask.stale .ask-q svg.lucide { color: var(--muted); }
-.opt { display: flex; gap: 8px; align-items: flex-start; padding: 5px 8px; border-radius: var(--r); cursor: pointer; }
+.opt { display: flex; gap: 8px; align-items: flex-start; min-height: 24px; padding: 5px 8px; border-radius: var(--r); cursor: pointer; }
 .opt:hover { background: var(--hover); }
 .opt.on { background: var(--accent-soft); }
 .opt input[type=radio], .opt input[type=checkbox] { margin-top: 3px; }
@@ -513,7 +516,7 @@ dialog p { margin: 0 0 12px; color: var(--ink-2); }
 #app.panel-tight .thread { padding: 8px 10px; }
 #app.panel-tight .ask { padding: 8px 10px; }
 #app.panel-tight .row { gap: 6px; }
-#app.panel-tight .thread textarea { min-height: 96px; }
+#app.panel-tight .thread textarea:not(.fold) { min-height: 96px; }
 
 @media (max-width: 560px) {
   .turn-t { display: none; } /* さらに狭い窓：印は、アイコンだけ（名前は title・aria-label） */

@@ -86,6 +86,11 @@ export async function addTextComment(page: Page, needle: string, text: string) {
   await expect(ui(page).panel).toContainText(text);
 }
 
+// カードを選ぶ（見出しを押す）。返信欄は、選んでいないカードでは 1 行に畳まれていて、選ぶと開く（「画像を付ける」「追加」「解決」が出る：P5）
+export async function selectCard(card: Locator) {
+  await card.locator('.th-head').click();
+}
+
 // 本文のブロック（テキストを含む）の中ほどに、マウスを置く
 export async function hoverBlock(page: Page, block: Locator) {
   await block.scrollIntoViewIfNeeded();

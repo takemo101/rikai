@@ -3,7 +3,7 @@
 import type { Page } from '@playwright/test';
 import { expect, test } from './fixtures';
 import { DOC_BASIC } from './samples';
-import { ui } from './ui';
+import { selectCard, ui } from './ui';
 
 interface Note {
   title: string;
@@ -258,6 +258,7 @@ test.describe('ブラウザの通知（F41）', () => {
     await aiReply(app, '解決と取り消しをする返信です。');
     await expect(u.threads).toHaveCount(1);
     await setHidden(page, true);
+    await selectCard(u.threads.first()); // 返信欄は、選んでいないカードでは畳まれている（P5）
     await u.threads.first().getByRole('button', { name: '解決', exact: true }).click();
     await page.locator('.tab', { hasText: '解決済み' }).click();
     await page.locator('.donerow').click();

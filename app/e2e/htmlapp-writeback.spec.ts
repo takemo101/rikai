@@ -104,7 +104,7 @@ test.describe('要素を選んでコメント', () => {
     await expect(u.threads).toHaveCount(1);
     // 送信後のカード：札・情報の行（開ける。「外す」はない）・本文は、利用者の言葉だけ
     const card = u.threads.first();
-    await expect(card.locator('.th-head .fromframe')).toHaveText('枠から');
+    await expect(card.locator('.fromframe')).toHaveCount(0); // 見出しの行に札は出さない（P5）。左の線（data-from-frame）と情報の行が、印
     await expect(card).toHaveAttribute('data-from-frame', '');
     await expect(card.locator('.msg.user .body')).toHaveText('このボタンの色を、もう少し濃くしたい');
     await expect(card.getByRole('button', { name: '外す' })).toHaveCount(0);
@@ -883,7 +883,8 @@ test.describe('「枠から」の札の偽造', () => {
     await ui(page).composer.locator('textarea').fill('これは枠の中のボタンのこと');
     await ui(page).composer.getByRole('button', { name: 'コメントを追加' }).click();
     await expect(ui(page).threads).toHaveCount(2);
-    await expect(ui(page).threads.locator('.th-head .fromframe')).toHaveCount(1);
+    await expect(ui(page).threads.locator('.fromframe')).toHaveCount(0); // カードに札は出さない（P5）
+    await expect(ui(page).threads.and(page.locator('[data-from-frame]'))).toHaveCount(1); // 本物の pick のカードだけ、左の線
   });
 
   test('利用者が本文に「【枠から】…」と書いたコメント（ふつうの文の錨・資料の生の枠から：p の錨）には、札も情報の行も付かない。見出しの行は、新しい形では、札の根拠にならない', async ({

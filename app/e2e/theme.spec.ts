@@ -3,7 +3,7 @@
 // 既存の e2e は、ライト（Playwright の既定の colorScheme: 'light'）で、そのまま通る。
 import type { Page } from '@playwright/test';
 import { expect, test } from './fixtures';
-import { addTextComment, clickUntilPicked, dragSelect, ui } from './ui';
+import { addTextComment, clickUntilPicked, dragSelect, selectCard, ui } from './ui';
 
 const BT = '```';
 const DOC = `# 外観の確認
@@ -317,6 +317,8 @@ test.describe('外観のモード（F36）', () => {
       { topic: 'th' },
     );
     await expect(ui(page).threads).toHaveCount(1);
+    await selectCard(ui(page).threads.first()); // 返信欄のボタン（解決）は、カードを選ぶと出る（P5）
+    await expect(ui(page).threads.first().locator('button.ghost')).toBeVisible();
     await page.emulateMedia({ colorScheme: 'dark' });
     const bgs = await page.evaluate(() => {
       const bg = (s: string) => getComputedStyle(document.querySelector(s) as HTMLElement).backgroundColor;
@@ -357,6 +359,7 @@ test.describe('外観のモード（F36）', () => {
     await expect(ui(page).threads.first().locator('textarea')).toHaveAttribute('placeholder', /返信/);
     await auditBoth(page, '返信欄の placeholder・未送信');
     // 解決済み（丸・.no）：「すべて」で、解決済みのカードも見える
+    await selectCard(ui(page).threads.first()); // 返信欄は、選んでいないカードでは畳まれている（P5）
     await ui(page).threads.first().getByRole('button', { name: '解決', exact: true }).click();
     await page.locator('.tab', { hasText: 'すべて' }).click();
     await expect(page.locator('#badges .bno.resolved')).toHaveCount(1);
@@ -700,6 +703,7 @@ test.describe('外観のモード（F36）', () => {
     }
     // 1 つを解決する（解決済み）
     await page.emulateMedia({ colorScheme: 'light' });
+    await selectCard(ui(page).threads.first()); // 返信欄は、選んでいないカードでは畳まれている（P5）
     await ui(page).threads.first().getByRole('button', { name: '解決', exact: true }).click();
     await expect(page.locator('#article .fmt-term mark.hl.resolved')).toHaveCount(1);
     // 入力中：端末の行を選んで、コメントの入力欄を開く

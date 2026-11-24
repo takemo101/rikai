@@ -9,8 +9,10 @@ import {
   foldMessages,
   imgUrl,
   lastSpeech,
+  latestRevisionId,
   pickOption,
   plainText,
+  replyExpanded,
   threadStatus,
   typeOther,
 } from '../../../src/web/panel/logic';
@@ -266,4 +268,24 @@ test('lastSpeech：最後の発言（回答は除く）。AI は「AI：」・�
 test('imgUrl：トピックと名前を、URL エンコードして、assets の配信の道へ', () => {
   expect(imgUrl('demo', 'c-abc.png')).toBe('/asset/demo/c-abc.png');
   expect(imgUrl('a b', '../x.png')).toBe('/asset/a%20b/..%2Fx.png');
+});
+
+test('latestRevisionId：資料の更新（revision）を持つ AI の発言のうち、いちばん新しいもの。なければ null', () => {
+  const m = (over: Partial<Message>) => say(over);
+  const a = m({ author: 'ai', revision: 2 });
+  const b = m({ author: 'ai', revision: 3 });
+  const c = m({ author: 'ai' }); // 更新のない、新しい返信：最新の更新は、b のまま
+  expect(latestRevisionId({ messages: [m({ author: 'user' }), a, b, c] })).toBe(b.id);
+  expect(latestRevisionId({ messages: [a, c] })).toBe(a.id);
+  expect(latestRevisionId({ messages: [m({ author: 'user' }), c] })).toBeNull();
+});
+
+test('replyExpanded：選んでいる・書きかけの文・付けた画像・アップロード中のどれかで開く。どれもなければ畳む（書きかけは、いつも開く）', () => {
+  const none = { active: false, draft: '', imgs: 0, uploading: false };
+  expect(replyExpanded(none)).toBe(false);
+  expect(replyExpanded({ ...none, active: true })).toBe(true);
+  expect(replyExpanded({ ...none, draft: '書きかけ' })).toBe(true);
+  expect(replyExpanded({ ...none, draft: ' ' })).toBe(true); // 空白だけでも、書きかけ（消さない・隠さない）
+  expect(replyExpanded({ ...none, imgs: 1 })).toBe(true);
+  expect(replyExpanded({ ...none, uploading: true })).toBe(true);
 });
