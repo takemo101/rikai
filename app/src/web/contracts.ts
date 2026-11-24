@@ -2,9 +2,9 @@
 // `App.tsx`（と `layout/`・`api/`・`store/`・`lib/`）が、これを使って、つなぐ。props を変えるときは、`App.tsx` の呼び方も変わる。
 //
 // ## DOM の ID（`styles/app.css`・e2e が使う、現役の約束）
-//   #app > #top ／ #side ／ #doc（> #docbar ／ #docscroll（> #article ／ #badges ／ #regsel）／ #regbtn）／ #threads ／ #panel-resizer
-//   #lightbox・#actbar（> #act-comment）・#toast・#submitdlg・#enddlg・#ended は、#app の外・または、固定の位置
-//   `App.tsx`・`layout/` が出す：#app・#top・#side・#doc・#docbar・#docscroll・#panel-resizer・#toast・#submitdlg・#enddlg・#ended
+//   #app > #top ／ #side ／ #doc（> #closedbar（終了したトピックだけ）／ #docbar ／ #docscroll（> #article ／ #badges ／ #regsel）／ #regbtn）／ #threads ／ #panel-resizer
+//   #lightbox・#actbar（> #act-comment）・#toast・#submitdlg・#enddlg は、#app の外・または、固定の位置
+//   `App.tsx`・`layout/` が出す：#app・#top・#side・#doc・#closedbar・#docbar・#docscroll・#panel-resizer・#toast・#submitdlg・#enddlg
 //   `doc/`・`overlay/` が出す：#article（Article）・#badges（Overlays）　`panel/` が出す：#threads・#lightbox（ThreadsPanel）　`interact/` が出す：#actbar・#regbtn・#regsel（Interact）
 //
 // ## 状態の持ち方

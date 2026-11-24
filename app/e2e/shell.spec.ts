@@ -539,31 +539,36 @@ test.describe('終了（F16・F34）', () => {
     // キャンセル
     await u.enddlg.getByRole('button', { name: 'キャンセル' }).click();
     await expect(u.enddlg).toBeHidden();
-    await expect(u.ended).toBeHidden();
+    await expect(u.closedbar).toHaveCount(0);
     expect((await app.poll('demo', 1)).status).toBe('timeout');
 
-    // 終了する：全面の表示。ほかに開いているトピックへのリンクがある
+    // 終了する：全面の終了画面では覆わない（0.1.4・F54）。同じ画面のまま、上に帯が出て、閲覧専用になる。ほかに開いているトピックへは、左の一覧から移る
     await u.end.click();
     await u.enddlg.getByRole('button', { name: '終了する' }).click();
-    await expect(u.ended).toBeVisible();
-    await expect(u.ended).toContainText('このトピックのレビューを終了しました');
-    await expect(u.ended).toContainText('ほかに、開いているトピックがあります');
+    await expect(u.closedbar).toBeVisible();
+    await expect(u.closedbar).toContainText('このトピックはレビューを終了しています（閲覧専用・コメントできません）');
+    await expect(page.locator('#ended')).toHaveCount(0);
+    await expect(u.article).toContainText('猫は朝によく鳴きます');
+    await expect(u.end).toHaveCount(0);
     expect((await app.poll('demo', 3)).status).toBe('closed');
-    // リンクで移ると、表示が消える
-    await u.ended.getByRole('link', { name: 'もう一つの資料' }).click();
-    await expect(u.ended).toBeHidden();
+    // 左の一覧から、ほかのトピックへ移ると、帯が消える
+    await u.side.locator('.topics li', { hasText: 'もう一つの資料' }).locator('a').click();
+    await expect(u.closedbar).toHaveCount(0);
     await expect(u.top.locator('#top-title')).toHaveText('もう一つの資料');
     await expect(u.side.locator('.topics li', { hasText: '猫の観察日記' })).toContainText('終了');
     expect(native).toEqual([]); // ブラウザの confirm などは、出ていない
   });
 
-  test('ほかに開いているトピックがなければ「このタブは閉じて構いません」（F16）', async ({ page }) => {
+  test('ほかに開いているトピックがなくても、終了したトピックは、そのまま見られる（F54。旧：「このタブは閉じて構いません」の全面の画面）', async ({
+    page,
+  }) => {
     const u = ui(page);
     const native = watchDialogs(page);
     await u.end.click();
     await u.enddlg.getByRole('button', { name: '終了する' }).click();
-    await expect(u.ended).toBeVisible();
-    await expect(u.ended).toContainText('このタブは閉じて構いません');
+    await expect(u.closedbar).toBeVisible();
+    await expect(page.locator('#ended')).toHaveCount(0);
+    await expect(u.article).toContainText('猫は朝によく鳴きます');
     expect(native).toEqual([]);
   });
 
@@ -574,13 +579,13 @@ test.describe('終了（F16・F34）', () => {
     await addTextComment(page, '猫は朝によく鳴きます', '残るコメント');
     await u.end.click();
     await u.enddlg.getByRole('button', { name: '終了する' }).click();
-    await expect(u.ended).toBeVisible();
+    await expect(u.closedbar).toBeVisible();
     // 未送信は AI に届かない：poll は closed
     expect((await app.poll('demo', 3)).status).toBe('closed');
-    // 開き直す（rikai open）：終了の表示が消え、コメントが残っている
+    // 開き直す（rikai open）：帯が消え、コメントが残っている
     await app.cli(['open', 'demo', '--no-open']);
     await page.reload();
-    await expect(u.ended).toBeHidden();
+    await expect(u.closedbar).toHaveCount(0);
     await expect(u.threads).toHaveCount(1);
     await expect(u.threads.first()).toContainText('残るコメント');
     await expect(u.submit).toHaveText('AI に送る（1）');

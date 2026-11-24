@@ -53,6 +53,11 @@ const ROOT_OPT: Opt = {
 const TITLE_OPT: Opt = { flag: '--title <題名>', text: 'トピックの題名（既定: topic の名前）', only: 'new' };
 const SOURCE_OPT: Opt = { flag: '--source <対象>', text: '資料の対象の説明（既定: なし）', only: 'new' };
 const NO_OPEN_OPT: Opt = { flag: '--no-open', text: 'ブラウザを自動で開かない（URL だけ出す）', only: 'open' };
+const VIEW_OPT: Opt = {
+  flag: '--view',
+  text: '終了したトピックを、開き直さずに、閲覧専用で見る（終了のまま。コメントはできない）',
+  only: 'open',
+};
 const TIMEOUT_OPT: Opt = {
   flag: '--timeout <秒>',
   text: '待つ最長の秒数（既定: 43200 ＝ 12 時間）',
@@ -99,12 +104,13 @@ const COMMANDS: CommandDoc[] = [
     group: 'make',
     synopsis: 'open <topic>',
     summary: 'ブラウザで資料を開く（ビューアを起動して、URL を出す）',
-    usage: 'open <topic> [--no-open] [--root <dir>]',
+    usage: 'open <topic> [--view] [--no-open] [--root <dir>]',
     detail: [
       'ビューア（127.0.0.1 だけで待ち受ける小さなサーバー）が動いていなければ起動し、ブラウザで、トピックを開く。',
-      '終了したトピックも、開き直せる。環境変数 NO_OPEN を設定しても、ブラウザは開かない。',
+      '終了したトピックは、そのまま `open` すると、開き直す（コメントを、また書ける）。開き直さずに、中身だけ見るには、`--view`（終了のまま、閲覧専用で開く）。開いているトピックに付けても、ふつうに開くだけ。',
+      '環境変数 NO_OPEN を設定しても、ブラウザは開かない。',
     ],
-    options: [NO_OPEN_OPT, ROOT_OPT],
+    options: [VIEW_OPT, NO_OPEN_OPT, ROOT_OPT],
     output: [
       '{"ok": true, "url", "root", "dir"}',
       '  url … 画面の URL。`?t=` の後ろは合言葉なので、人に見せない',
@@ -113,6 +119,7 @@ const COMMANDS: CommandDoc[] = [
     examples: [
       { note: 'ブラウザで開く', cmd: ['rikai open auth-flow'] },
       { note: 'URL だけ出す（ブラウザは開かない）', cmd: ['rikai open auth-flow --no-open'] },
+      { note: '終了したトピックを、開き直さずに見る（閲覧専用）', cmd: ['rikai open auth-flow --view'] },
     ],
     see: 'poll・stop',
   },
@@ -233,7 +240,9 @@ const COMMANDS: CommandDoc[] = [
     synopsis: 'serve',
     summary: 'ビューアのサーバー本体（内部用）',
     usage: 'serve [--root <dir>]',
-    detail: ['`open` が、自動で起動する。直接は使わない（すべてのトピックが終了すると、自分で終わる）。'],
+    detail: [
+      '`open` が、自動で起動する。直接は使わない（すべてのトピックが終了して、10 分間、画面からのリクエストがないと、自分で終わる）。',
+    ],
     options: [ROOT_OPT],
     output: ['何も出さない（起動した情報は、.rikai/.server.json に書く）'],
     examples: [],
@@ -293,10 +302,9 @@ export function topHelp(color: boolean): string {
   lines.push(p.bold('オプション'));
   lines.push(
     ...table(
-      [ROOT_OPT, TITLE_OPT, SOURCE_OPT, NO_OPEN_OPT, TIMEOUT_OPT, HELP_OPT, VERSION_OPT].map((o): [string, string] => [
-        o.flag,
-        o.only ? `${o.only}: ${o.text}` : o.text,
-      ]),
+      [ROOT_OPT, TITLE_OPT, SOURCE_OPT, NO_OPEN_OPT, VIEW_OPT, TIMEOUT_OPT, HELP_OPT, VERSION_OPT].map(
+        (o): [string, string] => [o.flag, o.only ? `${o.only}: ${o.text}` : o.text],
+      ),
       (s) => s,
     ),
   );

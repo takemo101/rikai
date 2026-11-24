@@ -15,6 +15,8 @@ interface Props {
   thread: Thread;
   /** 質問のメッセージ（`ask` を持つ） */
   q: Message & { ask: Ask };
+  /** 終了したトピック（閲覧専用：F54）：質問と、保存した回答を見せるだけ（選べない・保存・取り消し・「答える」は、出さない） */
+  readOnly?: boolean;
 }
 
 /** 通信中の回答の操作：内容の鍵と、そのあとに送るもの（あれば） */
@@ -23,7 +25,7 @@ interface Flight {
   next: { payload: AskDraft | null } | null;
 }
 
-export function AskView({ slug, thread, q }: Props) {
+export function AskView({ slug, thread, q, readOnly = false }: Props) {
   const ask = q.ask;
   const opened = useUi((s) => s.askOpen.has(q.id));
   const openAsk = useUi((s) => s.openAsk);
@@ -43,16 +45,18 @@ export function AskView({ slug, thread, q }: Props) {
         </div>
         <div className="ask-foot">
           <span className="chip small">答えずに、会話が進みました</span>
-          <button type="button" className="link" onClick={() => openAsk(q.id)}>
-            答える
-          </button>
+          {readOnly ? null : (
+            <button type="button" className="link" onClick={() => openAsk(q.id)}>
+              答える
+            </button>
+          )}
         </div>
       </div>
     );
   }
 
   const saved = answerOf(thread, q);
-  const locked = !!saved?.sent || thread.resolved;
+  const locked = !!saved?.sent || thread.resolved || readOnly;
   // キーがなければ、保存した回答（なければ、なし）が、下書きの出発点
   const draft: AskDraft | null = hasDraft ? (stored ?? null) : (saved?.answer ?? null);
   const d: AskDraft = draft ?? {};

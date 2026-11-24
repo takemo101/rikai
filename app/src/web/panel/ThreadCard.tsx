@@ -124,7 +124,7 @@ export function ThreadCard({ view, thread: t, full = false, model, seen, editing
           </Older>
         ),
       )}
-      <ThreadFoot view={view} thread={t} />
+      {view.readOnly ? null : <ThreadFoot view={view} thread={t} />}
     </div>
   );
 }

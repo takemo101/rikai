@@ -4,6 +4,7 @@
 import type { StateCreator } from 'zustand';
 import { FRAME_IMAGE_NOTE } from '../../../shared/htmlapp-note';
 import type { Anchor, FrameMeta } from '../../../shared/types';
+import { READ_ONLY_REASON } from '../../lib/messages';
 import type { UiStore } from '../createUi';
 import type { UiDeps } from '../deps';
 
@@ -154,7 +155,12 @@ export const createDraftSlice =
       ...initialDraft(),
 
       startComposer: (anchor, frameMeta) => {
-        if (!getView()?.isLatest) {
+        const v = getView();
+        if (v?.readOnly) {
+          get().showToast(READ_ONLY_REASON, true);
+          return false;
+        }
+        if (!v?.isLatest) {
           get().showToast('コメントは最新版にだけ付けられます', true);
           return false;
         }

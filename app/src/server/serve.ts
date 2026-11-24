@@ -18,18 +18,77 @@ export interface RunningServer {
   token: string;
 }
 
+/** すべてのトピックが閉じていて、リクエストが来なくなってから、サーバーが終わるまでの時間（ミリ秒）：10 分。終了したトピックは、閲覧できる（F54）ので、すぐには終わらない */
+export const IDLE_EXIT_MS = 10 * 60 * 1000;
+
+export interface IdleWatch {
+  /** リクエストがあった（待ちを始める・延ばす） */
+  touch(): void;
+  /** 待ちを解く（以後、終わらない） */
+  stop(): void;
+}
+
+export interface IdleWatchOptions {
+  /** 待つ時間（ミリ秒） */
+  ms: number;
+  /** すべての（読める）トピックが閉じているか。待ちが終わったときに、そのつど読む */
+  allClosed: () => boolean;
+  /** 開いているタブがあるか（変更の通知〔SSE〕の購読が 1 つ以上）。あれば、終わらない */
+  busy: () => boolean;
+  onIdle: () => void;
+}
+
+/**
+ * 「すべて閉じて、かつ ms の間、リクエストがない」とき、onIdle を呼ぶ。待ちは 1 つのタイマー（`unref`：これだけでは、プロセスを生かさない）。
+ * 開いているトピックがあれば、待ちが終わったとき、何もせず、解く（次のリクエストで、また始まる）：`rikai new`・`rikai open` は、サーバーへ疎通の確認（リクエスト）を送るので、開いているトピックができれば、終わらない。
+ * タブが開いている間（busy）は、待ちを延ばす。
+ */
+export function createIdleWatch({ ms, allClosed, busy, onIdle }: IdleWatchOptions): IdleWatch {
+  let timer: ReturnType<typeof setTimeout> | null = null;
+  let last = Date.now();
+  const arm = (wait: number): void => {
+    timer = setTimeout(fire, wait);
+    timer.unref();
+  };
+  function fire(): void {
+    timer = null;
+    const left = last + ms - Date.now();
+    if (left > 0) {
+      arm(left); // 待っている間に、リクエストがあった
+      return;
+    }
+    // 開いているトピックがある：終わらない（待ちは解く。次のリクエストで、また始まる）
+    if (!allClosed()) return;
+    // 開いているタブがある間は、待ちを延ばす
+    if (busy()) arm(ms);
+    else onIdle();
+  }
+  return {
+    touch() {
+      last = Date.now();
+      if (!timer) arm(ms);
+    },
+    stop() {
+      if (timer) clearTimeout(timer);
+      timer = null;
+    },
+  };
+}
+
 /**
  * サーバーを起こして、待ち受けを始める（ポートは空きポート）。テストも使う。
  * ポートは、待ち受けが始まってから分かる（Host・Origin の検査と Cookie の名前に使うので、そのあとで、アプリを作る）。
  * 先にポートだけ取って閉じる方法は、閉じてから開くまでの間に、ほかのプロセスに取られうるので、使わない。
  * publicDir：画面の置き場。省略すると、バンドル（rikai.js）の横の public/
  * feed：変更の通知（SSE）の元。省略すると、ここで作る（テストは、`fs.watch` の差し替えなどのために渡す）
+ * onRequest：リクエストが来るたびに呼ぶ（`rikai serve` が、終わるまでの待ちを延ばす）
  */
 export function startServer(
   store: Store,
   hooks: ActionHooks = {},
   publicDir: string = path.join(__dirname, 'public'),
   feed: ChangeFeed = createChangeFeed(store),
+  onRequest?: () => void,
 ): Promise<RunningServer> {
   store.ensureBase();
   const token = crypto.randomBytes(24).toString('hex');
@@ -41,6 +100,7 @@ export function startServer(
     // 待ち受けが始まった、同じ回のうちに取りつける（要求は、このあとにしか来ない）
     const listener = getRequestListener((req, env) => app.fetch(req, env));
     server.on('request', (incoming, outgoing) => {
+      onRequest?.();
       // 要求の URL は、`new URL(req.url, 'http://localhost')` のパスと問い合わせで、自分の待ち受け先の URL にする。
       // node-server は、Host から URL を組み、おかしな Host を 400 で断るが、Host の検査は、app が行う（403）
       try {

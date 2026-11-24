@@ -42,7 +42,9 @@ export function TopBar({ view, status, save }: TopBarProps) {
   // 下書きだけがあって、ほかに言うことがない（未解決だけ）とき：札は出さない（「未解決 n」を、書いた直後に出さない）
   const pillTurn = turn?.kind === 'unsent' && baseTurn?.kind === 'open' ? null : baseTurn;
   // Submit が押せない理由（押せるときは null）：`title`（押せなくても、上に置くと出る）と、読み上げの説明
-  const offReason = topic && unsent ? null : submitOffReason(turn);
+  // 終了したトピック（閲覧専用：F54）は、未送信があっても、送れない
+  const closed = !!topic?.meta.closed;
+  const offReason = topic && unsent && !closed ? null : submitOffReason(turn);
 
   // 案内（Claude Code 以外）：初めて「AI の返信待ち」になったときだけ、見える文字で出す。待ちが終わったら、しまう（以後は、title・説明だけ）
   const waiting = !status.offline && !status.error && pending && !!view;
@@ -127,14 +129,14 @@ export function TopBar({ view, status, save }: TopBarProps) {
           id="btn-submit"
           type="button"
           className={turn?.kind === 'unsent' ? 'primary attn' : 'primary'}
-          disabled={!topic || !unsent}
+          disabled={!topic || !unsent || closed}
           {...(offReason ? { 'aria-describedby': 'submit-why', title: offReason } : {})}
           onClick={() => {
-            if (topic && unsent) useUi.getState().openDialog('submit');
+            if (topic && unsent && !closed) useUi.getState().openDialog('submit');
           }}
         >
           <Send aria-hidden="true" focusable="false" />
-          {unsent ? `AI に送る（${unsent}）` : 'AI に送る'}
+          {unsent && !closed ? `AI に送る（${unsent}）` : 'AI に送る'}
         </button>
         {offReason ? (
           <span id="submit-why" className="turn-sr">
@@ -142,16 +144,18 @@ export function TopBar({ view, status, save }: TopBarProps) {
           </span>
         ) : null}
       </span>
-      <button
-        id="btn-end"
-        type="button"
-        className="ghost"
-        title="レビューを終了する"
-        onClick={() => useUi.getState().openDialog('end')}
-      >
-        <LogOut aria-hidden="true" focusable="false" />
-        終了
-      </button>
+      {closed ? null : (
+        <button
+          id="btn-end"
+          type="button"
+          className="ghost"
+          title="レビューを終了する"
+          onClick={() => useUi.getState().openDialog('end')}
+        >
+          <LogOut aria-hidden="true" focusable="false" />
+          終了
+        </button>
+      )}
     </header>
   );
 }

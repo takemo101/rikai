@@ -108,6 +108,7 @@ pnpm run test:e2e   # 実際の Chrome（Playwright。先に pnpm run build。�
 | `server/ask.test.ts` | `ask` と回答の検査（5 つの型）・回答の流れ・送信済みの回答の拒否 |
 | `server/apply.test.ts` | `apply` の検証（誤りを全部返して、何も書かない）・反映・`round` 指定・二重の改訂・未返信の通知 |
 | `server/poll.test.ts` | `peek`（`poll`・`pull` の出力）・`closed`・全トピックが閉じたときの合図 |
+| `server/closed-readonly.test.ts` | 終了したトピックへの書き込み（`comment`・`reply`・`answer`・`edit`・`delete`・`resolve`・`submit`・`attach`）が、`409` で拒否されること・`end` の再送は 200（F54） |
 | `shared/anchor.test.ts` | `findQuote`・`locateBlock`・`similarity`（コメントの探し直し） |
 | `shared/diff.test.ts` | `diffText`（元に戻せること・変更箇所・大きな入力）・`matchBlocks`（同じ・変更・追加・削除・種類の違い・区間の制約・空・重複） |
 | `server/progress.test.ts` | `progressOf`（空・解決・質問・送信済みと未送信の回答・別の質問への回答・AI 起点のスレッド）と、実際の操作の流れでの数 |
@@ -136,6 +137,7 @@ pnpm run test:e2e   # 実際の Chrome（Playwright。先に pnpm run build。�
 `pnpm run test:e2e`（ルートで。Playwright。`app/e2e/*.spec.ts`。件数は、手書きせず、`pnpm run test:e2e` の出力で確かめる：`shell`・`loop`・`select`・`region`・`panel`・`ask`・`versions`・`formats`・`security`・`links`・`same-line`・`theme`・`zoom`・`events`・`turn`・`htmlapp-bridge`・`notify`・`htmlapp-writeback`・`focus`・`compare`・`frame-meta`・`notify-topics` ほか）。**実際の Chrome**（headless）で、画面を、本物のマウス・キーで操作する。ブラウザは、ダウンロードしない。
 
 - 環境変数：**`RIKAI_CHROME`**（Chrome の実行ファイルの、**パス**。**e2e の実行に必要**：e2e は、実際の Chrome を使う。**なければ、一般的な場所**〔macOS の `/Applications/Google Chrome.app`・Linux は `PATH` 上の `google-chrome`・`google-chrome-stable`・`chromium`・`chromium-browser`〕**から探し、どれもなければ、skip**。ブラウザは、ダウンロードしない。**リポジトリに、個人のパス〔自分のホームの下の、特定の Chrome など〕を書かない**：自分の Chrome は、環境変数で渡す）・`RIKAI_CLI`（試す `rikai.js`。既定は、`skills/rikai/rikai.js`。画面は、その隣の `public/` から配られる。**先に `pnpm run build`**）。
+- 環境変数：**`RIKAI_IDLE_MS`**（サーバーが終わるまでの待ち〔ミリ秒〕。既定 10 分。**試験のためだけに、短くする**：`cli.test.ts` が、実プロセスで寿命を試すときに使う）。
 - 1 つのテストにつき、使い捨てのプロジェクトを `os.tmpdir()`（`mkdtemp`）に作り、サーバー（空きポート）を起こす。終わりに stop して消す（利用者の `.rikai/` には触れない）。**4 つの worker で、ファイル単位に並列**に流す（`playwright.config.ts` の `workers: 4`。1 つのファイルの中は順に。テストどうしは、状態を共有しない）。順に流したいときは `--workers=1`。各テストは、127.0.0.1 以外への通信が 0 件であることも確かめる。
 - 画面を変えたら流す（`workers: 4` で、約 160 秒〔3 回連続で、161・161・162 秒。担当の報告〕。`--workers=1` では、約 9 分）。自動テスト（jsdom）で試せない、選択・範囲・出方を守る。**足したテストは、実装を壊して、落ちることを、確かめる**。
 
@@ -148,7 +150,7 @@ pnpm run test:e2e   # 実際の Chrome（Playwright。先に pnpm run build。�
 
 ### コマンドを足す
 
-1. `app/src/cli/main.ts` の `main()` の `switch` に `case` を足す。引数の解釈は `app/src/cli/args.ts` の `parseArgs`（値を取るオプションは、そのまま〔`--名前 値`〕。値を取らないものだけ、`BOOLEAN_FLAGS`〔`no-open`・`help`・`version`〕に足す。`--force` は、誰も読んでいないので、なくした）。中身が検査や書き込みなら、`app/src/server/` に置く。
+1. `app/src/cli/main.ts` の `main()` の `switch` に `case` を足す。引数の解釈は `app/src/cli/args.ts` の `parseArgs`（値を取るオプションは、そのまま〔`--名前 値`〕。値を取らないものだけ、`BOOLEAN_FLAGS`〔`no-open`・`view`・`help`・`version`〕に足す。`--force` は、誰も読んでいないので、なくした）。中身が検査や書き込みなら、`app/src/server/` に置く。
 2. `app/src/cli/help.ts` の定数（`COMMANDS` ほか）に、コマンドの説明・オプション・例を足す（全体のヘルプと各コマンドのヘルプは、同じデータから描かれる。`cli.test.ts` が、`main.ts` の `case`・読む `flags` との一致を検査する）。
 3. 規則・検査は、コマンドの関数に置く（`main()` に書かない）。失敗は `HttpError` を投げる（`main()` が `{ok:false,errors}` と終了コード 1 にする）。
 4. `SKILL.md` の手順・`README.md` のコマンド表・`docs/development.md` の表を直す。

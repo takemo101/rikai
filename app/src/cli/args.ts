@@ -12,7 +12,7 @@ export interface ParsedArgs {
 }
 
 /** 値を取らないオプション（`--名前` だけ）。それ以外の `--名前` は、次の引数を値として取る */
-const BOOLEAN_FLAGS = new Set(['no-open', 'help', 'version']);
+const BOOLEAN_FLAGS = new Set(['no-open', 'view', 'help', 'version']);
 /** 短い形（値を取らない）：`-h` ＝ `--help`・`-v` ＝ `--version` */
 const SHORT_FLAGS: Record<string, string> = { '-h': 'help', '-v': 'version' };
 

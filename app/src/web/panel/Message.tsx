@@ -41,7 +41,7 @@ function UserMessage({ view, thread, m }: Omit<Props, 'seen'>) {
   const { edit, delete: remove } = useMutations();
   const slug = view.slug;
 
-  if (editing) {
+  if (editing && !view.readOnly) {
     const done = (): void => {
       setEditing(null);
       clearEditDraft(m.id);
@@ -86,7 +86,7 @@ function UserMessage({ view, thread, m }: Omit<Props, 'seen'>) {
           ))}
         </div>
       ) : null}
-      {m.sent ? null : (
+      {m.sent || view.readOnly ? null : (
         <div className="row meta">
           <button type="button" className="iconbtn" title="編集" aria-label="編集" onClick={() => setEditing(m.id)}>
             <Pencil aria-hidden="true" focusable="false" />
@@ -152,7 +152,7 @@ export function MessageView({ view, thread, m, seen }: Props) {
           <ArrowRight className="pc-a" aria-hidden="true" focusable="false" />
         </a>
       ) : null}
-      {hasAsk(m) ? <AskView slug={view.slug} thread={thread} q={m} /> : null}
+      {hasAsk(m) ? <AskView slug={view.slug} thread={thread} q={m} readOnly={view.readOnly} /> : null}
     </div>
   );
 }

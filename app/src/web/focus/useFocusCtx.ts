@@ -31,7 +31,7 @@ export interface FocusCtx {
   threads: Thread[];
   /** 範囲の枠（このブロックの範囲のコメント。入力中の対象が、このブロックの範囲なら、それも） */
   regions: RegionMark[];
-  /** コメントを付けられるか（最新版を見ている） */
+  /** コメントを付けられるか（最新版を見ていて、トピックが終了していない） */
   canComment: boolean;
 }
 
@@ -48,7 +48,7 @@ export function useFocusCtx(ref: FocusRef): FocusCtx {
   const block = model ? (resolveFocusBlock(model.blocks, ref)?.el ?? null) : null;
   const topicThreads = view?.topic.threads;
   const page = view?.page;
-  const canComment = !!view?.isLatest;
+  const canComment = !!view?.isLatest && !view.readOnly;
   const pendingRect =
     composer?.anchor.rect && composer.anchor.blockId === ref.id && composer.anchor.blockHash === ref.hash
       ? composer.anchor.rect

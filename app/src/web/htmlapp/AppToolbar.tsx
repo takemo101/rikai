@@ -87,8 +87,19 @@ export function ModeButton({ mode, onMode }: { mode: ResolvedTheme | null; onMod
   );
 }
 
-/** `onFocus`：「拡大表示」ボタン（F43）。本文の枠の見出しだけに付ける（拡大表示の中の枠には、付けない） */
-export function AppToolbar({ frame, onFocus }: { frame: AppFrame; onFocus?: (() => void) | undefined }) {
+/**
+ * `onFocus`：「拡大表示」ボタン（F43）。本文の枠の見出しだけに付ける（拡大表示の中の枠には、付けない）。
+ * `canPick`：「要素を選ぶ」ボタンを出すか（既定：出す）。コメントを付けられないとき（終了したトピック：F54）は、出さない
+ */
+export function AppToolbar({
+  frame,
+  onFocus,
+  canPick = true,
+}: {
+  frame: AppFrame;
+  onFocus?: (() => void) | undefined;
+  canPick?: boolean;
+}) {
   const state = useSyncExternalStore(frame.subscribe, frame.get);
   return (
     <>
@@ -106,23 +117,25 @@ export function AppToolbar({ frame, onFocus }: { frame: AppFrame; onFocus?: (() 
         </span>
         <ModeButton mode={state.mode} onMode={(m) => frame.setMode(m)} />
       </span>
-      <button
-        type="button"
-        className="tbtn"
-        data-pick
-        title={PICK_LABEL}
-        aria-label={PICK_LABEL}
-        aria-pressed={state.picking}
-        onClick={() => {
-          if (state.picking) return frame.cancelPick();
-          // 本文の「範囲を選ぶ」と「要素を選ぶ」は、同時に ON にしない（範囲の重ねが、枠を覆って、要素を押せなくなる）：あとから始めたほうが、前のほうを止める
-          if (useUi.getState().regMode === 'selecting') useUi.getState().setRegMode('idle');
-          frame.startPick();
-        }}
-      >
-        <Crosshair aria-hidden="true" focusable="false" />
-        要素を選ぶ
-      </button>
+      {canPick ? (
+        <button
+          type="button"
+          className="tbtn"
+          data-pick
+          title={PICK_LABEL}
+          aria-label={PICK_LABEL}
+          aria-pressed={state.picking}
+          onClick={() => {
+            if (state.picking) return frame.cancelPick();
+            // 本文の「範囲を選ぶ」と「要素を選ぶ」は、同時に ON にしない（範囲の重ねが、枠を覆って、要素を押せなくなる）：あとから始めたほうが、前のほうを止める
+            if (useUi.getState().regMode === 'selecting') useUi.getState().setRegMode('idle');
+            frame.startPick();
+          }}
+        >
+          <Crosshair aria-hidden="true" focusable="false" />
+          要素を選ぶ
+        </button>
+      ) : null}
       {onFocus ? (
         <button
           type="button"
@@ -145,8 +158,8 @@ export function AppToolbar({ frame, onFocus }: { frame: AppFrame; onFocus?: (() 
 }
 
 /** `host`（見出しの行の中の空の要素）に、ツールバーを載せる。外す（`releaseApps`）と、根も外れる（React の描画の最中に、外さないよう、あとで） */
-export function mountToolbar(host: HTMLElement, frame: AppFrame, onFocus?: () => void): void {
+export function mountToolbar(host: HTMLElement, frame: AppFrame, onFocus?: () => void, canPick = true): void {
   const root = createRoot(host);
-  root.render(<AppToolbar frame={frame} onFocus={onFocus} />);
+  root.render(<AppToolbar frame={frame} onFocus={onFocus} canPick={canPick} />);
   frame.onRelease(() => queueMicrotask(() => root.unmount()));
 }

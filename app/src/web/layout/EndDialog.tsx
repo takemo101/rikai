@@ -1,4 +1,4 @@
-// 「レビューを終了します」のダイアログ（`#enddlg`）。「終了する」で POST /api/end → 取り直すと、終了の表示（`#ended`）が出る。
+// 「レビューを終了します」のダイアログ（`#enddlg`）。「終了する」で POST /api/end → 取り直すと、同じ画面のまま、閲覧専用（上に帯〔`#closedbar`〕・書く入口がなくなる）になる（F54）。
 import { LogOut } from 'lucide-react';
 import { type SyntheticEvent, useRef } from 'react';
 import { useMutations } from '../api/mutations';

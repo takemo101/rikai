@@ -17,7 +17,8 @@ export function Interact({ view, scrollRef }: InteractProps) {
   const deps = useRegionDeps(); // 画像の保存（トピックを変えない操作）。いつも、最新の attach を呼ぶ
   const [scroller, setScroller] = useState<HTMLElement | null>(null);
   useEffect(() => setScroller(scrollRef.current), [scrollRef]);
-  const latest = !!view?.isLatest;
+  const latest = !!view?.isLatest && !view.readOnly; // コメントの入口：最新版で、トピックが開いているとき
+  const readOnly = !!view?.readOnly;
 
   const finish = (vr: Box): void => finishRegion(vr, deps);
 
@@ -36,7 +37,7 @@ export function Interact({ view, scrollRef }: InteractProps) {
 
   return (
     <>
-      <ActionBar scroller={scroller} latest={latest} />
+      <ActionBar scroller={scroller} latest={latest} readOnly={readOnly} />
       <RegionSelect scroller={scroller} enabled={latest} onFinish={finish} />
     </>
   );

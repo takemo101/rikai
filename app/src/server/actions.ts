@@ -18,6 +18,7 @@ import { IMG_MAX_N } from '../shared/image';
 import type {
   FrameMeta,
   Message,
+  Meta,
   Round,
   RoundItem,
   RoundMessage,
@@ -28,12 +29,21 @@ import type {
 import { normAnchor } from './anchor';
 import { normAnswer } from './ask';
 import { decodeImage, IMG_NAME_RE } from './image';
-import { isSupported, type Store } from './store';
+import { allTopicsClosed, type Store } from './store';
 import { HttpError, now, str, writeJSON } from './util';
 
-/** 全トピックが閉じたときの動き。既定は何もしない。サーバーのプロセス（rikai serve）が、終了の処理を入れる。テストでも差し替える */
+/** 全トピックが閉じたときの動き。既定は何もしない。サーバーのプロセス（rikai serve）が、「いつ終わるか」の待ちを始める処理を入れる（すぐには終わらない：閲覧が続く）。テストでも差し替える */
 export interface ActionHooks {
   allClosed?: () => void;
+}
+
+/** 終了したトピックは、閲覧専用（F54）：書き込みの操作は、すべてここで断る。ロックの下（mutate の中）で読んだ meta で決める（終了と、書き込みが、すれ違わない） */
+function assertOpen(meta: Meta): void {
+  if (meta.closed)
+    throw new HttpError(
+      409,
+      'このトピックはレビューを終了しています（閲覧専用）。書き込むには、rikai open で開き直してください',
+    );
 }
 
 function findThread(th: ThreadsFile, id: string): Thread {
@@ -103,6 +113,7 @@ export function createActions(store: Store, hooks: ActionHooks = {}) {
     attach(b: AttachBody): { name: string } {
       const { buf, name } = decodeImage(b.data);
       return mutate(b.topic, (meta) => {
+        assertOpen(meta);
         const file = path.join(tdir(meta.slug), 'assets', name);
         if (!fs.existsSync(file)) {
           fs.mkdirSync(path.dirname(file), { recursive: true }); // 空のフォルダは、git が持たない・手で消えることがある（submit の rounds/ と同じ）
@@ -115,6 +126,7 @@ export function createActions(store: Store, hooks: ActionHooks = {}) {
     },
     comment(b: CommentBody): { thread: string } {
       return mutate(b.topic, (meta, th) => {
+        assertOpen(meta);
         const pg = meta.pages[b.page];
         if (!pg) throw new HttpError(400, 'ページがありません');
         if (Number(b.version) !== pg.versions) throw new HttpError(400, '最新版にだけコメントできます');
@@ -150,6 +162,7 @@ export function createActions(store: Store, hooks: ActionHooks = {}) {
     },
     reply(b: ReplyBody): Record<string, never> {
       return mutate(b.topic, (meta, th) => {
+        assertOpen(meta);
         const t = findThread(th, b.thread);
         const text = str(b.text).trim();
         const images = normImages(meta.slug, b.images);
@@ -168,7 +181,8 @@ export function createActions(store: Store, hooks: ActionHooks = {}) {
       });
     },
     answer(b: AnswerBody): Record<string, never> {
-      return mutate(b.topic, (_meta, th) => {
+      return mutate(b.topic, (meta, th) => {
+        assertOpen(meta);
         const t = findThread(th, b.thread);
         const q = t.messages.find((m) => m.id === b.msg && m.author === 'ai' && m.ask);
         if (!q?.ask) throw new HttpError(404, '質問がありません');
@@ -197,7 +211,8 @@ export function createActions(store: Store, hooks: ActionHooks = {}) {
       });
     },
     edit(b: EditBody): Record<string, never> {
-      return mutate(b.topic, (_meta, th) => {
+      return mutate(b.topic, (meta, th) => {
+        assertOpen(meta);
         const t = findThread(th, b.thread);
         const m = findUnsentUserMsg(t, b.msg);
         if (m.kind === 'answer') throw new HttpError(400, '回答は選び直してください');
@@ -208,7 +223,8 @@ export function createActions(store: Store, hooks: ActionHooks = {}) {
       });
     },
     delete(b: DeleteBody): Record<string, never> {
-      return mutate(b.topic, (_meta, th) => {
+      return mutate(b.topic, (meta, th) => {
+        assertOpen(meta);
         const t = findThread(th, b.thread);
         const m = findUnsentUserMsg(t, b.msg);
         t.messages.splice(t.messages.indexOf(m), 1);
@@ -217,7 +233,8 @@ export function createActions(store: Store, hooks: ActionHooks = {}) {
       });
     },
     resolve(b: ResolveBody): Record<string, never> {
-      return mutate(b.topic, (_meta, th) => {
+      return mutate(b.topic, (meta, th) => {
+        assertOpen(meta);
         const t = findThread(th, b.thread);
         setResolved(t, !!b.resolved);
         return {};
@@ -225,6 +242,7 @@ export function createActions(store: Store, hooks: ActionHooks = {}) {
     },
     submit(b: SubmitBody): { round: number } {
       return mutate(b.topic, (meta, th) => {
+        assertOpen(meta);
         const compact = (m: Message): RoundMessage => compactMessage(m, path.join(tdir(meta.slug), 'assets'));
         const items: RoundItem[] = [];
         const files: Record<string, RoundPage> = {};
@@ -284,14 +302,7 @@ export function createActions(store: Store, hooks: ActionHooks = {}) {
         meta.closed = true;
         return {} as Record<string, never>;
       });
-      // 読めない形のトピックは、閉じられないので、数えない（数えると、サーバーが終わらない）
-      if (
-        store
-          .listTopics()
-          .filter(isSupported)
-          .every((t) => t.closed)
-      )
-        hooks.allClosed?.();
+      if (allTopicsClosed(store)) hooks.allClosed?.();
       return r;
     },
   };

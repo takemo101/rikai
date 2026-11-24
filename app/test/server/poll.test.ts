@@ -37,7 +37,15 @@ test('終了したら closed（未送信の数つき）。届いているもの�
   p.hooks.allClosed = () => {}; // 全部が閉じたときの合図は、ここでは要らない（p ごと、テストのたびに作り直す）
   p.actions.end({ topic: 'demo' });
   assert.deepEqual(p.agent.peek('demo'), { status: 'closed', unsent: 1 });
+  // 意図した変更（0.1.4・F54）：終了したトピックへの Submit は、断る（409）。旧は、終了してから送っても通った。
+  // 「届いているものは、closed より先に出す」は、送ってから終了した場合（開き直して、送り、終了）で確かめる
+  assert.throws(() => submit(p), /終了しています/);
+  p.store.mutate('demo', (m) => {
+    m.closed = false;
+    return {};
+  });
   submit(p);
+  p.actions.end({ topic: 'demo' });
   assert.equal(p.agent.peek('demo').status, 'feedback');
 });
 

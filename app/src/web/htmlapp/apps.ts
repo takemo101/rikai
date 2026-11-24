@@ -113,7 +113,7 @@ export function fillApps(container: ParentNode, ctx: AppsContext): void {
       if (cap && !cmp) {
         const tools = h('span', { class: 'apptools', role: 'group', 'aria-label': '枠の表示（幅・外観）' });
         cap.append(' ', tools);
-        mountToolbar(tools, frame, ctx.onFocus ? () => ctx.onFocus?.(box) : undefined);
+        mountToolbar(tools, frame, ctx.onFocus ? () => ctx.onFocus?.(box) : undefined, !view.readOnly);
       }
     } else {
       box.append(
@@ -124,7 +124,7 @@ export function fillApps(container: ParentNode, ctx: AppsContext): void {
       );
     }
     const onComment = ctx.onComment;
-    if (cap && view.isLatest && onComment && !ctx.compare)
+    if (cap && view.isLatest && !view.readOnly && onComment && !ctx.compare)
       cap.append(' ', h('button', { class: 'link', text: 'この枠にコメント', onclick: () => onComment(box) }));
     // 何が動くかを、見られるように（ソースは、文字として出す）。版が変わったときに、何が変わったか、確かめられる
     if (source)

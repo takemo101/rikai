@@ -285,7 +285,7 @@ export function ZoomView({
         ) : null}
         {tool === 'region' && canSelect ? <DragOverlay getBox={viewportBox} onSelect={onSelect} /> : null}
       </div>
-      {focus ? (
+      {focus && !ctx?.view?.readOnly ? (
         <div className="fv-tools" role="toolbar" aria-label="コメントの道具">
           <RangeTool
             enabled={canSelect}

@@ -34,48 +34,150 @@ test('rikai open が置く .server.json は、自分だけが読める権限（0
   }
 });
 
-test('rikai serve は、すべてのトピックが閉じたら、自分で終わる（終了の処理を、serve が取りつける）', async () => {
+// 意図した変更（0.1.4・F54）：旧「すべて閉じたら、800ms で自分で終わる」は、やめた（終了したトピックを、閲覧できる）。
+// いまは、すべて閉じて、かつ待ちの間（既定 10 分。試験では RIKAI_IDLE_MS で短く）リクエストがないときに、終わる。
+const IDLE_MS = 1500;
+const alive = (pid: number) => {
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch {
+    return false;
+  }
+};
+const waitDead = async (pid: number, ms: number) => {
+  for (let i = 0; i < ms / 100 && alive(pid); i++) await new Promise((r) => setTimeout(r, 100));
+  return !alive(pid);
+};
+const idleEnv = { NO_OPEN: '1', RIKAI_IDLE_MS: String(IDLE_MS) };
+const serverInfo = (root: string) =>
+  JSON.parse(fs.readFileSync(path.join(root, '.rikai', '.server.json'), 'utf8')) as ServerInfo;
+const post = (info: ServerInfo, name: string, topic: string) =>
+  fetch(`http://127.0.0.1:${info.port}/api/${name}`, {
+    method: 'POST',
+    headers: { 'x-rikai-token': info.token, 'content-type': 'application/json' },
+    body: JSON.stringify({ topic }),
+  });
+const killServer = (root: string, pid: number) => {
+  if (pid && alive(pid)) {
+    try {
+      process.kill(pid, 'SIGTERM');
+    } catch {
+      /* すでに終わっている */
+    }
+  }
+  fs.rmSync(root, { recursive: true, force: true });
+};
+
+test('rikai serve：すべて閉じても、すぐには終わらない（閲覧できる）。リクエストがあれば延びる。待ちの間、リクエストがなければ、終わる', async () => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'rikai-exit-'));
   const run = (...args: string[]) => runCli(root, args, '# 題\n');
-  const alive = (pid: number) => {
-    try {
-      process.kill(pid, 0);
-      return true;
-    } catch {
-      return false;
-    }
-  };
   let pid = 0;
   try {
     run('new', 'one', '--title', '一');
     run('new', 'two', '--title', '二');
-    run('open', 'one', '--no-open');
-    const info = JSON.parse(fs.readFileSync(path.join(root, '.rikai', '.server.json'), 'utf8')) as ServerInfo;
+    assert.equal(cliResult(root, ['open', 'one', '--no-open'], '', idleEnv).status, 0);
+    const info = serverInfo(root);
     pid = info.pid;
-    const end = (topic: string) =>
-      fetch(`http://127.0.0.1:${info.port}/api/end`, {
-        method: 'POST',
-        headers: { 'x-rikai-token': info.token, 'content-type': 'application/json' },
-        body: JSON.stringify({ topic }),
-      });
-    assert.equal((await end('one')).status, 200);
-    await new Promise((r) => setTimeout(r, 1500));
-    assert.equal(alive(pid), true, 'まだ開いているトピックがあるので、終わらない');
-    assert.equal((await end('two')).status, 200);
-    for (let i = 0; i < 50 && alive(pid); i++) await new Promise((r) => setTimeout(r, 100));
-    assert.equal(alive(pid), false, 'すべて閉じたら、サーバーのプロセスが終わる');
+    assert.equal((await post(info, 'end', 'one')).status, 200);
+    await new Promise((r) => setTimeout(r, 1000));
+    assert.equal(alive(pid), true, 'まだ開いているトピック（two）があるので、終わらない');
+    assert.equal((await post(info, 'end', 'two')).status, 200);
+    // すべて閉じた：旧は 800ms で終わった。いまは、リクエストが続く間、生きている（閲覧できる）
+    for (let i = 0; i < 4; i++) {
+      await new Promise((r) => setTimeout(r, 700));
+      assert.equal(
+        (await fetch(`http://127.0.0.1:${info.port}/api/topic/one`, { headers: { 'x-rikai-token': info.token } }))
+          .status,
+        200,
+      );
+      assert.equal(alive(pid), true, `閉じたあとも、閲覧できる（${i + 1} 回目）`);
+    }
+    assert.equal(await waitDead(pid, 6000), true, 'リクエストが止まって、待ちが過ぎると、サーバーのプロセスが終わる');
     assert.equal(fs.existsSync(path.join(root, '.rikai', '.server.json')), false, '.server.json も消える');
   } finally {
-    if (pid && alive(pid)) {
-      try {
-        process.kill(pid, 'SIGTERM');
-      } catch {
-        /* すでに終わっている */
-      }
-    }
-    fs.rmSync(root, { recursive: true, force: true });
+    killServer(root, pid);
   }
-});
+}, 40_000);
+
+test('rikai serve：待っている間に、開いているトピックができたら、終わらない（待ちが解ける）。また、すべて閉じると、待ちが始まる', async () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'rikai-exit-'));
+  const run = (...args: string[]) => runCli(root, args, '# 題\n');
+  let pid = 0;
+  try {
+    run('new', 'one', '--title', '一');
+    assert.equal(cliResult(root, ['open', 'one', '--no-open'], '', idleEnv).status, 0);
+    const info = serverInfo(root);
+    pid = info.pid;
+    assert.equal((await post(info, 'end', 'one')).status, 200);
+    run('new', 'three', '--title', '三'); // 開いているトピックができた
+    assert.equal(cliResult(root, ['open', 'three', '--no-open'], '', idleEnv).status, 0);
+    await new Promise((r) => setTimeout(r, IDLE_MS * 3));
+    assert.equal(alive(pid), true, '開いているトピックがある間は、待ちが過ぎても終わらない');
+    assert.equal((await post(info, 'end', 'three')).status, 200);
+    assert.equal(await waitDead(pid, 6000), true, 'すべて閉じて、リクエストがなければ、終わる');
+  } finally {
+    killServer(root, pid);
+  }
+}, 40_000);
+
+test('rikai serve：閉じたトピックだけで起動して（open --view）、誰も来なくても、ゾンビにならない（待ちが過ぎると終わる）', async () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'rikai-exit-'));
+  const run = (...args: string[]) => runCli(root, args, '# 題\n');
+  let pid = 0;
+  try {
+    run('new', 'one', '--title', '一');
+    run('open', 'one', '--no-open');
+    pid = serverInfo(root).pid;
+    run('stop'); // いったん止めて、閉じた状態で起動し直す
+    await waitDead(pid, 3000);
+    const meta = JSON.parse(fs.readFileSync(path.join(root, '.rikai', 'one', 'meta.json'), 'utf8'));
+    meta.closed = true;
+    fs.writeFileSync(path.join(root, '.rikai', 'one', 'meta.json'), JSON.stringify(meta));
+    assert.equal(cliResult(root, ['open', 'one', '--view', '--no-open'], '', idleEnv).status, 0);
+    pid = serverInfo(root).pid;
+    assert.equal(await waitDead(pid, 8000), true);
+  } finally {
+    killServer(root, pid);
+  }
+}, 40_000);
+
+test('open --view：終了したトピックを、開き直さずに見る（closed は変わらない）。--view なしの open は、これまでどおり開き直す', async () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'rikai-view-'));
+  const run = (...args: string[]) => runCli(root, args, '# 題\n');
+  const closedOf = () => JSON.parse(fs.readFileSync(path.join(root, '.rikai', 'one', 'meta.json'), 'utf8')).closed;
+  let pid = 0;
+  try {
+    run('new', 'one', '--title', '一');
+    const plain = JSON.parse(run('open', 'one', '--no-open')) as Record<string, unknown>;
+    const info = serverInfo(root);
+    pid = info.pid;
+    assert.equal((await post(info, 'end', 'one')).status, 200);
+    assert.equal(closedOf(), true);
+    assert.equal(JSON.parse(run('poll', 'one', '--timeout', '1')).status, 'closed');
+
+    const viewed = JSON.parse(run('open', 'one', '--view', '--no-open')) as Record<string, unknown>;
+    assert.equal(closedOf(), true, '--view は、終了のまま');
+    assert.deepEqual(Object.keys(viewed), Object.keys(plain), '出力の形は、これまでと同じ');
+    assert.match(viewed.url as string, /^http:\/\/127\.0\.0\.1:\d+\/\?t=[0-9a-f]+#\/one\/root$/);
+    assert.equal(JSON.parse(run('poll', 'one', '--timeout', '1')).status, 'closed', 'AI から見ても、終了のまま');
+    const topic = await fetch(`http://127.0.0.1:${info.port}/api/topic/one`, {
+      headers: { 'x-rikai-token': info.token },
+    });
+    assert.equal(((await topic.json()) as { meta: { closed: boolean } }).meta.closed, true);
+
+    run('open', 'one', '--no-open'); // フラグなし：開き直す
+    assert.equal(closedOf(), false);
+    run('open', 'one', '--view', '--no-open'); // 開いているトピックに付けても、開くだけ
+    assert.equal(closedOf(), false);
+    // 存在しないトピックは、失敗（--view でも）
+    const r = cliResult(root, ['open', 'nothing', '--view', '--no-open']);
+    assert.equal(r.status, 1);
+    assert.match(r.stdout, /トピックがありません/);
+  } finally {
+    killServer(root, pid);
+  }
+}, 40_000);
 
 // ---- 追加：移植で足した検査（CLI の入口：引数・出力・終了コード。サーバーを起こさない部分） ----
 
@@ -131,7 +233,7 @@ test('--help・-h・help・引数なしは、全体のヘルプを標準出力�
       /^rikai — 資料にコメントして AI と理解を深めるツール\n\n使い方: rikai <コマンド> \[オプション\]\n/,
     );
     for (const name of COMMAND_NAMES.filter((n) => n !== 'serve')) assert.match(text, new RegExp(`^  ${name}\\b`, 'm'));
-    for (const flag of ['--root', '--title', '--source', '--no-open', '--timeout', '--help', '--version'])
+    for (const flag of ['--root', '--title', '--source', '--no-open', '--view', '--timeout', '--help', '--version'])
       assert.ok(text.includes(flag), `${flag} が、オプションの一覧にない`);
     assert.ok(text.includes('43200'), '--timeout の既定（43200 秒＝12 時間）');
     assert.match(text, /rikai <コマンド> --help/);
@@ -161,7 +263,10 @@ test('コマンドごとのヘルプ：`<コマンド> --help`・`-h`・`help <�
     assert.match(poll, /--timeout <秒>.*43200 ＝ 12 時間/);
     for (const s of ['feedback', 'closed', 'timeout']) assert.ok(poll.includes(s), `poll の出力の status: ${s}`);
     assert.match(cliResult(root, ['pull', '--help']).stdout, /"none"/);
-    assert.match(cliResult(root, ['open', '--help']).stdout, /--no-open/);
+    const open = cliResult(root, ['open', '--help']).stdout;
+    assert.match(open, /--no-open/);
+    assert.match(open, /使い方: rikai open <topic> \[--view\] \[--no-open\]/);
+    assert.match(open, /--view .*終了したトピックを、開き直さずに/);
   });
 });
 
@@ -198,7 +303,7 @@ test('ヘルプの一覧は、main.ts が実際に振り分けるコマンドと
   for (const f of [main, read('cli', 'args.ts'), read('server', 'agent.ts')])
     for (const m of f.matchAll(/flags(?:\.(\w+)|\['([\w-]+)'\])/g)) flagsRead.add((m[1] ?? m[2]) as string);
   assert.ok(
-    ['root', 'title', 'source', 'no-open', 'timeout'].every((k) => flagsRead.has(k)),
+    ['root', 'title', 'source', 'no-open', 'view', 'timeout'].every((k) => flagsRead.has(k)),
     [...flagsRead].join(),
   );
   const top = topHelp(false);
