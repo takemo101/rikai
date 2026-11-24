@@ -5,7 +5,6 @@ import { App } from './App';
 import { queryClient } from './api/queryClient';
 import { loadUi } from './lib/storage';
 import { applyTheme } from './lib/theme';
-import './styles/index.css';
 import './styles/app.css';
 import './styles/connectors.css';
 

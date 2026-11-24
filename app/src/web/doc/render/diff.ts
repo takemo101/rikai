@@ -1,4 +1,4 @@
-// 前の版との差分（旧 app.js の `diffPlan`・`addDiff`・`diffBox`）。ブロックの対応づけと、文字の差分は、`shared/diff.ts`。
+// 前の版との差分。ブロックの対応づけと、文字の差分は、`shared/diff.ts`。
 import { type DiffOp, diffText, type MatchStatus, matchBlocks } from '../../../shared/diff';
 import { h } from '../../lib/dom';
 import type { BlockEl, DiffSummary } from '../../store/doc';

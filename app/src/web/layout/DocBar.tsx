@@ -1,12 +1,12 @@
 // 本文の上のバー（`#docbar`）：パンくず・版の選択・「並べて比べる」（F44）・「前の版からの変更を表示」・変更の数・凡例・「過去の版」の警告。
 // 版を並べて比べているときは、パンくずと、「並べて比べる」（押すと閉じる）だけ（版の選択・差分の表示は、比べる画面の中にある）。
+// 版が 1 つのページ（v1 だけ）では、「並べて比べる」を出さない（比べる相手がない：押せない顔のボタンを置かない）。
 import { ArrowRight, ChevronRight, Clock, Columns2, History } from 'lucide-react';
 import { Fragment, type RefObject, useEffect, useRef } from 'react';
-import { COMPARE_MIN_VERSIONS } from '../lib/compare';
 import { hrefOf, navigate } from '../lib/route';
 import type { View } from '../lib/view';
 import { useDoc } from '../store/doc';
-import { toast, useUi } from '../store/ui';
+import { useUi } from '../store/ui';
 
 export function DocBar({ view }: { view: View | null }) {
   const showChanges = useUi((s) => s.showChanges);
@@ -48,7 +48,7 @@ export function DocBar({ view }: { view: View | null }) {
       </nav>
       <div className="spacer" />
       {compare ? (
-        <CompareButton btn={compareBtn} open latest={latest} />
+        <CompareButton btn={compareBtn} open />
       ) : (
         <>
           {latest > 1 ? (
@@ -71,7 +71,7 @@ export function DocBar({ view }: { view: View | null }) {
                   ))}
                 </select>
               </span>
-              <CompareButton btn={compareBtn} open={false} latest={latest} />
+              <CompareButton btn={compareBtn} open={false} />
               {version > 1 ? (
                 <>
                   <label className="chk">
@@ -97,9 +97,7 @@ export function DocBar({ view }: { view: View | null }) {
                 </>
               ) : null}
             </>
-          ) : (
-            <CompareButton btn={compareBtn} open={false} latest={latest} />
-          )}
+          ) : null}
           {!view.isLatest ? (
             <>
               <span className="chip warn">
@@ -118,41 +116,23 @@ export function DocBar({ view }: { view: View | null }) {
   );
 }
 
-/** 「並べて比べる」（F44）。版が 1 つのページでは、押せない（`aria-disabled`：キーボードでも、読み上げでも、理由に届く。押すと、理由をトーストで）。開いている間は、押すと閉じる */
-function CompareButton({
-  btn,
-  open,
-  latest,
-}: {
-  btn: RefObject<HTMLButtonElement | null>;
-  open: boolean;
-  latest: number;
-}) {
-  const off = latest < COMPARE_MIN_VERSIONS;
-  const reason = '版が 2 つ以上になると、並べて比べられます（いまは v1 だけです）';
+/** 「並べて比べる」（F44）。開いている間は、押すと閉じる。版が 1 つのページには、置かない（呼ぶ側で出し分ける） */
+function CompareButton({ btn, open }: { btn: RefObject<HTMLButtonElement | null>; open: boolean }) {
   return (
     <button
       ref={btn}
       id="btn-compare"
       type="button"
-      className={`ghost${off ? ' off' : ''}`}
+      className="ghost"
       aria-pressed={open}
-      aria-disabled={off || undefined}
-      aria-describedby={off ? 'compare-reason' : undefined}
-      title={off ? reason : open ? '並べて比べるを閉じます（Esc）' : '版を左右に並べて、違いを見ます（読み取り専用）'}
+      title={open ? '並べて比べるを閉じます（Esc）' : '版を左右に並べて、違いを見ます（読み取り専用）'}
       onClick={() => {
-        if (off) toast(reason);
-        else if (open) useUi.getState().closeCompare();
+        if (open) useUi.getState().closeCompare();
         else useUi.getState().openCompare(document.getElementById('docscroll')?.scrollTop ?? 0); // 閉じたら、この位置へ戻す
       }}
     >
       <Columns2 aria-hidden="true" focusable="false" />
       並べて比べる
-      {off ? (
-        <span id="compare-reason" className="cmp-sr">
-          。{reason}
-        </span>
-      ) : null}
     </button>
   );
 }

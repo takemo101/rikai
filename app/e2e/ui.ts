@@ -137,3 +137,21 @@ export async function settled(page: Page) {
   await expect(ui(page).composer).not.toContainText('アップロード中');
   await page.evaluate(() => new Promise<void>((r) => requestAnimationFrame(() => requestAnimationFrame(() => r()))));
 }
+
+// html-app の「要素を選ぶ」：親が選択モードに入ったあと、枠の中が、それを知る（postMessage は非同期）前に、枠の中の要素を押すと、選択として扱われない（負荷が高いと起きる）。
+// 入力欄（`done`）が出るまで、押し直す（選択モードでない間の押下は、枠の中のページの click になるだけで、害はない）。
+export async function clickUntilPicked(target: Locator, done: Locator): Promise<void> {
+  await expect(async () => {
+    await target.click({ timeout: 3000 });
+    await expect(done).toBeVisible({ timeout: 2000 });
+  }).toPass({ timeout: 20_000 });
+}
+
+// 枠の中のボタンを押して、枠の中の数（`counter`）が `count` になるまで待つ。負荷が高いと、押しても、枠の中のハンドラーが付く前（または、枠が作り直される前）で、数が増えない：
+// 数が `count - 1` のときだけ、押し直す（押し過ぎで、`count` を超えない）。
+export async function clickToCount(button: Locator, counter: Locator, count: number): Promise<void> {
+  await expect(async () => {
+    if ((await counter.textContent({ timeout: 2000 })) === String(count - 1)) await button.click({ timeout: 2000 });
+    await expect(counter).toHaveText(String(count), { timeout: 2000 });
+  }).toPass({ timeout: 20_000 });
+}

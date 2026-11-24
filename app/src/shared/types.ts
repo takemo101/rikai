@@ -1,5 +1,5 @@
 // .rikai/ の JSON の形（meta.json・threads.json・rounds/NNN.json）。サーバー・CLI・画面が共有する。DOM・Node の API に触れない。
-// 旧実装（lib/store.js・actions.js・agent.js）が実際に書く形だけを書く。
+// サーバーの lib（store・actions・agent）が実際に書く形だけを書く。
 
 /** コメントの対象（本文の範囲）。画像・図の中の範囲は rect（基準ブロックに対する比率） */
 export interface Rect {

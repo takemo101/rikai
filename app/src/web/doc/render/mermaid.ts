@@ -1,4 +1,4 @@
-// Mermaid の図（旧 app.js の `fillMermaid`）。mermaid は、動的 import（別の chunk。図のない資料では、読まない）。
+// Mermaid の図。mermaid は、動的 import（別の chunk。図のない資料では、読まない）。
 // `securityLevel: 'strict'`。図のソースは、`data-mermaid` に、URI エンコードして持つ（DOMPurify が、属性を落とさないように）。
 import { $$, h } from '../../lib/dom';
 import { type ResolvedTheme, resolvedTheme } from '../../lib/theme';

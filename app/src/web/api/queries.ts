@@ -14,8 +14,6 @@ type TopicResponse = InferResponseType<(typeof api.api.topic)[':slug']['$get'], 
 
 /** 一覧の 1 件：読める形式（unsupported: false）か、読めない新しい形式（unsupported: true） */
 export type TopicSummary = TopicsResponse[number];
-/** 一覧の、読める形式の 1 件（理解の進み具合と、状態を持つ） */
-export type SupportedSummary = Extract<TopicSummary, { unsupported: false }>;
 /** トピックの状態。appframe は、このサーバーが、実行できる枠（/appframe）を配れること（古いサーバーを見分ける） */
 export type TopicState = Extract<TopicResponse, { meta: Meta }> & { meta: Meta; threads: Thread[] };
 
@@ -33,7 +31,7 @@ async function fetchTopic(slug: string, since: number | undefined): Promise<Topi
 }
 
 /**
- * トピックを取る。force なら since を付けない（操作のあと：旧 refreshTopic(true)）。
+ * トピックを取る。force なら since を付けない（操作のあと）。
  * 変わっていなければ、前のデータ（同じ参照）を返すので、読む側は、再描画しない
  */
 export async function loadTopic(client: QueryClient, slug: string, force: boolean): Promise<TopicState> {

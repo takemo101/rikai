@@ -1,5 +1,5 @@
 // 文の選択 → コメントの対象（アンカー）。範囲の名前（`regionLabel`）。
-// 本文の文字の数え方は、位置づけ（W1 の `applyHighlights`）と同じ：`textIndex` が、`.diffbox`・Mermaid・html-app の中の文字を除く（W1 の契約）。
+// 本文の文字の数え方は、位置づけ（`doc/render/highlights.ts` の `applyHighlights`）と同じ：`textIndex` が、`.diffbox`・Mermaid・html-app の中の文字を除く。
 import type { Anchor } from '../../shared/types';
 import { blockAnchor, boundaryOffset, elOf, textIndex } from '../doc/render/blocks';
 import { trunc } from '../lib/dom';
@@ -35,7 +35,7 @@ export function anchorFromSelection(article: HTMLElement, sel: Selection | null)
   return {
     blockId: blk?.dataset.bid ?? '',
     blockHash: blk?.dataset.bhash ?? '',
-    // blockTag・blockText は、旧と同じく、文の選択では持たない（探し直しは、quote と前後の文脈）
+    // blockTag・blockText は、文の選択では持たない（探し直しは、quote と前後の文脈）
     blockTag: '',
     blockText: '',
     quote: idx.text.slice(s, e),

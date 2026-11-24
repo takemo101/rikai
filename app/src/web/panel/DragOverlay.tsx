@@ -4,6 +4,7 @@
 import { type PointerEvent, useRef, useState } from 'react';
 import { clampToBox, type DragSelection, dragSelection, type Pt } from '../interact/focusGeom';
 import type { Box } from '../interact/geometry';
+import { RANGE_TOO_SMALL } from '../lib/messages';
 import { toast, useUi } from '../store/ui';
 
 interface Props {
@@ -49,7 +50,7 @@ export function DragOverlay({ getBox, onSelect }: Props) {
     const box = getBox();
     const sel = box ? dragSelection(d.a, point(e), box) : null;
     if (!sel) {
-      toast('範囲が小さすぎます。ドラッグで、範囲を選んでください', true);
+      toast(RANGE_TOO_SMALL, true);
       return;
     }
     onSelect(sel);

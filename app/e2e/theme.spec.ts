@@ -3,7 +3,7 @@
 // 既存の e2e は、ライト（Playwright の既定の colorScheme: 'light'）で、そのまま通る。
 import type { Page } from '@playwright/test';
 import { expect, test } from './fixtures';
-import { addTextComment, dragSelect, ui } from './ui';
+import { addTextComment, clickUntilPicked, dragSelect, ui } from './ui';
 
 const BT = '```';
 const DOC = `# 外観の確認
@@ -155,7 +155,10 @@ test.describe('外観のモード（F36）', () => {
     app,
   }) => {
     await app.switchTopic(page, 'th', '外観', DOC);
-    await expect(themeBtn(page)).toHaveAttribute('aria-label', '外観：システム（自動）。押すと、ライトにします');
+    await expect(themeBtn(page)).toHaveAttribute(
+      'aria-label',
+      '外観：システム（自動）。いまはライト。押すと、ライトにします',
+    );
     expect(await stored(page)).toBeUndefined(); // 何も選んでいない
     await page.emulateMedia({ colorScheme: 'light' });
     await expectLight(page);
@@ -163,6 +166,11 @@ test.describe('外観のモード（F36）', () => {
     await expectDark(page);
     expect((await colors(page)).attr).toBeNull();
     expect((await colors(page)).scheme).toContain('dark');
+    // OS の外観が変わると、ボタンの名前の「いまは…」も追従する（絵は、モニターのままで、ライトかダークか分からないため）
+    await expect(themeBtn(page)).toHaveAttribute(
+      'aria-label',
+      '外観：システム（自動）。いまはダーク。押すと、ライトにします',
+    );
     await page.emulateMedia({ colorScheme: 'light' });
     await expectLight(page);
   });
@@ -195,7 +203,10 @@ test.describe('外観のモード（F36）', () => {
     expect((await colors(page)).attr).toBe('dark');
     // system に戻すと、OS（ライト）に追従する。OS を変えると、また追従する
     await themeBtn(page).click();
-    await expect(themeBtn(page)).toHaveAttribute('aria-label', '外観：システム（自動）。押すと、ライトにします');
+    await expect(themeBtn(page)).toHaveAttribute(
+      'aria-label',
+      '外観：システム（自動）。いまはライト。押すと、ライトにします',
+    );
     expect((await colors(page)).attr).toBeNull();
     await expectLight(page);
     await page.emulateMedia({ colorScheme: 'dark' });
@@ -386,7 +397,10 @@ test.describe('外観のモード（F36）', () => {
     await page.waitForTimeout(1500);
     const cap = page.locator('#article .htmlapp .cap').first();
     await cap.locator('button[data-pick]').click();
-    await page.frameLocator('#article iframe.appframe').locator('#go').click();
+    await clickUntilPicked(
+      page.frameLocator('#article iframe.appframe').locator('#go'),
+      ui(page).composer.locator('.framemeta'),
+    );
     const row = ui(page).composer.locator('.framemeta');
     await expect(row).toBeVisible();
     await auditBoth(page, '下書きの情報の行（閉じた）');
@@ -443,7 +457,7 @@ test.describe('外観のモード（F36）', () => {
     }) => {
       // 図の部品（別の chunk）の読み込みを遅らせて、描画を、長引かせる
       await page.route('**/assets/*.js', async (route) => {
-        if (/index-|theme-init/.test(route.request().url())) return route.continue();
+        if (/\/assets\/(index|theme-init)\.js/.test(route.request().url())) return route.continue();
         await new Promise((r) => setTimeout(r, 200));
         return route.continue();
       });
@@ -510,7 +524,7 @@ test.describe('外観のモード（F36）', () => {
       };
       requestAnimationFrame(tick);
     });
-    await page.route('**/assets/index-*.js', async (route) => {
+    await page.route('**/assets/index.js', async (route) => {
       await new Promise((r) => setTimeout(r, 1500)); // 画面の本体（モジュール）を、遅らせる
       await route.continue();
     });
@@ -649,25 +663,34 @@ test.describe('外観のモード（F36）', () => {
       },
       { topic: 'tm' },
     );
+    // 本文は、スレッドが届いたとき・入力欄を開いたときに、描き直される。要素を取ってから評価するまでの間に、その要素が外れる（detached）と、getComputedStyle は、空の文字列を返す
+    // （色が空 → rgbOf が NaN → コントラスト比が NaN）。色が読めるまで（要素が、いまの本文に付いているものになるまで）、読み直す
+    const readStyle = async <T extends Record<string, string>>(
+      selector: string,
+      read: (e: Element) => T,
+    ): Promise<T> => {
+      let got: T | null = null;
+      await expect
+        .poll(async () => {
+          got = await page.locator(selector).first().evaluate(read);
+          return Object.values(got).every((v) => v !== '' && !v.startsWith(' '));
+        })
+        .toBe(true);
+      return got as unknown as T;
+    };
     const mark = (cls: string) =>
-      page
-        .locator(`#article .fmt-term mark.hl.${cls}`)
-        .first()
-        .evaluate((e) => {
-          const cs = getComputedStyle(e);
-          return {
-            bg: cs.backgroundColor,
-            color: cs.color,
-            shadow: cs.boxShadow,
-            outline: `${cs.outlineStyle} ${cs.outlineColor}`,
-          };
-        });
+      readStyle(`#article .fmt-term mark.hl.${cls}`, (e) => {
+        const cs = getComputedStyle(e);
+        return {
+          bg: cs.backgroundColor,
+          color: cs.color,
+          shadow: cs.boxShadow,
+          outline: `${cs.outlineStyle} ${cs.outlineColor}`,
+        };
+      });
     const alpha = (c: string) => Number((c.match(/[\d.]+/g) ?? [])[3] ?? 1);
     const ratio = (a: Rgb, b: Rgb) => (Math.max(lum(a), lum(b)) + 0.05) / (Math.min(lum(a), lum(b)) + 0.05);
-    const termBg = await page
-      .locator('#article .fmt-term')
-      .first()
-      .evaluate((e) => getComputedStyle(e).backgroundColor);
+    const { bg: termBg } = await readStyle('#article .fmt-term', (e) => ({ bg: getComputedStyle(e).backgroundColor }));
     for (const scheme of BOTH) {
       await page.emulateMedia({ colorScheme: scheme });
       // 未解決：不透明な琥珀に、暗い文字

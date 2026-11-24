@@ -56,7 +56,7 @@ skills/rikai/
   public/              画面のビルド出力（Vite。`app/src/web/` から生成。コミットする。手で編集しない）
     index.html         画面の入口
     favicon.svg
-    assets/            ハッシュつきの JS・CSS（Mermaid の図の種類ごとの chunk を含む）
+    assets/            ハッシュなしの名前の JS・CSS（Mermaid の図の種類ごとの chunk を含む）
     THIRD-PARTY-LICENSES.txt  画面のバンドルに入った依存のライセンス（ビルドで生成）
 docs/
   README.md            この索引

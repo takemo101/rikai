@@ -1,9 +1,11 @@
-// このブラウザの localStorage に覚えるもの：`rikai-seen`（見た AI のメッセージの ID）・`rikai-ui`（左の一覧の開閉・右の幅・関連の線の表示・外観のモード）。
-// サーバーには送らない（資料・コメントとは別）。壊れていたら既定のまま・保存できなくても使える（旧 app.js と同じ）。
+// このブラウザの localStorage に覚えるもの：`rikai-seen`（見た AI のメッセージの ID）・`rikai-ui`（左の一覧の開閉・右の幅・関連の線の表示・外観のモード）・`rikai-send-hint`（送信後の案内を、見せたか）。
+// サーバーには送らない（資料・コメントとは別）。壊れていたら既定のまま・保存できなくても使える。
 import { DEFAULT_THEME, parseTheme, type ThemeMode } from './theme';
 
 export const SEEN_KEY = 'rikai-seen';
 export const UI_KEY = 'rikai-ui';
+/** 「Claude Code 以外は…」の案内を、もう見せたか（初めての送信のあとの待ちだけ、見える文字で出す） */
+export const SEND_HINT_KEY = 'rikai-send-hint';
 /** 覚える ID の数（新しいほうから） */
 export const SEEN_MAX = 2000;
 
@@ -41,6 +43,22 @@ export function saveSeen(seen: ReadonlySet<string>): void {
     localStorage.setItem(SEEN_KEY, JSON.stringify([...seen].slice(-SEEN_MAX)));
   } catch {
     // 保存できなくても、使える
+  }
+}
+
+export function loadSendHintSeen(): boolean {
+  try {
+    return localStorage.getItem(SEND_HINT_KEY) === '1';
+  } catch {
+    return false;
+  }
+}
+
+export function saveSendHintSeen(): void {
+  try {
+    localStorage.setItem(SEND_HINT_KEY, '1');
+  } catch {
+    // 保存できなくても、使える（毎回、出るだけ）
   }
 }
 

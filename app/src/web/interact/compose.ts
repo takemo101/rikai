@@ -1,4 +1,4 @@
-// 入力欄（新しいコメント）を開く：対象を入れ、入力欄にフォーカスを移し、本文の選択を外す（旧 `startComposer`）。
+// 入力欄（新しいコメント）を開く：対象を入れ、入力欄にフォーカスを移し、本文の選択を外す。
 import type { Anchor, FrameMeta } from '../../shared/types';
 import { type ComposerState, useUi } from '../store/ui';
 

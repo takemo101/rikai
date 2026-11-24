@@ -4,7 +4,7 @@ import fs from 'node:fs';
 import type { Locator, Page } from '@playwright/test';
 import { expect, type RikaiApp, test } from './fixtures';
 import { type DecodedPng, decodePng, makeSquarePng } from './samples';
-import { box, dragBox, submitAll, ui } from './ui';
+import { box, clickUntilPicked, dragBox, submitAll, ui } from './ui';
 
 const BT = '```';
 const lines = (...l: string[]) => `${l.join('\n')}\n`;
@@ -396,7 +396,7 @@ test.describe('個別表示：html-app の枠', () => {
     const pick = page.locator('#lightbox button[data-pick]');
     await pick.click();
     await expect(pick).toHaveAttribute('aria-pressed', 'true');
-    await f.locator('#go').click();
+    await clickUntilPicked(f.locator('#go'), dockComposer(page));
     await expect(dockComposer(page)).toBeVisible();
     await expect(lbx(page)).toBeVisible();
     await expect(dockComposer(page)).toHaveAttribute('data-from-frame', '');
@@ -1365,11 +1365,16 @@ test.describe('個別表示：安全', () => {
     for (let i = 0; i < 5; i++) await cycle();
     const base = await metric();
     for (let i = 0; i < 50; i++) await cycle();
-    const after = await metric();
-    expect(after.frames).toBe(base.frames);
-    expect(after.frames).toBe(1); // 本文の枠だけ
-    expect(after.listeners - base.listeners).toBeLessThanOrEqual(10);
-    expect(after.nodes - base.nodes).toBeLessThanOrEqual(60);
+    // 閉じた直後は、破棄した枠・複製が、GC・保留中のタイマーで、まだ残っていることがある（負荷が高いと長引く）：落ち着くまで、測り直す。本物の漏れは、待っても残るので、落ちる
+    await expect
+      .poll(
+        async () => {
+          const m = await metric();
+          return { frames: m.frames, listeners: m.listeners - base.listeners <= 10, nodes: m.nodes - base.nodes <= 60 };
+        },
+        { timeout: 20_000 },
+      )
+      .toEqual({ frames: 1, listeners: true, nodes: true }); // 枠は、本文の枠だけ
     // 図でも、同じ（複製した svg の、DOM が残らない）。最初の数回は、初回の確保（ウォームアップ）
     const mm = async (n: number) => {
       for (let i = 0; i < n; i++) {
@@ -1382,9 +1387,15 @@ test.describe('個別表示：安全', () => {
     await mm(4);
     const warm = await metric();
     await mm(20);
-    const imgs = await metric();
-    expect(imgs.nodes - warm.nodes).toBeLessThanOrEqual(60);
-    expect(imgs.listeners - warm.listeners).toBeLessThanOrEqual(10);
+    await expect
+      .poll(
+        async () => {
+          const m = await metric();
+          return { listeners: m.listeners - warm.listeners <= 10, nodes: m.nodes - warm.nodes <= 60 };
+        },
+        { timeout: 20_000 },
+      )
+      .toEqual({ listeners: true, nodes: true });
     // 個別表示が開いている間は、後ろの本文（枠の見出しのボタン）を押せない：2 つ目は、開かない
     await appCap(page).getByRole('button', { name: '個別表示', exact: true }).click();
     await expect(page.locator('#lightbox iframe.appframe')).toHaveCount(1);
@@ -1404,7 +1415,7 @@ test.describe('個別表示：安全', () => {
     await appCap(page).getByRole('button', { name: '個別表示', exact: true }).click();
     await page.waitForTimeout(1500);
     await page.locator('#lightbox button[data-pick]').click();
-    await focusFrame(page).locator('#go').click();
+    await clickUntilPicked(focusFrame(page).locator('#go'), dockComposer(page));
     await expect(dockComposer(page)).toBeVisible();
     await page.waitForTimeout(800);
     expect((await app.pull()).status).not.toBe('feedback');

@@ -1,7 +1,7 @@
 // 範囲の枠の調整（F31）：入力中の範囲の枠を、ドラッグで動かし・角と辺で大きさを変える。
-// 枠の DOM（`.regionbox.pending` と `.rh`）と、ドラッグのロジックは、W1（overlay/）。離したときに、調整後の矩形を、`regionAdjustTarget` のイベントで、W3 へ渡す。
+// 枠の DOM（`.regionbox.pending` と `.rh`）と、ドラッグのロジックは、`overlay/`。離したときに、調整後の矩形を、`regionAdjustTarget` のイベントで、`interact/` へ渡す。
 //
-// W3 の使い方：
+// 受け取る側（`interact/`）の使い方：
 //   regionAdjustTarget.addEventListener('adjust', (e) => finishRegion((e as AdjustEvent).detail));
 // `detail` は、ビューポートの座標（`getBoundingClientRect` と同じ系）の矩形。`finishRegion(vr)` と同じ形。
 // 離したときだけ送る（Esc・pointercancel で、やめたときは、送らない）。

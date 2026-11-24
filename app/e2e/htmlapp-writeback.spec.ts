@@ -2,7 +2,7 @@
 // 実際の Chrome・本物の枠（iframe）で確かめる。資料は、作り物。
 import type { Locator, Page } from '@playwright/test';
 import { expect, test } from './fixtures';
-import { addTextComment, box, hoverBlock, submitAll, ui } from './ui';
+import { addTextComment, box, clickUntilPicked, hoverBlock, submitAll, ui } from './ui';
 
 const BT = '```';
 const lines = (...l: string[]) => `${l.join('\n')}\n`;
@@ -58,7 +58,7 @@ test.describe('要素を選んでコメント', () => {
     await expect(pick).toHaveAttribute('aria-pressed', 'true');
     await expect(capOf(page).locator('[role="status"]')).toHaveText('枠の中で、要素を押してください（Esc で中止）');
     // 本物のマウスで、枠の中のボタンを押す（選択モードの間は、ボタンに届かない）
-    await f.locator('#go').click();
+    await clickUntilPicked(f.locator('#go'), ui(page).composer);
     const u = ui(page);
     await expect(u.composer).toBeVisible();
     await expect(u.composer).toHaveAttribute('data-from-frame', '');
@@ -214,7 +214,7 @@ test.describe('要素を選んでコメント', () => {
     await app.switchTopic(page, 'rm', '外す', `# 題\n\n${APP()}\n`);
     await page.waitForTimeout(1500);
     await capOf(page).locator('button[data-pick]').click();
-    await frameOf(page).locator('#go').click();
+    await clickUntilPicked(frameOf(page).locator('#go'), ui(page).composer.locator('.framemeta'));
     const u = ui(page);
     await expect(u.composer.locator('.framemeta')).toBeVisible();
     await u.composer.locator('textarea').fill('一言');
@@ -244,7 +244,7 @@ test.describe('要素を選んでコメント', () => {
     await page.waitForTimeout(1500);
     const u = ui(page);
     await capOf(page).locator('button[data-pick]').click();
-    await frameOf(page).locator('#go').click();
+    await clickUntilPicked(frameOf(page).locator('#go'), ui(page).composer.locator('.fm-sum'));
     await expect(u.composer.locator('.fm-sum')).toContainText('（button・');
     await u.composer.locator('textarea').fill('書きかけ');
     await capOf(page).locator('button[data-pick]').click();
@@ -673,7 +673,7 @@ test.describe('枠が決めた文字：見えない文字は、見える形に�
     await page.waitForTimeout(1500);
     await settleState(page);
     await capOf(page).locator('button[data-pick]').click();
-    await frameOf(page).locator('#b').click();
+    await clickUntilPicked(frameOf(page).locator('#b'), ui(page).composer);
     await expect(ui(page).composer).toBeVisible();
     const body = await openRow(rowOf(ui(page).composer));
     const shown = (await body.textContent()) ?? '';
@@ -727,7 +727,7 @@ test.describe('枠が決めた文字：見えない文字は、見える形に�
     await page.waitForTimeout(1500);
     await settleState(page);
     await capOf(page).locator('button[data-pick]').click();
-    await frameOf(page).locator('#b').click();
+    await clickUntilPicked(frameOf(page).locator('#b'), ui(page).composer);
     await expect(ui(page).composer).toBeVisible();
     const body = await openRow(rowOf(ui(page).composer));
     const shown = (await body.textContent()) ?? '';
@@ -877,7 +877,7 @@ test.describe('「枠から」の札の偽造', () => {
     await expect(ui(page).threads.first().locator('.framemeta')).toHaveCount(0);
     // 本物の pick：札が付く（frameMeta による。本文の見出しの行ではない）
     await capOf(page).locator('button[data-pick]').click();
-    await frameOf(page).locator('#go').click();
+    await clickUntilPicked(frameOf(page).locator('#go'), ui(page).composer);
     await expect(ui(page).composer).toHaveAttribute('data-from-frame', '');
     await expect(ui(page).composer.locator('.fromframe')).toHaveText('枠から');
     await ui(page).composer.locator('textarea').fill('これは枠の中のボタンのこと');
@@ -902,7 +902,7 @@ test.describe('「枠から」の札の偽造', () => {
     await expect(ui(page).threads.first().locator('.msg.user .body')).toContainText('【枠から】要素を選びました');
     // 新しい形（frameMeta あり）の本文には、見出しの行が、いまは、入らない（本文は、利用者の言葉）
     await capOf(page).locator('button[data-pick]').click();
-    await frameOf(page).locator('#go').click();
+    await clickUntilPicked(frameOf(page).locator('#go'), ui(page).composer);
     await ui(page).composer.locator('textarea').fill('枠のボタンへ');
     await ui(page).composer.getByRole('button', { name: 'コメントを追加' }).click();
     await expect(ui(page).threads).toHaveCount(2);

@@ -15,7 +15,7 @@ export function Resizer() {
   const { w, min, max } = usePanelGeometry();
   const [drag, setDrag] = useState(false);
 
-  // ドラッグの間、全体を、選択できない・左右リサイズのカーソルにする（旧 body.resizing）
+  // ドラッグの間、全体を、選択できない・左右リサイズのカーソルにする（body.resizing）
   useEffect(() => {
     document.body.classList.toggle('resizing', drag);
     return () => document.body.classList.remove('resizing');

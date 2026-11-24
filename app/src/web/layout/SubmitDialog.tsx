@@ -1,5 +1,5 @@
 // 「AI に送信」のダイアログ（`#submitdlg`）。未送信の件数と、全体へのメモ（任意）。「送信する」で POST /api/submit → 「第N回として送信しました」。
-// キャンセルしても、メモは残す（旧と同じ）。送信できたら、メモを空にする。
+// キャンセルしても、メモは残す。送信できたら、メモを空にする。
 import { Send } from 'lucide-react';
 import { type SyntheticEvent, useRef, useState } from 'react';
 import { useMutations } from '../api/mutations';

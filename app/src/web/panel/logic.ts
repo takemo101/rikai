@@ -1,4 +1,4 @@
-// 右のパネルの、純粋な判定（React・ストアに触れない）。旧 app.js の threadStatus・askDraftValid・askStale・renderThread の折りたたみ・composerSlot・renderDoneRow・画像の検査と同じ。
+// 右のパネルの、純粋な判定（React・ストアに触れない）：threadStatus・askDraftValid・askStale・折りたたみ・composerSlot・renderDoneRow・画像の検査。
 import { answerOf, askStale } from '../../shared/fresh';
 import type { Ask, Message, Thread } from '../../shared/types';
 import { trunc } from '../lib/dom';

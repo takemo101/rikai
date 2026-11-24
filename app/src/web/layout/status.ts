@@ -1,4 +1,4 @@
-// サーバーとの接続の状態（旧 `S.offline`・`S.error`）。取得の失敗から、導く。
+// サーバーとの接続の状態（offline・error）。取得の失敗から、導く。
 // 接続できない（fetch の失敗。status がない）と、サーバーが答えたエラー（status がある）は、別の状態として見せる。
 import { ApiError } from '../api/client';
 

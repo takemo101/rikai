@@ -4,7 +4,7 @@
 // 「対応を示す」資料：`var(--color-…)`・`<meta name="color-scheme">`・`data-theme` のどれかを、中身に含む（shared/htmlapp-theme.ts）。含まない資料は、従来（Before）と同じ
 import type { Locator, Page } from '@playwright/test';
 import { expect, test } from './fixtures';
-import { ui } from './ui';
+import { clickToCount, ui } from './ui';
 
 const BT = '```';
 const lines = (...l: string[]) => `${l.join('\n')}\n`;
@@ -489,8 +489,8 @@ test.describe('配色の供給（ダーク追従）と、枠のライト/ダー�
     await expect(frame).toHaveAttribute('src', /\?mode=dark$/);
     await expect.poll(() => frameCss(page, 0, 'body', 'background-color')).toBe('rgb(9, 9, 11)');
     expect(await frameCss(page, 0, 'body', 'color')).toBe('rgb(250, 250, 250)');
-    await f.locator('#inc').click();
-    await f.locator('#inc').click();
+    await clickToCount(f.locator('#inc'), f.locator('#count'), 1);
+    await clickToCount(f.locator('#inc'), f.locator('#count'), 2);
     await expect(f.locator('#count')).toHaveText('2');
     const handle = await frame.elementHandle();
     // 画面の外観を、切り替える（system[ダーク] → light）

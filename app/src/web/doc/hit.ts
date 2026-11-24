@@ -1,4 +1,4 @@
-// 本文の上のマウスが、どのコメントを指しているか（旧 app.js の `regionTidAt`・`articleTid`）。W3 の hoverLink も使う。
+// 本文の上のマウスが、どのコメントを指しているか（`regionTidAt`・`articleTid`）。`interact/hoverLink.ts` も使う。
 import { $, $$ } from '../lib/dom';
 import type { DocModel } from '../store/doc';
 

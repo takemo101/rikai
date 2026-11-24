@@ -143,6 +143,26 @@ export function turnStateName(t: Turn): string {
   }
 }
 
+/**
+ * Submit が押せない理由（押せるときは null）。上のバーの Submit の `title`・読み上げの説明に出す（押せない顔だけで、理由を言わないままにしない）。
+ * 理由は、状態の判定（上の `Turn`）から導く：終了・未送信なし（AI の返信待ち／コメントなし／ほかの状態）。
+ */
+export function submitOffReason(turn: Turn | null): string | null {
+  if (!turn) return '開いているトピックがありません';
+  switch (turn.kind) {
+    case 'unsent':
+      return null;
+    case 'closed':
+      return 'このトピックは、終了しています';
+    case 'waiting-ai':
+      return 'AI の返信を待っています（送るものは、ありません）';
+    case 'empty':
+      return '送るものがありません。本文の文を選んで、コメントを書くと、送れます';
+    default:
+      return '未送信のものがありません。コメント・返信・回答・解決を書くと、送れます';
+  }
+}
+
 /** 押したときの、行き先：AI の新着返信のあるスレッド → 未回答の質問のあるスレッド → 最初の未解決のスレッド（上から順。「未解決」だけの状態は、最初の未解決）。なければ null */
 export function firstTarget(threads: readonly Thread[], seen: ReadonlySet<string>): Thread | null {
   const open = threads.filter((t) => !t.resolved);

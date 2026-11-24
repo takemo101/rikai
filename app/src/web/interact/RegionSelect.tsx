@@ -4,7 +4,9 @@
 import { SquareDashed } from 'lucide-react';
 import { type PointerEvent, useCallback, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
+import { cancelAllPicks } from '../doc/appBridge';
 import { $ } from '../lib/dom';
+import { RANGE_TOO_SMALL } from '../lib/messages';
 import { toast, useUi } from '../store/ui';
 import { type Box, type DragRect, dragRect, dragTooSmall, toViewport, type ViewportRect } from './geometry';
 
@@ -81,6 +83,7 @@ export function RegionSelect({ scroller, enabled, onFinish }: Props) {
     getSelection()?.removeAllRanges();
     from.current = null;
     setBox(null);
+    cancelAllPicks(); // 「要素を選ぶ」と同時に ON にしない（範囲の重ねが、枠を覆うため）：あとから始めたほうが、前のほうを止める
     useUi.getState().setRegMode('selecting');
   };
 
@@ -102,7 +105,7 @@ export function RegionSelect({ scroller, enabled, onFinish }: Props) {
     const q = dragRect(r, from.current, e.clientX, e.clientY);
     cancel();
     if (dragTooSmall(q)) {
-      toast('範囲が小さすぎます。ドラッグで、範囲を選んでください', true);
+      toast(RANGE_TOO_SMALL, true);
       return;
     }
     onFinish(toViewport(r, q));
@@ -126,7 +129,7 @@ export function RegionSelect({ scroller, enabled, onFinish }: Props) {
       </button>
       {scroller
         ? createPortal(
-            // biome-ignore lint/a11y/useAriaPropsSupportedByRole: 旧と同じ DOM（aria-label を残す）
+            // biome-ignore lint/a11y/useAriaPropsSupportedByRole: 既存の DOM（aria-label を残す）
             <div
               id="regsel"
               ref={selEl}

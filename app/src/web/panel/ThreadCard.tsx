@@ -16,7 +16,6 @@ import { type ReactNode, useRef } from 'react';
 import { isLegacyFromFrame } from '../../shared/htmlapp-bridge';
 import type { Thread } from '../../shared/types';
 import { useMutations } from '../api/mutations';
-import { trunc } from '../lib/dom';
 import type { View } from '../lib/view';
 import type { DocModel } from '../store/doc';
 import { useUi } from '../store/ui';
@@ -26,6 +25,7 @@ import { AttachButton, ImageBar } from './ImageBar';
 import { foldMessages, quoteOf, threadStatus } from './logic';
 import { MessageView } from './Message';
 import { usePanel } from './panelContext';
+import { Quote } from './Quote';
 import { useDraftImgs, useImageAttach } from './useImageAttach';
 
 interface Props {
@@ -36,7 +36,7 @@ interface Props {
   /** 本文の位置・番号・近似（見つかっているとき。別のページの古いものは、渡さない） */
   model: DocModel | null;
   /**
-   * 折りたたみと、発言の「新着」の印（●）に使う、見たものの一覧。**パネルを描き直したときの値**（旧と同じ）：
+   * 折りたたみと、発言の「新着」の印（●）に使う、見たものの一覧。**パネルを描き直したときの値**：
    * カードを押して、見たことになっても、いま読んでいる発言が、すぐには、たたまれない。次に、パネルが描き直されるとき（切り替え・1 枚だけ見る・データの更新）に、反映される
    */
   seen: ReadonlySet<string>;
@@ -58,7 +58,7 @@ export function ThreadCard({ view, thread: t, full = false, model, seen, editing
   const { focusThread } = usePanel();
   const active = useUi((s) => s.active === t.id);
   const linked = useUi((s) => s.linkedTid === t.id);
-  // カードの縁の印は、見たらすぐ消える（旧は、DOM を直接。折りたたみは、上の `seen`）
+  // カードの縁の印は、見たらすぐ消える（折りたたみは、上の `seen`）
   const fresh = useUi((s) => t.messages.some((m) => m.author === 'ai' && !s.seen.has(m.id)));
 
   const [stText, stCls] = threadStatus(t, view.topic.meta.pending);
@@ -81,7 +81,7 @@ export function ThreadCard({ view, thread: t, full = false, model, seen, editing
 
   return (
     <div className={cls} data-tid={t.id} {...(fromFrame ? { 'data-from-frame': '' } : {})}>
-      {/* biome-ignore lint/a11y/useKeyWithClickEvents: 旧と同じ DOM（見出しの押下は、マウスの近道。キーボードは、カード内のボタン） */}
+      {/* biome-ignore lint/a11y/useKeyWithClickEvents: 既存の DOM（見出しの押下は、マウスの近道。キーボードは、カード内のボタン） */}
       {/* biome-ignore lint/a11y/noStaticElementInteractions: 同上 */}
       <div className="th-head" onClick={() => focusThread(t.id, true)}>
         {num !== undefined ? (
@@ -110,7 +110,7 @@ export function ThreadCard({ view, thread: t, full = false, model, seen, editing
         ) : null}
         {future ? <span className="chip small">後の版のコメント</span> : null}
         {fromFrame ? <FromFrame /> : null}
-        <div className="quote">{trunc(quoteOf(t), 90)}</div>
+        <Quote anchor={t.anchor} text={quoteOf(t)} />
       </div>
       {segments.map((s) =>
         s.kind === 'msg' ? (

@@ -4,7 +4,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import type { Locator, Page } from '@playwright/test';
 import { expect, type RikaiApp, test } from './fixtures';
-import { addTextComment, hoverBlock, openComposerOnText, ui } from './ui';
+import { addTextComment, clickToCount, hoverBlock, openComposerOnText, ui } from './ui';
 
 const BT = '```';
 const lines = (...l: string[]) => `${l.join('\n')}\n`;
@@ -219,15 +219,17 @@ test.describe('版を並べて比べる', () => {
     await expect(u.article.locator('h1')).toHaveText('子');
   });
 
-  test('版が 1 つのページ：押せない（理由が出る）。押しても、開かない', async ({ page }) => {
-    const btn = page.locator('#btn-compare');
-    await expect(btn).toHaveAttribute('aria-disabled', 'true');
-    await expect(btn).toHaveAttribute('title', /版が 2 つ以上になると/);
-    await expect(btn).toHaveAccessibleDescription(/版が 2 つ以上になると/);
-    await btn.click({ force: true }); // aria-disabled：Playwright は、押せないものとして扱う。人は、押せる
-    await expect(ui(page).toast).toContainText('版が 2 つ以上になると');
+  // 旧：破線の押せないボタンを出し、押すと理由のトースト（F44 (1)）。比べる相手がないので、出さない（RIK-055。UX の分析 P8）
+  test('版が 1 つのページ：「並べて比べる」を出さない（版の選択も出ない）。版が 2 つになると、出る', async ({
+    page,
+    app,
+  }) => {
+    await expect(page.locator('#btn-compare')).toHaveCount(0);
+    await expect(page.locator('#docbar select')).toHaveCount(0);
     await expect(compare(page)).toHaveCount(0);
     await expect(ui(page).article).toBeVisible();
+    await app.apply({ revisions: [{ page: 'root', markdown: '# 猫の観察日記\n\n直した本文です。\n' }] }); // 既定のトピック（demo）
+    await expect(page.locator('#btn-compare')).toBeVisible();
   });
 
   test('いま過去の版（v2）を見ているとき：左 v1・右 v2 で開く', async ({ page, app }) => {
@@ -425,10 +427,10 @@ test.describe('html-app の枠（比較）', () => {
     // 独立：左を 3 回・右を 1 回
     await loaded(page, 'l');
     await loaded(page, 'r');
-    for (let i = 0; i < 3; i++) await L.locator('#b').click();
+    for (let i = 1; i <= 3; i++) await clickToCount(L.locator('#b'), L.locator('#n'), i);
     await expect(L.locator('#n')).toHaveText('3');
     await expect(R.locator('#n')).toHaveText('0');
-    await R.locator('#b').click();
+    await clickToCount(R.locator('#b'), R.locator('#n'), 1);
     await expect(R.locator('#n')).toHaveText('1');
     await expect(L.locator('#n')).toHaveText('3');
     // 個別の枠のツールバー・要素を選ぶ・個別表示・「この枠にコメント」は、ない。比較用ツールバーは、1 つ
@@ -521,7 +523,7 @@ test.describe('html-app の枠（比較）', () => {
     }
     // 状態は、共有しない：幅を変えても、数は、それぞれ
     await loaded(page, 'l');
-    await fr(page, 'l').locator('#b').click();
+    await clickToCount(fr(page, 'l').locator('#b'), fr(page, 'l').locator('#n'), 1);
     await w('375').click();
     await expect.poll(() => frameWidthOf(page, 'r')).toBe(375);
     await expect(fr(page, 'l').locator('#n')).toHaveText('1'); // 幅の変更で、再読み込みされない
@@ -608,7 +610,7 @@ test.describe('html-app の枠（比較）', () => {
     await openCompare(page);
     await expect(fr(page, 'r').locator('#m')).toHaveText('枠 v2');
     await loaded(page, 'r');
-    await fr(page, 'r').locator('#b').click(); // フォーカスは、枠の中（親の Esc は、届かない）
+    await clickToCount(fr(page, 'r').locator('#b'), fr(page, 'r').locator('#n'), 1); // フォーカスは、枠の中（親の Esc は、届かない）
     await expect(fr(page, 'r').locator('#n')).toHaveText('1');
     await page.keyboard.press('Escape');
     await expect(compare(page)).toHaveCount(0);
@@ -700,7 +702,7 @@ test.describe('html-app の枠（比較）', () => {
     await expect(compare(page)).toBeVisible();
     expect(await page.evaluate(() => (window as unknown as { __xss?: number }).__xss)).toBe(0);
     // 右の枠：動く・高さは、左が動かせない・状態は、そのまま
-    await fr(page, 'r').locator('#b').click();
+    await clickToCount(fr(page, 'r').locator('#b'), fr(page, 'r').locator('#n'), 1);
     await expect(fr(page, 'r').locator('#n')).toHaveText('1');
     expect(await iframeOf(page, 'r').getAttribute('height')).toBe(h0);
     // 閉じても、下書きは、できていない
@@ -720,7 +722,7 @@ test.describe('html-app の枠（比較）', () => {
     await expect(page.locator('[data-side="right"] .cmptag')).toHaveText('最新');
     await expect(fr(page, 'l').locator('#m')).toHaveText('枠 v1');
     await loaded(page, 'l'); // 読み込みが終わってから押す
-    await fr(page, 'l').locator('#b').click();
+    await clickToCount(fr(page, 'l').locator('#b'), fr(page, 'l').locator('#n'), 1);
     await expect(fr(page, 'l').locator('#n')).toHaveText('1');
     await page
       .locator('#compare iframe.appframe')

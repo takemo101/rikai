@@ -1,4 +1,4 @@
-// 実行できる枠（html-app）の置き場に、隔離した iframe を入れる（旧 app.js の `fillApps`）。
+// 実行できる枠（html-app）の置き場に、隔離した iframe を入れる。
 import type { PickInfo } from '../../../shared/htmlapp-bridge';
 import { followsTheme } from '../../../shared/htmlapp-theme';
 import { $$, h } from '../../lib/dom';

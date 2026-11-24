@@ -22,7 +22,7 @@ function applyActive(art: HTMLElement, tid: string | null): void {
   for (const e of $$<BlockEl>('[data-tid]', art)) if (e.dataset.tid === tid) e.classList.add('active');
 }
 
-/** 描き直しても、いま光らせているもの（`linkedTid`）は、光ったままにする（光らせるのは、W3 の hoverLink。描き直しで、印の要素が作り直されるため、付け直す） */
+/** 描き直しても、いま光らせているもの（`linkedTid`）は、光ったままにする（光らせるのは、`interact/hoverLink.ts`。描き直しで、印の要素が作り直されるため、付け直す） */
 function applyLinked(art: HTMLElement, model: DocModel, tid: string | null): void {
   if (!tid) return;
   for (const e of $$<BlockEl>('[data-tid]', art)) if (e.dataset.tid === tid) e.classList.add('linked');
@@ -64,7 +64,7 @@ export function Article({ view, markdown, prevMarkdown }: ArticleProps) {
   const composerId = useUi((s) => s.composer?.id ?? null);
 
   const threads = view.topic.threads.filter((t) => t.page === view.page);
-  // 描き直す条件（旧 docSig）：ページ・版・差分の表示・このページのスレッドの（id・解決・版・位置づけ）。ポーリングの度には、描き直さない
+  // 描き直す条件：ページ・版・差分の表示・このページのスレッドの（id・解決・版・位置づけ）。ポーリングの度には、描き直さない
   const sig = JSON.stringify([
     view.slug,
     view.page,
@@ -76,7 +76,7 @@ export function Article({ view, markdown, prevMarkdown }: ArticleProps) {
   // 描き直しの最新の入力（効果は、`sig` などが変わったときだけ走るが、読むのは、そのときの最新）
   const latest = useRef({ view, threads, showChanges, active });
   latest.current = { view, threads, showChanges, active };
-  const renderTok = useRef(0); // 古い非同期の完了を、捨てる（旧 renderTok）
+  const renderTok = useRef(0); // 古い非同期の完了を、捨てる
   const modelRef = useRef<DocModel | null>(null); // 描き終えた、いまの DocModel（描いている間は、前のもの）
   const docKey = useRef<string | null>(null); // 最後に描き始めた、ページ・版（view.key）
   const scrollTo = useRef(0); // 描き終えたあとに戻す、スクロール位置

@@ -6,7 +6,6 @@
 //   （Cookie は、ポートで分かれない。ホスト名は、127.0.0.1 にそろえる）
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
 import { defineConfig, type ProxyOptions } from 'vite';
 import { licensesPlugin } from './scripts/licenses-plugin';
@@ -35,11 +34,23 @@ export default defineConfig(({ command }) => {
   return {
     root,
     base: '/',
-    plugins: [react(), tailwindcss(), licensesPlugin()],
+    plugins: [react(), licensesPlugin()],
     build: {
       outDir: '../../../skills/rikai/public',
       emptyOutDir: true,
       chunkSizeWarningLimit: 2000, // Mermaid の図の種類ごとの chunk（elk は約 1.5MB）。必要になるまで、読まない（動的 import）
+      // ファイル名に、内容のハッシュを付けない。サーバーは、全応答に `Cache-Control: no-store` を付ける（server/app.ts）ので、ハッシュはキャッシュ破りの役に立たず、
+      // 付けると、1 行の変更で、chunk の名前が連鎖して変わり（import 先の名前が、中身に入る）、コミットする `public/` の差分・履歴が膨らむ（`index.js` だけが変わる）。
+      // **SharedWorker（`api/eventsWorker.ts`）だけは、ハッシュつきのまま**（`worker` の出力名を設定しない）：SharedWorker は、同じオリジンで、同じ URL なら、開いている古いタブのものを共有する。
+      // 名前に内容のハッシュがあれば、ワーカーの中身が変わった版では、URL が変わり、古いワーカーと新しい画面が、混ざらない（オリジンはポートごとで、サーバーの起動のたびに変わるが、同じポートが再び当たる可能性は、ゼロではない）。
+      // ワーカーは、他のファイルを import せず、中身が変わらない限り、名前も変わらない（実測：`App.tsx` を変えても、同じ名前）ので、履歴は、膨らまない
+      rolldownOptions: {
+        output: {
+          entryFileNames: 'assets/[name].js',
+          chunkFileNames: 'assets/[name].js',
+          assetFileNames: 'assets/[name][extname]',
+        },
+      },
     },
     server: {
       host: '127.0.0.1',

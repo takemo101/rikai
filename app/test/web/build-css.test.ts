@@ -1,5 +1,5 @@
-// ビルドした CSS の検査：Tailwind の utilities は、`tw:` の接頭辞つきだけ。
-// 資料（AI が書いた HTML）の `class` は、無害化を通る。`<div class="hidden">` が、画面のクラス（.hidden など）に当たって、消えたり、位置が動いたりしないように。
+// ビルドした CSS の検査：汎用のクラス名（.hidden・.absolute・.table など）を、画面の CSS が定義しない。
+// 資料（AI が書いた HTML）の `class` は、無害化を通る。`<div class="hidden">` が、画面のクラスに当たって、消えたり、位置が動いたりしないように。
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -25,7 +25,7 @@ beforeAll(async () => {
 }, 120_000);
 afterAll(() => fs.rmSync(outDir, { recursive: true, force: true }));
 
-// Tailwind の、よくある utilities（ソースの語から、勝手に作られると、AI の HTML の class に効く）
+// 汎用の名前（画面の CSS が、定義してはいけない。資料の class に、効いてしまう）
 const BARE = [
   'hidden',
   'block',

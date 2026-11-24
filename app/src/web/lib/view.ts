@@ -1,5 +1,5 @@
-// いま見ている「ページ・版」（ルート＋トピックから決まる）。旧 app.js の `S.page`・`curVersion()`・`latestOf()`・`isLatest()` の置き場。
-// 状態として別に持たない（ルートとトピックの、導出）。W1〜W3 の部品は、props の `view`（App が渡す）か、`useView()` で読む。
+// いま見ている「ページ・版」（ルート＋トピックから決まる）。`curVersion`・`latestOf`・`isLatest` に当たるものの置き場。
+// 状態として別に持たない（ルートとトピックの、導出）。部品は、props の `view`（App が渡す）か、`useView()` で読む。
 import type { PageInfo } from '../../shared/types';
 import { type TopicState, topicKey, useTopic } from '../api/queries';
 import { queryClient } from '../api/queryClient';

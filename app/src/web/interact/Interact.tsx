@@ -13,15 +13,6 @@ import { RegionSelect } from './RegionSelect';
 import { finishRegion } from './region';
 import { useRegionDeps } from './useRegionDeps';
 
-/**
- * Esc の順（`lib/escape.ts`）：範囲選択のキャンセル → 範囲の枠をドラッグ中なら（元に戻すのは、枠を持つ W1 の overlay の仕事なので）何もしない →
- * 個別表示が開いていれば、道具（ステージの範囲選択・html-app の要素選択）の中止 → もう一度で、ライトボックスを閉じる。
- * 何かを閉じた（またはドラッグ中で、任せた）ときは true
- */
-export function handleEscape(): boolean {
-  return escapeStep();
-}
-
 export function Interact({ view, scrollRef }: InteractProps) {
   const deps = useRegionDeps(); // 画像の保存（トピックを変えない操作）。いつも、最新の attach を呼ぶ
   const [scroller, setScroller] = useState<HTMLElement | null>(null);

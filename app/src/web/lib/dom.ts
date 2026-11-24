@@ -1,4 +1,4 @@
-// 小道具：命令的な DOM（本文の島・番号の層）を作る道具。旧 app.js の `$`・`$$`・`h`・`trunc`・`hash`・`encSrc` と同じ。
+// 小道具：命令的な DOM（本文の島・番号の層）を作る道具（`$`・`$$`・`h`・`trunc`・`hash`・`encSrc`）。
 // React の部品は、これを使わない（JSX で書く）。本文の島（`doc/`・`overlay/`・`interact/`）だけが使う。
 
 export const $ = <T extends Element = HTMLElement>(selector: string, root: ParentNode = document): T | null =>

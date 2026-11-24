@@ -1,4 +1,4 @@
-// 実行できる枠（html-app）の中身の取り出し：資料から、n 番目のフェンスを、時間を切って取り出す（旧 server.js の appsOfPage）。
+// 実行できる枠（html-app）の中身の取り出し：資料から、n 番目のフェンスを、時間を切って取り出す。
 // 結果・失敗・進行中の解析は、createAppFrames ごとの状態（モジュールの状態にしない。app.request() の試験が、互いに干渉しない）。
 import fs from 'node:fs';
 import { AppsError, appsOfAsync, DOC_MAX } from './htmlapp';

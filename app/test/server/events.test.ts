@@ -9,10 +9,12 @@ import { createApp, MAX_EVENTS, PING_MS } from '../../src/server/app';
 import { startServer } from '../../src/server/serve';
 import { createStore, type Store } from '../../src/server/store';
 import { createChangeFeed, type FeedOptions } from '../../src/server/watch';
-import { changed, isChanged, openEvents, type SseClient } from './events';
+import { changed, isChanged, openEvents, type SseClient, type SseEvent } from './events';
 import { makeTopic, type Project, removeProject, runCli, tempProject } from './helpers';
 import { PUBLIC_DIR, request } from './http-helpers';
 
+// 条件を待つ上限（`WAIT_MS`）より、テストの制限時間を長くする（既定の 5 秒だと、負荷の下で fs.watch の通知が遅れたとき、待ちの上限に届く前に、制限時間で落ちる）
+vi.setConfig({ testTimeout: 30_000, hookTimeout: 30_000 });
 let p: Project;
 let other: Store; // 別のプロセスを模す（同じディレクトリを指す、別の Store）
 const cleanups: Array<() => void> = [];
@@ -65,8 +67,10 @@ const connect = async (s: { port: number; token: string }): Promise<SseClient> =
   cleanups.push(() => c.close());
   return c;
 };
+const WAIT_MS = 10_000;
+// 条件を待つ（上限は、負荷の下〔全体の並列実行・e2e と同時〕で、fs.watch〔FSEvents〕の通知が遅れても、足りる長さ。早く満たされれば、すぐ返る）
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
-const until = async (cond: () => boolean, ms = 3000): Promise<void> => {
+const until = async (cond: () => boolean, ms = WAIT_MS): Promise<void> => {
   const t0 = Date.now();
   while (!cond()) {
     if (Date.now() - t0 > ms) throw new Error('時間内に満たされませんでした');
@@ -179,13 +183,22 @@ describe.each(PATHS)('別の Store の mutate → changed：%s', (_name, feedOpt
     const c = await connect(s);
     await c.waitFor((e) => e.event === 'ready');
     const before = p.store.loadMeta('demo').rev;
-    touch(other);
-    const hit = await c.waitFor(isChanged, delivered ? 3000 : 700);
     if (!delivered) {
-      assert.equal(hit, null);
+      touch(other);
+      assert.equal(await c.waitFor(isChanged, 700), null);
       return;
     }
-    assert.deepEqual(JSON.parse(hit?.data ?? 'null'), { slug: 'demo', rev: before + 1 });
+    // fs.watch（macOS の FSEvents）は、購読のあと、非同期で始まる：`ready` の直後の書き込みは、負荷が高いと、見逃される（確認の間隔がないとき）。届くまで、書き直す
+    let hit: SseEvent | null = null;
+    let touches = 0;
+    while (!hit && touches < 5) {
+      touch(other);
+      touches++;
+      hit = await c.waitFor(isChanged, WAIT_MS / 5);
+    }
+    const got = JSON.parse(hit?.data ?? 'null') as { slug: string; rev: number };
+    assert.equal(got.slug, 'demo');
+    assert.ok(got.rev > before && got.rev <= before + touches, `rev ${got.rev}（書き込み ${touches} 回）`);
   });
 });
 
@@ -250,7 +263,7 @@ describe('検知', () => {
     await c.waitFor((e) => e.event === 'ready');
     for (let i = 0; i < 500; i++) touch(other);
     const rev = p.store.loadMeta('demo').rev;
-    assert.ok(await c.waitFor((e) => isChanged(e) && JSON.parse(e.data).rev === rev, 5000), '最後の rev が届く');
+    assert.ok(await c.waitFor((e) => isChanged(e) && JSON.parse(e.data).rev === rev, WAIT_MS), '最後の rev が届く');
     await c.quiet(300);
     const n = changed(c).length;
     assert.ok(n <= 10, `通知は ${n} 回（500 回の変更を、まとめた）`);

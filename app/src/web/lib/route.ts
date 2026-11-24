@@ -1,5 +1,5 @@
-// ハッシュのルーティング：`#/<slug>/<page>/v<n>`（page・版は省略できる）。旧 app.js の parseHash と同じ正規表現。
-// 注意（旧と同じ）：`#/<slug>/v2` の `v2` は、ページの名前として読まれる（版の指定は、`#/<slug>/<page>/v2`）
+// ハッシュのルーティング：`#/<slug>/<page>/v<n>`（page・版は省略できる）。
+// 注意：`#/<slug>/v2` の `v2` は、ページの名前として読まれる（版の指定は、`#/<slug>/<page>/v2`）
 import { useMemo, useSyncExternalStore } from 'react';
 
 export interface Route {

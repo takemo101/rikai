@@ -6,7 +6,7 @@ const ASK_TYPES: readonly AskType[] = ['single_choice', 'multi_choice', 'yes_no'
 
 type Loose = Record<string, unknown>;
 
-// 検査に失敗したときも、旧実装と同じに、できる範囲の形を返す（errs に積む。呼ぶ側が、まとめて 400 にする）。
+// 検査に失敗したときも、できる範囲の形を返す（errs に積む。呼ぶ側が、まとめて 400 にする）。
 // 内部は、組み立て中の形を緩く持ち、最後に Ask として返す
 export function normAsk(ask: unknown, where: string, errs: string[]): Ask | null {
   if (ask == null) return null;
