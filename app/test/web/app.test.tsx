@@ -451,7 +451,7 @@ test('資料が更新された：最新版を見ていれば「資料が vN に�
   }
 });
 
-test('ページ・版を移ると、入力欄は閉じる。同じ版（最新版を /v2 と明示）なら、閉じない。トピックを移ると、添付の画像も捨てる', async () => {
+test('ページを移ると、入力欄は閉じて、書きかけは「対象を失った下書き」へ（黙って消さない）。同じ版（最新版を /v2 と明示）なら、閉じない。トピックを移ると、添付の画像は持ち越さない', async () => {
   location.hash = '#/demo/root';
   server([summary('demo'), summary('other')], {
     demo: topicState({ meta: meta({ pages: pages2 }) }),
@@ -478,14 +478,37 @@ test('ページ・版を移ると、入力欄は閉じる。同じ版（最新�
     location.hash = '#/demo/detail';
   });
   await waitFor(() => expect(useUi.getState().composer).toBeNull());
-  expect(useUi.getState().drafts.composer).toBe('');
+  expect(useUi.getState().drafts.composer).toBe(''); // 次の入力欄に、入らない
+  expect(useUi.getState().lostDraft).toMatchObject({ text: '書きかけ', reason: '別のページにあります' });
+  expect(useUi.getState().toast?.msg).toContain('下書きとして残しています');
   expect(useUi.getState().drafts.imgs['reply-t1']).toEqual(['b.png']); // 同じトピックの返信の画像は、残る
 
   act(() => {
     location.hash = '#/other/root';
   });
   await waitFor(() => expect(byId('top-title')).toHaveTextContent('デモの資料'));
-  expect(useUi.getState().drafts.imgs).toEqual({ composer: [] }); // 入力欄を閉じると、空の composer が入る（旧と同じ）
+  expect(useUi.getState().drafts.imgs).toEqual({}); // 添付の画像は、そのトピックの assets/ にあるので、持ち越さない
+  expect(useUi.getState().lostDraft?.imgs).toEqual([]);
+});
+
+test('版を切り替える（最新版 → 過去の版）と、書きかけの入力欄は、黙って消えず、「対象を失った下書き」へ移る（文は残る・次の入力欄には入らない）。トーストで知らせる', async () => {
+  location.hash = '#/demo/root';
+  server([summary('demo')], { demo: topicState({ meta: meta({ pages: pages2 }) }) });
+  renderWithClient(<App />);
+  await waitFor(() => expect(byId('article')).toHaveTextContent('本文 root v2'));
+  act(() => {
+    useUi.getState().startComposer(anchor);
+    useUi.getState().setComposerDraft('書きかけの文');
+  });
+  act(() => {
+    location.hash = '#/demo/root/v1';
+  });
+  await waitFor(() => expect(byId('article')).toHaveTextContent('本文 root v1'));
+  await waitFor(() => expect(useUi.getState().composer).toBeNull());
+  expect(useUi.getState().lostDraft).toMatchObject({ text: '書きかけの文', reason: '過去の版にあります' });
+  expect(useUi.getState().drafts.composer).toBe(''); // 次の入力欄に、入らない
+  expect(useUi.getState().toast?.msg).toContain('下書きとして残しています');
+  expect(document.querySelector('[data-lost-draft]')?.textContent).toContain('書きかけの文');
 });
 
 test('本文の中のページへのリンク（a.pagelink・a.pagecard）を押すと、入力欄の対象を閉じる（書きかけは残す）', async () => {

@@ -128,7 +128,7 @@ const HELP = `rikai <command>
   open <topic> [--no-open]                       ビューアを起動して URL を出す
   poll <topic> [--timeout 秒]                    Submit されるまで待ち、コメントのバッチを出力する（Claude Code 向け）
   pull <topic>                                   待たずに、未処理のバッチがあれば出力する（「送った」と言われたとき）
-  apply <topic>                                  標準入力のJSONで返信・新版・子ページを反映する
+  apply <topic>                                  標準入力のJSONで返信・新版・子ページ・質問を反映する
   status [topic]                                 未処理のバッチなどを出す
   stop                                           サーバーを止める
   共通: --root <dir>  プロジェクトルート（省略時は git のルート、なければ cwd）`;

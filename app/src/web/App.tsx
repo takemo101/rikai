@@ -159,8 +159,8 @@ export function App() {
 /**
  * ルートが変わったときの、画面の状態の整理（旧 route()）：
  *  - 見ている場所（slug・ページ・明示の版）が変わったら、選んでいるスレッドを外し、本文の先頭へ戻す
- *  - 別のトピックへ移ったら、添付した画像（そのトピックの assets/）を持ち越さず、入力欄を閉じる
- *  - 実質、見ている版が変わったら（`/v2` を明示して、最新版へ、などは、変わらない）、入力欄を閉じる。入力中の対象（本文の位置）が、意味を失うため
+ *  - 別のトピック・ページへ移ったら、書きかけのコメントを「対象を失った下書き」へ移す（黙って消さない）。別のトピックへは、添付した画像（そのトピックの assets/）を持ち越さない
+ *  - 実質、見ている版が変わったら（`/v2` を明示して、最新版へ、などは、変わらない）、書きかけを、黙って閉じない：最新版なら、対象を探し直して続ける・そうでなければ「対象を失った下書き」へ
  */
 function useNavigationEffects(
   route: Route | null,
@@ -176,23 +176,31 @@ function useNavigationEffects(
     prev.current = { slug, page, version };
     if (!p) return;
     if (p.slug !== slug || p.page !== page) useUi.getState().closeCompare(false); // 比べる画面は、ページ・トピックを移ると閉じる（同じページの版の切り替え〔ハッシュの版〕では、閉じない）
-    if (p.slug !== slug) {
-      useUi.getState().leaveTopic();
-      useUi.getState().closeComposer();
-    }
+    // 別のトピック・ページへ移る：書きかけのコメントは、黙って消さず、「対象を失った下書き」へ（別の対象に付けない。F44 と同じ）。
+    // 添付の画像は、そのトピックの assets/ にあるので、トピックを移るときは、持ち越さない（`leaveTopic`。先に、下書きへ移してから）
+    const ui = useUi.getState();
+    if (ui.composer && p.slug !== slug) ui.loseComposerDraft('別のトピックにあります');
+    else if (ui.composer && p.page !== page) ui.loseComposerDraft('別のページにあります');
+    if (p.slug !== slug) ui.leaveTopic();
     if (p.slug !== slug || p.page !== page || p.version !== version) {
       useUi.getState().setActive(null);
       if (scrollRef.current) scrollRef.current.scrollTop = 0;
     }
   }, [slug, page, version, scrollRef]);
 
+  // 同じページで、見ている版が変わった（版の切り替え・新しい版が届いた）：書きかけの入力欄を、黙って閉じない（`moveComposer`）。入力中の対象（本文の位置）は、版で意味が変わる
   const key = view?.key ?? null;
-  const prevKey = useRef<string | null>(null);
+  const isLatest = view?.isLatest ?? false;
+  const prevView = useRef<{ key: string; slug: string; page: string } | null>(null);
+  const viewRef = useRef(view);
+  viewRef.current = view;
+  // biome-ignore lint/correctness/useExhaustiveDependencies: 見ている版（key）が変わったときだけ。view は、毎回作り直される
   useEffect(() => {
-    if (key === null) return;
-    if (prevKey.current !== null && prevKey.current !== key && useUi.getState().composer)
-      useUi.getState().closeComposer();
-    prevKey.current = key;
+    const v = viewRef.current;
+    if (key === null || !v) return;
+    const p = prevView.current;
+    prevView.current = { key, slug: v.slug, page: v.page };
+    if (p && p.key !== key && p.slug === v.slug && p.page === v.page) useUi.getState().moveComposer(isLatest);
   }, [key]);
 }
 

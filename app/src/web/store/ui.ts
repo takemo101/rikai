@@ -268,6 +268,11 @@ export interface UiActions {
   /** 戻した入力欄の対象が、新しい版の本文に見つかった：確かめの印（`verify`）を外す */
   confirmComposer: (id: number) => void;
   discardLostDraft: () => void;
+  /**
+   * 同じページの、見ている版が変わった：書きかけの入力欄を、黙って閉じない。**最新版へ**（新しい版が届いた）：入力欄を残し、対象が新しい本文に見つかるかを、描いたあとに確かめる（`verify`。F44 と同じ）。
+   * **最新版でない版へ**（コメントは最新版にだけ付けられる）：対象を、「対象を失った下書き」へ移す（トーストで知らせる）。入力欄がなければ、何もしない
+   */
+  moveComposer: (toLatest: boolean) => void;
   /** 左右の版を選ぶ。存在しない版（0・最新版より後・整数でない）は、受けない */
   setCompareVersion: (side: 'left' | 'right', version: number) => void;
   setCompareWidth: (width: FrameWidth) => void;
@@ -509,6 +514,12 @@ export const useUi = create<UiStore>()((set, get) => {
     confirmComposer: (id) =>
       set((s) => (s.composer?.id === id && s.composer.verify ? { composer: { ...s.composer, verify: undefined } } : s)),
     discardLostDraft: () => set({ lostDraft: null }),
+    moveComposer: (toLatest) => {
+      const c = get().composer;
+      if (!c) return;
+      if (toLatest) set({ composer: { ...c, verify: true } });
+      else get().loseComposerDraft('過去の版にあります');
+    },
     setCompareVersion: (side, version) => {
       const v = getView();
       if (!v || !isVersion(version, v.latest)) return;
