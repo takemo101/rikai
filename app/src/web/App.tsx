@@ -174,7 +174,11 @@ function useNavigationEffects(
     const p = prev.current;
     prev.current = { slug, page, version };
     if (!p) return;
-    if (p.slug !== slug || p.page !== page) useUi.getState().closeCompare(false); // 比べる画面は、ページ・トピックを移ると閉じる（同じページの版の切り替え〔ハッシュの版〕では、閉じない）
+    // 比べる画面は、ページ・トピックを移ると閉じる（同じページの版の切り替え〔ハッシュの版〕では、閉じない）
+    if (p.slug !== slug || p.page !== page) {
+      useUi.setState({ lightboxBack: null }); // 重ねて開いた添付を閉じても、前のページの拡大表示（ドックつき）へ戻らない（ドックつきの拡大表示は、ページを移ると閉じる）
+      useUi.getState().closeCompare(false);
+    }
     // 別のトピック・ページへ移る：書きかけのコメントは、黙って消さず、「対象を失った下書き」へ（別の対象に付けない。F44 と同じ）。
     // 添付の画像は、そのトピックの assets/ にあるので、トピックを移るときは、持ち越さない（`leaveTopic`。先に、下書きへ移してから）
     const ui = useUi.getState();

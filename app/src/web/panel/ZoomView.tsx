@@ -1,4 +1,4 @@
-// ズーム・移動ができるステージ（本文・返信の画像・図：F37）。個別表示（F43）では、窓の左のステージの領域（右のドックを除く）に出し、範囲を選んで、コメントできる。
+// ズーム・移動ができるステージ（コメントに添付した画像・本文・返信の画像・図：F37）。添付の画像・返信の中の画像・図は、ステージだけ（見るだけ）。本文のブロックの拡大表示（F43）では、窓の左のステージの領域（右のドックを除く）に出し、範囲を選んで、コメントできる。
 // 座標：姿勢 `pose`（ズーム・移動）・ステージの領域の大きさ `view`（ResizeObserver で測る）・中身の自然な大きさ `nat` から、中身の箱が決まる（`interact/focusGeom.ts`）。
 // 範囲は、その箱に対する比率で持つ（ズーム・移動で、変わらない）。既存の範囲コメントの枠は、同じ箱の上に重ねる（ズーム・移動に、追従する）。
 import { Maximize2, X, ZoomIn, ZoomOut } from 'lucide-react';
@@ -33,7 +33,7 @@ import { DragOverlay } from './DragOverlay';
 import { RangeTool } from './FocusTools';
 import type { FocusCtx } from './useFocusCtx';
 
-type MediaTarget = Exclude<LightboxTarget, { kind: 'img'; zoom: false } | { kind: 'app' }>;
+type MediaTarget = Exclude<LightboxTarget, { kind: 'app' }>;
 
 interface DragState {
   x: number;

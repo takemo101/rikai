@@ -1,5 +1,5 @@
 // 本文・返信の、画像と図の拡大表示（F37）：クリックで、ライトボックスに出る。ズーム（＋／−／全体に合わせる・ホイール・ダブルクリック・キー）・ドラッグで移動・閉じる（Esc・背景・X）。
-// 文字を選ぶドラッグ・範囲を選ぶ最中・コメントの付いた対象は、開かない。ダークで、図の地と文字が読める。複製した図の url(#…) 参照が、拡大でも描かれる。
+// 文字を選ぶドラッグ・範囲を選ぶ最中は、開かない（コメントの付いた画像・図は、開く）。ダークで、図の地と文字が読める。複製した図の url(#…) 参照が、拡大でも描かれる。
 import type { Page } from '@playwright/test';
 import { expect, test } from './fixtures';
 import { makePng } from './samples';
@@ -387,7 +387,7 @@ test.describe('画像・図の拡大（F37）', () => {
     await expect(lb).toBeVisible();
   });
 
-  test('既存のコメントの操作が、壊れない：強調を押す（カードが選ばれる）・入口バーの「コメント」（画像の右上。押しても、拡大しない）・コメントの付いた画像は、押すと、そのコメントを選ぶ', async ({
+  test('既存のコメントの操作が、壊れない：強調を押す（カードが選ばれる）・入口バーの「コメント」（画像の右上。押しても、拡大しない）・コメントの付いた画像は、押すと、拡大する（コメントは選ばない）', async ({
     page,
     app,
   }) => {
@@ -409,9 +409,12 @@ test.describe('画像・図の拡大（F37）', () => {
     await expect(u.composer).toBeVisible();
     await fillAndAdd(page, '画像へのコメント');
     await expect(u.threads).toHaveCount(2);
-    // コメントの付いた画像を押す：そのコメントを選ぶ（拡大に化けない）
+    // コメントの付いた画像を押す：コメントの有無に関わらず、拡大（コメントは、ドックに出る。コメントを選ぶ動きはしない）
     await page.mouse.move(5, 5);
     await img.click();
+    await expect(u.lightbox).toBeVisible();
+    await expect(u.lightbox.locator('.fv-dock .thread')).toHaveCount(1);
+    await page.keyboard.press('Escape');
     await expect(u.lightbox).toBeHidden();
     // 本文の別の画像は、拡大できる
     await page.locator('#article img[alt="大きな画像"]').click();
@@ -570,7 +573,7 @@ test.describe('画像・図の拡大（F37）', () => {
     await expect(page.locator('#act-zoom')).toHaveCount(0);
   });
 
-  test('コメントの付いた画像・図：押すとコメントを選ぶ（拡大しない）が、バーの「拡大表示」で、拡大できる', async ({
+  test('コメントの付いた画像・図：押すと、コメントのない画像と同じく拡大する（ドックに、そのコメント）。バーの「拡大表示」でも開ける', async ({
     page,
     app,
   }) => {
@@ -590,13 +593,48 @@ test.describe('画像・図の拡大（F37）', () => {
       await el.scrollIntoViewIfNeeded();
       await page.mouse.move(5, 5);
       await el.click();
-      await expect(u.lightbox).toBeHidden(); // 押すと、そのコメントを選ぶ
+      await expect(u.lightbox).toBeVisible(); // 押すと、拡大（コメントの有無に関わらず）
+      await expect(u.lightbox.locator('.fv-dock .thread')).toHaveCount(1);
+      await page.keyboard.press('Escape');
+      await expect(u.lightbox).toBeHidden();
       await hoverTo(page, inner);
       await page.locator('#act-zoom').click();
       await expect(u.lightbox).toBeVisible();
       await page.keyboard.press('Escape');
       await expect(u.lightbox).toBeHidden();
     }
+  });
+
+  test('画像を含む段落にコメント：画像を押すと拡大、同じ段落の文字を押すと、そのコメントを選ぶ（拡大しない）', async ({
+    page,
+    app,
+  }) => {
+    await page.setViewportSize({ width: 1360, height: 900 });
+    await app.switchTopic(
+      page,
+      'zp',
+      '段落の確認',
+      '# 確認\n\n![小さな画像](assets/small.png) 画像と同じ段落の文字です。\n\n別の段落です。\n',
+      assets,
+    );
+    await expect.poll(() => page.locator('#article img').evaluate((i) => (i as HTMLImageElement).complete)).toBe(true);
+    const u = ui(page);
+    await hoverTo(page, 'img[alt="小さな画像"]');
+    await u.actComment.click();
+    await fillAndAdd(page, '段落へのコメント');
+    await expect(u.threads).toHaveCount(1);
+    await expect(page.locator('#article p.blk-thread img')).toHaveCount(1); // 強調は、残る
+    // 文字の部分
+    await page.mouse.move(5, 5);
+    await page.locator('#article p.blk-thread').click({ position: { x: 250, y: 8 } });
+    await expect(u.lightbox).toBeHidden();
+    await expect(page.locator('#threads .thread.active')).toHaveCount(1);
+    // 画像
+    await page.locator('#article img[alt="小さな画像"]').click();
+    await expect(u.lightbox).toBeVisible();
+    await expect(u.lightbox.locator('.fv-dock .thread')).toHaveCount(1);
+    await page.keyboard.press('Escape');
+    await expect(u.lightbox).toBeHidden();
   });
 
   test('バーの形：「拡大表示」があっても、「コメント」の位置（右端）は、変わらない。ライト・ダーク・狭い窓で、窓からはみ出さず、文字が読める', async ({

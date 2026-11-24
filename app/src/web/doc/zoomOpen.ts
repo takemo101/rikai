@@ -1,12 +1,12 @@
-// 本文・AI の返信の、画像・図を、押して、大きく出す（F37）。個別表示（F43）：本文の画像・図・html-app の枠は、右にコメントのドックのある窓で開く。
+// 本文・AI の返信・コメントに添付した画像・図を、押して、拡大表示で大きく出す（F37・F31・F43）。本文の画像・図・html-app の枠は、右にコメントのドックのある窓で開く。返信の中の画像・図・添付の画像は、ステージだけ（見るだけ）。
 // **開いても閉じても、本文の DOM は変わらない**：本文（`#article`）・返信の本体（`.msg .body.md`）への、
-// イベントの委譲（クリック 1 つ。押した位置は、mousedown で控える）で受け、ここで、どの画像・図かを決めて、ライトボックスへ渡す。
+// イベントの委譲（クリック 1 つ。押した位置は、mousedown で控える）で受け、ここで、どの画像・図かを決めて、拡大表示へ渡す。
 // 対象：`img`（assets の画像・data: の画像）・Mermaid の図・インラインの `<svg>`。対象外：リンクの中・html-app の枠（iframe）・外部画像のブロック表示（`.img-blocked` は、img でない）。
 
 import { getView } from '../lib/view';
 import { isClickGesture } from '../lib/zoom';
 import { cloneSvgForZoom } from '../lib/zoomSvg';
-import { toast, useUi } from '../store/ui';
+import { ATTACHED_ALT, toast, useUi } from '../store/ui';
 import { cancelAllPicks } from './appBridge';
 import { focusRefOf } from './focusBlock';
 import { appSpecOf } from './render/apps';
@@ -33,7 +33,7 @@ export function zoomableAt(target: EventTarget | null, root: Element): HTMLImage
 
 /**
  * root の中の画像・図を押したとき、拡大を開く。開いたら true。開かないとき：左ボタン以外・修飾キー・文字を選んだあと・ドラッグ（押した位置から動いた）・範囲を選ぶ最中。
- * コメントを選ぶ操作（強調・範囲の枠・コメントの付いたブロックの押下）は、呼ぶ側が、先に受ける
+ * コメントの有無・範囲の枠に関わらず、画像・図の押下は、これで拡大へ（コメントを選ぶのは、画像・図以外の押下：呼ぶ側が受ける）
  */
 export function zoomOnClick(e: MouseEvent, root: Element): boolean {
   if (e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return false;
@@ -48,7 +48,27 @@ export function zoomOnClick(e: MouseEvent, root: Element): boolean {
 }
 
 /**
- * 画像・図を、個別表示（ライトボックス）で、大きく出す（図は、id を付け替えた複製）。本文（`#article`）の画像・図なら、そのブロックを指す印（`focus`）を付ける
+ * コメントのカード（右のパネル・拡大表示のドック）の中で押された、画像を、拡大表示で開く。添付の画像（入力欄のサムネイル・送った画像）と、AI の返信の本体の画像・図。
+ * 添付の画像は、押した位置・選択に関係なく開く（押す前提の画像）。**ドックつきの拡大表示の中で押したときは、その上に重ねて開く**（閉じると、ドックつきの拡大表示へ戻る）
+ */
+export function zoomOnCardClick(e: {
+  target: EventTarget | null;
+  nativeEvent: MouseEvent;
+  preventDefault: () => void;
+}): void {
+  if (!(e.target instanceof Element)) return;
+  const img = e.target.closest('.thumb img, .msg .imgs img');
+  if (img instanceof HTMLImageElement) {
+    e.preventDefault();
+    useUi.getState().openZoom({ kind: 'img', src: img.src, alt: ATTACHED_ALT });
+    return;
+  }
+  const body = e.target.closest('.msg .body.md');
+  if (body) zoomOnClick(e.nativeEvent, body);
+}
+
+/**
+ * 画像・図を、拡大表示で、大きく出す（図は、id を付け替えた複製）。本文（`#article`）の画像・図なら、そのブロックを指す印（`focus`）を付ける
  * （右のドックに、そのブロックのコメントを出し、範囲を選んでコメントできる：F43）。返信の中の画像・図は、ステージだけ
  */
 export function openZoomOf(el: HTMLImageElement | SVGSVGElement): void {
@@ -62,7 +82,7 @@ export function openZoomOf(el: HTMLImageElement | SVGSVGElement): void {
       kind: 'img',
       src: el.currentSrc || el.src,
       alt: el.alt || '画像（大きく）',
-      zoom: true,
+      // 本文の画像・図は、`focus` つき（ドックつき）。返信の中の画像・図は、なし（ステージだけ）
       ...(focus ? { focus } : {}),
     });
     return;
@@ -111,7 +131,7 @@ export function openFocusOf(el: HTMLImageElement | SVGSVGElement | HTMLElement):
 
 /**
  * ブロックの中の、（最初の）個別表示できる対象：拡大できる画像・図、または、ブロックそのものの html-app の枠。なければ null。
- * 入口のバーの「拡大」が使う（コメントの付いた画像・図は、押すとコメントを選ぶので、ここから開く）
+ * 入口のバーの「拡大」が使う（画像にマウスを置いたときの入口）
  */
 export function zoomTargetOfBlock(blk: Element): HTMLImageElement | SVGSVGElement | HTMLElement | null {
   if (blk instanceof HTMLElement && blk.classList.contains('htmlapp')) return blk;

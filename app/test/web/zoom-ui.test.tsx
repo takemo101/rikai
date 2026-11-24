@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-// 本文・返信の画像と図の拡大表示（F37）：押すと、ライトボックスに出る（図は、id を付け替えた複製）。本文の DOM は、変わらない。
+// 本文・返信の画像と図の拡大表示（F37）：押すと、拡大表示（`#lightbox`）に出る（図は、id を付け替えた複製）。本文の DOM は、変わらない。添付の画像も、同じ拡大表示（見るだけ）。
 // 文字を選ぶドラッグ・選択範囲・範囲を選ぶ最中・リンクの中・外部画像・html-app は、開かない。ズーム・移動・閉じる・フォーカス。
 import { act, fireEvent, render } from '@testing-library/react';
 import { afterEach, beforeAll, beforeEach, expect, test, vi } from 'vitest';
@@ -8,7 +8,7 @@ import { queryClient } from '../../src/web/api/queryClient';
 import { Article } from '../../src/web/doc/Article';
 import { zoomableAt } from '../../src/web/doc/zoomOpen';
 import { buildView } from '../../src/web/lib/view';
-import { Lightbox } from '../../src/web/panel/Lightbox';
+import { ZoomModal } from '../../src/web/panel/ZoomModal';
 import { useUi } from '../../src/web/store/ui';
 import { installPointerCapture, meta, mockFetch, renderWithClient, resetAll, topicState } from './helpers';
 import { ai, renderPanel, stubScroll, thread } from './panel/fixtures';
@@ -67,7 +67,7 @@ function mountArticle() {
       <div id="docscroll">
         <Article view={view} markdown={MD} prevMarkdown={null} />
       </div>
-      <Lightbox />
+      <ZoomModal />
     </>,
   );
   return { art: document.getElementById('article') as HTMLElement };
@@ -84,14 +84,14 @@ const press = (el: Element, at = { clientX: 10, clientY: 10 }, upAt = at) => {
 const pct = () => Number.parseInt(q('.lb-pct')?.textContent ?? '0', 10);
 const close = () => act(() => useUi.getState().closeLightbox());
 
-test('本文の画像を押す：ライトボックスに出る（zoom: true）。role="dialog"・aria-modal・名前。Esc で閉じる', async () => {
+test('本文の画像を押す：拡大表示に出る。role="dialog"・aria-modal・名前。Esc で閉じる', async () => {
   const { art } = mountArticle();
   await settle();
   const img = q<HTMLImageElement>('img[alt="図"]', art) as HTMLImageElement;
   expect(lb().hidden).toBe(true);
   press(img);
   expect(lb().hidden).toBe(false);
-  expect(useUi.getState().lightbox).toMatchObject({ kind: 'img', zoom: true });
+  expect(useUi.getState().lightbox).toMatchObject({ kind: 'img', focus: { base: true } });
   expect(q<HTMLImageElement>('.lb-stage img')?.getAttribute('src')).toContain('/asset/demo/fig.png'); // 画像の src（絶対 URL）
   expect(lb().getAttribute('role')).toBe('dialog');
   expect(lb().getAttribute('aria-modal')).toBe('true');
@@ -199,7 +199,8 @@ test('返信の本体の、画像・図も、開く（ズーム・移動がで�
   ]);
   await settle();
   press(q('.msg.ai .body.md img') as Element);
-  expect(useUi.getState().lightbox).toMatchObject({ kind: 'img', zoom: true });
+  expect(useUi.getState().lightbox).toMatchObject({ kind: 'img' });
+  expect(useUi.getState().lightbox?.focus).toBeUndefined(); // 返信の画像：ステージだけ（ドックなし）
   close();
   press(q('.msg.ai .body.md .mermaid-block svg') as Element);
   expect(useUi.getState().lightbox).toMatchObject({ kind: 'svg' });
@@ -290,29 +291,49 @@ test('閉じる：X・Esc・背景（図の外）を押す。図の上を押し�
   expect(lb().hidden).toBe(true);
 });
 
-test('添付の画像は、これまでどおり：押すと閉じる（背景のみ。ズームの道具なし）', () => {
-  render(<Lightbox />);
-  act(() => useUi.getState().openLightbox('/asset/demo/a.png'));
+test('添付の画像も、同じ拡大表示：ズーム・移動の道具がある。見るだけ（ドックも、範囲の道具も出ない）。背景を押す・×・Esc で閉じる', () => {
+  render(<ZoomModal />);
+  act(() => useUi.getState().openZoom({ kind: 'img', src: '/asset/demo/a.png', alt: '添付の画像（大きく）' }));
   expect(lb().hidden).toBe(false);
-  expect(q('.lb-tools')).toBeNull();
-  expect(q<HTMLImageElement>('img')?.getAttribute('src')).toBe('/asset/demo/a.png');
-  expect(q('img')?.getAttribute('alt')).toBe('添付の画像（大きく）');
-  fireEvent.click(lb());
+  expect(lb().getAttribute('role')).toBe('dialog');
+  expect(lb().getAttribute('aria-label')).toBe('添付の画像（大きく）');
+  expect(q('.lb-tools button[aria-label="ズームイン"]')).not.toBeNull();
+  expect(q('.lb-tools button[aria-label="全体に合わせる"]')).not.toBeNull();
+  expect(q<HTMLImageElement>('.lb-stage img')?.getAttribute('src')).toBe('/asset/demo/a.png');
+  expect(q('.fv-dock')).toBeNull(); // ドックなし
+  expect(q('.fv-tools')).toBeNull(); // 「範囲を選ぶ」の道具なし
+  expect(lb().classList.contains('fv')).toBe(false);
+  // 画像の上を押しても、閉じない（ひとつ前の「押すと閉じる」とは違う）
+  const stage = q('.lb-stage') as HTMLElement;
+  fireEvent.pointerDown(stage, { button: 0, clientX: 500, clientY: 400, pointerId: 1 });
+  fireEvent.pointerUp(stage, { button: 0, clientX: 500, clientY: 400, pointerId: 1 });
+  expect(lb().hidden).toBe(false);
+  // 背景を押す：閉じる
+  const view = q('.lb-view') as HTMLElement;
+  fireEvent.pointerDown(view, { button: 0, clientX: 5, clientY: 5, pointerId: 2 });
+  fireEvent.pointerUp(view, { button: 0, clientX: 5, clientY: 5, pointerId: 2 });
+  expect(lb().hidden).toBe(true);
+  // ×・Esc
+  act(() => useUi.getState().openZoom({ kind: 'img', src: '/asset/demo/a.png', alt: '添付の画像（大きく）' }));
+  fireEvent.click(q('button[aria-label="閉じる"]') as HTMLElement);
+  expect(lb().hidden).toBe(true);
+  act(() => useUi.getState().openZoom({ kind: 'img', src: '/asset/demo/a.png', alt: '添付の画像（大きく）' }));
+  fireEvent.keyDown(document, { key: 'Escape' });
   expect(lb().hidden).toBe(true);
 });
 
-test('フォーカス：開いたとき、ライトボックスへ。閉じたとき、開く前の要素へ戻す（フォーカスできる要素だったとき）', () => {
-  render(<Lightbox />);
+test('フォーカス：開いたとき、拡大表示へ。閉じたとき、開く前の要素へ戻す（フォーカスできる要素だったとき）', () => {
+  render(<ZoomModal />);
   const btn = document.createElement('button');
   document.body.append(btn);
   btn.focus();
-  act(() => useUi.getState().openZoom({ kind: 'img', src: '/asset/demo/a.png', alt: '図', zoom: true }));
+  act(() => useUi.getState().openZoom({ kind: 'img', src: '/asset/demo/a.png', alt: '図' }));
   expect(document.activeElement).toBe(lb());
   fireEvent.keyDown(document, { key: 'Escape' });
   expect(document.activeElement).toBe(btn);
   // フォーカスできる要素でなかったとき（本文の画像を押した）：戻す先がない（例外なく、閉じる）
   (document.activeElement as HTMLElement).blur();
-  act(() => useUi.getState().openZoom({ kind: 'img', src: '/asset/demo/a.png', alt: '図', zoom: true }));
+  act(() => useUi.getState().openZoom({ kind: 'img', src: '/asset/demo/a.png', alt: '図' }));
   fireEvent.keyDown(document, { key: 'Escape' });
   expect(lb().hidden).toBe(true);
 });

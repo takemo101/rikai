@@ -1,11 +1,10 @@
 // 右のパネル（`<aside id="threads">`）：見出し・切り替え（未解決・解決済み・すべて）・固定の上部・新しいコメントの入力欄・スレッドのカード・解決済みの 1 行・
-// 番号で 1 枚だけ見る（solo）。ライトボックス（`#lightbox`）も、ここが出す。
+// 番号で 1 枚だけ見る（solo）。拡大表示（`#lightbox`）も、ここが出す。
 // 描き直しても、入力欄のフォーカス・選択範囲・パネルのスクロールは、そのまま：カードは、キーで、同じ DOM を使い回す。
 // 入力欄が、並びの中で動いても、React が、フォーカスと選択範囲を、戻す。スクロールの位置は、ここ（useKeepScroll）が、戻す。
 
 import { ArrowLeft, ChevronRight, Spline } from 'lucide-react';
 import {
-  type MouseEvent,
   memo,
   type ReactNode,
   type RefObject,
@@ -21,18 +20,18 @@ import type { Thread } from '../../shared/types';
 import { type TopicState, topicKey } from '../api/queries';
 import { queryClient } from '../api/queryClient';
 import type { ThreadsPanelProps } from '../contracts';
-import { noteMouseDown, zoomOnClick } from '../doc/zoomOpen';
+import { noteMouseDown, zoomOnCardClick } from '../doc/zoomOpen';
 import { trunc } from '../lib/dom';
 import type { View } from '../lib/view';
 import { type DocModel, docOrder, locEl, useDoc } from '../store/doc';
 import { type Tab, useUi } from '../store/ui';
 import { Composer } from './Composer';
-import { Lightbox } from './Lightbox';
 import { LostDraft } from './LostDraft';
 import { composerSlot, lastSpeech, quoteOf } from './logic';
 import { type PanelActions, PanelContext, usePanel } from './panelContext';
 import { ThreadCard } from './ThreadCard';
 import { preventFileDropOutside } from './useImageAttach';
+import { ZoomModal } from './ZoomModal';
 
 /** コメントがまだないときの案内：要点は 2 行（文を選ぶ・ブロックにマウスを置く）。ほかの付け方（範囲）は、畳む */
 const EMPTY_HINT = '本文の文を選ぶと「コメント」が出ます。';
@@ -124,26 +123,12 @@ export function ThreadsPanel({ view }: ThreadsPanelProps) {
   return (
     <PanelContext.Provider value={actions}>
       {/* biome-ignore lint/a11y/useKeyWithClickEvents: サムネイルの画像の押下を、パネル全体で受ける（画像は、押す前提のマウス操作） */}
-      <aside id="threads" ref={panelRef} onClick={openLightboxOnImage} onMouseDown={noteMouseDown}>
+      <aside id="threads" ref={panelRef} onClick={zoomOnCardClick} onMouseDown={noteMouseDown}>
         {view ? <Threads view={view} panelRef={panelRef} /> : null}
       </aside>
-      <Lightbox />
+      <ZoomModal />
     </PanelContext.Provider>
   );
-}
-
-/** 添付の画像（サムネイル・送った画像）を押すと、ライトボックスで大きく出す（押すと閉じる）。返信の本体の、画像・図は、拡大（ズーム・移動） */
-function openLightboxOnImage(e: MouseEvent<HTMLElement>): void {
-  if (!(e.target instanceof Element)) return;
-  const img = e.target.closest('.thumb img, .msg .imgs img');
-  if (img instanceof HTMLImageElement) {
-    e.preventDefault();
-    useUi.getState().openLightbox(img.src);
-    return;
-  }
-  // AI の返信の本体の、画像・図（F37：ズーム・移動ができる）
-  const body = e.target.closest('.msg .body.md');
-  if (body) zoomOnClick(e.nativeEvent, body);
 }
 
 // ---- スクロールの位置を戻す（描き直しの前後） ----

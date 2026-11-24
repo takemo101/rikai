@@ -58,8 +58,8 @@ export interface OverlaysProps {
 
 /**
  * 右のパネル（`<aside id="threads">`）：`panel/ThreadsPanel.tsx` が `export function ThreadsPanel(props: ThreadsPanelProps)` を出す。
- * `#lightbox`（ライトボックス）も、ここ（`panel/`）が出す（`useUi` の `lightbox`・`openLightbox`・`openZoom`・`closeLightbox`）。
- * `lightbox` は、添付の画像（押すと閉じる）・本文・返信の画像（ズーム・移動）・図（SVG の複製。id を付け替え済み）のどれか（F37。本文の DOM には、何も足さない）。
+ * `#lightbox`（拡大表示）も、ここ（`panel/ZoomModal.tsx`）が出す（`useUi` の `lightbox`・`lightboxBack`・`openZoom`・`closeLightbox`）。
+ * `lightbox` は、添付の画像・本文・返信の画像（ズーム・移動。添付と返信の画像は、見るだけ）・図（SVG の複製。id を付け替え済み）・html-app の枠のどれか（F37・F43。本文の DOM には、何も足さない）。
  *
  * - `view` が null なら、空の `<aside id="threads">`。
  * - 状態：`tab`・`solo`・`rowOpen`・`olderOpen`・`askOpen`・`drafts`・`imgGen`・`uploading`・`editing`・`seen`・`active`・`linkedTid`・`composer`（すべて `useUi`）。
@@ -78,7 +78,7 @@ export interface ThreadsPanelProps {
  *
  * - `view` が null か、最新版でない（`!view.isLatest`）間は、`#regbtn` を出さない。コメントの入口は、最新版にだけ。
  * - 入力欄を開く：`useUi.getState().startComposer(anchor)`（最新版でなければ、トーストを出して false）。開いたら、入力欄の `textarea[data-key="composer"]` にフォーカスを移す・選択を外す・バーを隠す。
- * - 範囲を選ぶ状態：`regMode`（'idle' | 'selecting'）。Esc の順（`lib/escape.ts`）：範囲選択のキャンセル → 範囲の枠をドラッグ中（`regDrag`）なら元に戻す → 個別表示の道具（範囲選択・要素選択）の中止 → ライトボックス（`lightbox`）を閉じる。
+ * - 範囲を選ぶ状態：`regMode`（'idle' | 'selecting'）。Esc の順（`lib/escape.ts`）：範囲選択のキャンセル → 範囲の枠をドラッグ中（`regDrag`）なら元に戻す → 拡大表示の道具（範囲選択・要素選択）の中止 → 拡大表示（`lightbox`）を閉じる。
  * - 画像化・添付：`useMutations().attach`。`beginUpload`・`endUpload`・`setComposerRegionImg(composer.id, name)`（入力欄が、同じ id のままのときだけ）。
  * - カードと本文の、お互いの光り：`setLinked(tid)`（`linkedTid`）。
  * - 左の一覧・右の幅が変わる（`useUi` の `ui`）と、配置が変わるので、入口のバーは、隠す。

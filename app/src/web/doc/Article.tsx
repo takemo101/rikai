@@ -13,7 +13,7 @@ import { blockAnchor } from './render/blocks';
 import { FOCUS_ENTRY, mediaOfEntry } from './render/focusable';
 import { markPending } from './render/highlights';
 import { renderDoc } from './render/renderDoc';
-import { noteMouseDown, openFocusApp, openFocusOf, zoomOnClick } from './zoomOpen';
+import { noteMouseDown, openFocusApp, openFocusOf, zoomableAt, zoomOnClick } from './zoomOpen';
 
 /** 選んでいるスレッドの、本文の強調に、`.active` を付ける（付けなおす） */
 function applyActive(art: HTMLElement, tid: string | null): void {
@@ -160,17 +160,19 @@ export function Article({ view, markdown, prevMarkdown }: ArticleProps) {
     if (ref.current && settled.current) applyActive(ref.current, active);
   }, [active]);
 
-  // 本文の強調・範囲の枠を押す：選ぶ（本文の強調を押したときは、1 枚だけ見る状態を解く）。コメントのない画像・図を押す：個別表示（F37・F43。委譲：このリスナー 1 つ）。Enter・Space：フォーカスした画像・図を、個別表示
+  // 本文の強調・範囲の枠を押す：選ぶ（本文の強調を押したときは、1 枚だけ見る状態を解く）。画像・図を押す（コメントの有無に関係なく）：個別表示（F37・F43。委譲：このリスナー 1 つ）。Enter・Space：フォーカスした画像・図を、個別表示
   useEffect(() => {
     const art = ref.current;
     if (!art) return;
     const onClick = (e: MouseEvent): void => {
       if (e.target instanceof Element && e.target.closest('a[data-page]')) return; // ハッシュで遷移する
-      const tid = articleTid(e, modelRef.current);
-      if (!tid) {
-        zoomOnClick(e, art); // コメントのない画像・図は、拡大（F37）。コメントの付いた対象を押すと、そのコメントを選ぶ（上）
+      // 画像・図を押したら、コメントの有無・範囲の枠に関係なく、拡大表示（F37。コメントは、拡大表示のドックと右のカードから選ぶ）。開かない条件（修飾キー・ドラッグ・文字を選んだあと…）のときは、何もしない
+      if (zoomableAt(e.target, art)) {
+        zoomOnClick(e, art);
         return;
       }
+      const tid = articleTid(e, modelRef.current);
+      if (!tid) return;
       const thread = latest.current.view.topic.threads.find((t) => t.id === tid);
       if (!thread) return;
       const ui = useUi.getState();

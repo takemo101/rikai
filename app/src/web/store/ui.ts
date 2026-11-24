@@ -24,7 +24,8 @@ export type DialogKind = 'submit' | 'end';
  * 版のルート `#/…/vN` は「見ている版」で、比較は、その上の一時の画面。再読み込みで閉じる。ページ・トピックを移ると、閉じる）。
  * `left`・`right`：比べる版（同じ版を左右に選んでもよい）。`width`・`mode`：左右のすべての枠に、まとめて効く幅・枠だけの外観（mode の null は、画面に従う）。
  * `changesOnly`：変更のない続きのブロックを、折りたたむ。
- * `from`：開く前の画面（閉じるとき、戻すために控える）：見ていた版の印（`View.key`）・本文のスクロール位置・入力欄（対象つき）・選んでいたスレッド
+ * `from`：開く前の画面（閉じるとき、戻すために控える）：見ていた版の印（`View.key`）・本文のスクロール位置。
+ * **入力欄（対象つき）・選んでいるスレッドは、控えない：開いている間も、そのまま持つ**（右のコメント欄が、隠れるだけ）。比べている間に、見ている版が変わったときの扱いは、比べないときと同じ道（`moveComposer`：App の、版が変わったときの効果）
  */
 export interface CompareState {
   left: number;
@@ -32,15 +33,7 @@ export interface CompareState {
   width: FrameWidth;
   mode: ResolvedTheme | null;
   changesOnly: boolean;
-  from: {
-    key: string;
-    scrollTop: number;
-    composer: ComposerState | null;
-    active: string | null;
-    solo: string | null;
-    /** `<トピック>/<ページ>`（版を含まない）：同じページか（対象を、新しい版で探し直せるか） */
-    pageKey: string;
-  };
+  from: { key: string; scrollTop: number };
 }
 
 /**
@@ -56,17 +49,16 @@ export interface FocusRef {
 }
 
 /**
- * ライトボックス（個別表示）に出すもの。img：画像（zoom: false は、コメントに添付した画像：押すと閉じる・F31。zoom: true は、本文・返信の画像：ズーム・移動ができる）。
- * svg：図（Mermaid・インラインの SVG）の複製（id を付け替え済み：lib/zoomSvg.ts）。ズーム・移動ができる。
+ * 拡大表示（`#lightbox`）に出すもの。img：画像（コメントに添付した画像・本文・返信の画像）。svg：図（Mermaid・インラインの SVG）の複製（id を付け替え済み：lib/zoomSvg.ts）。img・svg は、ズーム・移動ができる。
  * app：html-app の枠（F43）。**新しい iframe を作る**（本文の枠は、動かさない）。`app`：枠の番号・固定の高さ（なければ自動）・配色への対応。
- * `focus`：本文（`#article`）のブロックを指す印（右のドックに、そのブロックのコメントを出し、範囲・要素のコメントを付けられる）。返信の中の画像・図には、ない（ステージだけ）
+ * `focus`：本文（`#article`）のブロックを指す印（右のドックに、そのブロックのコメントを出し、範囲・要素のコメントを付けられる）。**添付の画像・返信の中の画像・図には、ない**（ステージだけ：見るだけ）
  */
 export type LightboxTarget =
-  | { kind: 'img'; src: string; alt: string; zoom: boolean; focus?: FocusRef }
+  | { kind: 'img'; src: string; alt: string; focus?: FocusRef }
   | { kind: 'svg'; node: SVGSVGElement; alt: string; size: { w: number; h: number }; focus?: FocusRef }
   | { kind: 'app'; alt: string; focus: FocusRef; app: { n: number; fixed: number | null; follows: boolean } };
 
-/** コメントに添付した画像の、ライトボックスの名前 */
+/** コメントに添付した画像の、拡大表示の名前 */
 export const ATTACHED_ALT = '添付の画像（大きく）';
 
 /** 入力欄（コメントの新規）の対象。id は、入力欄ごとに増える（遅れて終わる非同期の処理が、「同じ入力欄か」を見分ける） */
@@ -78,7 +70,7 @@ export interface ComposerState {
   /** 枠から取った情報（F45）で、検査済み。この入力欄の対象（錨）のもの。コメントを追加するとき、メッセージの `frameMeta` として送る（本文には、書かない） */
   frameMeta?: FrameMeta;
   /**
-   * 比べる画面（F44）を開いている間に新しい版が届いて、閉じたとき：入力欄を、いったん戻したが、対象が、新しい版の本文に**まだ見つかるか**を、本文を描いたあとに確かめる印
+   * 同じページの、見ている版が、最新版へ変わった（新しい版が届いた。版を並べて比べている間〔F44〕を含む）：入力欄を残したが、対象が、新しい版の本文に**まだ見つかるか**を、本文を描いたあとに確かめる印
    * （見つかれば外す。見つからなければ、入力欄を閉じて、書きかけを「対象を失った下書き」にする：`loseComposerDraft`）
    */
   verify?: boolean;
@@ -174,8 +166,10 @@ export interface UiState {
   panelWNarrow: number | null;
   /** 開いているダイアログ（`<dialog>`。`confirm()` は使わない：F34） */
   dialog: DialogKind | null;
-  /** ライトボックスで大きく見ているもの（添付の画像・本文の画像・図） */
+  /** 拡大表示で大きく見ているもの（添付の画像・本文の画像・図・html-app の枠） */
   lightbox: LightboxTarget | null;
+  /** 拡大表示（ドックつき）の上に、添付の画像を開いたとき、閉じたら戻る、下の拡大表示（なければ null） */
+  lightboxBack: LightboxTarget | null;
   /** サーバーからの通知（SSE：`api/events.ts`）がつながっている間 true。true の間は、1.5 秒ごとの取得（ポーリング）を止める（保険：切れたら、取得に戻る） */
   live: boolean;
 }
@@ -239,21 +233,23 @@ export interface UiActions {
   clearToast: (id: number) => void;
   openDialog: (kind: DialogKind) => void;
   closeDialog: () => void;
-  /** コメントに添付した画像を、大きく出す（押すと閉じる） */
-  openLightbox: (src: string) => void;
-  /** 本文・返信の画像・図を、大きく出す（ズーム・移動ができる） */
+  /**
+   * 拡大表示を開く（画像・図・html-app の枠。添付の画像も）。ドックつきの拡大表示（`focus` あり）の上に、`focus` のない拡大表示（ドックの中の添付の画像）を開いたときは、
+   * 閉じたら、下の拡大表示へ戻る（`lightboxBack`。重ねるのは 1 段だけ）
+   */
   openZoom: (target: LightboxTarget) => void;
+  /** 閉じる（上に重ねたものなら、下の拡大表示へ戻る） */
   closeLightbox: () => void;
   setLive: (live: boolean) => void;
   // ---- 版を並べて比べる（F44） ----
   /**
    * 開く：版が 2 つ以上あるページで、いま見ている版と、その 1 つ前（`defaultPair`）。開けたら true。`scrollTop`：本文のスクロール位置（閉じたら戻す）。
-   * コメントの入力欄（対象つき）・選んでいるスレッドは、`compare.from` に控えて、いったん外す（書きかけの文・添付の画像は、そのまま残る）
+   * コメントの入力欄・選んでいるスレッドは、そのまま持つ（右のコメント欄は、隠れるだけ。書きかけの文・添付の画像・対象も残る）
    */
   openCompare: (scrollTop?: number) => boolean;
   /**
-   * 閉じる。`restore`（既定 true）：開く前の入力欄の対象・選んでいたスレッド・スクロール位置を、戻す。**見ている版が同じとき（`View.key` が同じ。版の本文は変わらないので、対象は、まだ本文にある）だけ**
-   * 戻す（ページ・トピックを移った・新しい版が届いて最新版が替わったときは、戻さない：書きかけの文・画像は、下書きとして残る）。別の入力欄が、すでに開いていれば、そちらを優先する
+   * 閉じる。`restore`（既定 true）：本文のスクロール位置を、戻す。**見ている版が同じとき（`View.key` が同じ）だけ**戻す（ページ・トピックを移った・新しい版が届いて最新版が替わったときは、戻さない）。
+   * 入力欄は、開く前のまま残っている：同じ版なら、同じ対象で、続けられる。版が変わったときは、変わった時点で、`moveComposer`（App）が、新しい最新版なら確かめの印（`verify`）を付け、そうでなければ「対象を失った下書き」へ移している
    */
   closeCompare: (restore?: boolean) => void;
   /** 戻すスクロール位置を、1 度だけ受け取る（受け取ると、なくなる） */
@@ -328,6 +324,7 @@ export function initialUi(): UiState {
     panelWNarrow: null,
     dialog: null,
     lightbox: null,
+    lightboxBack: null,
     live: false,
   };
 }
@@ -448,18 +445,9 @@ export const useUi = create<UiStore>()((set, get) => {
       const v = getView();
       const pair = v ? defaultPair(v.version, v.latest) : null;
       if (!v || !pair) return false;
-      const { composer, active, solo } = get();
+      // 入力欄・選んでいるスレッドは、そのまま持つ（右のコメント欄は隠れるだけ。下書きの文・添付の画像・対象も残る）。戻すのは、本文のスクロール位置だけ
       set({
-        compare: {
-          ...pair,
-          width: 'auto',
-          mode: null,
-          changesOnly: false,
-          from: { key: v.key, scrollTop, composer, active, solo, pageKey: `${v.slug}/${v.page}` },
-        },
-        composer: null,
-        active: null,
-        solo: null,
+        compare: { ...pair, width: 'auto', mode: null, changesOnly: false, from: { key: v.key, scrollTop } },
         regMode: 'idle',
         linkedTid: null,
       });
@@ -468,26 +456,8 @@ export const useUi = create<UiStore>()((set, get) => {
     closeCompare: (restore = true) => {
       const { compare } = get();
       if (!compare) return;
-      const v = getView();
-      const { composer, active, solo, scrollTop, key, pageKey } = compare.from;
-      const sameKey = restore && v !== null && v.key === key;
-      // 版が替わった（新しい版が届いた）が、同じページの最新版：対象を、新しい版の本文で探し直せる（描いたあとに確かめる：`verify`）
-      const relocate = restore && !sameKey && v?.isLatest === true && `${v.slug}/${v.page}` === pageKey;
-      const mine = get().composer === null; // 別の入力欄が、すでに開いていれば、そちらを優先
-      set((s) => ({
-        compare: null,
-        scrollRestore: sameKey ? scrollTop : null,
-        ...(sameKey
-          ? {
-              composer: s.composer ?? (v?.isLatest ? composer : null),
-              active: s.active ?? active,
-              solo: s.solo ?? solo,
-            }
-          : {}),
-        ...(relocate && composer && mine ? { composer: { ...composer, verify: true } } : {}),
-      }));
-      // 対象を戻せない（別のページへ移った）：書きかけを、別の対象に付けない
-      if (composer && mine && !sameKey && !relocate) get().loseComposerDraft('別のページにあります');
+      const sameKey = restore && getView()?.key === compare.from.key;
+      set({ compare: null, scrollRestore: sameKey ? compare.from.scrollTop : null });
     },
     takeScrollRestore: () => {
       const r = get().scrollRestore;
@@ -585,9 +555,13 @@ export const useUi = create<UiStore>()((set, get) => {
     clearToast: (id) => set((s) => (s.toast?.id === id ? { toast: null } : s)),
     openDialog: (dialog) => set({ dialog }),
     closeDialog: () => set({ dialog: null }),
-    openLightbox: (src) => set({ lightbox: { kind: 'img', src, alt: ATTACHED_ALT, zoom: false } }),
-    openZoom: (lightbox) => set({ lightbox, focusTool: 'idle' }),
-    closeLightbox: () => set({ lightbox: null, focusTool: 'idle' }),
+    openZoom: (lightbox) =>
+      set((s) => ({
+        lightbox,
+        lightboxBack: s.lightbox?.focus && !lightbox.focus ? s.lightbox : null,
+        focusTool: 'idle',
+      })),
+    closeLightbox: () => set((s) => ({ lightbox: s.lightboxBack, lightboxBack: null, focusTool: 'idle' })),
     setLive: (live) => set({ live }),
 
     toggleSide: (autoHidden = false) => {

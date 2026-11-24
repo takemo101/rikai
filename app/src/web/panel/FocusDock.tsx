@@ -1,10 +1,11 @@
-// 個別表示（F43）の右のドック（幅 約 340px。窓が 760px 未満のときは、下からのシート）：新しいコメントの入力欄（本文のパネルと**同じ**状態・下書き：`Composer`）と、
-// この対象（ブロック）に付いた、既存のコメント（`ThreadCard`。読める・返信できる・解決できる）。上に、「未送信 n 件」（Submit は、画面のバーのまま：二重にしない）。
-// 個別表示で書いた下書きは、閉じたあとも、本文のパネルに残り、パネルの Submit で送る。
+// 拡大表示（F43）の右のドック（幅 約 340px。窓が 760px 未満のときは、下からのシート）：新しいコメントの入力欄（本文のパネルと**同じ**状態・下書き：`Composer`）と、
+// この対象（ブロック）に付いた、既存のコメント（`ThreadCard`。読める・返信できる・解決できる）。上に、「未送信 n 件」（「AI に送る」は、画面のバーのまま：二重にしない）。
+// 拡大表示で書いた下書きは、閉じたあとも、本文のパネルに残り、パネルの「AI に送る」で送る。ドックの中の添付の画像は、押すと、その上に重ねて、拡大表示で開く（閉じると、ここへ戻る）。
 import { MessageSquarePlus } from 'lucide-react';
 import { useContext, useEffect, useMemo, useRef } from 'react';
 import type { AppFrame } from '../doc/appBridge';
 import { blockAnchor, blockLabel } from '../doc/render/blocks';
+import { noteMouseDown, zoomOnCardClick } from '../doc/zoomOpen';
 import { openComposer } from '../interact/compose';
 import { frameMetaOf } from '../lib/frameMeta';
 import { useDoc } from '../store/doc';
@@ -65,10 +66,13 @@ export function FocusDock({ focus, ctx, frame }: { focus: FocusRef; ctx: FocusCt
   };
 
   return (
+    // biome-ignore lint/a11y/useKeyWithClickEvents: ドックの中の添付の画像の押下を、ドック全体で受ける（画像は、押す前提のマウス操作。本文のパネルと同じ）
     <aside
       className="fv-dock"
       aria-label="この対象のコメント"
       ref={ref}
+      onClick={zoomOnCardClick}
+      onMouseDown={noteMouseDown}
       onMouseLeave={() => useUi.getState().setLinked(null)}
     >
       <div className="fv-dock-h">
