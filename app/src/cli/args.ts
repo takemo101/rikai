@@ -11,14 +11,21 @@ export interface ParsedArgs {
   flags: Flags;
 }
 
+/** 値を取らないオプション（`--名前` だけ）。それ以外の `--名前` は、次の引数を値として取る */
+const BOOLEAN_FLAGS = new Set(['no-open', 'help', 'version']);
+/** 短い形（値を取らない）：`-h` ＝ `--help`・`-v` ＝ `--version` */
+const SHORT_FLAGS: Record<string, string> = { '-h': 'help', '-v': 'version' };
+
 export function parseArgs(argv: string[]): ParsedArgs {
   const pos: string[] = [];
   const flags: Flags = {};
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i] as string;
-    if (a.startsWith('--')) {
+    const short = SHORT_FLAGS[a];
+    if (short) flags[short] = true;
+    else if (a.startsWith('--')) {
       const k = a.slice(2);
-      if (k === 'no-open' || k === 'force') flags[k] = true;
+      if (BOOLEAN_FLAGS.has(k)) flags[k] = true;
       else flags[k] = argv[++i];
     } else pos.push(a);
   }

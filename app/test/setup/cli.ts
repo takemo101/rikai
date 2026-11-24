@@ -5,6 +5,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { build } from 'esbuild';
+import { versionDefine } from '../../scripts/version';
 
 export default async function setup(): Promise<void> {
   const app = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
@@ -22,6 +23,7 @@ export default async function setup(): Promise<void> {
     format: 'cjs',
     legalComments: 'none',
     logLevel: 'silent',
+    define: versionDefine,
   });
   process.env.RIKAI_CLI = outfile;
 }

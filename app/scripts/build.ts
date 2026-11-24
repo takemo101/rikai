@@ -7,6 +7,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { build } from 'esbuild';
+import { versionDefine } from './version';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const appDir = path.resolve(here, '..');
@@ -31,6 +32,7 @@ export async function bundle(outDir: string): Promise<string[]> {
     entryPoints: { rikai: 'src/cli/main.ts' },
     outdir: outDir,
     banner: { js: '#!/usr/bin/env node' },
+    define: versionDefine, // 版は、ビルドのときに埋め込む（実行時にファイルを読まない：配布した 1 ファイルで動く）
   });
   const worker = await build({
     ...common,

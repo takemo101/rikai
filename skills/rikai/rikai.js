@@ -5798,9 +5798,9 @@ var Class = class {
   constructor(..._args) {
   }
 };
-function members(proto, table) {
-  for (const key in table) {
-    const desc = Object.getOwnPropertyDescriptor(table, key);
+function members(proto, table2) {
+  for (const key in table2) {
+    const desc = Object.getOwnPropertyDescriptor(table2, key);
     if (desc.get)
       Object.defineProperty(proto, key, { ...desc, enumerable: false });
     else
@@ -5815,10 +5815,10 @@ function hide(inst, key, value) {
   return own(inst, key, value, false);
 }
 // @__NO_SIDE_EFFECTS__
-function derived(computes, table) {
+function derived(computes, table2) {
   for (const key in computes) {
     const compute = computes[key];
-    Object.defineProperty(table, key, {
+    Object.defineProperty(table2, key, {
       configurable: true,
       enumerable: true,
       get() {
@@ -5829,7 +5829,7 @@ function derived(computes, table) {
       }
     });
   }
-  return table;
+  return table2;
 }
 function defineBound(proto, key, fn) {
   Object.defineProperty(proto, key, {
@@ -26560,14 +26560,18 @@ function shutdown(store) {
 // src/cli/args.ts
 var import_node_child_process = __toESM(require("node:child_process"), 1);
 var import_node_path8 = __toESM(require("node:path"), 1);
+var BOOLEAN_FLAGS = /* @__PURE__ */ new Set(["no-open", "help", "version"]);
+var SHORT_FLAGS = { "-h": "help", "-v": "version" };
 function parseArgs(argv) {
   const pos = [];
   const flags = {};
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
-    if (a.startsWith("--")) {
+    const short = SHORT_FLAGS[a];
+    if (short) flags[short] = true;
+    else if (a.startsWith("--")) {
       const k = a.slice(2);
-      if (k === "no-open" || k === "force") flags[k] = true;
+      if (BOOLEAN_FLAGS.has(k)) flags[k] = true;
       else flags[k] = argv[++i];
     } else pos.push(a);
   }
@@ -26583,6 +26587,315 @@ function projectRoot(flags) {
   } catch {
     return process.cwd();
   }
+}
+
+// src/shared/version.ts
+var VERSION = "0.1.2";
+
+// src/cli/help.ts
+var ROOT_OPT = {
+  flag: "--root <dir>",
+  text: "\u30D7\u30ED\u30B8\u30A7\u30AF\u30C8\u306E\u30EB\u30FC\u30C8\uFF08\u65E2\u5B9A: git \u306E\u30EB\u30FC\u30C8\u3002git \u3067\u306A\u3051\u308C\u3070\u3001\u73FE\u5728\u306E\u30C7\u30A3\u30EC\u30AF\u30C8\u30EA\uFF09"
+};
+var TITLE_OPT = { flag: "--title <\u984C\u540D>", text: "\u30C8\u30D4\u30C3\u30AF\u306E\u984C\u540D\uFF08\u65E2\u5B9A: topic \u306E\u540D\u524D\uFF09", only: "new" };
+var SOURCE_OPT = { flag: "--source <\u5BFE\u8C61>", text: "\u8CC7\u6599\u306E\u5BFE\u8C61\u306E\u8AAC\u660E\uFF08\u65E2\u5B9A: \u306A\u3057\uFF09", only: "new" };
+var NO_OPEN_OPT = { flag: "--no-open", text: "\u30D6\u30E9\u30A6\u30B6\u3092\u81EA\u52D5\u3067\u958B\u304B\u306A\u3044\uFF08URL \u3060\u3051\u51FA\u3059\uFF09", only: "open" };
+var TIMEOUT_OPT = {
+  flag: "--timeout <\u79D2>",
+  text: "\u5F85\u3064\u6700\u9577\u306E\u79D2\u6570\uFF08\u65E2\u5B9A: 43200 \uFF1D 12 \u6642\u9593\uFF09",
+  only: "poll"
+};
+var HELP_OPT = {
+  flag: "-h, --help",
+  text: "\u30D8\u30EB\u30D7\u3092\u51FA\u3059\uFF08help \u3067\u3082\u540C\u3058\uFF09"
+};
+var VERSION_OPT = { flag: "-v, --version", text: "\u30D0\u30FC\u30B8\u30E7\u30F3\u3092\u51FA\u3059\uFF08version \u3067\u3082\u540C\u3058\uFF09" };
+var FAIL = '\u5931\u6557\u3057\u305F\u3068\u304D\u306F\u3001{"ok": false, "errors": [\u7406\u7531\u2026]} \u3092\u51FA\u3057\u3066\u3001\u7D42\u4E86\u30B3\u30FC\u30C9 1 \u3067\u7D42\u308F\u308B\u3002';
+var COMMANDS = [
+  {
+    name: "new",
+    group: "make",
+    synopsis: "new <topic>",
+    summary: "\u6A19\u6E96\u5165\u529B\u306E Markdown \u304B\u3089\u3001\u65B0\u3057\u3044\u30C8\u30D4\u30C3\u30AF\uFF08\u8CC7\u6599\uFF09\u3092\u4F5C\u308B",
+    usage: "new <topic> [--title <\u984C\u540D>] [--source <\u5BFE\u8C61>]",
+    detail: [
+      "topic \u306F\u3001\u30C8\u30D4\u30C3\u30AF\u306E\u540D\u524D\uFF08\u82F1\u5C0F\u6587\u5B57\u30FB\u6570\u5B57\u30FB\u30CF\u30A4\u30D5\u30F3\u300148 \u5B57\u4EE5\u5185\uFF09\u3002\u540C\u3058\u540D\u524D\u304C\u3001\u3059\u3067\u306B\u3042\u308B\u3068\u304D\u30FB\u8CC7\u6599\u304C\u7A7A\u306E\u3068\u304D\u306F\u3001\u5931\u6557\u3059\u308B\u3002",
+      "\u4F5C\u3063\u305F\u3042\u3068\u3001`rikai open <topic>` \u3067\u3001\u30D6\u30E9\u30A6\u30B6\u306B\u51FA\u3059\u3002"
+    ],
+    options: [TITLE_OPT, SOURCE_OPT, ROOT_OPT],
+    input: ["\u6A19\u6E96\u5165\u529B\uFF1A\u8CC7\u6599\u306E Markdown\uFF08\u5FC5\u9808\u3002\u30D2\u30A2\u30C9\u30AD\u30E5\u30E1\u30F3\u30C8\u304B\u3001\u30EA\u30C0\u30A4\u30EC\u30AF\u30C8\u3067\u6E21\u3059\uFF09"],
+    output: [
+      '{"ok": true, "topic", "dir", "rootPage", "assets"}',
+      "  dir \u2026 \u30C8\u30D4\u30C3\u30AF\u306E\u4FDD\u5B58\u5148\uFF08.rikai/<topic>/\uFF09  rootPage \u2026 \u6700\u521D\u306E\u30DA\u30FC\u30B8\uFF08v1.md\uFF09  assets \u2026 \u753B\u50CF\u306A\u3069\u3092\u7F6E\u304F\u5834\u6240",
+      FAIL
+    ],
+    examples: [
+      {
+        note: "\u30D2\u30A2\u30C9\u30AD\u30E5\u30E1\u30F3\u30C8\u3067\u6E21\u3059",
+        cmd: [`rikai new auth-flow --title "\u8A8D\u8A3C\u306E\u6D41\u308C" --source "PR #12" <<'MD'`, "# \u8A8D\u8A3C\u306E\u6D41\u308C", "\u2026", "MD"]
+      },
+      { note: "\u30D5\u30A1\u30A4\u30EB\u304B\u3089\u6E21\u3059", cmd: ['rikai new auth-flow --title "\u8A8D\u8A3C\u306E\u6D41\u308C" < doc.md'] }
+    ],
+    see: "open"
+  },
+  {
+    name: "open",
+    group: "make",
+    synopsis: "open <topic>",
+    summary: "\u30D6\u30E9\u30A6\u30B6\u3067\u8CC7\u6599\u3092\u958B\u304F\uFF08\u30D3\u30E5\u30FC\u30A2\u3092\u8D77\u52D5\u3057\u3066\u3001URL \u3092\u51FA\u3059\uFF09",
+    usage: "open <topic> [--no-open] [--root <dir>]",
+    detail: [
+      "\u30D3\u30E5\u30FC\u30A2\uFF08127.0.0.1 \u3060\u3051\u3067\u5F85\u3061\u53D7\u3051\u308B\u5C0F\u3055\u306A\u30B5\u30FC\u30D0\u30FC\uFF09\u304C\u52D5\u3044\u3066\u3044\u306A\u3051\u308C\u3070\u8D77\u52D5\u3057\u3001\u30D6\u30E9\u30A6\u30B6\u3067\u3001\u30C8\u30D4\u30C3\u30AF\u3092\u958B\u304F\u3002",
+      "\u7D42\u4E86\u3057\u305F\u30C8\u30D4\u30C3\u30AF\u3082\u3001\u958B\u304D\u76F4\u305B\u308B\u3002\u74B0\u5883\u5909\u6570 NO_OPEN \u3092\u8A2D\u5B9A\u3057\u3066\u3082\u3001\u30D6\u30E9\u30A6\u30B6\u306F\u958B\u304B\u306A\u3044\u3002"
+    ],
+    options: [NO_OPEN_OPT, ROOT_OPT],
+    output: [
+      '{"ok": true, "url", "root", "dir"}',
+      "  url \u2026 \u753B\u9762\u306E URL\u3002`?t=` \u306E\u5F8C\u308D\u306F\u5408\u8A00\u8449\u306A\u306E\u3067\u3001\u4EBA\u306B\u898B\u305B\u306A\u3044",
+      FAIL
+    ],
+    examples: [
+      { note: "\u30D6\u30E9\u30A6\u30B6\u3067\u958B\u304F", cmd: ["rikai open auth-flow"] },
+      { note: "URL \u3060\u3051\u51FA\u3059\uFF08\u30D6\u30E9\u30A6\u30B6\u306F\u958B\u304B\u306A\u3044\uFF09", cmd: ["rikai open auth-flow --no-open"] }
+    ],
+    see: "poll\u30FBstop"
+  },
+  {
+    name: "status",
+    group: "make",
+    synopsis: "status [topic]",
+    summary: "\u30C8\u30D4\u30C3\u30AF\u306E\u72B6\u614B\uFF08\u672A\u51E6\u7406\u306E\u30B3\u30E1\u30F3\u30C8\u30FB\u9032\u307F\u5177\u5408\u30FB\u30DA\u30FC\u30B8\uFF09\u3092\u51FA\u3059",
+    usage: "status [topic] [--root <dir>]",
+    detail: ["topic \u3092\u7701\u304F\u3068\u3001\u3053\u306E\u30D7\u30ED\u30B8\u30A7\u30AF\u30C8\u306E\u3001\u3059\u3079\u3066\u306E\u30C8\u30D4\u30C3\u30AF\u3092\u51FA\u3059\u3002\u4F1A\u8A71\u304C\u9014\u5207\u308C\u305F\u3042\u3068\u306E\u3001\u72B6\u6CC1\u306E\u78BA\u8A8D\u306B\u4F7F\u3046\u3002"],
+    options: [ROOT_OPT],
+    output: [
+      "JSON \u306E\u914D\u5217\uFF08\u30C8\u30D4\u30C3\u30AF\u304C 1 \u3064\u3067\u3082\u3001\u914D\u5217\uFF09\u3002\u30C8\u30D4\u30C3\u30AF\u3054\u3068\u306B\uFF1A",
+      "  topic\u30FBtitle\u30FBclosed\uFF08\u7D42\u4E86\u3057\u305F\u304B\uFF09\u30FBpendingRounds\uFF08\u672A\u51E6\u7406\u306E round \u306E\u756A\u53F7\uFF09\u30FBunsentInBrowser\uFF08\u307E\u3060\u9001\u3063\u3066\u3044\u306A\u3044\u30B3\u30E1\u30F3\u30C8\u306E\u6570\uFF09\u30FBprogress\uFF08\u89E3\u6C7A\u30FB\u56DE\u7B54\u306E\u6570\uFF09\u30FBpages\uFF08\u30DA\u30FC\u30B8\u3054\u3068\u306E\u984C\u30FB\u7248\u30FB\u6700\u65B0\u7248\u306E\u30D5\u30A1\u30A4\u30EB\uFF09",
+      FAIL
+    ],
+    examples: [
+      { note: "\u3059\u3079\u3066\u306E\u30C8\u30D4\u30C3\u30AF", cmd: ["rikai status"] },
+      { note: "1 \u3064\u306E\u30C8\u30D4\u30C3\u30AF", cmd: ["rikai status auth-flow"] }
+    ]
+  },
+  {
+    name: "stop",
+    group: "make",
+    synopsis: "stop",
+    summary: "\u30D3\u30E5\u30FC\u30A2\uFF08\u30B5\u30FC\u30D0\u30FC\uFF09\u3092\u6B62\u3081\u308B",
+    usage: "stop [--root <dir>]",
+    detail: [
+      "\u3053\u306E\u30D7\u30ED\u30B8\u30A7\u30AF\u30C8\u306E\u30D3\u30E5\u30FC\u30A2\u3092\u6B62\u3081\u308B\u3002\u8CC7\u6599\u30FB\u30B3\u30E1\u30F3\u30C8\u306F\u6D88\u3048\u306A\u3044\uFF08`.rikai/` \u306B\u6B8B\u308B\uFF09\u3002\u52D5\u3044\u3066\u3044\u306A\u3051\u308C\u3070\u3001\u4F55\u3082\u3057\u306A\u3044\u3002"
+    ],
+    options: [ROOT_OPT],
+    output: ['{"ok": true, "stopped": true | false}   stopped \u2026 \u6B62\u3081\u305F\u304B\uFF08\u52D5\u3044\u3066\u3044\u306A\u304B\u3063\u305F\u3068\u304D\u306F false\uFF09'],
+    examples: [{ note: "\u30D3\u30E5\u30FC\u30A2\u3092\u6B62\u3081\u308B", cmd: ["rikai stop"] }],
+    see: "open"
+  },
+  {
+    name: "poll",
+    group: "agent",
+    synopsis: "poll <topic>",
+    summary: "\u300CAI \u306B\u9001\u308B\u300D\u304C\u62BC\u3055\u308C\u308B\u307E\u3067\u5F85\u3061\u3001\u30B3\u30E1\u30F3\u30C8\u3092 JSON \u3067\u51FA\u3059",
+    usage: "poll <topic> [--timeout <\u79D2>] [--root <dir>]",
+    detail: [
+      "\u30E6\u30FC\u30B6\u30FC\u304C\u3001\u753B\u9762\u3067\u300CAI \u306B\u9001\u308B\u300D\u3092\u62BC\u3059\u307E\u3067\u5F85\u3064\uFF08Claude Code \u304C\u3001\u30D0\u30C3\u30AF\u30B0\u30E9\u30A6\u30F3\u30C9\u3067\u52D5\u304B\u3059\uFF09\u3002",
+      "\u3059\u3067\u306B\u5C4A\u3044\u3066\u3044\u308B\u30B3\u30E1\u30F3\u30C8\u304C\u3042\u308C\u3070\u3001\u5F85\u305F\u305A\u306B\u3001\u3059\u3050\u51FA\u3059\u3002\u51FA\u3057\u305F\u3042\u3068\u3001\u8FD4\u4FE1\u306F `rikai apply` \u3067\u53CD\u6620\u3059\u308B\u3002",
+      "\u5F85\u3066\u306A\u3044\u30A8\u30FC\u30B8\u30A7\u30F3\u30C8\u306F\u3001`rikai pull` \u3092\u4F7F\u3046\u3002"
+    ],
+    options: [TIMEOUT_OPT, ROOT_OPT],
+    output: [
+      "1 \u3064\u306E JSON\u3002status \u3067\u3001\u6B21\u306E 3 \u3064\u306B\u5206\u304B\u308C\u308B\uFF1A",
+      '  "feedback" \u2026 \u30B3\u30E1\u30F3\u30C8\u304C\u5C4A\u3044\u305F\u3002round\u30FBitems\uFF08\u30B3\u30E1\u30F3\u30C8\u3054\u3068\u306E\u3001\u30B9\u30EC\u30C3\u30C9\u30FB\u6587\u8108\u30FB\u65B0\u3057\u3044\u767A\u8A00\uFF09\u30FBpages\u30FBoverallNote\uFF08\u5168\u4F53\u3078\u306E\u4F1D\u8A00\uFF09\u306A\u3069\u3092\u542B\u3080',
+      '  "closed"   \u2026 \u30E6\u30FC\u30B6\u30FC\u304C\u300C\u7D42\u4E86\u300D\u3092\u62BC\u3057\u305F',
+      '  "timeout"  \u2026 --timeout \u306E\u9593\u306B\u3001\u5C4A\u304B\u306A\u304B\u3063\u305F\u3002\u3082\u3046\u4E00\u5EA6 poll \u3059\u308B',
+      FAIL
+    ],
+    examples: [
+      { note: "\u5C4A\u304F\u307E\u3067\u5F85\u3064\uFF08\u6700\u9577 12 \u6642\u9593\uFF09", cmd: ["rikai poll auth-flow"] },
+      { note: "10 \u5206\u3060\u3051\u5F85\u3064", cmd: ["rikai poll auth-flow --timeout 600"] }
+    ],
+    see: "pull\u30FBapply"
+  },
+  {
+    name: "pull",
+    group: "agent",
+    synopsis: "pull <topic>",
+    summary: "\u5F85\u305F\u305A\u306B\u3001\u5C4A\u3044\u3066\u3044\u308B\u30B3\u30E1\u30F3\u30C8\u3092\u51FA\u3059",
+    usage: "pull <topic> [--root <dir>]",
+    detail: [
+      "`poll` \u306E\u3001\u5F85\u305F\u306A\u3044\u7248\u3002\u30E6\u30FC\u30B6\u30FC\u306B\u300C\u9001\u3063\u305F\u300D\u3068\u8A00\u308F\u308C\u305F\u3042\u3068\u306B\u3001\u8AAD\u307F\u306B\u884C\u304F\u3068\u304D\u306B\u4F7F\u3046\u3002",
+      "\u672A\u51E6\u7406\u306E\u30B3\u30E1\u30F3\u30C8\u304C\u3001\u8907\u6570\u306E\u30E9\u30A6\u30F3\u30C9\u306B\u3042\u308B\u3068\u304D\u306F\u3001\u3044\u3061\u3070\u3093\u53E4\u3044\u3082\u306E\u3060\u3051\u3092\u51FA\u3059\u3002"
+    ],
+    options: [ROOT_OPT],
+    output: [
+      "1 \u3064\u306E JSON\u3002status \u3067\u3001\u6B21\u306E 3 \u3064\u306B\u5206\u304B\u308C\u308B\uFF1A",
+      '  "feedback" \u2026 \u30B3\u30E1\u30F3\u30C8\u304C\u5C4A\u3044\u3066\u3044\u308B\uFF08poll \u3068\u540C\u3058\u5F62\uFF09',
+      '  "closed"   \u2026 \u30E6\u30FC\u30B6\u30FC\u304C\u300C\u7D42\u4E86\u300D\u3092\u62BC\u3057\u305F',
+      '  "none"     \u2026 \u307E\u3060\u5C4A\u3044\u3066\u3044\u306A\u3044\uFF08message \u3068\u3001\u307E\u3060\u9001\u3063\u3066\u3044\u306A\u3044\u6570 unsent\uFF09',
+      FAIL
+    ],
+    examples: [{ note: "\u5C4A\u3044\u3066\u3044\u308C\u3070\u51FA\u3059", cmd: ["rikai pull auth-flow"] }],
+    see: "poll\u30FBapply"
+  },
+  {
+    name: "apply",
+    group: "agent",
+    synopsis: "apply <topic>",
+    summary: "\u6A19\u6E96\u5165\u529B\u306E JSON \u3067\u3001\u8FD4\u4FE1\u30FB\u65B0\u3057\u3044\u7248\u30FB\u5B50\u30DA\u30FC\u30B8\u30FB\u8CEA\u554F\u3092\u53CD\u6620\u3059\u308B",
+    usage: "apply <topic> [--root <dir>]",
+    detail: [
+      "\u8FD4\u4FE1\u30FB\u8CC7\u6599\u306E\u65B0\u3057\u3044\u7248\u30FB\u5B50\u30DA\u30FC\u30B8\u30FBAI \u304B\u3089\u306E\u8CEA\u554F\u3092\u30011 \u56DE\u306E JSON \u3067\u53CD\u6620\u3059\u308B\u3002\u3059\u3079\u3066\u691C\u67FB\u3057\u3066\u304B\u3089\u66F8\u304F\uFF081 \u3064\u3067\u3082\u8AA4\u308A\u304C\u3042\u308C\u3070\u3001\u4F55\u3082\u66F8\u304B\u306A\u3044\uFF09\u3002",
+      "\u53CD\u6620\u3059\u308B\u3068\u3001\u305D\u306E round \u304C\u51E6\u7406\u6E08\u307F\u306B\u306A\u308B\u3002\u672A\u51E6\u7406\u306E round \u304C\u8907\u6570\u3042\u308B\u3068\u304D\u306F\u3001JSON \u306E round \u3067\u3001\u3069\u308C\u3092\u51E6\u7406\u3059\u308B\u304B\u6307\u5B9A\u3059\u308B\u3002",
+      "\u5165\u529B\u306E\u8A73\u3057\u3044\u5F62\uFF08ask \u306E\u578B\u306A\u3069\uFF09\u306F\u3001\u30B9\u30AD\u30EB\u306E\u672C\u4F53 SKILL.md\uFF08skills/rikai/SKILL.md\uFF09\u306B\u3042\u308B\u3002"
+    ],
+    options: [ROOT_OPT],
+    input: [
+      "\u6A19\u6E96\u5165\u529B\uFF1AJSON\uFF08\u30AD\u30FC\u306F\u3001\u3059\u3079\u3066\u7701\u7565\u3067\u304D\u308B\uFF09",
+      "  round        \u51E6\u7406\u3059\u308B round \u306E\u756A\u53F7\uFF08\u672A\u51E6\u7406\u306E round \u304C\u8907\u6570\u3042\u308B\u3068\u304D\u306F\u3001\u5FC5\u9808\uFF09",
+      "  replies[]    \u30B9\u30EC\u30C3\u30C9\u3078\u306E\u8FD4\u4FE1\uFF1A{thread, body, page?, ask?}",
+      "  revisions[]  \u8CC7\u6599\u306E\u65B0\u3057\u3044\u7248\uFF08\u5168\u6587\uFF09\uFF1A{page, markdown, title?}",
+      "  pages[]      \u5B50\u30DA\u30FC\u30B8\uFF1A{id, title, markdown, parent?}",
+      "  threads[]    AI \u304B\u3089\u59CB\u3081\u308B\u30B9\u30EC\u30C3\u30C9\uFF08\u78BA\u8A8D\u306E\u8CEA\u554F\u306A\u3069\uFF09\uFF1A{page, body, anchor?, ask?, link?}"
+    ],
+    output: [
+      '{"ok": true, "handledRounds", "newPages", "revised", "repliedThreads", "newThreads"}',
+      "  \u8FD4\u4FE1\u3057\u3066\u3044\u306A\u3044\u30B9\u30EC\u30C3\u30C9\u304C\u3042\u308B\u3068\u304D\u306F\u3001unansweredThreads \u3068 warning \u3082\u4ED8\u304F",
+      '\u691C\u67FB\u306B\u5931\u6557\u3057\u305F\u3068\u304D\u306F\u3001\u4F55\u3082\u66F8\u304B\u305A\u306B {"ok": false, "errors": [\u7406\u7531\u2026]} \u3092\u51FA\u3057\u3066\u3001\u7D42\u4E86\u30B3\u30FC\u30C9 1 \u3067\u7D42\u308F\u308B\u3002'
+    ],
+    examples: [
+      {
+        note: "1 \u3064\u306E\u30B9\u30EC\u30C3\u30C9\u306B\u3001\u8FD4\u4FE1\u3059\u308B",
+        cmd: ["rikai apply auth-flow <<'JSON'", '{"round": 1, "replies": [{"thread": "t1", "body": "\u2026"}]}', "JSON"]
+      }
+    ],
+    see: "poll\u30FBpull"
+  },
+  {
+    name: "serve",
+    group: "internal",
+    synopsis: "serve",
+    summary: "\u30D3\u30E5\u30FC\u30A2\u306E\u30B5\u30FC\u30D0\u30FC\u672C\u4F53\uFF08\u5185\u90E8\u7528\uFF09",
+    usage: "serve [--root <dir>]",
+    detail: ["`open` \u304C\u3001\u81EA\u52D5\u3067\u8D77\u52D5\u3059\u308B\u3002\u76F4\u63A5\u306F\u4F7F\u308F\u306A\u3044\uFF08\u3059\u3079\u3066\u306E\u30C8\u30D4\u30C3\u30AF\u304C\u7D42\u4E86\u3059\u308B\u3068\u3001\u81EA\u5206\u3067\u7D42\u308F\u308B\uFF09\u3002"],
+    options: [ROOT_OPT],
+    output: ["\u4F55\u3082\u51FA\u3055\u306A\u3044\uFF08\u8D77\u52D5\u3057\u305F\u60C5\u5831\u306F\u3001.rikai/.server.json \u306B\u66F8\u304F\uFF09"],
+    examples: []
+  }
+];
+var REPO_DOC_URL = "https://github.com/takemo101/rikai#\u30B3\u30DE\u30F3\u30C9";
+var TAGLINE = "rikai \u2014 \u8CC7\u6599\u306B\u30B3\u30E1\u30F3\u30C8\u3057\u3066 AI \u3068\u7406\u89E3\u3092\u6DF1\u3081\u308B\u30C4\u30FC\u30EB";
+var GROUPS = [
+  { id: "make", title: "\u8CC7\u6599\u3092\u4F5C\u3063\u3066\u898B\u308B" },
+  { id: "agent", title: "AI \u304C\u30B3\u30E1\u30F3\u30C8\u3092\u53D7\u3051\u3066\u8FD4\u3059" }
+];
+function painter(color) {
+  if (!color) return { bold: (s) => s, cmd: (s) => s };
+  return { bold: (s) => `\x1B[1m${s}\x1B[22m`, cmd: (s) => `\x1B[36m${s}\x1B[39m` };
+}
+function width(s) {
+  let w2 = 0;
+  for (const ch of s) w2 += ch.codePointAt(0) >= 4352 ? 2 : 1;
+  return w2;
+}
+function table(rows, color, w2 = Math.max(...rows.map(([l3]) => width(l3)))) {
+  return rows.map(([l3, r]) => `  ${color(l3)}${" ".repeat(w2 - width(l3))}  ${r}`);
+}
+function topHelp(color) {
+  const p = painter(color);
+  const lines = [TAGLINE, "", `${p.bold("\u4F7F\u3044\u65B9:")} rikai <\u30B3\u30DE\u30F3\u30C9> [\u30AA\u30D7\u30B7\u30E7\u30F3]`, ""];
+  const nameW = Math.max(...COMMANDS.map((c) => width(c.synopsis)));
+  for (const g2 of GROUPS) {
+    lines.push(p.bold(g2.title));
+    lines.push(
+      ...table(
+        COMMANDS.filter((c) => c.group === g2.id).map((c) => [c.synopsis, c.summary]),
+        p.cmd,
+        nameW
+      )
+    );
+    lines.push("");
+  }
+  lines.push(p.bold("\u30AA\u30D7\u30B7\u30E7\u30F3"));
+  lines.push(
+    ...table(
+      [ROOT_OPT, TITLE_OPT, SOURCE_OPT, NO_OPEN_OPT, TIMEOUT_OPT, HELP_OPT, VERSION_OPT].map((o) => [
+        o.flag,
+        o.only ? `${o.only}: ${o.text}` : o.text
+      ]),
+      (s) => s
+    )
+  );
+  lines.push("");
+  lines.push(p.bold("\u4F8B"));
+  lines.push(
+    ...table(
+      [
+        ['rikai new auth-flow --title "\u8A8D\u8A3C\u306E\u6D41\u308C" < doc.md', "# \u8CC7\u6599\u3092\u4F5C\u308B"],
+        ["rikai open auth-flow", "# \u30D6\u30E9\u30A6\u30B6\u3067\u958B\u304F"],
+        ["rikai poll auth-flow", "# \u300CAI \u306B\u9001\u308B\u300D\u304C\u62BC\u3055\u308C\u308B\u307E\u3067\u5F85\u3064"],
+        ["rikai apply auth-flow < reply.json", "# \u8FD4\u4FE1\u3092\u53CD\u6620\u3059\u308B"]
+      ],
+      (s) => s
+    )
+  );
+  lines.push("");
+  lines.push(`\u30B3\u30DE\u30F3\u30C9\u3054\u3068\u306E\u8A73\u3057\u3044\u8AAC\u660E: rikai <\u30B3\u30DE\u30F3\u30C9> --help\uFF08\u4F8B: rikai poll --help\uFF09`);
+  lines.push(`\u30C9\u30AD\u30E5\u30E1\u30F3\u30C8: ${REPO_DOC_URL}`);
+  lines.push(`\u5185\u90E8\u7528: serve\uFF08open \u304C\u3001\u81EA\u52D5\u3067\u8D77\u52D5\u3059\u308B\u3002\u76F4\u63A5\u306F\u4F7F\u308F\u306A\u3044\uFF09`);
+  return `${lines.join("\n")}
+`;
+}
+function commandHelp(c, color) {
+  const p = painter(color);
+  const lines = [`rikai ${c.name} \u2014 ${c.summary}`, "", `${p.bold("\u4F7F\u3044\u65B9:")} rikai ${p.cmd(c.usage)}`, ""];
+  for (const d of c.detail) lines.push(d);
+  lines.push("");
+  lines.push(p.bold("\u30AA\u30D7\u30B7\u30E7\u30F3"));
+  lines.push(
+    ...table(
+      [...c.options, HELP_OPT].map((o) => [o.flag, o.text]),
+      (s) => s
+    )
+  );
+  if (c.input) {
+    lines.push("", p.bold("\u5165\u529B"));
+    for (const l3 of c.input) lines.push(`  ${l3}`);
+  }
+  lines.push("", p.bold("\u51FA\u529B"));
+  for (const l3 of c.output) lines.push(`  ${l3}`);
+  if (c.examples.length) {
+    lines.push("", p.bold("\u4F8B"));
+    c.examples.forEach((e, i) => {
+      if (i) lines.push("");
+      lines.push(`  # ${e.note}`);
+      for (const l3 of e.cmd) lines.push(`  ${l3}`);
+    });
+  }
+  if (c.see) lines.push("", `\u95A2\u9023: ${c.see}`);
+  return `${lines.join("\n")}
+`;
+}
+var COMMAND_NAMES = COMMANDS.map((c) => c.name);
+function unknown2(name, style) {
+  return { stderr: `\u672A\u77E5\u306E\u30B3\u30DE\u30F3\u30C9: ${name}
+
+${topHelp(style.stderr)}`, code: 1 };
+}
+function infoReply(pos, flags, style) {
+  const cmd = pos[0];
+  const wantsHelp = !!flags.help || cmd === "help" || cmd === void 0 && !flags.version;
+  const wantsVersion = !!flags.version || cmd === "version";
+  if (!wantsHelp && !wantsVersion) {
+    return cmd !== void 0 && !COMMAND_NAMES.includes(cmd) ? unknown2(cmd, style) : null;
+  }
+  const target = cmd === "help" ? pos[1] : cmd;
+  if (target !== void 0 && target !== "help" && target !== "version" && !COMMAND_NAMES.includes(target))
+    return unknown2(target, style);
+  if (!wantsHelp) return { stdout: `rikai ${VERSION}
+`, code: 0 };
+  const doc = COMMANDS.find((c) => c.name === target);
+  return { stdout: doc ? commandHelp(doc, style.stdout) : topHelp(style.stdout), code: 0 };
 }
 
 // src/cli/stdin.ts
@@ -26682,17 +26995,18 @@ function cmdStop(store) {
   }
   out({ ok: true, stopped: true });
 }
-var HELP = `rikai <command>
-  new <topic> --title <\u984C\u540D> [--source <\u5BFE\u8C61>]   \u6A19\u6E96\u5165\u529B\u306EMarkdown\u304B\u3089\u65B0\u3057\u3044\u30C8\u30D4\u30C3\u30AF\u3092\u4F5C\u308B
-  open <topic> [--no-open]                       \u30D3\u30E5\u30FC\u30A2\u3092\u8D77\u52D5\u3057\u3066 URL \u3092\u51FA\u3059
-  poll <topic> [--timeout \u79D2]                    Submit \u3055\u308C\u308B\u307E\u3067\u5F85\u3061\u3001\u30B3\u30E1\u30F3\u30C8\u306E\u30D0\u30C3\u30C1\u3092\u51FA\u529B\u3059\u308B\uFF08Claude Code \u5411\u3051\uFF09
-  pull <topic>                                   \u5F85\u305F\u305A\u306B\u3001\u672A\u51E6\u7406\u306E\u30D0\u30C3\u30C1\u304C\u3042\u308C\u3070\u51FA\u529B\u3059\u308B\uFF08\u300C\u9001\u3063\u305F\u300D\u3068\u8A00\u308F\u308C\u305F\u3068\u304D\uFF09
-  apply <topic>                                  \u6A19\u6E96\u5165\u529B\u306EJSON\u3067\u8FD4\u4FE1\u30FB\u65B0\u7248\u30FB\u5B50\u30DA\u30FC\u30B8\u30FB\u8CEA\u554F\u3092\u53CD\u6620\u3059\u308B
-  status [topic]                                 \u672A\u51E6\u7406\u306E\u30D0\u30C3\u30C1\u306A\u3069\u3092\u51FA\u3059
-  stop                                           \u30B5\u30FC\u30D0\u30FC\u3092\u6B62\u3081\u308B
-  \u5171\u901A: --root <dir>  \u30D7\u30ED\u30B8\u30A7\u30AF\u30C8\u30EB\u30FC\u30C8\uFF08\u7701\u7565\u6642\u306F git \u306E\u30EB\u30FC\u30C8\u3001\u306A\u3051\u308C\u3070 cwd\uFF09`;
+function wantsColor(stream2) {
+  return !!stream2.isTTY && !process.env.NO_COLOR;
+}
 async function main() {
   const { pos, flags } = parseArgs(process.argv.slice(2));
+  const info = infoReply(pos, flags, { stdout: wantsColor(process.stdout), stderr: wantsColor(process.stderr) });
+  if (info) {
+    if (info.stdout) process.stdout.write(info.stdout);
+    if (info.stderr) process.stderr.write(info.stderr);
+    process.exitCode = info.code;
+    return;
+  }
   const cmd = pos[0];
   const store = createStore(projectRoot(flags));
   const agent = createAgent(store);
@@ -26731,8 +27045,6 @@ async function main() {
         return agent.cmdStatus(slug);
       case "stop":
         return cmdStop(store);
-      default:
-        console.log(HELP);
     }
   } catch (e) {
     out({ ok: false, errors: String(e.message).split("\n") });

@@ -1,6 +1,8 @@
 import { defineConfig } from 'vitest/config';
+import { versionDefine } from './scripts/version';
 
 export default defineConfig({
+  define: versionDefine,
   test: {
     include: ['test/**/*.test.{ts,tsx}'],
     environment: 'node',

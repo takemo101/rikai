@@ -106,7 +106,7 @@ export function cliResult(
   args: string[],
   input = '',
   env: NodeJS.ProcessEnv = { NO_OPEN: '1' },
-): { status: number | null; stdout: string } {
+): { status: number | null; stdout: string; stderr: string } {
   const cli = process.env.RIKAI_CLI;
   if (!cli) throw new Error('RIKAI_CLI がありません（test/setup/cli.ts が、CLI をバンドルして設定する）');
   const r = cp.spawnSync(process.execPath, [cli, ...args, '--root', root], {
@@ -114,5 +114,5 @@ export function cliResult(
     encoding: 'utf8',
     env: { ...process.env, ...env },
   });
-  return { status: r.status, stdout: r.stdout };
+  return { status: r.status, stdout: r.stdout, stderr: r.stderr };
 }

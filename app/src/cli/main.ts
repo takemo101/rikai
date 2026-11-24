@@ -12,6 +12,7 @@ import { shutdown, startServer } from '../server/serve';
 import { createStore, type Store } from '../server/store';
 import { HttpError, now, out, readJSON, sleep, writeJSON } from '../server/util';
 import { type Flags, parseArgs, projectRoot } from './args';
+import { infoReply } from './help';
 import { readStdin } from './stdin';
 
 // 起動したサーバーの情報（.rikai/.server.json）
@@ -123,18 +124,21 @@ function cmdStop(store: Store): void {
   out({ ok: true, stopped: true });
 }
 
-const HELP = `rikai <command>
-  new <topic> --title <題名> [--source <対象>]   標準入力のMarkdownから新しいトピックを作る
-  open <topic> [--no-open]                       ビューアを起動して URL を出す
-  poll <topic> [--timeout 秒]                    Submit されるまで待ち、コメントのバッチを出力する（Claude Code 向け）
-  pull <topic>                                   待たずに、未処理のバッチがあれば出力する（「送った」と言われたとき）
-  apply <topic>                                  標準入力のJSONで返信・新版・子ページ・質問を反映する
-  status [topic]                                 未処理のバッチなどを出す
-  stop                                           サーバーを止める
-  共通: --root <dir>  プロジェクトルート（省略時は git のルート、なければ cwd）`;
+/** 色（ANSI）は、端末への出力で、かつ NO_COLOR（空でない）がないときだけ。パイプ・リダイレクトは、プレーンテキスト */
+function wantsColor(stream: { isTTY?: boolean }): boolean {
+  return !!stream.isTTY && !process.env.NO_COLOR;
+}
 
 async function main(): Promise<void> {
   const { pos, flags } = parseArgs(process.argv.slice(2));
+  // ヘルプ・バージョン・未知のコマンドは、ストアを作る前に答えて終わる（プロジェクトに、何も書かない）
+  const info = infoReply(pos, flags, { stdout: wantsColor(process.stdout), stderr: wantsColor(process.stderr) });
+  if (info) {
+    if (info.stdout) process.stdout.write(info.stdout);
+    if (info.stderr) process.stderr.write(info.stderr);
+    process.exitCode = info.code;
+    return;
+  }
   const cmd = pos[0];
   const store = createStore(projectRoot(flags));
   const agent = createAgent(store);
@@ -173,8 +177,6 @@ async function main(): Promise<void> {
         return agent.cmdStatus(slug);
       case 'stop':
         return cmdStop(store);
-      default:
-        console.log(HELP);
     }
   } catch (e) {
     out({ ok: false, errors: String((e as Error).message).split('\n') });

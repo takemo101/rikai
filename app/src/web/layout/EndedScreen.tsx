@@ -1,5 +1,6 @@
 // 終えたトピックは、全面の表示（`#ended`）で覆う。ほかに開いているトピックがあれば、そこへ移れるようにする。
 import { CircleCheck } from 'lucide-react';
+import { VERSION } from '../../shared/version';
 import type { TopicSummary } from '../api/queries';
 import { hrefOf } from '../lib/route';
 import type { View } from '../lib/view';
@@ -38,6 +39,8 @@ export function EndedScreen({ view, topics }: EndedScreenProps) {
           </>
         ) : null}
       </div>
+      {/* 終了の画面は、左の一覧も覆う：版は、ここにも、左下に小さく（一覧と同じ場所・同じ文字） */}
+      {closed ? <div className="ended-ver">{`v${VERSION}`}</div> : null}
     </div>
   );
 }
