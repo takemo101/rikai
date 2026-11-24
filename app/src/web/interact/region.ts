@@ -5,8 +5,8 @@
 
 import { IMG_MAX_BYTES, IMG_MAX_N, IMG_OUT_MAX_SIDE } from '../../shared/image';
 import type { Anchor, Rect } from '../../shared/types';
-import { requestFrameSnapshot } from '../doc/frameRegistry';
 import { blockAnchor, frameOf } from '../doc/render/blocks';
+import { requestFrameSnapshot } from '../htmlapp/frameRegistry';
 import { $, $$, trunc } from '../lib/dom';
 import type { Box, Size } from '../lib/geom';
 import { checkImage, readBase64 } from '../lib/image';

@@ -3,13 +3,13 @@
 import { Plus } from 'lucide-react';
 import { useEffect, useRef } from 'react';
 import { useMutations } from '../api/mutations';
-import { effectiveFrameMeta } from '../lib/frameMeta';
+import { FrameMetaChip } from '../htmlapp/FrameMetaChip';
+import { effectiveFrameMeta } from '../htmlapp/frameMeta';
 import { isModEnter } from '../lib/keys';
 import type { View } from '../lib/view';
 import type { BlockEl } from '../store/doc';
 import { type ComposerState, toast, useUi } from '../store/ui';
 import { caretAtEnd } from './caret';
-import { FrameMetaChip } from './FrameMetaChip';
 import { AttachButton, ImageBar } from './ImageBar';
 import { usePanel } from './panelContext';
 import { Quote } from './Quote';

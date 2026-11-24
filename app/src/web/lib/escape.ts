@@ -5,7 +5,7 @@
 //   4. 版を並べて比べる画面（F44）が開いている → 閉じる（拡大表示は、比較の画面からは開けない。左の一覧のドロワー・ダイアログが開いているときは、それらが先に閉じる：ここでは、閉じない）
 // 変換中（`isComposing`・`keyCode 229`）の Esc は、処理しない（橋の `esc` の転送・要素選択の中止も、同じ）。
 // 入力欄の書きかけ（`drafts.composer`）は、閉じても、消えない：右のパネルに残り、パネルの Submit で送る（F43）。
-import { cancelAllPicks } from '../doc/framePick';
+import { cancelAllPicks } from '../htmlapp/framePick';
 import { useUi } from '../store/ui';
 import { isImeKey } from './keys';
 

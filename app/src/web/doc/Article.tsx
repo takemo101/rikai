@@ -3,17 +3,17 @@
 import { useEffect, useRef } from 'react';
 import { type PickInfo, pickLabel } from '../../shared/htmlapp-bridge';
 import type { ArticleProps } from '../contracts';
+import { FOCUS_ENTRY, mediaOfEntry } from '../focus/focusable';
+import { noteMouseDown, openFocusApp, openFocusOf, zoomableAt, zoomOnClick } from '../focus/zoomOpen';
+import { frameMetaOf } from '../htmlapp/frameMeta';
+import { latestStateOf, releaseApps } from '../htmlapp/frameRegistry';
 import { $$ } from '../lib/dom';
-import { frameMetaOf } from '../lib/frameMeta';
 import { type BlockEl, type DocModel, locEl, nextEpoch, useDoc } from '../store/doc';
 import { toast, useUi } from '../store/ui';
-import { latestStateOf, releaseApps } from './frameRegistry';
 import { articleTid } from './hit';
 import { blockAnchor } from './render/blocks';
-import { FOCUS_ENTRY, mediaOfEntry } from './render/focusable';
 import { markPending } from './render/highlights';
 import { renderDoc } from './render/renderDoc';
-import { noteMouseDown, openFocusApp, openFocusOf, zoomableAt, zoomOnClick } from './zoomOpen';
 
 /** 選んでいるスレッドの、本文の強調に、`.active` を付ける（付けなおす） */
 function applyActive(art: HTMLElement, tid: string | null): void {

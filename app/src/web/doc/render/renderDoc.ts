@@ -1,13 +1,13 @@
 // 本文の描画。順番：Markdown → 無害化 → ブロックの番号づけ →（v2 以降）差分 → DOM の差し替え → html-app の枠 → Mermaid（非同期）→ 強調。
 // 非同期の継ぎ目：Mermaid の完了を待つあいだに、別の描画が始まっていたら（`isCurrent()` が false）、ここで止める（古い描画に、強調を適用しない）。
 import type { Anchor, Thread } from '../../../shared/types';
+import { markFocusEntries } from '../../focus/focusable';
+import { type AppsContext, fillApps } from '../../htmlapp/apps';
+import { releaseApps } from '../../htmlapp/frameRegistry';
 import type { View } from '../../lib/view';
 import { type DocModel, nextEpoch } from '../../store/doc';
-import { releaseApps } from '../frameRegistry';
-import { type AppsContext, fillApps } from './apps';
 import { markBlocks } from './blocks';
 import { addDiff } from './diff';
-import { markFocusEntries } from './focusable';
 import { applyHighlights, markPending } from './highlights';
 import { mdToFragment } from './markdown';
 import { fillMermaid } from './mermaid';

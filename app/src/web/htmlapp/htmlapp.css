@@ -1,0 +1,33 @@
+/* 実行できる枠（html-app）：隔離した iframe */
+.htmlapp { margin: 1em 0; }
+/* 見出し：説明の文（折り返す）・道具・「この枠にコメント」。`container-type` は、見出しの幅で、見た目を切り替えるため（下の @container：見出しは、道具が 1 行に収まる作りに） */
+.htmlapp .cap { container-type: inline-size; display: flex; flex-wrap: wrap; align-items: center; gap: 2px 8px; font-size: var(--fs-s); color: var(--muted); margin-bottom: 4px; user-select: none; }
+.htmlapp .apptools { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 2px 8px; max-width: 100%; }
+.grp { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 1px; } /* 枠の見出し・拡大表示のツールバーの、ひとまとまり（幅・外観）。先頭の小さな文字は、見出し */
+.grp-l { margin-right: 2px; }
+.htmlapp .apppick { color: var(--accent-ink); font-size: var(--fs-s); margin-left: 6px; }
+/* 見出しが狭いとき：道具が 1 行に収まる作りに（広い窓の幅・パネルを広げた窓でも、見出しが 3 段以上にならない）。文字は、DOM に残す（font-size 0：名前は aria-label・title、`textContent`・Tab の順は変わらない）。幅・外観の押す数は、同じ（1 回）
+   〜640px：「幅」「外観」の小さな見出しを省き、「要素を選ぶ」「拡大表示」は、アイコンだけに。〜460px：外観も、アイコンだけ（太陽・月で、状態が分かる）・幅の数字の余白を詰める */
+@container (max-width: 640px) {
+  .htmlapp .apptools { gap: 2px 4px; }
+  .htmlapp .apptools .grp-l { display: none; }
+  .htmlapp .apptools button.tbtn[data-pick], .htmlapp .apptools button.tbtn[data-focus-open] { font-size: 0; gap: 0; padding: 0 6px; }
+  .htmlapp .apptools button.tbtn svg.lucide { width: 14px; height: 14px; }
+}
+@container (max-width: 460px) {
+  .htmlapp .apptools button.tbtn[data-frame-mode] { font-size: 0; gap: 0; padding: 0 6px; }
+  .htmlapp .apptools button.tbtn[data-width] { padding: 0 4px; }
+}
+:is(.htmlapp, .fv-app) .appframe { display: block; width: 100%; margin-inline: auto; border: 0; box-shadow: 0 0 0 1px var(--line); border-radius: var(--r); } /* 枠の線は、box-shadow（border は、border-box の枠の見える高さを削り、中身が、2px 隠れて、スクロールバーが出る）。枠の中は、別の文書（AI が書いたもの）。橋が、画面の外観（?mode=）と配色の土台を渡す。幅の切り替え（375/768/1280/1920px）は、style.width（frameBridge.ts） */
+:is(.htmlapp, .fv-app) .appframe[data-mode="light"] { background: #fff; color-scheme: light; } /* 枠の地：ライトは白（従来どおり）・ダークは黒。中の文書が、地を描かない従来の資料でも、文字が読める（data-mode は、frameBridge.ts が付ける：画面の外観に従う枠は画面の外観・従来の枠は、利用者が選ぶまでライト） */
+:is(.htmlapp, .fv-app) .appframe[data-mode="dark"] { background: #09090b; color-scheme: dark; }
+/* 選んだ幅が、本文より広いとき：枠は、その幅のまま（中のレイアウトは、その幅で計算される）、左上を基点に縮小して、本文の幅に収める。`.appscale` が、縮小後の大きさを持ち、はみ出す分を切る
+   （transform は、スクロールできる範囲を、縮小前の幅にしてしまうので、箱で受ける。枠の線・輪は、少し外まで残す） */
+:is(.htmlapp, .fv-app) .appscale { position: relative; }
+:is(.htmlapp, .fv-app) .appscaled { overflow: clip; overflow-clip-margin: 3px; }
+:is(.htmlapp, .fv-app) .appscaled .appframe { margin-inline: 0; transform-origin: top left; }
+/* 縮小率の下限（50%）で止まって、まだ本文の幅に収まらないとき：置き場を、横にスクロールさせる（枠の操作は、そのまま。輪は、内側に） */
+:is(.htmlapp, .fv-app) .appscroll { overflow-x: auto; overflow-y: hidden; }
+:is(.htmlapp, .fv-app) .appscroll .appframe:focus-visible { outline-offset: -2px; }
+.htmlapp .appsrc { margin-top: 6px; font-size: var(--fs-s); }
+.htmlapp .appsrc pre { max-height: 320px; overflow: auto; }

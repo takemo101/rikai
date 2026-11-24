@@ -266,39 +266,6 @@ label.chk { font-size: var(--fs-s); color: var(--muted); display: flex; gap: 6px
 .mermaid-block { margin: 1em 0; text-align: center; overflow: auto; }
 .mermaid-block svg { max-width: 100%; height: auto; }
 .mm-err { color: var(--warn); font-size: var(--fs-s); text-align: left; }
-/* 実行できる枠（html-app）：隔離した iframe */
-.htmlapp { margin: 1em 0; }
-/* 見出し：説明の文（折り返す）・道具・「この枠にコメント」。`container-type` は、見出しの幅で、見た目を切り替えるため（下の @container：見出しは、道具が 1 行に収まる作りに） */
-.htmlapp .cap { container-type: inline-size; display: flex; flex-wrap: wrap; align-items: center; gap: 2px 8px; font-size: var(--fs-s); color: var(--muted); margin-bottom: 4px; user-select: none; }
-.htmlapp .apptools { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 2px 8px; max-width: 100%; }
-.grp { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 1px; } /* 枠の見出し・拡大表示のツールバーの、ひとまとまり（幅・外観）。先頭の小さな文字は、見出し */
-.grp-l { margin-right: 2px; }
-.htmlapp .apppick { color: var(--accent-ink); font-size: var(--fs-s); margin-left: 6px; }
-/* 見出しが狭いとき：道具が 1 行に収まる作りに（広い窓の幅・パネルを広げた窓でも、見出しが 3 段以上にならない）。文字は、DOM に残す（font-size 0：名前は aria-label・title、`textContent`・Tab の順は変わらない）。幅・外観の押す数は、同じ（1 回）
-   〜640px：「幅」「外観」の小さな見出しを省き、「要素を選ぶ」「拡大表示」は、アイコンだけに。〜460px：外観も、アイコンだけ（太陽・月で、状態が分かる）・幅の数字の余白を詰める */
-@container (max-width: 640px) {
-  .htmlapp .apptools { gap: 2px 4px; }
-  .htmlapp .apptools .grp-l { display: none; }
-  .htmlapp .apptools button.tbtn[data-pick], .htmlapp .apptools button.tbtn[data-focus-open] { font-size: 0; gap: 0; padding: 0 6px; }
-  .htmlapp .apptools button.tbtn svg.lucide { width: 14px; height: 14px; }
-}
-@container (max-width: 460px) {
-  .htmlapp .apptools button.tbtn[data-frame-mode] { font-size: 0; gap: 0; padding: 0 6px; }
-  .htmlapp .apptools button.tbtn[data-width] { padding: 0 4px; }
-}
-:is(.htmlapp, .fv-app) .appframe { display: block; width: 100%; margin-inline: auto; border: 0; box-shadow: 0 0 0 1px var(--line); border-radius: var(--r); } /* 枠の線は、box-shadow（border は、border-box の枠の見える高さを削り、中身が、2px 隠れて、スクロールバーが出る）。枠の中は、別の文書（AI が書いたもの）。橋が、画面の外観（?mode=）と配色の土台を渡す。幅の切り替え（375/768/1280/1920px）は、style.width（frameBridge.ts） */
-:is(.htmlapp, .fv-app) .appframe[data-mode="light"] { background: #fff; color-scheme: light; } /* 枠の地：ライトは白（従来どおり）・ダークは黒。中の文書が、地を描かない従来の資料でも、文字が読める（data-mode は、frameBridge.ts が付ける：画面の外観に従う枠は画面の外観・従来の枠は、利用者が選ぶまでライト） */
-:is(.htmlapp, .fv-app) .appframe[data-mode="dark"] { background: #09090b; color-scheme: dark; }
-/* 選んだ幅が、本文より広いとき：枠は、その幅のまま（中のレイアウトは、その幅で計算される）、左上を基点に縮小して、本文の幅に収める。`.appscale` が、縮小後の大きさを持ち、はみ出す分を切る
-   （transform は、スクロールできる範囲を、縮小前の幅にしてしまうので、箱で受ける。枠の線・輪は、少し外まで残す） */
-:is(.htmlapp, .fv-app) .appscale { position: relative; }
-:is(.htmlapp, .fv-app) .appscaled { overflow: clip; overflow-clip-margin: 3px; }
-:is(.htmlapp, .fv-app) .appscaled .appframe { margin-inline: 0; transform-origin: top left; }
-/* 縮小率の下限（50%）で止まって、まだ本文の幅に収まらないとき：置き場を、横にスクロールさせる（枠の操作は、そのまま。輪は、内側に） */
-:is(.htmlapp, .fv-app) .appscroll { overflow-x: auto; overflow-y: hidden; }
-:is(.htmlapp, .fv-app) .appscroll .appframe:focus-visible { outline-offset: -2px; }
-.htmlapp .appsrc { margin-top: 6px; font-size: var(--fs-s); }
-.htmlapp .appsrc pre { max-height: 320px; overflow: auto; }
 
 /* ---- 本文：前の版との差分 ---- */
 #article .blk { position: relative; border-radius: var(--r-s); }
@@ -314,69 +281,6 @@ label.chk { font-size: var(--fs-s); color: var(--muted); display: flex; gap: 6px
 #article .diffbox.removed { margin-top: 24px; padding-top: 8px; border-top: 1px dashed var(--line-strong); }
 #article .diffbox.removed .diff + .diff { margin-top: 4px; }
 
-/* ---- 版を並べて比べる（F44）：本文の領域に、左右 2 つの版を、ブロックごとの行で並べる（読み取り専用）。行の高さは、左右で揃う（空きは空白）ので、スクロールの同期は要らない。
-   比べている間は、右のコメントを隠して、本文の幅を広く使う。状態（追加・変更・削除）は、色だけでなく、札の文字でも伝える。狭い窓（760px 未満）・欄が狭いときは、行の左右を、上下に並べる ---- */
-#app.comparing { grid-template-columns: var(--side-w) minmax(0, 1fr); }
-#app.comparing #threads, #app.comparing #panel-resizer { display: none; }
-/* 対象を失った下書き（パネルの上。文は、選んでコピーできる） */
-.lostdraft { margin: 10px 0; padding: 10px 12px; background: var(--card); border: 1px solid var(--line); border-left: 3px solid var(--warn); border-radius: var(--r-l); }
-.lostdraft-h { font-weight: 600; color: var(--warn); }
-.lostdraft .hint { margin: 4px 0; }
-.lostdraft-text { margin: 6px 0; padding: 6px 8px; max-height: 160px; overflow: auto; white-space: pre-wrap; word-break: break-word; font: inherit; background: var(--surface); border: 1px dashed var(--line-strong); border-radius: var(--r); user-select: text; }
-.lostdraft .row { display: flex; gap: 8px; }
-#compare { container: cmp / inline-size; display: flex; flex-direction: column; gap: 10px; }
-#compare .cmptop { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 6px 16px; }
-#compare .cmpnote { margin: 0; font-size: var(--fs-s); color: var(--muted); }
-#compare .cmpnote-main { color: var(--ink-2); }
-#compare .cmpactions { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; }
-#compare .cmphead, #compare .cmprow { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); column-gap: 20px; }
-#compare .cmphead { position: sticky; top: 0; z-index: 5; padding: 8px 0; background: var(--paper); border-bottom: 1px solid var(--line); }
-#compare .cmpcol { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
-#compare .cmpcol-row { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; }
-#compare .cmplabel { display: inline-flex; align-items: center; gap: 6px; font-size: var(--fs-s); color: var(--muted); }
-#compare .cmplabel select { padding: 3px 8px; font-size: var(--fs-s); }
-#compare .cmptag { padding: 0 8px; border: 1px solid var(--line-strong); border-radius: 999px; }
-#compare .cmptag.latest { color: var(--accent-ink); background: var(--accent-soft); border-color: var(--accent-line); }
-#compare .cmperr { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; font-size: var(--fs-s); color: var(--err); }
-#compare .cmpmeta { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 14px; }
-#compare .cmpmeta:empty { display: none; }
-#compare .cmpsum { color: var(--ink-2); font-weight: 600; }
-#compare .cmptools { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 14px; padding: 4px 8px; background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); }
-#compare .cmptools-bar { margin: 0; padding: 0; border: 0; min-width: 0; display: inline-flex; flex-wrap: wrap; align-items: center; gap: 1px; }
-#compare .cmptools-t { margin-right: 6px; font-size: var(--fs-s); color: var(--muted); }
-#compare .cmpgrid.loading { opacity: 0.55; }
-#compare .cmpcell { position: relative; min-width: 0; padding: 0 12px; border-radius: var(--r-s); }
-#compare .cmpcell > :is(p, h1, h2, h3, h4, ul, ol, table, pre, blockquote):first-child { margin-top: 0.4em; }
-#compare .cmpcell > :is(ul, ol) { margin: 0.15em 0; } /* 並びの項目は、1 つずつ、並びの外枠に入る：外枠の上下の余白を詰めて、項目の間隔を、本文と同じに */
-#compare .cmpgap { border: 1px dashed var(--line); background: transparent; }
-#compare .cmpside { display: none; margin-top: 6px; font-size: 11px; color: var(--muted); }
-#compare .cmpbadge { display: inline-block; margin: 6px 0 0; padding: 0 8px; font-size: 11px; font-weight: 600; line-height: 18px; border: 1px solid currentColor; border-radius: 999px; }
-#compare .cmpcell[data-status="added"] { background: var(--diff-add-bg); box-shadow: inset 3px 0 0 var(--change-added); }
-#compare .cmpcell[data-status="added"] .cmpbadge { color: var(--diff-add-ink); }
-#compare .cmpcell[data-status="removed"] { background: var(--diff-del-bg); box-shadow: inset 3px 0 0 var(--diff-del-ink); }
-#compare .cmpcell[data-status="removed"] .cmpbadge { color: var(--diff-del-ink); }
-#compare .cmpcell[data-status="changed"].cmpl { background: var(--diff-del-bg); box-shadow: inset 3px 0 0 var(--diff-del-ink); }
-#compare .cmpcell[data-status="changed"].cmpl .cmpbadge { color: var(--diff-del-ink); }
-#compare .cmpcell[data-status="changed"].cmpr { background: var(--diff-add-bg); box-shadow: inset 3px 0 0 var(--change); }
-#compare .cmpcell[data-status="changed"].cmpr .cmpbadge { color: var(--diff-add-ink); }
-#compare .cmpcell[data-status]:has(> .htmlapp) { background: transparent; } /* 枠（html-app）の行は、地を塗らない（枠が、主役）。左の線と札で、状態を伝える */
-#compare .cmpgroup { margin: 6px 0; }
-#compare .cmpgroup > summary { padding: 6px 10px; font-size: var(--fs-s); color: var(--muted); cursor: pointer; user-select: none; border: 1px dashed var(--line-strong); border-radius: var(--r); }
-#compare .cmpgroup[open] > summary { margin-bottom: 4px; }
-@media (max-width: 759.98px) {
-  #compare .cmphead, #compare .cmprow { grid-template-columns: minmax(0, 1fr); }
-  #compare .cmphead { position: static; }
-  #compare .cmprow { padding-bottom: 8px; border-bottom: 1px solid var(--line); }
-  #compare .cmpgap { display: none; }
-  #compare .cmpside { display: block; }
-}
-@container cmp (max-width: 519.98px) {
-  #compare .cmphead, #compare .cmprow { grid-template-columns: minmax(0, 1fr); }
-  #compare .cmphead { position: static; }
-  #compare .cmprow { padding-bottom: 8px; border-bottom: 1px solid var(--line); }
-  #compare .cmpgap { display: none; }
-  #compare .cmpside { display: block; }
-}
 
 /* ---- 本文：資料の形式（diff・json・terminal・trace）。`.md` は、本文と、AI の返信の本体の、両方につく ---- */
 .md .fmt { margin: 0 0 14px; border: 1px solid var(--line); border-radius: var(--r); background: var(--card); overflow: auto; }
@@ -481,29 +385,7 @@ mark.hl.pending { background: var(--accent-soft); outline: 1.5px dashed var(--ac
 .rh-e { top: calc(50% - 5px); right: -6px; cursor: ew-resize; } .rh-se { bottom: -6px; right: -6px; cursor: nwse-resize; } .rh-s { bottom: -6px; left: calc(50% - 5px); cursor: ns-resize; }
 .rh-sw { bottom: -6px; left: -6px; cursor: nesw-resize; } .rh-w { top: calc(50% - 5px); left: -6px; cursor: ew-resize; }
 
-/* ---- 拡大表示（画像・図・html-app の枠。添付の画像も）・トースト ---- */
-#lightbox { position: fixed; inset: 0; z-index: 50; display: flex; align-items: center; justify-content: center; background: var(--scrim-image); cursor: zoom-out; outline: 0; }
-#lightbox[hidden] { display: none; }
-/* 画像・図の拡大表示（F37）：ズーム・移動。舞台は、自然な大きさで、窓の中心に置き、transform で、拡大・移動する */
-#lightbox .lb-view { position: absolute; inset: 0; overflow: hidden; touch-action: none; user-select: none; }
-#lightbox .lb-stage { position: absolute; left: 50%; top: 50%; transform-origin: center; border-radius: var(--r); box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4); cursor: default; }
-#lightbox .lb-view.zoomed .lb-stage { cursor: grab; }
-#lightbox .lb-view.panning, #lightbox .lb-view.panning .lb-stage { cursor: grabbing; }
-#lightbox .lb-stage img { display: block; width: 100%; height: 100%; max-width: none; max-height: none; border-radius: var(--r); box-shadow: none; }
-#lightbox .lb-stage.img { background: #fff; } /* 画像の地は、白（透明な画像が、暗い地に沈まない） */
-#lightbox .lb-stage.svg { background: var(--paper); overflow: hidden; outline: 1px solid var(--line-strong); } /* 図の地は、画面の紙の色（ダークは暗い地：Mermaid の色が、正しく見える） */
-#lightbox .lb-tools { position: absolute; z-index: 5; top: 16px; right: 16px; display: flex; align-items: center; gap: 2px; padding: 4px; color: #fff; background: rgba(24, 24, 27, 0.92); border: 1px solid rgba(255, 255, 255, 0.2); border-radius: var(--r); box-shadow: 0 2px 12px rgba(0, 0, 0, 0.4); cursor: default; } /* 白い図の上でも、見える：暗い地 */
-#lightbox .lb-tools button { display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; padding: 0; color: #fff; background: transparent; border: 0; border-radius: var(--r-s); }
-#lightbox .lb-tools button:hover:not(:disabled) { background: rgba(255, 255, 255, 0.2); }
-#lightbox .lb-tools button:active:not(:disabled) { background: rgba(255, 255, 255, 0.3); }
-#lightbox .lb-tools button:focus-visible { outline: 2px solid #fff; outline-offset: 0; }
-#lightbox .lb-tools button:disabled { opacity: 0.4; }
-#lightbox .lb-tools svg.lucide { width: 16px; height: 16px; }
-#lightbox .lb-pct { min-width: 44px; padding: 0 4px; text-align: center; font-size: var(--fs-s); font-variant-numeric: tabular-nums; }
-/* 本文・返信の、拡大できる画像・図（本文の DOM は、変えない：見た目だけ） */
-#article img, #article .mermaid-block svg, #article svg, .msg .body.md img, .msg .body.md svg { cursor: zoom-in; }
-#article a img, #article a svg { cursor: pointer; }
-.thumb img, .msg .imgs img { cursor: zoom-in; }
+/* ---- トースト ---- */
 #toast-region { position: fixed; left: 0; bottom: 0; width: 0; height: 0; } /* トーストの読み上げの窓口（画面に、いつもある。大きさなし） */
 #toast { position: fixed; left: 50%; bottom: 72px; transform: translateX(-50%); display: flex; align-items: center; gap: 8px; background: var(--tip-bg); color: var(--tip-ink); padding: 8px 14px; border-radius: var(--r); box-shadow: var(--shadow-pop), 0 0 0 1px var(--tip-edge); z-index: 50; max-width: 70vw; white-space: pre-wrap; pointer-events: none; } /* 押せない：下の「範囲を選ぶ」などの操作を、じゃましない。bottom 72px：右下の「範囲を選ぶ」（高さ約 34px＋余白 20px）の上に、重ならない */
 #toast.err { background: var(--err-fill); color: #fff; box-shadow: var(--shadow-pop); }
@@ -676,67 +558,3 @@ dialog p { margin: 0 0 12px; color: var(--ink-2); }
 .fm-h { color: var(--muted); }
 .fm-body pre { margin: 2px 0 0; max-height: 200px; overflow: auto; font: 11.5px/1.5 var(--mono); background: var(--card); border: 1px solid var(--line); border-radius: var(--r-s); padding: 6px 8px; white-space: pre-wrap; overflow-wrap: anywhere; }
 
-/* ---- 個別表示（F43）：左にステージ・右にコメントのドック。窓が 760px 未満のときは、ドックは、下からのシート ---- */
-#lightbox.fv { align-items: stretch; justify-content: flex-start; cursor: default; color: var(--ink); font-size: var(--fs); }
-#lightbox .fv-main { position: relative; flex: 1 1 0; min-width: 0; min-height: 0; }
-.fv-dock { flex: none; width: 340px; min-height: 0; display: flex; flex-direction: column; background: var(--surface); border-left: 1px solid var(--line); box-shadow: -8px 0 24px rgba(0, 0, 0, 0.25); cursor: default; }
-.fv-dock-h { display: flex; flex-wrap: wrap; align-items: center; gap: 2px 8px; padding: 10px 14px 8px; border-bottom: 1px solid var(--line); }
-.fv-dock-t { font-size: var(--fs-s); font-weight: 600; color: var(--muted); }
-.fv-dock-target { flex: 1 1 0; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--fs-s); color: var(--ink-2); }
-.fv-dock-body { flex: 1 1 auto; min-height: 0; overflow: auto; padding: 4px 14px 28px; }
-.fv-dock .fv-start { margin: 10px 0 4px; display: flex; flex-direction: column; gap: 8px; align-items: flex-start; }
-.fv-dock .fv-start .hint, .fv-dock .fv-note { margin: 10px 0 4px; }
-.fv-dock .fv-empty { padding: 8px 0; }
-#lightbox .fv-dock img { max-width: 100%; max-height: 220px; box-shadow: none; }
-#lightbox .fv-dock .thumb img { height: 72px; max-width: 128px; }
-.fv-dock .thumb img, .fv-dock .msg .imgs img, .fv-dock .msg .body.md img, .fv-dock .msg .body.md svg { cursor: default; } /* ドックの中の画像は、拡大しない（個別表示の上に、別の拡大は、重ねない） */
-@media (max-width: 759.98px) {
-  #lightbox.fv { flex-direction: column; }
-  .fv-dock { width: auto; height: min(46vh, 420px); border-left: 0; border-top: 1px solid var(--line); box-shadow: 0 -8px 24px rgba(0, 0, 0, 0.3); }
-}
-/* ステージの上部の道具（左上）：右上の拡大の道具（.lb-tools）と、同じ暗い地 */
-#lightbox .fv-tools { position: absolute; z-index: 5; top: 16px; left: 16px; max-width: calc(100% - 96px); display: flex; flex-wrap: wrap; align-items: center; gap: 2px; padding: 4px; color: #fff; background: rgba(24, 24, 27, 0.92); border: 1px solid rgba(255, 255, 255, 0.2); border-radius: var(--r); box-shadow: 0 2px 12px rgba(0, 0, 0, 0.4); cursor: default; }
-#lightbox .fv-tools button { display: inline-flex; align-items: center; justify-content: center; gap: 6px; height: 28px; padding: 0 10px; font-size: var(--fs-s); color: #fff; background: transparent; border: 0; border-radius: var(--r-s); }
-#lightbox .fv-tools button.iconbtn { width: 28px; padding: 0; }
-#lightbox .fv-tools button:hover:not(:disabled) { background: rgba(255, 255, 255, 0.2); }
-#lightbox .fv-tools button[aria-pressed="true"] { background: var(--fill); }
-#lightbox .fv-tools button:focus-visible { outline: 2px solid #fff; outline-offset: 0; }
-#lightbox .fv-tools button:disabled { opacity: 0.4; }
-#lightbox .fv-tools svg.lucide { width: 16px; height: 16px; }
-#lightbox .fv-tools .grp-l { color: rgba(255, 255, 255, 0.7); font-size: var(--fs-s); }
-#lightbox .fv-apptools { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 2px 10px; padding-right: 6px; margin-right: 4px; border-right: 1px solid rgba(255, 255, 255, 0.2); }
-#lightbox .fv-hint:empty, #lightbox .fv-tools .apppick:empty { display: none; }
-#lightbox .fv-hint, #lightbox .fv-tools .apppick { position: absolute; left: 0; top: calc(100% + 6px); width: max-content; max-width: calc(100vw - 32px); padding: 3px 10px; font-size: var(--fs-s); color: var(--tip-ink); background: var(--tip-bg); border: 1px solid var(--tip-edge); border-radius: var(--r-s); pointer-events: none; }
-/* html-app の枠のステージ：利用できる幅いっぱい。縦に長いときは、ステージがスクロールする */
-#lightbox .fv-main.app { display: flex; flex-direction: column; }
-#lightbox .fv-appbar { flex: none; display: flex; flex-wrap: nowrap; align-items: flex-start; gap: 8px; padding: 16px 16px 4px; } /* 折り返さない：閉じる（×）は、いつも上の行の右端。道具が、足りない幅の中で、自分の中で折り返す */
-#lightbox .fv-appbar .fv-tools, #lightbox .fv-appbar .lb-tools { position: relative; top: auto; left: auto; right: auto; max-width: none; }
-#lightbox .fv-appbar .fv-tools { flex: 0 1 auto; min-width: 0; }
-#lightbox .fv-appbar .lb-tools { flex: none; margin-left: auto; }
-/* 窓が狭い（〜1100px：ステージは 760px 以下）：道具の帯が、2〜3 行に増えないよう、「幅」「外観」の小さな見出しを省き、ボタンの余白を詰める。〜900px：「要素を選ぶ」「範囲を選ぶ」・外観は、アイコンだけ（名前は aria-label・title。文字は DOM に残す：font-size 0）。押す数は同じ */
-@media (max-width: 1100px) {
-  #lightbox .fv-appbar .fv-tools .grp-l { display: none; }
-  #lightbox .fv-appbar .fv-tools button { padding: 0 6px; gap: 4px; }
-  #lightbox .fv-appbar .fv-apptools { gap: 2px 4px; }
-}
-@media (max-width: 900px) {
-  #lightbox .fv-appbar .fv-tools button[data-pick], #lightbox .fv-appbar .fv-tools button[data-tool="region"], #lightbox .fv-appbar .fv-tools button[data-frame-mode] { font-size: 0; gap: 0; }
-}
-#lightbox .fv-appstage { flex: 1 1 0; min-height: 0; overflow: auto; padding: 12px 20px 24px; }
-#lightbox .fv-app { max-width: 100%; }
-/* ステージに重ねる、既存の範囲コメントの枠・番号（F35・F23 の見た目）。押すと、ドックの、そのスレッドが選ばれる */
-.fv-regions, .fv-layer { position: absolute; inset: 0; pointer-events: none; }
-.fv-layer { inset: auto; }
-.fv-box { position: absolute; box-sizing: border-box; border: 1.5px solid var(--accent); background: var(--accent-a8); border-radius: 2px; pointer-events: auto; cursor: pointer; }
-.fv-box.resolved { border: 1px solid var(--done); background: transparent; }
-.fv-box.linked, .fv-box.active { border: 2px solid var(--accent); background: var(--accent-a12); }
-.fv-box.pending, .fv-box.pending.linked { border: 1.5px dashed var(--accent); background: var(--accent-a8); pointer-events: none; }
-.fv-box .fv-no { position: absolute; left: -2px; top: -22px; display: inline-block; min-width: 18px; padding: 0 5px; font-size: 11px; font-weight: 600; line-height: 18px; text-align: center; border-radius: 999px; background: var(--fill); color: #fff; pointer-events: none; }
-.fv-box.resolved .fv-no { background: var(--done-fill); }
-.fv-box.pending .fv-no { background: var(--accent-deep); }
-.fv-box.top .fv-no { top: 2px; left: 2px; }
-/* 範囲を選ぶ層 */
-.fv-sel { position: absolute; inset: 0; z-index: 3; pointer-events: auto; cursor: crosshair; touch-action: none; user-select: none; background: rgba(0, 0, 0, 0.1); outline: 1.5px dashed var(--accent); outline-offset: -1.5px; }
-.fv-sel .box { position: absolute; border: 1.5px solid var(--accent); background: var(--accent-a22); pointer-events: none; }
-#article [data-focus-entry]:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; border-radius: var(--r-s); }
-#lightbox .fv-widthnote { align-self: center; padding: 0 8px; font-size: var(--fs-s); color: #fcd34d; white-space: nowrap; } /* 暗い帯の上：琥珀（注意）。文字は、帯の暗い地で AA */

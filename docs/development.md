@@ -32,7 +32,7 @@
 
 ### 開発の土台（再開発〔Hono・React〕。2026-11-22〜。SPEC §8）
 
-サーバー・CLI（`app/src/{server,cli,shared}/`。RIK-035）と、**画面（`app/src/web/`。RIK-036）も、TypeScript に移した**。画面は、React 19・Vite・Zustand・TanStack Query・Hono RPC の型（`hc`）。見た目は、`styles/app.css`・`connectors.css`（CSS フレームワークは使わない。アイコンは lucide-react）。旧 UI（`app.js`・`style.css`・`vendor/` ほか）と、ルートの `test/` は、なくなった。段階：土台（RIK-034）→ サーバーと CLI（RIK-035）→ フロント（RIK-036。済）→ 仕上げ（RIK-037）。
+サーバー・CLI（`app/src/{server,cli,shared}/`。RIK-035）と、**画面（`app/src/web/`。RIK-036）も、TypeScript に移した**。画面は、React 19・Vite・Zustand・TanStack Query・Hono RPC の型（`hc`）。見た目は、`styles/app.css`・`connectors.css` と、機能フォルダの CSS（`htmlapp/htmlapp.css`・`compare/compare.css`・`focus/focus.css`。読み込み順は `main.tsx`。`biome.json` は、`src/web/*/*.css` を検査の対象外にしている）（CSS フレームワークは使わない。アイコンは lucide-react）。旧 UI（`app.js`・`style.css`・`vendor/` ほか）と、ルートの `test/` は、なくなった。段階：土台（RIK-034）→ サーバーと CLI（RIK-035）→ フロント（RIK-036。済）→ 仕上げ（RIK-037）。
 
 - **`app/` が、開発用のワークスペース**（TypeScript のソース・テスト・設定・開発の依存）。**リポジトリのルートの `package.json` には、依存を書かない**：ルートは、プラグインの宣言（pi の `pi.skills`・各エージェントのマニフェスト）で、pi が、git から入れるとき、`npm install --omit=dev` を、ルートで実行する。開発の依存がルートにあると、そのたびに、npm のレジストリへ問い合わせて、オフラインでは失敗する（レビューで、9 秒・`ENOTCACHED` を確認）。
 - 開発の依存は **pnpm**（ルートで `pnpm install`。`pnpm-lock.yaml` をコミット。esbuild のビルドスクリプトは `pnpm-workspace.yaml` の `allowBuilds` で許可）。利用者の環境には、依存を要求しない（バンドルして `skills/rikai/` に同梱：SPEC N5）。
@@ -115,7 +115,7 @@ pnpm run test:e2e   # 実際の Chrome（Playwright。先に pnpm run build。�
 | `server/server.test.ts`・`app.test.ts`・`serve.test.ts`・`cli.test.ts` | 合言葉・`Host`・`Origin`・Cookie・CSP・配信のパス（`app.request()`、または実際に待ち受けて）・`rikai open` の `.server.json` の権限（0600）・`rikai serve` が、すべてのトピックが閉じたら自分で終わること（バンドルした CLI を子プロセスで動かす。`serve` が終了の処理を取りつける経路） |
 | `server/attach.test.ts`・`region.test.ts`・`htmlapp.test.ts`・`image.test.ts` | 添付の画像（保存・検査）・範囲（`region`）・`html-app` の取り出しと `/appframe` の応答 |
 | `build.test.ts` | コミットした配布物（`skills/rikai/` のバンドル・worker・ライセンス表と、画面〔`skills/rikai/public/` 全体〕）が、ソースから作り直したものと同じこと（古いと落ちる。`pnpm run build`。画面は、別プロセス・本番の環境で `vite build` して比べる） |
-| `web/`（`app/test/web/`。jsdom） | 画面：本文の描画（`doc/markdown.test.ts`：無害化・リンク・画像・形式・html-app の置き場・返信）・番号の層の位置の計算・パネル・入力のロジック・ask・入口のバーと範囲の計算・API の呼び出し（`queries`・`mutations`）・ルート・localStorage・ストア |
+| `web/`（`app/test/web/`。jsdom） | 画面：本文の描画（`doc/markdown.test.ts`：無害化・リンク・画像・形式・html-app の置き場・返信）・番号の層の位置の計算・パネル・入力のロジック・ask・入口のバーと範囲の計算・API の呼び出し（`queries`・`mutations`）・ルート・localStorage・ストア。**機能フォルダの部品のテストは、同じ名前のフォルダに置く**（`test/web/{compare,focus,htmlapp}/`：整理フェーズ ④c） |
 
 `app/test/server/helpers.ts` が、一時のプロジェクト（`os.tmpdir()`）と、作り物の資料・コメントを用意する。利用者の `.rikai/` には触れない。**jsdom では、位置・大きさの測定が要るもの（番号の層の置き直し・範囲の選択のドラッグ・実際の描画の見た目）は、試せない**。それは、次の e2e と、手作業で確かめる。
 

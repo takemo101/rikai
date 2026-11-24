@@ -6,7 +6,7 @@ import { MessageSquarePlus, ZoomIn } from 'lucide-react';
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import type { Anchor } from '../../shared/types';
 import { blockAnchor } from '../doc/render/blocks';
-import { openFocusOf, zoomTargetOfBlock } from '../doc/zoomOpen';
+import { openFocusOf, zoomTargetOfBlock } from '../focus/zoomOpen';
 import { $ } from '../lib/dom';
 import { useUi } from '../store/ui';
 import { openComposer } from './compose';

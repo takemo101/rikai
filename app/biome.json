@@ -6,6 +6,7 @@
     "includes": [
       "src/**",
       "!src/web/styles",
+      "!src/web/*/*.css",
       "!src/web/public",
       "test/**",
       "e2e/**",
