@@ -11,7 +11,7 @@ import { Interact } from './interact/Interact';
 import { DocBar } from './layout/DocBar';
 import { EndDialog } from './layout/EndDialog';
 import { EndedScreen } from './layout/EndedScreen';
-import { usePanelGeometry } from './layout/geometry';
+import { PANEL_DEFAULT_NARROW, usePanelGeometry } from './layout/geometry';
 import { NOTICE, Notice } from './layout/Notice';
 import { Resizer } from './layout/Resizer';
 import { SideNav } from './layout/SideNav';
@@ -22,7 +22,6 @@ import { TopBar } from './layout/TopBar';
 import { useTurn } from './layout/TurnPill';
 import { useBrowserNotify } from './layout/useBrowserNotify';
 import { navigate, type Route, useRoute } from './lib/route';
-import { PANEL_MIN } from './lib/storage';
 import { useResolvedTheme } from './lib/theme';
 import { docTitle } from './lib/turn';
 import { buildView, type View } from './lib/view';
@@ -125,7 +124,7 @@ export function App() {
           [
             sideShown ? '' : 'side-collapsed',
             drawer ? 'side-drawer' : '',
-            w < PANEL_MIN ? 'panel-tight' : '',
+            w <= PANEL_DEFAULT_NARROW ? 'panel-tight' : '', // 280px 以下（細い既定 280 を含む）：余白・切り替え・入力欄を、詰める
             comparing ? 'comparing' : '',
           ]
             .filter(Boolean)
@@ -223,7 +222,7 @@ function useUpdateToast(view: View | null, explicitVersion: number | null): void
 }
 
 /**
- * 窓の大きさに合わせて、一時の状態を片づける：自動で隠す窓（788px 未満）を出たら、重ねて出した左の一覧（ドロワー）をしまう・狭い窓（〜900px）を出たら、取っ手で変えた幅を捨てる
+ * 窓の大きさに合わせて、一時の状態を片づける：自動で隠す窓（1100px 以下）を出たら、重ねて出した左の一覧（ドロワー）をしまう・狭い窓（〜900px）を出たら、取っ手で変えた幅を捨てる
  * （どちらも保存しない値。あとで、狭い窓に戻ったとき、勝手に出てこない・古い幅にならない）。ドロワーを出している間は、外を押す・Esc・一覧の中のリンクで、しまう
  */
 function useLayoutReset({

@@ -1,4 +1,4 @@
-// 拡大表示の計算（F37）：全体表示の大きさ・ズームの範囲・カーソルを中心にしたズーム・移動の範囲・ダブルクリックの切り替え・ホイール・押す／ドラッグの区別
+// 拡大表示の計算（F37）：全体に合わせるの大きさ・ズームの範囲・カーソルを中心にしたズーム・移動の範囲・ダブルクリックの切り替え・ホイール・押す／ドラッグの区別
 import { expect, test } from 'vitest';
 import {
   CLICK_SLOP,
@@ -14,9 +14,9 @@ import {
   zoomAt,
 } from '../../../src/web/lib/zoom';
 
-const view = { w: 1000, h: 800 }; // 全体表示の枠：920 × 720
+const view = { w: 1000, h: 800 }; // 全体に合わせるの枠：920 × 720
 
-test('全体表示：窓の 92%・90% に収まる最大。大きい画像は縮める・小さいラスタ画像は 2 倍まで・SVG は、窓いっぱいまで', () => {
+test('全体に合わせる：窓の 92%・90% に収まる最大。大きい画像は縮める・小さいラスタ画像は 2 倍まで・SVG は、窓いっぱいまで', () => {
   expect(fitScale({ w: 2000, h: 1000 }, view, 'img')).toBeCloseTo(0.46); // 920 / 2000
   expect(fitScale({ w: 1000, h: 2000 }, view, 'img')).toBeCloseTo(0.36); // 720 / 2000
   expect(fitScale({ w: 100, h: 50 }, view, 'img')).toBe(RASTER_FIT_CAP); // 9.2 倍まで入るが、2 倍まで
@@ -24,7 +24,7 @@ test('全体表示：窓の 92%・90% に収まる最大。大きい画像は縮
   expect(fitScale({ w: 0, h: 50 }, view, 'svg')).toBe(1); // 大きさが分からないときは、1
 });
 
-test('ズームの範囲：全体表示〜800%。全体表示が 800% を超える（小さい SVG）ときは、全体表示が上限', () => {
+test('ズームの範囲：全体に合わせる〜800%。全体に合わせるが 800% を超える（小さい SVG）ときは、全体に合わせるが上限', () => {
   expect(clampScale(0.1, 0.5)).toBe(0.5);
   expect(clampScale(3, 0.5)).toBe(3);
   expect(clampScale(99, 0.5)).toBe(ZOOM_MAX);
@@ -55,7 +55,7 @@ test('カーソルを中心にしたズーム：カーソルの下の点が、�
   expect(c).toEqual({ scale: 2, x: 0, y: 0 });
 });
 
-test('ズームの範囲外：上限（800%）・下限（全体表示）で止まる。下限では、全体表示の姿勢（中央）に戻る', () => {
+test('ズームの範囲外：上限（800%）・下限（全体に合わせる）で止まる。下限では、全体に合わせるの姿勢（中央）に戻る', () => {
   const nat = { w: 2000, h: 1600 };
   const up = zoomAt({ scale: 4, x: 0, y: 0 }, nat, view, 0.4, 100, { x: 50, y: 50 });
   expect(up.scale).toBe(ZOOM_MAX);
@@ -63,10 +63,10 @@ test('ズームの範囲外：上限（800%）・下限（全体表示）で止�
   expect(down).toEqual({ scale: 0.4, x: 0, y: 0 });
 });
 
-test('ダブルクリック：全体表示 → 等倍（全体表示が 1 未満のとき）→ 全体表示。全体表示が 1 以上なら、2 倍 ↔ 全体表示', () => {
+test('ダブルクリック：全体に合わせる → 等倍（全体に合わせるが 1 未満のとき）→ 全体に合わせる。全体に合わせるが 1 以上なら、2 倍 ↔ 全体に合わせる', () => {
   expect(toggleScale(0.4, 0.4)).toBe(1);
   expect(toggleScale(1, 0.4)).toBe(0.4);
-  expect(toggleScale(2.5, 0.4)).toBe(0.4); // 途中の倍率からも、全体表示へ
+  expect(toggleScale(2.5, 0.4)).toBe(0.4); // 途中の倍率からも、全体に合わせるへ
   expect(toggleScale(2, 2)).toBe(4);
   expect(toggleScale(4, 2)).toBe(2);
 });

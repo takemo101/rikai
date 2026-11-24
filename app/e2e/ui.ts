@@ -94,13 +94,13 @@ export async function hoverBlock(page: Page, block: Locator) {
   await page.mouse.move(r.x + Math.min(r.width / 2, 120), r.y + r.height / 2, { steps: 3 });
 }
 
-// Submit：ダイアログを開いて（メモを書いて）送る
+// AI に送る：ダイアログを開いて（メモを書いて）送る
 export async function submitAll(page: Page, note?: string) {
   const u = ui(page);
   await u.submit.click();
   await expect(u.submitdlg).toBeVisible();
   if (note) await u.submitdlg.locator('textarea').fill(note);
-  await u.submitdlg.getByRole('button', { name: '送信する' }).click();
+  await u.submitdlg.getByRole('button', { name: 'AI に送る' }).click();
   await expect(u.submitdlg).toBeHidden();
 }
 

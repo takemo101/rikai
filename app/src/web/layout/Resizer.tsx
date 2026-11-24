@@ -2,13 +2,20 @@
 import { useEffect, useState } from 'react';
 import { PANEL_DEFAULT } from '../lib/storage';
 import { useUi } from '../store/ui';
-import { isNarrow, KEY_STEP, panelMax, panelMin, sideShown, usePanelGeometry } from './geometry';
+import { defaultPanelWidth, isNarrow, KEY_STEP, panelMax, panelMin, sideShown, usePanelGeometry } from './geometry';
 
-/** 取っ手で変えた幅：広い窓は、保存した幅（save: false は、ドラッグの途中）。狭い窓（〜900px）は、保存せず、その窓の間だけ（F23(3)：窓の大きさでは、保存した幅を、書き換えない） */
+/** 取っ手で変えた幅：広い窓は、保存した幅（save: false は、ドラッグの途中）と、「利用者が決めた」印（幅が 380 でも、既定のままと見分ける）。狭い窓（〜900px）は、保存せず、その窓の間だけ（F23(3)：窓の大きさでは、保存した幅を、書き換えない） */
 function setWidth(w: number, save = true): void {
   const ui = useUi.getState();
   if (isNarrow(window.innerWidth)) ui.setPanelWNarrow(w);
   else ui.setPanelW(w, { save });
+}
+
+/** もとの幅に戻す（ダブルクリック）：広い窓は、保存した幅を既定（380）に戻して、印を消す（1100px 以下では、細い既定の 280）。狭い窓（〜900px）は、その窓の間だけ、その窓の既定 */
+function resetWidth(): void {
+  const ui = useUi.getState();
+  if (isNarrow(window.innerWidth)) ui.setPanelWNarrow(defaultPanelWidth(window.innerWidth));
+  else ui.setPanelW(PANEL_DEFAULT, { user: false });
 }
 
 export function Resizer() {
@@ -52,7 +59,7 @@ export function Resizer() {
         setDrag(false);
         if (!isNarrow(window.innerWidth)) useUi.getState().persistUi(); // 狭い窓の幅は、保存しない
       }}
-      onDoubleClick={() => setWidth(PANEL_DEFAULT)}
+      onDoubleClick={resetWidth}
       onKeyDown={(e) => {
         if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
         e.preventDefault();

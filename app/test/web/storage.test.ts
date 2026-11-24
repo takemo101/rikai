@@ -37,25 +37,75 @@ test('seen：壊れていたら、空（配列でない・文字列でない要�
 
 test('ui：既定・保存・読み戻し・壊れていたら既定', () => {
   expect(loadUi()).toEqual(DEFAULT_UI);
-  expect(DEFAULT_UI).toEqual({ sideOpen: true, panelW: 380, links: true, theme: 'system', notify: false });
-  saveUi({ sideOpen: false, panelW: 450, links: true, theme: 'system', notify: false });
-  expect(loadUi()).toEqual({ sideOpen: false, panelW: 450, links: true, theme: 'system', notify: false });
+  expect(DEFAULT_UI).toEqual({
+    sideOpen: true,
+    panelW: 380,
+    panelUser: false,
+    links: true,
+    theme: 'system',
+    notify: false,
+  });
+  saveUi({ sideOpen: false, panelW: 450, panelUser: true, links: true, theme: 'system', notify: false });
+  expect(loadUi()).toEqual({
+    sideOpen: false,
+    panelW: 450,
+    panelUser: true,
+    links: true,
+    theme: 'system',
+    notify: false,
+  });
   localStorage.setItem(UI_KEY, 'not json');
   expect(loadUi()).toEqual(DEFAULT_UI);
   localStorage.setItem(UI_KEY, JSON.stringify({ sideOpen: 'yes', panelW: 'abc' }));
   expect(loadUi()).toEqual(DEFAULT_UI);
   localStorage.setItem(UI_KEY, JSON.stringify({ panelW: '420' }));
-  expect(loadUi()).toEqual({ sideOpen: true, panelW: 420, links: true, theme: 'system', notify: false });
+  expect(loadUi()).toEqual({
+    sideOpen: true,
+    panelW: 420,
+    panelUser: false,
+    links: true,
+    theme: 'system',
+    notify: false,
+  });
+});
+
+// 右の幅を、利用者が決めた印（`panelUser`）：幅の値（380）でなく、印で、「既定のまま」と「わざと 380」を見分ける
+test('ui：右の幅を利用者が決めた印（panelUser）は、真偽値だけ。古い保存（印なし）は、既定のまま（380 でも）。幅が読めないときは、印も捨てる', () => {
+  expect(DEFAULT_UI.panelUser).toBe(false);
+  // 古い保存：印がない → 既定のまま
+  localStorage.setItem(UI_KEY, JSON.stringify({ sideOpen: true, panelW: 380 }));
+  expect(loadUi()).toMatchObject({ panelW: 380, panelUser: false });
+  // 380 を、わざと選んだ：保存して、読み戻せる
+  saveUi({ ...DEFAULT_UI, panelW: 380, panelUser: true });
+  expect(loadUi()).toMatchObject({ panelW: 380, panelUser: true });
+  expect(JSON.parse(localStorage.getItem(UI_KEY) ?? '{}')).toMatchObject({ panelW: 380, panelUser: true });
+  // 壊れた値（真偽値でない）は、既定（false）。ほかの設定は、読める
+  for (const bad of ['true', 1, null, {}, []]) {
+    localStorage.setItem(UI_KEY, JSON.stringify({ panelW: 450, panelUser: bad, links: false }));
+    expect(loadUi()).toMatchObject({ panelW: 450, panelUser: false, links: false });
+  }
+  // 幅が読めない（なし・文字・0）：既定の幅。印も、信じない
+  for (const bad of [undefined, 'abc', 0, null]) {
+    localStorage.setItem(UI_KEY, JSON.stringify({ panelW: bad, panelUser: true }));
+    expect(loadUi()).toMatchObject({ panelW: 380, panelUser: false });
+  }
 });
 
 test('ui：外観のモード（theme）は、light・dark・system だけ。壊れた値・知らない値は、system に戻す。ほかの設定は、そのまま', () => {
   for (const t of ['light', 'dark', 'system'] as const) {
-    saveUi({ sideOpen: false, panelW: 450, links: false, theme: t, notify: false });
-    expect(loadUi()).toEqual({ sideOpen: false, panelW: 450, links: false, theme: t, notify: false });
+    saveUi({ sideOpen: false, panelW: 450, panelUser: false, links: false, theme: t, notify: false });
+    expect(loadUi()).toEqual({ sideOpen: false, panelW: 450, panelUser: false, links: false, theme: t, notify: false });
   }
   // 古い保存（theme がない）：既定
   localStorage.setItem(UI_KEY, JSON.stringify({ sideOpen: false, panelW: 420, links: false }));
-  expect(loadUi()).toEqual({ sideOpen: false, panelW: 420, links: false, theme: 'system', notify: false });
+  expect(loadUi()).toEqual({
+    sideOpen: false,
+    panelW: 420,
+    panelUser: false,
+    links: false,
+    theme: 'system',
+    notify: false,
+  });
   // 知らない値・型違い：system。ほかの設定は、読める
   for (const bad of ['Dark', 'auto', 1, null, {}, true]) {
     localStorage.setItem(UI_KEY, JSON.stringify({ sideOpen: false, theme: bad }));
@@ -66,8 +116,15 @@ test('ui：外観のモード（theme）は、light・dark・system だけ。壊
 // F41：ブラウザの通知の設定（既定はオフ）。壊れた値は、オフ。ほかの設定は、そのまま
 test('ui：通知（notify）は、真偽値だけ。既定・古い保存・壊れた値は、オフ。ほかの設定は、そのまま', () => {
   expect(DEFAULT_UI.notify).toBe(false);
-  saveUi({ sideOpen: false, panelW: 450, links: false, theme: 'dark', notify: true });
-  expect(loadUi()).toEqual({ sideOpen: false, panelW: 450, links: false, theme: 'dark', notify: true });
+  saveUi({ sideOpen: false, panelW: 450, panelUser: false, links: false, theme: 'dark', notify: true });
+  expect(loadUi()).toEqual({
+    sideOpen: false,
+    panelW: 450,
+    panelUser: false,
+    links: false,
+    theme: 'dark',
+    notify: true,
+  });
   localStorage.setItem(UI_KEY, JSON.stringify({ sideOpen: false, panelW: 420 })); // 古い保存
   expect(loadUi().notify).toBe(false);
   for (const bad of ['true', 1, null, {}, []]) {

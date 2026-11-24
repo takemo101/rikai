@@ -1,5 +1,5 @@
 // 左の一覧（`#side`）：理解の対象（トピック）と、開いているトピックのページの木。
-// 読めない新しい形式のトピックは、押せない（「新しい形式」の印）。ほかの印：解決/全スレッド・待ち・終了。
+// 読めない新しい形式のトピックは、押せない（「新しい形式」の印）。ほかの印：解決/全スレッド（**進み具合は、ここだけ**。上のバーには出さない）・AI の返信待ち・終了。
 import {
   CircleCheck,
   CircleDot,
@@ -60,7 +60,7 @@ export function SideNav({ topics, currentSlug, view }: SideNavProps) {
                 </a>
               )}
               {p?.threads.total ? (
-                <span className="chip small" title="解決したスレッド / 全スレッド">
+                <span className="chip small" title={progressTitle(p)}>
                   {p.threads.resolved}/{p.threads.total}
                 </span>
               ) : null}
@@ -89,16 +89,22 @@ export function SideNav({ topics, currentSlug, view }: SideNavProps) {
   );
 }
 
+/** 進み具合の `title`：解決したスレッド / 全スレッド・（質問があれば）回答を送った質問 / 全質問。数だけで、理解できたかの判定ではない */
+function progressTitle(p: ReturnType<typeof progressOf>): string {
+  const asks = p.asks.total ? `・回答 ${p.asks.answered}/${p.asks.total}` : '';
+  return `解決 ${p.threads.resolved}/${p.threads.total}${asks}。数だけです（人が「解決」にしたスレッドの数と、回答を AI に送った質問の数。保存しただけの回答は数えません）。理解できたかの判定ではありません`;
+}
+
 /**
  * 左の一覧の、トピックごとの印（`#turn` と同じ色・意味）。**どの幅でも、アイコンだけ**（題を縮めないため。名前は `title`・`aria-label`）。
- * 例外：AI の返信待ちは、従来の「待ち」（短い文字つき）
+ * 例外：AI の返信待ちは、文字つき（「AI の返信待ち」。題は、先に縮む）
  */
 function TurnMark({ turn }: { turn: Turn }) {
   if (turn.kind === 'waiting-ai')
     return (
       <span className="chip wait small">
         <Hourglass aria-hidden="true" focusable="false" />
-        待ち
+        AI の返信待ち
       </span>
     );
   const name =
@@ -107,7 +113,7 @@ function TurnMark({ turn }: { turn: Turn }) {
       : turn.kind === 'open'
         ? turnLabel(turn)
         : turn.kind === 'unsent'
-          ? `${turnLabel(turn)}。Submit`
+          ? `${turnLabel(turn)}。「AI に送る」で送ります`
           : turn.kind === 'done'
             ? 'すべて解決'
             : '';

@@ -65,7 +65,7 @@ export function FocusApp({
     const key = memoryKey(n);
     const state = initialFrameState(view.key, key, resolvedTheme(), follows);
     const { wrap, iframe } = appFrameDom(view, n, fixed, state.mode, {
-      title: `実行できる枠 ${n + 1}（個別表示）`,
+      title: `実行できる枠 ${n + 1}（拡大表示）`,
       eager: true,
     });
     host.replaceChildren(wrap);
@@ -107,7 +107,7 @@ export function FocusApp({
         <div className="fv-tools" role="toolbar" aria-label="コメントの道具">
           {built ? <AppTools built={built} ctx={ctx} /> : null}
         </div>
-        <div className="lb-tools" role="toolbar" aria-label="個別表示の操作">
+        <div className="lb-tools" role="toolbar" aria-label="拡大表示の操作">
           <button type="button" className="close" aria-label="閉じる" title="閉じる（Esc）" onClick={onClose}>
             <X aria-hidden="true" focusable="false" />
           </button>

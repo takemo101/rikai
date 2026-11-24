@@ -433,7 +433,7 @@ test.describe('html-app の枠（比較）', () => {
     await clickToCount(R.locator('#b'), R.locator('#n'), 1);
     await expect(R.locator('#n')).toHaveText('1');
     await expect(L.locator('#n')).toHaveText('3');
-    // 個別の枠のツールバー・要素を選ぶ・個別表示・「この枠にコメント」は、ない。比較用ツールバーは、1 つ
+    // 個別の枠のツールバー・要素を選ぶ・拡大表示・「この枠にコメント」は、ない。比較用ツールバーは、1 つ
     await expect(page.locator('#compare .htmlapp .cap button')).toHaveCount(0);
     await expect(page.locator('#compare .apptools, #compare [data-pick], #compare [data-focus-open]')).toHaveCount(0);
     await expect(page.locator('#compare .cmptools')).toHaveCount(1);
@@ -559,7 +559,7 @@ test.describe('html-app の枠（比較）', () => {
     await expect(tb.locator('button[data-frame-mode]')).toHaveAttribute('data-frame-mode', 'light');
   });
 
-  test('読み取り専用：文の選択・ブロックへのマウス・画像を押す・枠で、コメント・範囲選択・個別表示の入口が出ない。右のコメント欄は隠れる。開閉で、下書きが増えない', async ({
+  test('読み取り専用：文の選択・ブロックへのマウス・画像を押す・枠で、コメント・範囲選択・拡大表示の入口が出ない。右のコメント欄は隠れる。開閉で、下書きが増えない', async ({
     page,
     app,
   }) => {
@@ -585,7 +585,7 @@ test.describe('html-app の枠（比較）', () => {
     await expect(u.actbar).toBeHidden();
     await hoverBlock(page, t);
     await expect(u.actbar).toBeHidden();
-    // 画像を押しても、個別表示は開かない。枠のブロックにマウスを置いても、入口は出ない
+    // 画像を押しても、拡大表示は開かない。枠のブロックにマウスを置いても、入口は出ない
     const img = page.locator('#compare .cmpr img').first();
     await img.click({ force: true });
     await expect(u.lightbox).toBeHidden();
@@ -602,7 +602,7 @@ test.describe('html-app の枠（比較）', () => {
     await expect(compare(page)).toHaveCount(0);
     await expect(u.threads).toHaveCount(1);
     await expect(u.composer).toHaveCount(0);
-    await expect(page.locator('#btn-submit')).toContainText('Submit');
+    await expect(page.locator('#btn-submit')).toContainText('AI に送る');
   });
 
   test('枠の中にフォーカスがあっても、Esc で閉じる（枠から届く Esc の知らせ）', async ({ page, app }) => {
@@ -695,7 +695,7 @@ test.describe('html-app の枠（比較）', () => {
     await expect(iframeOf(page, 'r')).not.toHaveAttribute('height', '200'); // 自動の高さが、落ち着く（最初の高さは 200）
     const h0 = await iframeOf(page, 'r').getAttribute('height');
     await page.waitForTimeout(2500); // 洪水
-    // 親：下書き・トースト・入力欄・個別表示が、増えない。比較は、開いたまま（Esc は、枠が代わりに押せない）
+    // 親：下書き・トースト・入力欄・拡大表示が、増えない。比較は、開いたまま（Esc は、枠が代わりに押せない）
     await expect(u.composer).toHaveCount(0);
     await expect(u.toast).toBeHidden();
     await expect(u.lightbox).toBeHidden();

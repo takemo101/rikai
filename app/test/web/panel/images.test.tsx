@@ -272,7 +272,7 @@ test('アップロード中は、送れない（トースト）', async () => {
   await userEvent.type(q('textarea[data-key="reply-t1"]') as HTMLElement, 'x');
   await userEvent.click(screen.getByRole('button', { name: '追加' }));
   expect(useUi.getState().toast).toMatchObject({
-    msg: '画像のアップロード中です。終わってから、送ってください',
+    msg: '画像のアップロード中です。終わってから、追加してください',
     err: true,
   });
 });

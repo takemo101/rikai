@@ -1,4 +1,4 @@
-// 個別表示（フォーカスビュー。F43）：F37 の拡大表示を、窓の左のステージ・右のコメントのドックに拡張した。画像・Mermaid の図・インラインの svg・html-app の枠を、個別に大きく見て、
+// 拡大表示（フォーカスビュー。F43）：F37 の拡大表示を、窓の左のステージ・右のコメントのドックに拡張した。画像・Mermaid の図・インラインの svg・html-app の枠を、個別に大きく見て、
 // 細かい範囲・要素を選んで、ドックの入力欄（本文のパネルと同じ下書き）でコメントする。実際の Chrome・本物のマウス・キー。資料は、作り物。
 import fs from 'node:fs';
 import type { Locator, Page } from '@playwright/test';
@@ -36,12 +36,12 @@ const APP = (marker = 'A') =>
     BT,
   );
 const DOC = (extra = '') =>
-  `# 個別表示の確認\n\n前の段落です。\n\n![緑の四角](assets/sq.png)\n\n${MM}\n${INK}\n\n${APP()}\n${extra}後の段落です。\n`;
+  `# 拡大表示の確認\n\n前の段落です。\n\n![緑の四角](assets/sq.png)\n\n${MM}\n${INK}\n\n${APP()}\n${extra}後の段落です。\n`;
 const ASSETS = { 'sq.png': makeSquarePng(1600, 600, SQ) };
 
 async function open(page: Page, app: RikaiApp, md = DOC(), slug = 'fv') {
   await page.setViewportSize({ width: 1360, height: 900 });
-  await app.switchTopic(page, slug, '個別表示の確認', md, ASSETS);
+  await app.switchTopic(page, slug, '拡大表示の確認', md, ASSETS);
   await expect.poll(() => page.locator('#article img').evaluate((i) => (i as HTMLImageElement).complete)).toBe(true);
   await expect(page.locator('#article .mermaid-block svg')).toHaveCount(1);
   await expect(page.locator('#article iframe.appframe')).toHaveCount(1);
@@ -109,8 +109,8 @@ const imgAt = (b: { x: number; y: number; width: number }, nat: number) => (ix: 
 });
 
 // ============================================================================
-test.describe('個別表示：画像・図で、範囲を選んで、コメントする', () => {
-  test('画像：範囲を選ぶ → 400% で小さな範囲をドラッグ → ドックに入力欄（個別表示は、開いたまま）→ 書く → 閉じる → パネルに下書き → 追加 → Submit → AI に、元の解像度から切り出した画像・region が届く', async ({
+test.describe('拡大表示：画像・図で、範囲を選んで、コメントする', () => {
+  test('画像：範囲を選ぶ → 400% で小さな範囲をドラッグ → ドックに入力欄（拡大表示は、開いたまま）→ 書く → 閉じる → パネルに下書き → 追加 → AI に送る → AI に、元の解像度から切り出した画像・region が届く', async ({
     page,
     app,
   }) => {
@@ -135,7 +135,7 @@ test.describe('個別表示：画像・図で、範囲を選んで、コメン�
     const at = imgAt(s1, 1600);
     await dragBox(page, at(1208, 306), at(1232, 324));
     await expect(dockComposer(page)).toBeVisible();
-    await expect(lbx(page)).toBeVisible(); // 個別表示は、開いたまま
+    await expect(lbx(page)).toBeVisible(); // 拡大表示は、開いたまま
     await expect(regionTool(page)).toHaveAttribute('aria-pressed', 'false'); // 選び終えたら、道具は、やめる
     await expect(dockComposer(page).locator('.quote')).toContainText('緑の四角');
     // 範囲の画像：元の解像度から、24×18 画素（画面で選んだ大きさ ÷ 倍率）。全部、緑
@@ -158,14 +158,14 @@ test.describe('個別表示：画像・図で、範囲を選んで、コメン�
     await expect(pend.locator('.fv-no')).toHaveText('新');
     // 書く（ドックの入力欄）。まだ、追加しない
     await dockComposer(page).locator('textarea').fill('緑の四角の、右端が欠けている？');
-    // Esc：道具は、やめている → 個別表示を、閉じる。書きかけは、本文のパネルに、残る
+    // Esc：道具は、やめている → 拡大表示を、閉じる。書きかけは、本文のパネルに、残る
     await page.keyboard.press('Escape');
     await expect(lbx(page)).toBeHidden();
     await expect(u.composer).toBeVisible();
     await expect(u.composer.locator('textarea')).toHaveValue('緑の四角の、右端が欠けている？');
     await expect(u.composer.locator('.thumb img')).toHaveCount(1);
     await expect(artImg(page)).toBeFocused(); // 開いた所に、フォーカスが戻る
-    // パネルで追加 → Submit → AI に届く
+    // パネルで追加 → AI に送る → AI に届く
     await u.composer.getByRole('button', { name: 'コメントを追加' }).click();
     await expect(u.threads).toHaveCount(1);
     await submitAll(page);
@@ -358,19 +358,19 @@ test.describe('個別表示：画像・図で、範囲を選んで、コメン�
 });
 
 // ============================================================================
-test.describe('個別表示：html-app の枠', () => {
-  test('枠は、新しい iframe（同じ隔離）。本文の枠は、動かない・状態は、引き継がない。「要素を選ぶ」→ 枠の中の要素を押す → ドックに、情報の行（個別表示の枠の状態が添う）。送信後のカードにも、同じ行', async ({
+test.describe('拡大表示：html-app の枠', () => {
+  test('枠は、新しい iframe（同じ隔離）。本文の枠は、動かない・状態は、引き継がない。「要素を選ぶ」→ 枠の中の要素を押す → ドックに、情報の行（拡大表示の枠の状態が添う）。送信後のカードにも、同じ行', async ({
     page,
     app,
   }) => {
     const u = ui(page);
     await open(page, app);
-    // 本文の枠の状態を変える（スライダー 55）。個別表示は、これを、引き継がない
+    // 本文の枠の状態を変える（スライダー 55）。拡大表示は、これを、引き継がない
     const body = page.frameLocator('#article iframe.appframe');
     await page.waitForTimeout(1200);
     await body.locator('#r').fill('55');
     await expect(body.locator('#v')).toHaveText('55');
-    await appCap(page).getByRole('button', { name: '個別表示', exact: true }).click();
+    await appCap(page).getByRole('button', { name: '拡大表示', exact: true }).click();
     await expect(lbx(page)).toBeVisible();
     await expect(page.locator('#lightbox iframe.appframe')).toHaveCount(1);
     const f = focusFrame(page);
@@ -389,7 +389,7 @@ test.describe('個別表示：html-app の枠', () => {
     // 利用できる幅いっぱい（本文の枠より、広い）
     const fb = await box(page.locator('#lightbox iframe.appframe'));
     expect(fb.width).toBeGreaterThan(700);
-    // 個別表示の枠で、スライダーを動かす → 状態（rikai.state）
+    // 拡大表示の枠で、スライダーを動かす → 状態（rikai.state）
     await f.locator('#r').fill('70');
     await page.waitForTimeout(700);
     // 要素を選ぶ（ステージの道具）→ 枠の中のボタンを押す
@@ -407,15 +407,15 @@ test.describe('個別表示：html-app の枠', () => {
     await row.locator('.fm-toggle').click();
     await expect(row.locator('.fm-body')).toContainText('button#go');
     const st = JSON.parse((await row.locator('.fm-body pre').textContent()) ?? 'null');
-    expect(st).toMatchObject({ slider: 70 }); // 個別表示の枠の状態（本文の枠の 55 ではない）
-    // 書いて、閉じる → パネルに下書き（情報の行つき）が残る → 追加 → Submit → 錨は、本文の、元の枠
+    expect(st).toMatchObject({ slider: 70 }); // 拡大表示の枠の状態（本文の枠の 55 ではない）
+    // 書いて、閉じる → パネルに下書き（情報の行つき）が残る → 追加 → AI に送る → 錨は、本文の、元の枠
     await dockComposer(page).locator('textarea').fill('このボタンを、もっと目立たせたい');
     await page.keyboard.press('Escape');
     await expect(lbx(page)).toBeHidden();
     await expect(u.composer).toBeVisible();
     await expect(u.composer).toHaveAttribute('data-from-frame', '');
     await expect(u.composer.locator('.fm-sum')).toContainText('要素を選びました');
-    await expect(appCap(page).getByRole('button', { name: '個別表示', exact: true })).toBeFocused(); // 開いた所に、戻る
+    await expect(appCap(page).getByRole('button', { name: '拡大表示', exact: true })).toBeFocused(); // 開いた所に、戻る
     await u.composer.getByRole('button', { name: 'コメントを追加' }).click();
     await expect(u.threads).toHaveCount(1);
     await submitAll(page);
@@ -435,7 +435,7 @@ test.describe('個別表示：html-app の枠', () => {
   }) => {
     await open(page, app);
     await page.waitForTimeout(1200);
-    await appCap(page).getByRole('button', { name: '個別表示', exact: true }).click();
+    await appCap(page).getByRole('button', { name: '拡大表示', exact: true }).click();
     await expect(lbx(page)).toBeVisible();
     await page.waitForTimeout(1500);
     const fr = page.locator('#lightbox iframe.appframe');
@@ -493,13 +493,13 @@ test.describe('個別表示：html-app の枠', () => {
     await expect(dockThreads(page).first()).toHaveClass(/active/);
   });
 
-  test('枠の状態の添付：「この枠にコメント」（ドック）に、個別表示の枠の状態が添う。状態を呼ばなければ、添えない', async ({
+  test('枠の状態の添付：「この枠にコメント」（ドック）に、拡大表示の枠の状態が添う。状態を呼ばなければ、添えない', async ({
     page,
     app,
   }) => {
     await open(page, app);
     await page.waitForTimeout(1200);
-    await appCap(page).getByRole('button', { name: '個別表示', exact: true }).click();
+    await appCap(page).getByRole('button', { name: '拡大表示', exact: true }).click();
     await page.waitForTimeout(1500);
     await focusFrame(page).locator('#r').fill('33');
     await page.waitForTimeout(700);
@@ -513,7 +513,7 @@ test.describe('個別表示：html-app の枠', () => {
   });
 });
 
-test.describe('個別表示：日本語の変換中（IME）', () => {
+test.describe('拡大表示：日本語の変換中（IME）', () => {
   test('変換中（isComposing・keyCode 229）の Esc は、閉じない・道具を止めない。変換中の Ctrl+Enter は、送信しない。ドックの入力欄・パネルの入力欄とも', async ({
     page,
     app,
@@ -555,19 +555,19 @@ test.describe('個別表示：日本語の変換中（IME）', () => {
   });
 });
 
-test.describe('個別表示：枠の中の Esc', () => {
+test.describe('拡大表示：枠の中の Esc', () => {
   test('枠の中にフォーカスがあっても、Esc が親に届く：道具（範囲選択）の中止 → もう一度で、閉じる。要素選択の Esc は、1 回で、選択だけ中止（二重にならない）。本文の枠の Esc は、何もしない', async ({
     page,
     app,
   }) => {
     await open(page, app);
     await page.waitForTimeout(1200);
-    // 本文の枠の中の Esc：何も起きない（個別表示でないとき）
+    // 本文の枠の中の Esc：何も起きない（拡大表示でないとき）
     await page.frameLocator('#article iframe.appframe').locator('#go').click();
     await page.keyboard.press('Escape');
     await page.waitForTimeout(300);
     await expect(lbx(page)).toBeHidden();
-    await appCap(page).getByRole('button', { name: '個別表示', exact: true }).click();
+    await appCap(page).getByRole('button', { name: '拡大表示', exact: true }).click();
     await page.waitForTimeout(1500);
     const f = focusFrame(page);
     // 枠の中にフォーカス（ボタンを押す）→ 範囲を選ぶ道具 → 枠の中で Esc
@@ -585,7 +585,7 @@ test.describe('個別表示：枠の中の Esc', () => {
     await page.keyboard.press('Escape');
     await expect(lbx(page)).toBeHidden(); // 2 回目：閉じる
     // 要素選択：枠の中の Esc は、橋が処理して pick-cancel：1 回で、選択だけやめる（閉じない）
-    await appCap(page).getByRole('button', { name: '個別表示', exact: true }).click();
+    await appCap(page).getByRole('button', { name: '拡大表示', exact: true }).click();
     await page.waitForTimeout(1500);
     await page.locator('#lightbox button[data-pick]').click();
     await expect(page.locator('#lightbox button[data-pick]')).toHaveAttribute('aria-pressed', 'true');
@@ -601,7 +601,7 @@ test.describe('個別表示：枠の中の Esc', () => {
     await expect(lbx(page)).toBeHidden();
   });
 
-  test('Esc の転送は、偽装できない：兄弟の枠・本文の枠が送る偽の esc は、個別表示を閉じない。形の不正（余分なキー）・洪水も、効かない', async ({
+  test('Esc の転送は、偽装できない：兄弟の枠・本文の枠が送る偽の esc は、拡大表示を閉じない。形の不正（余分なキー）・洪水も、効かない', async ({
     page,
     app,
   }) => {
@@ -613,14 +613,14 @@ test.describe('個別表示：枠の中の Esc', () => {
     );
     await app.switchTopic(page, 'fv-esc', 'Esc', `# 題\n\n${FLOOD}\n${APP()}\n後の段落です。\n`);
     await page.waitForTimeout(1800);
-    await appCap(page).nth(1).getByRole('button', { name: '個別表示', exact: true }).click();
+    await appCap(page).nth(1).getByRole('button', { name: '拡大表示', exact: true }).click();
     await page.waitForTimeout(2500); // 洪水が続く
     await expect(lbx(page)).toBeVisible();
     await expect(page.locator('#lightbox iframe.appframe')).toHaveCount(1);
   });
 });
 
-test.describe('個別表示：html-app の幅の注記・ラベル・古い基準の枠', () => {
+test.describe('拡大表示：html-app の幅の注記・ラベル・古い基準の枠', () => {
   const note = (page: Page) => page.locator('#lightbox .fv-widthnote');
 
   test('幅の既定は、本文の枠の、いまの幅。本文の枠と幅が違うときだけ、注記。範囲の錨のラベルに、選んだときの枠の幅（px）', async ({
@@ -629,8 +629,8 @@ test.describe('個別表示：html-app の幅の注記・ラベル・古い基�
   }) => {
     await open(page, app);
     await page.waitForTimeout(1200);
-    // 本文の枠が「自動」：個別表示も「自動」（ステージの幅いっぱい）。本文より広いので、注記
-    await appCap(page).getByRole('button', { name: '個別表示', exact: true }).click();
+    // 本文の枠が「自動」：拡大表示も「自動」（ステージの幅いっぱい）。本文より広いので、注記
+    await appCap(page).getByRole('button', { name: '拡大表示', exact: true }).click();
     await page.waitForTimeout(1200);
     await expect(page.locator('#lightbox button[data-width="auto"]')).toHaveAttribute('aria-pressed', 'true');
     const bodyW = await page.locator('#article iframe.appframe').evaluate((e) => (e as HTMLIFrameElement).offsetWidth);
@@ -652,9 +652,9 @@ test.describe('個別表示：html-app の幅の注記・ラベル・古い基�
     expect(label).toContain(`（枠の幅 ${fw}px で選択）`);
     expect(label.length).toBeLessThanOrEqual(120);
     expect(label.startsWith('範囲：')).toBe(true);
-    // 本文の枠を 1280 に：個別表示も、1280 で開く（同じ幅：注記なし）。幅を変えると、注記
+    // 本文の枠を 1280 に：拡大表示も、1280 で開く（同じ幅：注記なし）。幅を変えると、注記
     await appCap(page).locator('button[data-width="1280"]').click();
-    await appCap(page).getByRole('button', { name: '個別表示', exact: true }).click();
+    await appCap(page).getByRole('button', { name: '拡大表示', exact: true }).click();
     await page.waitForTimeout(1200);
     await expect(page.locator('#lightbox button[data-width="1280"]')).toHaveAttribute('aria-pressed', 'true');
     await expect(note(page)).toHaveCount(0);
@@ -664,7 +664,7 @@ test.describe('個別表示：html-app の幅の注記・ラベル・古い基�
     await expect(note(page)).toHaveCount(0);
   });
 
-  test('古い基準（見出しのアイコン 15px）で保存された html-app の範囲：枠は、基準の周りに収める（本文の高さを伸ばさない・巨大な枠を作らない）。個別表示でも。完全に外へ出るものは、描かない', async ({
+  test('古い基準（見出しのアイコン 15px）で保存された html-app の範囲：枠は、基準の周りに収める（本文の高さを伸ばさない・巨大な枠を作らない）。拡大表示でも。完全に外へ出るものは、描かない', async ({
     page,
     app,
   }) => {
@@ -711,8 +711,8 @@ test.describe('個別表示：html-app の幅の注記・ラベル・古い基�
     expect(rb.height).toBeLessThanOrEqual(ap.height * 1.5 + 4); // 基準の周り（1.5 倍まで）
     // 本文の高さは、基準の周り（1.5 倍）の分だけ。収めないと、幅 40・高さ 8（基準の 8 倍）で、数千 px 伸びる
     expect(await ui(page).docscroll.evaluate((e) => e.scrollHeight)).toBeLessThanOrEqual(h0 + ap.height * 1.5 + 8);
-    // 個別表示
-    await appCap(page).getByRole('button', { name: '個別表示', exact: true }).click();
+    // 拡大表示
+    await appCap(page).getByRole('button', { name: '拡大表示', exact: true }).click();
     await page.waitForTimeout(1500);
     const f = await box(page.locator('#lightbox iframe.appframe'));
     const fb = page.locator('#lightbox .fv-box:not(.pending)');
@@ -723,7 +723,7 @@ test.describe('個別表示：html-app の幅の注記・ラベル・古い基�
   });
 });
 
-test.describe('個別表示：枠が応答しないとき', () => {
+test.describe('拡大表示：枠が応答しないとき', () => {
   test('枠が応答しない（snapshot-req で、固まる）：範囲を選んでも、2 秒で、箱の画像に戻る。コメントは作れる（枠の画像の印は付かない）', async ({
     page,
     app,
@@ -736,7 +736,7 @@ test.describe('個別表示：枠が応答しないとき', () => {
     );
     await app.switchTopic(page, 'fv-silent', '無言', `# 題\n\n前の段落です。\n\n${silent}\n後の段落です。\n`);
     await page.waitForTimeout(1500);
-    await appCap(page).getByRole('button', { name: '個別表示', exact: true }).click();
+    await appCap(page).getByRole('button', { name: '拡大表示', exact: true }).click();
     await expect(lbx(page)).toBeVisible();
     await page.waitForTimeout(1500);
     await regionTool(page).click();
@@ -752,7 +752,7 @@ test.describe('個別表示：枠が応答しないとき', () => {
     expect(red[0] > 190 && red[1] < 80).toBe(false);
     await expect(dockComposer(page).locator('.quote')).not.toContainText('枠の画像は、枠自身が作ったもの');
     await expect(dockComposer(page).locator('textarea')).toHaveValue('');
-    await expect(lbx(page)).toBeVisible(); // 個別表示は、固まらない（開いたまま）
+    await expect(lbx(page)).toBeVisible(); // 拡大表示は、固まらない（開いたまま）
   });
 });
 
@@ -763,7 +763,7 @@ test.describe('html-app の範囲の基準（枠の置き場）', () => {
   const frameBox = (page: Page) => box(page.locator('#article iframe.appframe'));
   const placed = (page: Page) => ui(page).badges.locator('.regionbox:not(.pending)');
 
-  /** 本文で、範囲（画面の座標）を選び、コメントを追加し、Submit して、AI に届いた region を返す */
+  /** 本文で、範囲（画面の座標）を選び、コメントを追加し、AI に送って、AI に届いた region を返す */
   async function commentRegion(
     page: Page,
     app: RikaiApp,
@@ -813,8 +813,8 @@ test.describe('html-app の範囲の基準（枠の置き場）', () => {
       expect(Math.abs(rb.y - from.y)).toBeLessThanOrEqual(3);
       expect(Math.abs(rb.width - 200)).toBeLessThanOrEqual(3);
       expect(Math.abs(rb.height - 100)).toBeLessThanOrEqual(3);
-      // 個別表示でも、同じ位置（枠の割合）に重なる
-      await appCap(page).getByRole('button', { name: '個別表示', exact: true }).click();
+      // 拡大表示でも、同じ位置（枠の割合）に重なる
+      await appCap(page).getByRole('button', { name: '拡大表示', exact: true }).click();
       await expect(page.locator('#lightbox iframe.appframe')).toHaveCount(1);
       const f = await box(page.locator('#lightbox iframe.appframe'));
       const fb = await box(page.locator('#lightbox .fv-box:not(.pending)'));
@@ -824,7 +824,7 @@ test.describe('html-app の範囲の基準（枠の置き場）', () => {
     });
   }
 
-  test('個別表示：枠の上で範囲を選ぶ → 錨の region は、本文の枠の置き場に対する、同じ相対位置（幅の切り替え 1280 でも）', async ({
+  test('拡大表示：枠の上で範囲を選ぶ → 錨の region は、本文の枠の置き場に対する、同じ相対位置（幅の切り替え 1280 でも）', async ({
     page,
     app,
   }) => {
@@ -833,7 +833,7 @@ test.describe('html-app の範囲の基準（枠の置き場）', () => {
     await page.locator('#article .htmlapp').scrollIntoViewIfNeeded();
     const ap = await box(appview(page));
     const fr = await frameBox(page);
-    await appCap(page).getByRole('button', { name: '個別表示', exact: true }).click();
+    await appCap(page).getByRole('button', { name: '拡大表示', exact: true }).click();
     await page.waitForTimeout(1500);
     await page.locator('#lightbox button[data-width="1280"]').click();
     await page.waitForTimeout(300);
@@ -846,7 +846,7 @@ test.describe('html-app の範囲の基準（枠の置き場）', () => {
     );
     await expect(dockComposer(page)).toBeVisible();
     await expect(dockComposer(page).locator('.thumb img')).toHaveCount(1, { timeout: 15_000 });
-    await dockComposer(page).locator('textarea').fill('個別表示から');
+    await dockComposer(page).locator('textarea').fill('拡大表示から');
     await dockComposer(page).getByRole('button', { name: 'コメントを追加' }).click();
     await expect(dockThreads(page)).toHaveCount(1);
     await page.keyboard.press('Escape');
@@ -865,7 +865,7 @@ test.describe('html-app の範囲の基準（枠の置き場）', () => {
 });
 
 // ============================================================================
-test.describe('個別表示：生の <img>（ブロックそのものが画像）', () => {
+test.describe('拡大表示：生の <img>（ブロックそのものが画像）', () => {
   const RAW = `# 生の画像\n\n前の段落です。\n\n<img src="assets/sq.png" width="800" height="600" alt="生の緑">\n\n後の段落です。\n`;
   const rawImg = (page: Page) => page.locator('#article > img');
 
@@ -930,8 +930,8 @@ function placed(page: Page) {
 }
 
 // ============================================================================
-test.describe('個別表示：キーボード・フォーカス・Esc', () => {
-  test('入口がキーボードで届く：Tab で図・画像・枠の「個別表示」にフォーカス → Enter で開く → Tab は窓の外へ出ない → Esc で閉じると、開いた所に戻る', async ({
+test.describe('拡大表示：キーボード・フォーカス・Esc', () => {
+  test('入口がキーボードで届く：Tab で図・画像・枠の「拡大表示」にフォーカス → Enter で開く → Tab は窓の外へ出ない → Esc で閉じると、開いた所に戻る', async ({
     page,
     app,
   }) => {
@@ -942,7 +942,7 @@ test.describe('個別表示：キーボード・フォーカス・Esc', () => {
       await expect(e).toHaveAttribute('tabindex', '0');
       await expect(e).toHaveAttribute('role', 'button');
     }
-    await expect(entries.first()).toHaveAccessibleName(/個別表示/);
+    await expect(entries.first()).toHaveAccessibleName(/拡大表示/);
     // 本文の先頭から Tab を送って、最初の入口（画像）に着く
     await page.locator('#btn-theme').focus();
     let reached = '';
@@ -988,8 +988,8 @@ test.describe('個別表示：キーボード・フォーカス・Esc', () => {
     await expect(lbx(page).locator('.lb-stage svg')).toHaveCount(1);
     await page.keyboard.press('Escape');
     await expect(page.locator('#article .mermaid-block')).toBeFocused();
-    // html-app：見出しの「個別表示」にフォーカスして、Enter
-    const btn = appCap(page).getByRole('button', { name: '個別表示', exact: true });
+    // html-app：見出しの「拡大表示」にフォーカスして、Enter
+    const btn = appCap(page).getByRole('button', { name: '拡大表示', exact: true });
     await btn.focus();
     await page.keyboard.press('Enter');
     await expect(page.locator('#lightbox iframe.appframe')).toHaveCount(1);
@@ -998,7 +998,8 @@ test.describe('個別表示：キーボード・フォーカス・Esc', () => {
     await expect(btn).toBeFocused();
   });
 
-  test('入口のバーの「拡大」は、マウスで画像・図・html-app の枠のブロックに出て、押すと個別表示になる（閉じたら、本文の入口にフォーカスが戻る）', async ({
+  // 意図した変更（0.28.0）：html-app の枠には、入口のバー（拡大表示・コメント）を出さない（入口は、枠の見出しに 1 つにそろえた）。バーの「拡大表示」は、画像・図のブロックだけ
+  test('入口のバーの「拡大表示」は、マウスで図のブロックに出て、押すと拡大表示になる（閉じたら、本文の入口にフォーカスが戻る）。html-app の枠には、バーが出ない', async ({
     page,
     app,
   }) => {
@@ -1010,19 +1011,31 @@ test.describe('個別表示：キーボード・フォーカス・Esc', () => {
       await page.mouse.move(2, 2);
       await expect(ui(page).actbar).toBeHidden();
       await page.mouse.move(r.x + Math.min(r.width / 2, 120), r.y + Math.min(r.height / 2, 24), { steps: 3 });
-      await expect(ui(page).actbar).toBeVisible();
     };
+    // 枠：見出しの上・枠の上のどちらでも、バーは出ない
     await hover(page.locator('#article .htmlapp .cap'));
-    await expect(page.locator('#act-zoom')).toBeVisible();
+    await page.waitForTimeout(500);
+    await expect(ui(page).actbar).toBeHidden();
+    // 見出しから、そのまま枠の中へ（枠の中の動きは、画面に届かない：途中で別のブロックの上を通ると、そのバーが残るため、見出しから直接入る）
+    const f = await page.locator('#article iframe.appframe').first().boundingBox();
+    if (!f) throw new Error('box');
+    await page.mouse.move(f.x + 60, f.y + 40, { steps: 4 });
+    await page.waitForTimeout(500);
+    await expect(ui(page).actbar).toBeHidden();
+    await expect(page.locator('#act-zoom')).toHaveCount(0);
+    // 図：バーに「拡大表示」
+    await hover(artMm(page));
+    await expect(ui(page).actbar).toBeVisible();
+    await expect(page.locator('#act-zoom')).toHaveText('拡大表示');
     await page.locator('#act-zoom').click();
-    await expect(page.locator('#lightbox iframe.appframe')).toHaveCount(1);
+    await expect(page.locator('#lightbox .lb-stage svg')).toHaveCount(1);
     await page.keyboard.press('Escape');
     await expect(lbx(page)).toBeHidden();
-    // ボタンが消えていても（バーは、押すと隠れる）、本文の、その枠の入口にフォーカスが戻る
-    await expect(appCap(page).getByRole('button', { name: '個別表示', exact: true })).toBeFocused();
+    // ボタンが消えていても（バーは、押すと隠れる）、本文の、その図の入口にフォーカスが戻る
+    await expect(page.locator('#article .mermaid-block')).toBeFocused();
   });
 
-  test('Esc の順序：道具（範囲選択）の中止 → 入力欄の下書きは触らない → もう一度で、個別表示を閉じる。書きかけは、パネルに残る', async ({
+  test('Esc の順序：道具（範囲選択）の中止 → 入力欄の下書きは触らない → もう一度で、拡大表示を閉じる。書きかけは、パネルに残る', async ({
     page,
     app,
   }) => {
@@ -1073,7 +1086,7 @@ test.describe('個別表示：キーボード・フォーカス・Esc', () => {
 });
 
 // ============================================================================
-test.describe('個別表示：本文の更新・窓の大きさ・外観', () => {
+test.describe('拡大表示：本文の更新・窓の大きさ・外観', () => {
   test('開いたまま、AI の返信・新しい版が届いても、壊れない：返信がドックに出る・範囲の枠は残る。対象が消える版では、閉じて、知らせる（下書きは、パネルに残る）', async ({
     page,
     app,
@@ -1094,7 +1107,7 @@ test.describe('個別表示：本文の更新・窓の大きさ・外観', () =>
     // 書きかけも、1 つ、作っておく
     await dock(page).getByRole('button', { name: 'この対象全体にコメント' }).click();
     await dockComposer(page).locator('textarea').fill('もう 1 つの書きかけ');
-    // Submit は、画面のバー：窓の後ろ。個別表示を閉じてから。開き直す
+    // AI に送る は、画面のバー：窓の後ろ。拡大表示を閉じてから。開き直す
     await page.keyboard.press('Escape');
     await expect(lbx(page)).toBeHidden();
     await u.composer.getByRole('button', { name: 'やめる' }).click();
@@ -1103,7 +1116,7 @@ test.describe('個別表示：本文の更新・窓の大きさ・外観', () =>
     await artImg(page).click();
     await stageReady(page);
     await expect(dockThreads(page)).toHaveCount(1);
-    // 返信が届く（個別表示は、開いたまま）
+    // 返信が届く（拡大表示は、開いたまま）
     await app.apply({
       round: round.round,
       replies: [{ thread: round.items[0].thread, body: '緑の四角は、目印です。' }],
@@ -1133,9 +1146,9 @@ test.describe('個別表示：本文の更新・窓の大きさ・外観', () =>
     await expect(page.locator('#lightbox .fv-box')).toHaveCount(1); // 範囲の枠は、新しい版の本文に、位置づけ直されて、残る
     await expect(stage(page).locator('img')).toHaveAttribute('src', /sq\.png/);
     // 対象（画像）が消える版
-    await app.apply({ revisions: [{ page: 'root', markdown: '# 個別表示の確認\n\n画像を、消しました。\n' }] });
+    await app.apply({ revisions: [{ page: 'root', markdown: '# 拡大表示の確認\n\n画像を、消しました。\n' }] });
     await expect(lbx(page)).toBeHidden();
-    await expect(u.toast).toContainText('個別表示の対象が見つからなくなった');
+    await expect(u.toast).toContainText('拡大表示の対象が見つからなくなった');
   });
 
   test('窓が 760px 未満：ドックは、下からのシート・ステージが使える（範囲を選べる）。700px・420px。はみ出さない', async ({
@@ -1180,7 +1193,7 @@ test.describe('個別表示：本文の更新・窓の大きさ・外観', () =>
       await expect(lbx(page)).toBeHidden();
     }
     // html-app も、420px で、道具が折り返して、はみ出さない
-    await appCap(page).getByRole('button', { name: '個別表示', exact: true }).click();
+    await appCap(page).getByRole('button', { name: '拡大表示', exact: true }).click();
     await expect(page.locator('#lightbox iframe.appframe')).toHaveCount(1);
     for (const sel of ['.fv-tools', '.lb-tools']) {
       const t = await box(page.locator(`#lightbox ${sel}`));
@@ -1252,7 +1265,7 @@ test.describe('個別表示：本文の更新・窓の大きさ・外観', () =>
 });
 
 // ============================================================================
-test.describe('個別表示：安全', () => {
+test.describe('拡大表示：安全', () => {
   const GREEN_PNG =
     "(function(){var c=document.createElement('canvas');c.width=20;c.height=20;var g=c.getContext('2d');g.fillStyle='#16a34a';g.fillRect(0,0,20,20);return c.toDataURL('image/png');})()";
   // 1 つ目：攻撃する枠（なりすまし・洪水）。2 つ目：本物の（赤い帯のある）枠
@@ -1269,14 +1282,14 @@ test.describe('個別表示：安全', () => {
     "    parent.postMessage({ __rikai: 1, type: 'state', json: '{\"evil\":' + (n++) + '}' }, '*');",
     "    parent.postMessage({ __rikai: 1, type: 'snapshot', id: 's' + (i + 1), png: green }, '*');",
     '  }',
-    // 兄弟の枠（本物の枠・個別表示の枠も含む）へのなりすまし
+    // 兄弟の枠（本物の枠・拡大表示の枠も含む）へのなりすまし
     '  for (var k = 0; k < parent.frames.length; k++) { if (parent.frames[k] !== window) { try { parent.frames[k].postMessage({ __rikai: 1, type: "pick-start" }, "*"); parent.frames[k].postMessage({ __rikai: 1, type: "snapshot-req", id: "s1" }, "*"); } catch (e) {} } }',
     '}, 150);',
     '</script>',
     BT,
   );
 
-  test('攻撃する兄弟の枠・本文の枠が、偽の pick・state・snapshot を送っても、個別表示の枠・下書きに効かない（個別表示の枠の画像・状態・下書きは、本物の枠のものだけ）', async ({
+  test('攻撃する兄弟の枠・本文の枠が、偽の pick・state・snapshot を送っても、拡大表示の枠・下書きに効かない（拡大表示の枠の画像・状態・下書きは、本物の枠のものだけ）', async ({
     page,
     app,
   }) => {
@@ -1288,8 +1301,8 @@ test.describe('個別表示：安全', () => {
     );
     await page.waitForTimeout(1800);
     await expect(ui(page).composer).toHaveCount(0);
-    // 本物の枠（2 つ目）を、個別表示で開く
-    await appCap(page).nth(1).getByRole('button', { name: '個別表示', exact: true }).click();
+    // 本物の枠（2 つ目）を、拡大表示で開く
+    await appCap(page).nth(1).getByRole('button', { name: '拡大表示', exact: true }).click();
     await expect(lbx(page)).toBeVisible();
     await page.waitForTimeout(1800); // 攻撃は、続いている
     await expect(dockComposer(page)).toHaveCount(0); // 勝手に、下書きは、できない
@@ -1336,7 +1349,7 @@ test.describe('個別表示：安全', () => {
     expect(Date.now() - t0).toBeLessThan(1000);
   });
 
-  test('個別表示を 50 回、開閉しても、iframe・リスナー・ノードが増えない（閉じたら、枠を破棄して、橋の登録簿から外す）。複数の個別表示は、同時に開かない', async ({
+  test('拡大表示を 50 回、開閉しても、iframe・リスナー・ノードが増えない（閉じたら、枠を破棄して、橋の登録簿から外す）。複数の拡大表示は、同時に開かない', async ({
     page,
     app,
   }) => {
@@ -1356,7 +1369,7 @@ test.describe('個別表示：安全', () => {
       };
     };
     const cycle = async () => {
-      await appCap(page).getByRole('button', { name: '個別表示', exact: true }).click();
+      await appCap(page).getByRole('button', { name: '拡大表示', exact: true }).click();
       await expect(page.locator('#lightbox iframe.appframe')).toHaveCount(1);
       await page.keyboard.press('Escape');
       await expect(lbx(page)).toBeHidden();
@@ -1396,23 +1409,23 @@ test.describe('個別表示：安全', () => {
         { timeout: 20_000 },
       )
       .toEqual({ listeners: true, nodes: true });
-    // 個別表示が開いている間は、後ろの本文（枠の見出しのボタン）を押せない：2 つ目は、開かない
-    await appCap(page).getByRole('button', { name: '個別表示', exact: true }).click();
+    // 拡大表示が開いている間は、後ろの本文（枠の見出しのボタン）を押せない：2 つ目は、開かない
+    await appCap(page).getByRole('button', { name: '拡大表示', exact: true }).click();
     await expect(page.locator('#lightbox iframe.appframe')).toHaveCount(1);
     await appCap(page)
-      .getByRole('button', { name: '個別表示', exact: true })
+      .getByRole('button', { name: '拡大表示', exact: true })
       .click({ timeout: 1500, force: true })
       .catch(() => {});
-    await expect(page.locator('iframe.appframe')).toHaveCount(2); // 本文の枠 ＋ 個別表示の枠（2 つ目は、できない）
+    await expect(page.locator('iframe.appframe')).toHaveCount(2); // 本文の枠 ＋ 拡大表示の枠（2 つ目は、できない）
   });
 
-  test('下書きは、自動で送られない：個別表示で作った下書き（要素・範囲の画像）を、Submit するまで、AI に届かない', async ({
+  test('下書きは、自動で送られない：拡大表示で作った下書き（要素・範囲の画像）を、AI に送るまで、AI に届かない', async ({
     page,
     app,
   }) => {
     await open(page, app);
     await page.waitForTimeout(1200);
-    await appCap(page).getByRole('button', { name: '個別表示', exact: true }).click();
+    await appCap(page).getByRole('button', { name: '拡大表示', exact: true }).click();
     await page.waitForTimeout(1500);
     await page.locator('#lightbox button[data-pick]').click();
     await clickUntilPicked(focusFrame(page).locator('#go'), dockComposer(page));

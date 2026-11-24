@@ -1,5 +1,5 @@
 // 「いま、誰の番か」（F39）：上のバーの `#turn`・左の一覧の印・カードの札・タブのタイトル。
-// コメントなし（印なし）→ 未送信 → Submit 済み（AI の返信待ち）→ AI の返信と質問（あなたの番）→ 回答・解決（すべて解決）。
+// コメントなし（印なし）→ 未送信 → AI に送った後（AI の返信待ち）→ AI の返信と質問（あなたの番）→ 回答・解決（すべて解決）。
 import type { Page } from '@playwright/test';
 import { expect, test } from './fixtures';
 import { addTextComment, box, submitAll, ui } from './ui';
@@ -16,14 +16,14 @@ const ASK = {
   allowOther: false,
 } as const;
 
-/** コメントを 1 つ付けて、Submit して、AI が返信する前の状態にする */
+/** コメントを 1 つ付けて、AI に送って、AI が返信する前の状態にする */
 async function submitted(
   page: Page,
   app: { nextRound: () => Promise<{ round: number; items: { thread: string }[] }> },
 ) {
   await addTextComment(page, '猫は朝によく鳴きます', '朝に鳴く理由は？');
   await submitAll(page);
-  await expect(turn(page)).toContainText('AIの返信待ち');
+  await expect(turn(page)).toContainText('AI の返信待ち');
   return app.nextRound();
 }
 
@@ -34,27 +34,27 @@ test.describe('いま、誰の番か（F39）', () => {
     await expect(mine(page).locator('.turn-mark, .chip.wait')).toHaveCount(0);
   });
 
-  test('未送信：「未送信 n 件 → Submit」（琥珀）・Submit に輪・タイトル・左の一覧・押すと Submit へ', async ({
+  // 意図した変更（0.28.0）：上のバーの札に、未送信の形（「未送信 n 件 → Submit」。隣のボタンに focus を移すだけ）は、出さない。未送信の数は「AI に送る（n）」のボタンが持つ（輪つき）。
+  // 札は、未送信を除いた状態（未解決だけなら、札なし：下書きだけの間は、札で言うことがない）
+  test('未送信：札（#turn）には出さない。「AI に送る（n）」に数と輪。タイトル・左の一覧・カードの札には、残る', async ({
     page,
   }) => {
     const u = ui(page);
     await addTextComment(page, '猫は朝によく鳴きます', '朝に鳴く理由は？');
-    await expect(turn(page)).toHaveClass(/unsent/);
-    await expect(turn(page)).toContainText('未送信 1 件');
-    await expect(turn(page)).toContainText('→ Submit');
-    await expect(turn(page)).toHaveAttribute('role', 'status');
-    await expect(turn(page)).toHaveAttribute('aria-live', 'polite');
+    await expect(turn(page)).toHaveCount(0);
+    await expect(u.top).not.toContainText('未送信');
+    await expect(u.submit).toHaveText('AI に送る（1）');
     await expect(u.submit).toHaveClass(/attn/);
     expect(await u.submit.evaluate((e) => getComputedStyle(e).boxShadow)).not.toBe('none');
     await expect(page).toHaveTitle('未送信 1 件 | 猫の観察日記 | rikai');
-    await expect(mine(page).locator('.chip.draft')).toHaveAttribute('aria-label', /未送信 1 件/);
+    await expect(mine(page).locator('.chip.draft')).toHaveAttribute(
+      'aria-label',
+      /未送信 1 件。「AI に送る」で送ります/,
+    );
     await expect(u.threads.first().locator('.th-head .chip.draft')).toHaveText('未送信');
-    // 押すと、Submit へ
-    await turn(page).getByRole('button').click();
-    await expect(u.submit).toBeFocused();
   });
 
-  test('Submit 済み：「AIの返信待ち」（灰色）・コピーのボタン・タイトル・左の一覧の「待ち」・カードの「AIの返信待ち」の札', async ({
+  test('AI に送った後：「AI の返信待ち」（灰色）・コピーのボタン・タイトル・左の一覧の「待ち」・カードの「AI の返信待ち」の札', async ({
     page,
     app,
   }) => {
@@ -63,19 +63,20 @@ test.describe('いま、誰の番か（F39）', () => {
     await expect(turn(page)).toHaveClass(/waiting-ai/);
     await expect(turn(page).getByRole('button')).toHaveCount(0); // 押して移る先は、ない
     await expect(u.submit).not.toHaveClass(/attn/);
-    await expect(page).toHaveTitle('AIの返信待ち | 猫の観察日記 | rikai');
-    await expect(mine(page)).toContainText('待ち');
+    await expect(page).toHaveTitle('AI の返信待ち | 猫の観察日記 | rikai');
+    await expect(mine(page)).toContainText('AI の返信待ち');
     await expect(u.top.getByRole('button', { name: 'コピー' })).toBeVisible();
-    await expect(u.threads.first().locator('.th-head .chip.aiwait')).toHaveText('AIの返信待ち');
-    // 返信を待つ間に、新しいコメントを付ける：未送信が先（Submit へ）。前回分の返信待ちは、小さく残る
+    await expect(u.threads.first().locator('.th-head .chip.aiwait')).toHaveText('AI の返信待ち');
+    // 返信を待つ間に、新しいコメントを付ける：札は、そのまま「AI の返信待ち」（1 つ）。未送信は、ボタンの数・タイトル（旧：未送信の札が先に出て、返信待ちの札が並んだ）
     await addTextComment(page, '日向でよく丸くなります', '日向は暖かいから？');
-    await expect(turn(page)).toHaveClass(/unsent/);
-    await expect(turn(page)).toContainText('未送信 1 件');
-    await expect(u.top.locator('.chip.wait')).toHaveText('AIの返信待ち');
+    await expect(turn(page)).toHaveClass(/waiting-ai/);
+    await expect(turn(page)).not.toContainText('未送信');
+    await expect(u.top.locator('.chip.wait')).toHaveCount(0);
+    await expect(u.submit).toHaveText('AI に送る（1）');
     await expect(page).toHaveTitle('未送信 1 件 | 猫の観察日記 | rikai');
   });
 
-  test('AI の返信と質問：「あなたの番（AI の返信 1・未回答の質問 1）」・タイトルの (2)・左の一覧の印・カードは「回答待ち」の 1 つ（「AIの返信」と重ねない）', async ({
+  test('AI の返信と質問：「あなたの番（AI の返信 1・未回答の質問 1）」・タイトルの (2)・左の一覧の印・カードは「未回答の質問」の 1 つ（「AI の返信」と重ねない）', async ({
     page,
     app,
   }) => {
@@ -92,10 +93,10 @@ test.describe('いま、誰の番か（F39）', () => {
     await expect(turn(page).getByRole('button')).toHaveAttribute('title', /（AI の返信 1・未回答の質問 1）/);
     await expect(page).toHaveTitle('(1) あなたの番 | 猫の観察日記 | rikai');
     await expect(mine(page).locator('.chip.yours')).toHaveAttribute('aria-label', 'あなたの番');
-    await expect(mine(page)).not.toContainText('待ち');
-    await expect(u.threads.first().locator('.th-head .chip.yours')).toHaveText('回答待ち');
-    await expect(u.threads.first().locator('.th-head')).not.toContainText('AIの返信');
-    await expect(u.top).not.toContainText('AIの返信待ち');
+    await expect(mine(page)).not.toContainText('AI の返信待ち');
+    await expect(u.threads.first().locator('.th-head .chip.yours')).toHaveText('未回答の質問');
+    await expect(u.threads.first().locator('.th-head')).not.toContainText('AI の返信');
+    await expect(u.top).not.toContainText('AI の返信待ち');
   });
 
   test('押すと、最初の項目へ：AI の新着返信のあるカード → 次の新着 → 未回答の質問。見たら、内訳が減る（title・aria-label）', async ({
@@ -128,7 +129,7 @@ test.describe('いま、誰の番か（F39）', () => {
     // 質問に答えた（保存）：未送信
     await u.threads.nth(1).getByLabel('魚').check();
     await u.threads.nth(1).getByRole('button', { name: '回答を保存' }).click();
-    await expect(turn(page)).toContainText('未送信 1 件');
+    await expect(u.submit).toHaveText('AI に送る（1）'); // 未送信は、ボタンの数
   });
 
   // 意図した変更：「あなたの番」は、AI の新着返信か未回答の質問があるときだけ。読んで答えたあと、未解決だけが残るなら、灰色の「未解決 n」
@@ -153,20 +154,35 @@ test.describe('いま、誰の番か（F39）', () => {
     await expect(u.threads.first()).toHaveClass(/active/);
   });
 
-  test('件数だけが変わっても、aria-live の中の文字は、変わらない（読み上げ直さない）。件数は、ボタンの名前に', async ({
+  test('件数だけが変わっても、aria-live の中の文字は、変わらない（読み上げ直さない）。件数は、ボタンの名前に（あなたの番）', async ({
     page,
+    app,
   }) => {
-    await addTextComment(page, '猫は朝によく鳴きます', '一つ目');
+    await app.apply({
+      threads: [
+        { page: 'root', anchor: { quote: '猫は朝によく鳴きます' }, body: '一つ目の返信です。' },
+        { page: 'root', anchor: { quote: '日向でよく丸くなります' }, body: '二つ目の返信です。' },
+      ],
+    });
+    await expect(turn(page)).toContainText('あなたの番 2');
     const sr = turn(page).locator('.turn-sr');
-    await expect(turn(page)).toContainText('未送信 1 件');
     const before = await sr.textContent();
-    expect(before).toBe('状態：未送信あり');
-    await addTextComment(page, '日向でよく丸くなります', '二つ目');
-    await expect(turn(page)).toContainText('未送信 2 件');
+    expect(before).toBe('状態：あなたの番');
+    await turn(page).getByRole('button').click(); // 1 つ読んだ：件数が 1 つ減る
+    await expect(turn(page)).toContainText('あなたの番 1');
     expect(await sr.textContent()).toBe(before); // 状態の名前は、件数を含まない
     expect(await sr.textContent()).not.toMatch(/\d/);
-    await expect(turn(page).getByRole('button')).toHaveAttribute('aria-label', /未送信 2 件/);
+    await expect(turn(page).getByRole('button')).toHaveAttribute('aria-label', /あなたの番 1/);
     await expect(turn(page).locator('.turn-t')).toHaveAttribute('aria-hidden', 'true'); // 見える文字は、読み上げの外
+  });
+
+  test('未送信の数が変わっても、「AI に送る」のボタン名だけが変わる（札の読み上げは、動かない）', async ({ page }) => {
+    const u = ui(page);
+    await addTextComment(page, '猫は朝によく鳴きます', '一つ目');
+    await expect(u.submit).toHaveText('AI に送る（1）');
+    await addTextComment(page, '日向でよく丸くなります', '二つ目');
+    await expect(u.submit).toHaveText('AI に送る（2）');
+    await expect(turn(page)).toHaveCount(0);
   });
 
   test('ほかのページのスレッド：押すと、まず、いまのページの新着・もう一度で、子ページへ移り、そのスレッドが選ばれる', async ({
@@ -202,7 +218,7 @@ test.describe('いま、誰の番か（F39）', () => {
     await expect(turn(page)).toHaveClass(/open/); // どちらも読んだ：未解決だけ
   });
 
-  test('質問に答えて・解決して・Submit → AI が処理すると「すべて解決」（緑）・タイトル・左の一覧の CircleCheck', async ({
+  test('質問に答えて・解決して・AI に送る → AI が処理すると「すべて解決」（緑）・タイトル・左の一覧の CircleCheck', async ({
     page,
     app,
   }) => {
@@ -216,9 +232,9 @@ test.describe('いま、誰の番か（F39）', () => {
     await u.threads.first().getByLabel('魚').check();
     await u.threads.first().getByRole('button', { name: '回答を保存' }).click();
     await u.threads.first().getByRole('button', { name: '解決', exact: true }).click();
-    await expect(turn(page)).toContainText('未送信');
+    await expect(u.submit).toHaveText('AI に送る（2）'); // 回答と解決：未送信は、ボタンの数
     await submitAll(page);
-    await expect(turn(page)).toContainText('AIの返信待ち');
+    await expect(turn(page)).toContainText('AI の返信待ち');
     const r2 = await app.nextRound();
     await app.apply({ round: r2.round, replies: [] });
     await expect(turn(page)).toHaveClass(/done/);
@@ -239,17 +255,17 @@ test.describe('いま、誰の番か（F39）', () => {
     const other = u.side.locator('.topics li', { hasText: '別の資料' });
     await expect(other.locator('.chip.yours')).toHaveAttribute('aria-label', 'あなたの番'); // 内訳なし
     await expect(other).not.toContainText('（');
-    // 開いているトピックで、Submit 済み
+    // 開いているトピックで、AI に送った後
     await addTextComment(page, '猫は朝によく鳴きます', '待ちの確認');
     await submitAll(page);
-    await expect(mine(page)).toContainText('待ち');
-    await expect(turn(page)).toContainText('AIの返信待ち');
+    await expect(mine(page)).toContainText('AI の返信待ち');
+    await expect(turn(page)).toContainText('AI の返信待ち');
     await expect(other.locator('.chip.yours')).toBeVisible();
     // 別のトピックを開く：そのトピックの状態が、上のバーに出る。元のトピックは、「待ち」のまま
     await other.getByRole('link').click();
     await expect(turn(page)).toContainText('あなたの番');
     await expect(page).toHaveTitle(/^\(1\) あなたの番 \| 別の資料/);
-    await expect(mine(page)).toContainText('待ち');
+    await expect(mine(page)).toContainText('AI の返信待ち');
   });
 
   test('タイトルは、題を文字のまま入れる（HTML として解釈しない）。40 字に切る', async ({ page, app }) => {
@@ -265,12 +281,12 @@ test.describe('いま、誰の番か（F39）', () => {
 
   test('SSE：apply のあと、500ms 以内に、#turn が変わる', async ({ page, app }) => {
     const r = await submitted(page, app);
-    await expect(turn(page)).toContainText('AIの返信待ち');
+    await expect(turn(page)).toContainText('AI の返信待ち');
     await app.apply({ round: r.round, replies: [{ thread: r.items[0]?.thread, body: '返信です。' }] });
     await expect(turn(page)).toContainText('あなたの番', { timeout: 500 });
   });
 
-  test('ライト・ダーク：#turn の文字のコントラストが 4.5:1 以上（あなたの番・未送信・AI の返信待ち・すべて解決）', async ({
+  test('ライト・ダーク：#turn の文字のコントラストが 4.5:1 以上（あなたの番・未解決・AI の返信待ち・すべて解決）', async ({
     page,
     app,
   }) => {
@@ -299,9 +315,9 @@ test.describe('いま、誰の番か（F39）', () => {
     };
     const u = ui(page);
     await addTextComment(page, '猫は朝によく鳴きます', '朝に鳴く理由は？');
-    await check('未送信');
     await submitAll(page);
-    await check('AIの返信待ち');
+    await expect(turn(page)).toContainText('AI の返信待ち');
+    await check('AI の返信待ち');
     const r = await app.nextRound();
     await app.apply({ round: r.round, replies: [{ thread: r.items[0]?.thread, body: '返信です。' }] });
     await expect(turn(page)).toContainText('あなたの番');
@@ -317,7 +333,7 @@ test.describe('いま、誰の番か（F39）', () => {
     await check('すべて解決');
   });
 
-  test('上のバー：1100・1000・950・901・900・800px でも、#top-status は Submit に重ならない（進み具合のチップが、先に縮む）。狭い窓（900・700・420px）：#turn は、はみ出さない（狭いと、アイコンだけ）', async ({
+  test('上のバー：1100・1000・950・901・900・800px でも、#top-status は AI に送る に重ならない（進み具合のチップが、先に縮む）。狭い窓（900・700・420px）：#turn は、はみ出さない（狭いと、アイコンだけ）', async ({
     page,
     app,
   }) => {
@@ -326,7 +342,7 @@ test.describe('いま、誰の番か（F39）', () => {
     const overlaps = async (w: number, label: string) => {
       const t = await box(status);
       const s = await box(ui(page).submit);
-      expect(t.x + t.width, `${w}px・${label}：#top-status は Submit に重ならない`).toBeLessThanOrEqual(s.x + 1);
+      expect(t.x + t.width, `${w}px・${label}：#top-status は AI に送る に重ならない`).toBeLessThanOrEqual(s.x + 1);
       expect(
         await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth),
         `${w}px・${label}：横スクロール`,
@@ -352,7 +368,7 @@ test.describe('いま、誰の番か（F39）', () => {
       const t = await box(turn(page));
       const s = await box(ui(page).submit);
       expect(t.x, `${w}px：左`).toBeGreaterThanOrEqual(0);
-      expect(t.x + t.width, `${w}px：Submit と重ならない`).toBeLessThanOrEqual(s.x + 1);
+      expect(t.x + t.width, `${w}px：AI に送る と重ならない`).toBeLessThanOrEqual(s.x + 1);
       if (w <= 560) await expect(turn(page).locator('.turn-t')).toBeHidden();
       await expect(turn(page).getByRole('button')).toHaveAccessibleName(/あなたの番/);
     }

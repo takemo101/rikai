@@ -32,11 +32,18 @@ function openTopic(hash: string): void {
   location.hash = hash;
 }
 
-test('初期値：進行中のタブ・差分を表示・左の一覧は開いている・幅 380', () => {
+test('初期値：未解決のタブ・差分を表示・左の一覧は開いている・幅 380', () => {
   const s = initialUi();
   expect(s.tab).toBe('live');
   expect(s.showChanges).toBe(true);
-  expect(s.ui).toEqual({ sideOpen: true, panelW: 380, links: true, theme: 'system', notify: false });
+  expect(s.ui).toEqual({
+    sideOpen: true,
+    panelW: 380,
+    panelUser: false,
+    links: true,
+    theme: 'system',
+    notify: false,
+  });
   expect(s.regMode).toBe('idle');
   expect(s.composer).toBeNull();
   expect(s.solo).toBeNull();
@@ -127,7 +134,7 @@ test('seen：AI のメッセージを見たことにして、localStorage に残
   expect(initialUi().seen.has('a2')).toBe(true);
 });
 
-test('focusThread：解決済みを本文から選ぶと、進行中のタブなら「すべて」へ・1 行を開く。solo 中は動かさない', () => {
+test('focusThread：解決済みを本文から選ぶと、未解決のタブなら「すべて」へ・1 行を開く。solo 中は動かさない', () => {
   const t = thread({ id: 'r1', resolved: true });
   ui().focusThread(t);
   expect(ui().tab).toBe('all');
@@ -194,6 +201,7 @@ test('画面の広さ：開閉・幅を localStorage に保存する。ドラッ
   expect(JSON.parse(localStorage.getItem(UI_KEY) ?? '{}')).toEqual({
     sideOpen: false,
     panelW: 380,
+    panelUser: false,
     links: true,
     theme: 'system',
     notify: false,
@@ -204,12 +212,20 @@ test('画面の広さ：開閉・幅を localStorage に保存する。ドラッ
   expect(JSON.parse(localStorage.getItem(UI_KEY) ?? '{}')).toEqual({
     sideOpen: false,
     panelW: 500,
+    panelUser: true, // 取っ手で決めた幅：印が付く
     links: true,
     theme: 'system',
     notify: false,
   });
   ui().setPanelW(410);
-  expect(initialUi().ui).toEqual({ sideOpen: false, panelW: 410, links: true, theme: 'system', notify: false });
+  expect(initialUi().ui).toEqual({
+    sideOpen: false,
+    panelW: 410,
+    panelUser: true,
+    links: true,
+    theme: 'system',
+    notify: false,
+  });
 });
 
 test('トースト：出すたびに id が変わる。古い id では消えない', () => {

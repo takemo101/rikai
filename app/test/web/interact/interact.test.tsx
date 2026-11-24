@@ -396,15 +396,15 @@ function addBlocks(): void {
   });
 }
 
-test('「拡大」：画像・Mermaid の図・インラインの svg・html-app の枠（F43：個別表示）を含むブロックの入口のバーだけに出る（「コメント」の左）。コード・表・外部画像・文では、出ない', () => {
+test('「拡大表示」：画像・Mermaid の図・インラインの svg（F43）を含むブロックの入口のバーだけに出る（「コメント」の左）。コード・表・外部画像・文では、出ない', () => {
   mountDoc(viewOf(1));
   addBlocks();
-  for (const id of ['im', 'mm', 'inl', 'ha']) {
-    hover(q(`#${id}`), 300, id === 'ha' ? 230 + 180 + 3 * 60 : 230 + ['im', 'mm', 'inl'].indexOf(id) * 60);
+  for (const id of ['im', 'mm', 'inl']) {
+    hover(q(`#${id}`), 300, 230 + ['im', 'mm', 'inl'].indexOf(id) * 60);
     const z = document.getElementById('act-zoom');
     expect(z, id).not.toBeNull();
-    expect(z?.textContent).toBe('拡大');
-    expect(z?.getAttribute('aria-label')).toBe('拡大');
+    expect(z?.textContent).toBe('拡大表示'); // 0.28.0：「拡大」→「拡大表示」（画面の名前を、1 つに）
+    expect(z?.getAttribute('aria-label')).toBe('拡大表示');
     expect(z?.title).toBeTruthy();
     // 「コメント」が、バーの右端（バーの右端の位置は、これまでどおり）
     expect(z?.nextElementSibling).toBe(q('#act-comment'));
@@ -417,7 +417,19 @@ test('「拡大」：画像・Mermaid の図・インラインの svg・html-app
   }
 });
 
-test('「拡大」を押す：そのブロックの画像（図）を、ライトボックスで開く。バーは消え、コメントの入力欄は、開かない', () => {
+// 意図した変更（0.28.0）：html-app の枠には、入口のバー（「拡大表示」「コメント」）を出さない。入口は、枠の見出し（「この枠にコメント」「要素を選ぶ」「拡大表示」）に 1 つにそろえた
+test('html-app の枠（.htmlapp）：入口のバーは、出さない（ほかのブロックで出ていたバーも、枠へ動くと、消える）', () => {
+  mountDoc(viewOf(1));
+  addBlocks();
+  hover(q('#im'), 300, 230);
+  expect(bar().hasAttribute('hidden')).toBe(false); // 画像では、出る
+  hover(q('#ha'), 300, 230 + 180 + 3 * 60);
+  expect(bar().hasAttribute('hidden')).toBe(true);
+  expect(document.getElementById('act-zoom')).toBeNull();
+  expect(bar().querySelector('#act-comment')?.closest('[hidden]')).toBe(bar()); // 「コメント」も、隠れたまま（バーごと）
+});
+
+test('「拡大表示」を押す：そのブロックの画像（図）を、ライトボックスで開く。バーは消え、コメントの入力欄は、開かない', () => {
   mountDoc(viewOf(1));
   addBlocks();
   hover(q('#im'), 300, 230);

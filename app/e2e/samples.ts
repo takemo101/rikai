@@ -76,7 +76,7 @@ export function makePng(w: number, h: number): Buffer {
   ]);
 }
 
-// 灰色の地（230）に、緑の四角（0, 160, 0）が 1 つある PNG：範囲の位置・大きさを、画素で確かめる（個別表示：F43）
+// 灰色の地（230）に、緑の四角（0, 160, 0）が 1 つある PNG：範囲の位置・大きさを、画素で確かめる（拡大表示：F43）
 export function makeSquarePng(w: number, h: number, sq: { x: number; y: number; w: number; h: number }): Buffer {
   const rows: Buffer[] = [];
   for (let y = 0; y < h; y++) {

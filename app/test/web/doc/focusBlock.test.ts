@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-// 個別表示（F43）が、本文のブロックを指す・探し直す：本文は、更新のたびに描き直されて、要素が作り直される。内容の印で、探し直せること・消えたら見つからないこと。
+// 拡大表示（F43）が、本文のブロックを指す・探し直す：本文は、更新のたびに描き直されて、要素が作り直される。内容の印で、探し直せること・消えたら見つからないこと。
 import { afterEach, expect, test } from 'vitest';
 import { entryElementOf, focusRefOf, resolveFocusBlock, threadsInBlock } from '../../../src/web/doc/focusBlock';
 import { blockEls, blockLabel, frameOf, markBlocks, mediaOf } from '../../../src/web/doc/render/blocks';
@@ -107,7 +107,7 @@ test('このブロックのコメント：ブロックそのもの・範囲・�
   expect(threadsInBlock(model, p0 as HTMLElement, threads).map((t) => t.id)).toEqual(['txt']);
 });
 
-test('閉じたときの、フォーカスの戻り先：本文の入口（フォーカスできる画像・図／html-app の「個別表示」ボタン）', () => {
+test('閉じたときの、フォーカスの戻り先：本文の入口（フォーカスできる画像・図／html-app の「拡大表示」ボタン）', () => {
   const a = article(
     '<p><img src="a.png" data-focus-entry tabindex="0"></p><div class="htmlapp"><button data-focus-open></button></div><p>文</p>',
   );

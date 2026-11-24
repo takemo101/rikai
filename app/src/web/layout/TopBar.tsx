@@ -1,7 +1,7 @@
-// 上のバー（`#top`）：左の一覧の開閉・題・状態（解決 N/M・回答 K/L・接続・AI の返信待ち）・Submit・終了。
-import { CircleCheck, Copy, Hourglass, LogOut, Monitor, Moon, PanelLeft, Send, Sun, TriangleAlert } from 'lucide-react';
+// 上のバー（`#top`）：左の一覧の開閉・題・状態の札（接続・あなたの番・AI の返信待ち…）・「AI に送る」（未送信の数つき）・終了。
+// 進み具合（解決 N/M・回答 K/L）は、ここには出さない（左のトピック行だけ）。未送信の数も、札ではなく、「AI に送る」のボタンが持つ。
+import { Copy, LogOut, Monitor, Moon, PanelLeft, Send, Sun, TriangleAlert } from 'lucide-react';
 import { useEffect, useState } from 'react';
-import { progressOf } from '../../shared/progress';
 import { trunc } from '../lib/dom';
 import { loadSendHintSeen, saveSendHintSeen } from '../lib/storage';
 import { nextTheme, THEME_LABEL, useResolvedTheme } from '../lib/theme';
@@ -21,16 +21,6 @@ export interface TopBarProps {
 /** Claude Code 以外のエージェントへの案内。見える文字で出すのは、初めての待ちだけ（以後は、コピーのボタンの title・説明に） */
 const OTHER_AGENT_HINT = 'Claude Code 以外は「rikai に送りました」と伝えてください';
 
-const PROGRESS_TITLE =
-  '数だけです（人が「解決」にしたスレッドの数と、回答を送信した質問の数。保存しただけの回答は数えません）。理解できたかの判定ではありません';
-
-/** 「解決 N/M・回答 K/L」（回答の質問がなければ、回答は出さない）。スレッドがなければ null */
-export function progressLabel(threads: View['topic']['threads']): string | null {
-  if (!threads.length) return null;
-  const p = progressOf(threads);
-  return `解決 ${p.threads.resolved}/${p.threads.total}${p.asks.total ? `・回答 ${p.asks.answered}/${p.asks.total}` : ''}`;
-}
-
 export function TopBar({ view, status }: TopBarProps) {
   const { sideShown, drawer, autoHidden } = usePanelGeometry();
   const sideVisible = autoHidden ? drawer : sideShown;
@@ -42,9 +32,11 @@ export function TopBar({ view, status }: TopBarProps) {
   const themeLabel = `外観：${THEME_LABEL[theme]}。${nowIs}押すと、${THEME_LABEL[nextTheme(theme)]}にします`;
   const topic = view?.topic;
   const unsent = topic?.unsent ?? 0;
-  const label = topic ? progressLabel(topic.threads) : null;
   const pending = !!topic?.meta.pending?.length;
-  const turn = useTurn(view);
+  const turn = useTurn(view); // 未送信を含む（「AI に送る」の理由・輪）
+  const baseTurn = useTurn(view, true); // 札は、未送信を除いた状態（未送信は、「AI に送る」の数）
+  // 下書きだけがあって、ほかに言うことがない（未解決だけ）とき：札は出さない（「未解決 n」を、書いた直後に出さない）
+  const pillTurn = turn?.kind === 'unsent' && baseTurn?.kind === 'open' ? null : baseTurn;
   // Submit が押せない理由（押せるときは null）：`title`（押せなくても、上に置くと出る）と、読み上げの説明
   const offReason = topic && unsent ? null : submitOffReason(turn);
 
@@ -99,23 +91,11 @@ export function TopBar({ view, status }: TopBarProps) {
             <TriangleAlert aria-hidden="true" focusable="false" />
             サーバーのエラー: {trunc(status.error, 40)}
           </span>
-        ) : view && turn ? (
-          <TurnPill view={view} turn={turn} />
-        ) : null}
-        {label ? (
-          <span className="chip" title={PROGRESS_TITLE}>
-            <CircleCheck aria-hidden="true" focusable="false" />
-            <span className="chip-t">{label}</span>
-          </span>
+        ) : view && pillTurn ? (
+          <TurnPill view={view} turn={pillTurn} />
         ) : null}
         {waiting && view ? (
           <>
-            {turn?.kind === 'unsent' ? (
-              <span className="chip wait">
-                <Hourglass aria-hidden="true" focusable="false" />
-                AIの返信待ち
-              </span>
-            ) : null}
             {hintOpen ? <span className="hint">{OTHER_AGENT_HINT}</span> : null}
             <button
               type="button"
@@ -147,7 +127,7 @@ export function TopBar({ view, status }: TopBarProps) {
           }}
         >
           <Send aria-hidden="true" focusable="false" />
-          {unsent ? `Submit (${unsent})` : 'Submit'}
+          {unsent ? `AI に送る（${unsent}）` : 'AI に送る'}
         </button>
         {offReason ? (
           <span id="submit-why" className="turn-sr">

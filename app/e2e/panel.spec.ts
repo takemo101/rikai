@@ -1,4 +1,4 @@
-// 右のパネル（F14・F24・F29・F30・F33）：長い会話の折りたたみ・タブ（進行中・解決済み・すべて）・解決済みの 1 行・パネルの固定・画像の添付
+// 右のパネル（F14・F24・F29・F30・F33）：長い会話の折りたたみ・タブ（未解決・解決済み・すべて）・解決済みの 1 行・パネルの固定・画像の添付
 import fs from 'node:fs';
 import path from 'node:path';
 import type { Page } from '@playwright/test';
@@ -56,7 +56,7 @@ test.describe('長い会話の折りたたみ（F29）', () => {
     await expect(older.locator('.msg')).toHaveCount(4);
     // 描き直し（タブの切り替え）でも、開いたまま
     await page.locator('.tab', { hasText: 'すべて' }).click();
-    await page.locator('.tab', { hasText: '進行中' }).click();
+    await page.locator('.tab', { hasText: '未解決' }).click();
     await expect(card.locator('.msg').filter({ hasText: '一番目のコメント' })).toBeVisible();
     await older.locator('summary').click(); // 閉じる
     await expect(card.locator('.msg').filter({ hasText: '一番目のコメント' })).toBeHidden();
@@ -89,17 +89,17 @@ test.describe('タブと解決済みの 1 行（F33）', () => {
   }
   const tab = (page: Page, n: string) => page.locator('.tab', { hasText: n });
 
-  test('進行中・解決済み・すべて：それぞれの数と、表示するもの（既定は進行中）', async ({ page, app }) => {
+  test('未解決・解決済み・すべて：それぞれの数と、表示するもの（既定は未解決）', async ({ page, app }) => {
     const u = ui(page);
     await seed(page, app);
-    await expect(tab(page, '進行中')).toHaveAttribute('aria-selected', 'true');
-    await expect(tab(page, '進行中')).toHaveText('進行中3');
+    await expect(tab(page, '未解決')).toHaveAttribute('aria-selected', 'true');
+    await expect(tab(page, '未解決')).toHaveText('未解決3');
     await u.threads.filter({ hasText: '朝についての確認' }).getByRole('button', { name: '解決', exact: true }).click();
-    await expect(tab(page, '進行中')).toHaveText('進行中2');
+    await expect(tab(page, '未解決')).toHaveText('未解決2');
     await expect(tab(page, '解決済み')).toHaveText('解決済み1');
     await expect(tab(page, 'すべて')).toHaveText('すべて3');
 
-    // 進行中：解決済みは、出ない
+    // 未解決：解決済みは、出ない
     await expect(u.threads).toHaveCount(2);
     await expect(page.locator('.donerow')).toHaveCount(0);
     // 解決済み：1 行だけ
@@ -141,13 +141,13 @@ test.describe('タブと解決済みの 1 行（F33）', () => {
     await seed(page, app);
     await u.threads.filter({ hasText: '朝についての確認' }).getByRole('button', { name: '解決', exact: true }).click();
     await expect(tab(page, '解決済み')).toHaveText('解決済み1');
-    await expect(u.threads).toHaveCount(2); // 進行中
+    await expect(u.threads).toHaveCount(2); // 未解決
     await u.article.locator('mark', { hasText: '猫は朝によく鳴きます' }).click();
-    await expect(tab(page, 'すべて')).toHaveAttribute('aria-selected', 'true'); // 進行中のままでは見えないので、すべてへ
+    await expect(tab(page, 'すべて')).toHaveAttribute('aria-selected', 'true'); // 未解決のままでは見えないので、すべてへ
     await expect(u.threads.filter({ hasText: '朝についての確認' })).toBeVisible();
   });
 
-  test('入力欄は、解決済みのタブでも出る。追加すると、進行中へ戻る（F22(3)・F33）', async ({ page, app }) => {
+  test('入力欄は、解決済みのタブでも出る。追加すると、未解決へ戻る（F22(3)・F33）', async ({ page, app }) => {
     const u = ui(page);
     await seed(page, app);
     await u.threads.filter({ hasText: '朝についての確認' }).getByRole('button', { name: '解決', exact: true }).click();
@@ -156,7 +156,7 @@ test.describe('タブと解決済みの 1 行（F33）', () => {
     await expect(u.composer).toBeVisible();
     await expect(page.locator('.donerow')).toHaveCount(1);
     await fillAndAdd(page, '解決済みのタブから追加');
-    await expect(tab(page, '進行中')).toHaveAttribute('aria-selected', 'true');
+    await expect(tab(page, '未解決')).toHaveAttribute('aria-selected', 'true');
     await expect(u.threads.filter({ hasText: '解決済みのタブから追加' })).toBeVisible();
   });
 
@@ -187,7 +187,7 @@ test.describe('タブと解決済みの 1 行（F33）', () => {
     });
     await expect(u.threads).toHaveCount(14);
     const head = u.panel.locator('.side-h').first();
-    const tabs = tab(page, '進行中');
+    const tabs = tab(page, '未解決');
     const p0 = (await u.panel.boundingBox()) as { y: number; height: number };
     const h0 = (await head.boundingBox()) as { y: number };
     const t0 = (await tabs.boundingBox()) as { y: number };

@@ -97,7 +97,7 @@ export function openFocusApp(box: HTMLElement): void {
   cancelAllPicks();
   ui.openZoom({
     kind: 'app',
-    alt: `実行できる枠 ${spec.n + 1}（個別表示）`,
+    alt: `実行できる枠 ${spec.n + 1}（拡大表示）`,
     focus,
     app: { n: spec.n, fixed: spec.fixed, follows: spec.follows },
   });

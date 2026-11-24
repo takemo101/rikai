@@ -135,7 +135,7 @@ function FocusLayout({ target, onClose }: { target: FocusTarget; onClose: () => 
   useEffect(() => {
     if (ctx.status !== 'lost') return;
     toast(
-      '資料の更新で、個別表示の対象が見つからなくなったので、閉じました（書きかけのコメントは、右のパネルに残っています）',
+      '資料の更新で、拡大表示の対象が見つからなくなったので、閉じました（書きかけのコメントは、右のパネルに残っています）',
       true,
     );
     onClose();

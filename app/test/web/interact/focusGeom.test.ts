@@ -1,4 +1,4 @@
-// 個別表示（F43）の座標の計算：ステージの座標 ↔ 元の画像の座標（ズーム・移動・フィット・窓の大きさ）。画面で選んだ範囲が、画像・図の同じ場所に、なること。
+// 拡大表示（F43）の座標の計算：ステージの座標 ↔ 元の画像の座標（ズーム・移動・フィット・窓の大きさ）。画面で選んだ範囲が、画像・図の同じ場所に、なること。
 import { expect, test } from 'vitest';
 import { boxAt, boxToRatio, dragSelection, ratioToBox, stageBox } from '../../../src/web/interact/focusGeom';
 import { clampPan, fitPose, fitScale, zoomAt } from '../../../src/web/lib/zoom';
@@ -6,7 +6,7 @@ import { clampPan, fitPose, fitScale, zoomAt } from '../../../src/web/lib/zoom';
 const NAT = { w: 1600, h: 600 }; // 元の画像の大きさ（画素）
 const VIEW = { w: 1020, h: 800 }; // ステージの領域
 
-test('全体表示：中身は、窓の中心に、フィットの倍率で置かれる', () => {
+test('全体に合わせる：中身は、窓の中心に、フィットの倍率で置かれる', () => {
   const fit = fitScale(NAT, VIEW, 'img');
   const b = stageBox(fitPose(fit), NAT, VIEW);
   expect(b).not.toBeNull();
@@ -119,8 +119,8 @@ test('枠の重ね：保存した比率 → ステージの箱 → 比率（往�
   }
 });
 
-test('html-app：個別表示の枠の相対位置を、本文の枠の箱へ写し（同じ割合）、本文の基準に対する比率にする。縮小表示（枠の見た目の箱）でも、同じ', () => {
-  const focusFrame = boxAt(40, 70, 960, 600); // 個別表示の枠の見た目（縮小後）
+test('html-app：拡大表示の枠の相対位置を、本文の枠の箱へ写し（同じ割合）、本文の基準に対する比率にする。縮小表示（枠の見た目の箱）でも、同じ', () => {
+  const focusFrame = boxAt(40, 70, 960, 600); // 拡大表示の枠の見た目（縮小後）
   const sel = boxAt(40 + 480, 70 + 150, 96, 60); // 選んだ範囲：枠の (50%, 25%)・幅 10%・高さ 10%
   const frac = boxToRatio(sel, focusFrame);
   expect(frac).toEqual({ x: 0.5, y: 0.25, w: 0.1, h: 0.1 });

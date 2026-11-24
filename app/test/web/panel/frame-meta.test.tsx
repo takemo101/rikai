@@ -200,7 +200,7 @@ test('枠から取った情報だけでは、送れない：本文も画像も�
   act(() => ta.blur()); // フォーカスを、入力欄から外す
   expect(ta).not.toHaveFocus();
   await userEvent.click(screen.getByRole('button', { name: 'コメントを追加' }));
-  expect(useUi.getState().toast?.msg).toBe('コメントの本文を書いてください（枠から取った情報だけでは送れません）');
+  expect(useUi.getState().toast?.msg).toBe('コメントの本文を書いてください（枠から取った情報だけでは追加できません）');
   expect(useUi.getState().toast?.err).toBe(true);
   expect(ta).toHaveFocus();
   expect(view.posts).toHaveLength(0);

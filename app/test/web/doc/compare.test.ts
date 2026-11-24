@@ -98,7 +98,7 @@ test('並びの項目（li）は、1 項目ずつ、並びの外枠に入れる�
   expect(r.map((x) => x.dataset.status)).toEqual(['same', 'changed', 'same']);
 });
 
-test('読み取り専用：コメントの入口に使う印・枠のツールバー・「この枠にコメント」・個別表示・要素選択が、ない', async () => {
+test('読み取り専用：コメントの入口に使う印・枠のツールバー・「この枠にコメント」・拡大表示・要素選択が、ない', async () => {
   const md = '# 題\n\n段落です。\n\n```html-app height=160\n<button>押す</button>\n```\n\n![図](assets/a.png)\n';
   const { el } = await draw(md, md);
   expect(el.querySelectorAll('.apptools, [data-pick], [data-focus-open], button.link')).toHaveLength(0);

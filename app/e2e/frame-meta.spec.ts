@@ -189,7 +189,7 @@ test.describe('後方互換：旧い形のコメント（frameMeta なし・本�
   const LEGACY_HEAD = '【枠から】要素を選びました（枠の自己申告。下の JSON）：button（x:113 y:133 w:93 h:34）';
   const LEGACY = `${LEGACY_HEAD}\n\n${BT}json\n{\n  "selector": "button.primary",\n  "tag": "button",\n  "text": "ログイン"\n}\n${BT}\n\n色を、もう少し濃くしたい`;
 
-  test('旧い形のコメントを含む threads.json を、そのまま読める：本文は文字のまま表示・「枠から」の札（旧い判定）・情報の行はない・編集・Submit・poll が動く。資料の生の枠から：p のコメントには、札が付かない', async ({
+  test('旧い形のコメントを含む threads.json を、そのまま読める：本文は文字のまま表示・「枠から」の札（旧い判定）・情報の行はない・編集・AI に送る・poll が動く。資料の生の枠から：p のコメントには、札が付かない', async ({
     page,
     app,
   }) => {
@@ -287,7 +287,7 @@ test.describe('狭い窓・ライト／ダーク', () => {
 });
 
 test.describe('本文を書かずに「コメントを追加」', () => {
-  const NEED = 'コメントの本文を書いてください（枠から取った情報だけでは送れません）';
+  const NEED = 'コメントの本文を書いてください（枠から取った情報だけでは追加できません）';
 
   test('要素を選んで、本文を書かずに「コメントを追加」：トーストで知らせる・スレッドは 0 のまま・フォーカスが入力欄に戻る。書けば、送れる', async ({
     page,
@@ -311,13 +311,13 @@ test.describe('本文を書かずに「コメントを追加」', () => {
     await expect(u.threads).toHaveCount(1);
   });
 
-  test('個別表示のドックでも同じ：本文を書かずに「コメントを追加」→ トースト・スレッドは 0 のまま・フォーカスはドックの入力欄', async ({
+  test('拡大表示のドックでも同じ：本文を書かずに「コメントを追加」→ トースト・スレッドは 0 のまま・フォーカスはドックの入力欄', async ({
     page,
     app,
   }) => {
     await app.switchTopic(page, 'need2', '本文', DOC);
     await page.waitForTimeout(1500);
-    await capOf(page).getByRole('button', { name: '個別表示', exact: true }).click();
+    await capOf(page).getByRole('button', { name: '拡大表示', exact: true }).click();
     await page.waitForTimeout(1800);
     await page.locator('#lightbox button[data-pick]').click();
     const dock = page.locator('#lightbox .fv-dock .thread.composer');

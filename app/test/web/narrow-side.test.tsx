@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
-// 自動で隠す窓（788px 未満）：左の一覧は、本文の列から外れる。上のバーの開閉ボタンは、見えている状態を示し、押すと、本文の上に重ねて出す（ドロワー）。保存した sideOpen は、書き換えない（F23(3)）。
-// 境界は 788px（168 + 220 + 400）。以前は 700/701px だった（意図した変更）
+// 自動で隠す窓（1100px 以下）：左の一覧は、本文の列から外れる。上のバーの開閉ボタンは、見えている状態を示し、押すと、本文の上に重ねて出す（ドロワー）。保存した sideOpen は、書き換えない（F23(3)）。
+// 境界は 1100px（0.28.0：半画面で本文が読める幅を残すため。旧：788px 未満＝168 + 220 + 400。さらに前は 700/701px。意図した変更）
 import { render } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, expect, test } from 'vitest';
@@ -14,8 +14,8 @@ const setWidth = (w: number) => Object.defineProperty(window, 'innerWidth', { va
 const bar = () => render(<TopBar view={null} status={{ offline: false, error: null }} />);
 const side = () => document.getElementById('btn-side') as HTMLButtonElement;
 
-test('788px 以上：保存した開閉。押すと、保存する', async () => {
-  setWidth(788);
+test('1101px 以上：保存した開閉。押すと、保存する', async () => {
+  setWidth(1101);
   bar();
   expect(side().getAttribute('aria-expanded')).toBe('true');
   await userEvent.click(side());
@@ -24,8 +24,8 @@ test('788px 以上：保存した開閉。押すと、保存する', async () =>
   expect(useUi.getState().narrowSideOpen).toBe(false);
 });
 
-test('787px 以下：隠れている（aria-expanded=false）。押すと、重ねて出る・もう一度で隠れる。保存した sideOpen・localStorage は、そのまま', async () => {
-  setWidth(787);
+test('1100px 以下：隠れている（aria-expanded=false）。押すと、重ねて出る・もう一度で隠れる。保存した sideOpen・localStorage は、そのまま', async () => {
+  setWidth(1100);
   bar();
   expect(useUi.getState().ui.sideOpen).toBe(true); // 保存した値は、開いている
   expect(side().getAttribute('aria-expanded')).toBe('false');

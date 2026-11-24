@@ -1,4 +1,4 @@
-// 本文・返信の、画像と図の拡大表示（F37）：クリックで、ライトボックスに出る。ズーム（＋／−／全体表示・ホイール・ダブルクリック・キー）・ドラッグで移動・閉じる（Esc・背景・X）。
+// 本文・返信の、画像と図の拡大表示（F37）：クリックで、ライトボックスに出る。ズーム（＋／−／全体に合わせる・ホイール・ダブルクリック・キー）・ドラッグで移動・閉じる（Esc・背景・X）。
 // 文字を選ぶドラッグ・範囲を選ぶ最中・コメントの付いた対象は、開かない。ダークで、図の地と文字が読める。複製した図の url(#…) 参照が、拡大でも描かれる。
 import type { Page } from '@playwright/test';
 import { expect, test } from './fixtures';
@@ -52,7 +52,7 @@ const open = async (page: Page, app: Parameters<Parameters<typeof test>[2]>[0]['
   await expect(page.locator('#article .mermaid-block svg')).toHaveCount(2);
 };
 const pct = async (page: Page) => Number.parseInt((await page.locator('#lightbox .lb-pct').textContent()) ?? '0', 10);
-// ライトボックスの道具（入口のバーの「拡大」と、名前が重なるので、ライトボックスの中に絞る）
+// ライトボックスの道具（入口のバーの「拡大表示」と、ズームの道具は、名前を分けた（0.28.0：ズームイン・ズームアウト・全体に合わせる）。ライトボックスの中に絞る）
 const tool = (page: Page, name: string) => page.locator('#lightbox').getByRole('button', { name, exact: true });
 const stage = (page: Page) => page.locator('#lightbox .lb-stage');
 const mermaid = (page: Page, i = 0) => page.locator('#article .mermaid-block svg').nth(i);
@@ -92,7 +92,7 @@ test.describe('画像・図の拡大（F37）', () => {
     await expect(lb.locator('.lb-stage img')).toHaveAttribute('src', /\/asset\/zm\/big\.png/);
   });
 
-  test('Mermaid の図を押す：元より、大きく出る。＋／−／全体表示・ホイール（カーソルを中心に）・ダブルクリック・キー（＋ − 0）で、拡大率が変わる。範囲は、全体表示〜800%', async ({
+  test('Mermaid の図を押す：元より、大きく出る。＋／−／全体に合わせる・ホイール（カーソルを中心に）・ダブルクリック・キー（＋ − 0）で、拡大率が変わる。範囲は、全体に合わせる〜800%', async ({
     page,
     app,
   }) => {
@@ -106,10 +106,10 @@ test.describe('画像・図の拡大（F37）', () => {
     const f = await box(stage(page));
     expect(f.width).toBeGreaterThan(o.width * 1.2);
     const fitPct = await pct(page);
-    await expect(tool(page, '縮小')).toBeDisabled(); // 全体表示より、縮めない
-    await tool(page, '拡大').click();
+    await expect(tool(page, 'ズームアウト')).toBeDisabled(); // 全体に合わせるより、縮めない
+    await tool(page, 'ズームイン').click();
     expect(await pct(page)).toBeGreaterThan(fitPct);
-    await tool(page, '縮小').click();
+    await tool(page, 'ズームアウト').click();
     expect(await pct(page)).toBe(fitPct);
     // キー
     await page.keyboard.press('+');
@@ -138,21 +138,21 @@ test.describe('画像・図の拡大（F37）', () => {
     for (let i = 0; i < 12; i++) await page.mouse.wheel(0, -600);
     await expect.poll(() => pct(page)).toBe(800); // 上限
     for (let i = 0; i < 12; i++) await page.mouse.wheel(0, 600);
-    await expect.poll(() => pct(page)).toBe(fitPct); // 下限：全体表示
-    // ダブルクリック：全体表示 ↔ 等倍（全体表示が等倍以上なら、2 倍）
+    await expect.poll(() => pct(page)).toBe(fitPct); // 下限：全体に合わせる
+    // ダブルクリック：全体に合わせる ↔ 等倍（全体に合わせるが等倍以上なら、2 倍）
     await stage(page).dblclick();
     const d = await pct(page);
     expect(d).not.toBe(fitPct);
     expect(d === 100 || d === Math.round(fitPct * 2)).toBe(true);
     await stage(page).dblclick();
     expect(await pct(page)).toBe(fitPct);
-    // 全体表示ボタン
-    await tool(page, '拡大').click();
-    await tool(page, '全体表示').click();
+    // 全体に合わせるボタン
+    await tool(page, 'ズームイン').click();
+    await tool(page, '全体に合わせる').click();
     expect(await pct(page)).toBe(fitPct);
   });
 
-  test('ドラッグで移動（拡大時）。ドラッグの終わりでは、閉じない。全体表示では、動かない。移動は、範囲内', async ({
+  test('ドラッグで移動（拡大時）。ドラッグの終わりでは、閉じない。全体に合わせるでは、動かない。移動は、範囲内', async ({
     page,
     app,
   }) => {
@@ -161,15 +161,15 @@ test.describe('画像・図の拡大（F37）', () => {
     await mermaid(page).click();
     const lb = ui(page).lightbox;
     const f = await box(stage(page));
-    // 全体表示：ドラッグしても、動かない
+    // 全体に合わせる：ドラッグしても、動かない
     await page.mouse.move(f.x + f.width / 2, f.y + f.height / 2);
     await page.mouse.down();
     await page.mouse.move(f.x + f.width / 2 - 120, f.y + f.height / 2 - 40, { steps: 5 });
     await page.mouse.up();
     expect((await box(stage(page))).x).toBeCloseTo(f.x, 0);
     await expect(lb).toBeVisible();
-    // 拡大して、ドラッグ：動く（個別表示：右のドック分、ステージが狭く、全体表示が小さいので、縦にも動かせる大きさまで、多めに拡大する）
-    for (let i = 0; i < 6; i++) await tool(page, '拡大').click();
+    // 拡大して、ドラッグ：動く（拡大表示：右のドック分、ステージが狭く、全体に合わせるが小さいので、縦にも動かせる大きさまで、多めに拡大する）
+    for (let i = 0; i < 6; i++) await tool(page, 'ズームイン').click();
     const z = await box(stage(page));
     await page.mouse.move(700, 500);
     await page.mouse.down();
@@ -235,7 +235,7 @@ test.describe('画像・図の拡大（F37）', () => {
     const before = await art.evaluate((e) => e.innerHTML);
     const bnoBefore = await ui(page).bno.count();
     await mermaid(page).click();
-    await tool(page, '拡大').click();
+    await tool(page, 'ズームイン').click();
     await page.keyboard.press('Escape');
     await page.locator('#article img[alt="大きな画像"]').click();
     await page.keyboard.press('Escape');
@@ -494,7 +494,7 @@ test.describe('画像・図の拡大（F37）', () => {
       seen.add((await page.evaluate(() => document.activeElement?.getAttribute('aria-label') ?? '')) as string);
     }
     expect(seen.has('閉じる')).toBe(true);
-    // 個別表示（F43）：窓の中には、右のドックの入力欄・ボタンもある。Tab は、どれも、窓の中だけを回る（外の本文へ、出ない）。Shift+Tab も
+    // 拡大表示（F43）：窓の中には、右のドックの入力欄・ボタンもある。Tab は、どれも、窓の中だけを回る（外の本文へ、出ない）。Shift+Tab も
     for (let i = 0; i < 20; i++) {
       await page.keyboard.press(i % 2 ? 'Shift+Tab' : 'Tab');
       expect(await page.evaluate(() => !!document.activeElement?.closest('#lightbox'))).toBe(true);
@@ -504,7 +504,7 @@ test.describe('画像・図の拡大（F37）', () => {
     await expect(page.locator('#article')).toBeVisible();
   });
 
-  // ---- 入口のバーの「拡大」（コメントの付いた画像・図も、ここから拡大できる） ----
+  // ---- 入口のバーの「拡大表示」（コメントの付いた画像・図も、ここから拡大できる） ----
   // その要素を含む（要素自身でもよい）、本文のブロック
   const blockOf = (page: Page, inner: string) =>
     page.locator(`#article ${inner}`).first().locator('xpath=ancestor-or-self::*[@data-bid][1]');
@@ -515,7 +515,7 @@ test.describe('画像・図の拡大（F37）', () => {
     await expect(ui(page).actbar).toBeVisible();
   };
 
-  test('入口のバーの「拡大」：画像・図のブロックに出る（コメントのない画像でも）。押すと開く。コメントの入力欄は、開かない。「コメント」は、これまでどおり、入力欄', async ({
+  test('入口のバーの「拡大表示」：画像・図のブロックに出る（コメントのない画像でも）。押すと開く。コメントの入力欄は、開かない。「コメント」は、これまでどおり、入力欄', async ({
     page,
     app,
   }) => {
@@ -524,8 +524,8 @@ test.describe('画像・図の拡大（F37）', () => {
     const zoom = page.locator('#act-zoom');
     await hoverTo(page, 'img[alt="小さな画像"]');
     await expect(zoom).toBeVisible();
-    await expect(zoom).toHaveAccessibleName('拡大');
-    await expect(zoom).toHaveText('拡大');
+    await expect(zoom).toHaveAccessibleName('拡大表示');
+    await expect(zoom).toHaveText('拡大表示');
     await zoom.click();
     await expect(u.lightbox).toBeVisible();
     await expect(u.lightbox.locator('.lb-stage img')).toHaveAttribute('src', /small\.png/);
@@ -549,7 +549,7 @@ test.describe('画像・図の拡大（F37）', () => {
     await expect(u.composer).toBeVisible();
   });
 
-  test('「拡大」は、表・コード・文では、出ない（「コメント」だけ）。文を選んだときのバーにも、出ない', async ({
+  test('「拡大表示」は、表・コード・文では、出ない（「コメント」だけ）。文を選んだときのバーにも、出ない', async ({
     page,
     app,
   }) => {
@@ -570,7 +570,7 @@ test.describe('画像・図の拡大（F37）', () => {
     await expect(page.locator('#act-zoom')).toHaveCount(0);
   });
 
-  test('コメントの付いた画像・図：押すとコメントを選ぶ（拡大しない）が、バーの「拡大」で、拡大できる', async ({
+  test('コメントの付いた画像・図：押すとコメントを選ぶ（拡大しない）が、バーの「拡大表示」で、拡大できる', async ({
     page,
     app,
   }) => {
@@ -599,7 +599,7 @@ test.describe('画像・図の拡大（F37）', () => {
     }
   });
 
-  test('バーの形：「拡大」があっても、「コメント」の位置（右端）は、変わらない。ライト・ダーク・狭い窓で、窓からはみ出さず、文字が読める', async ({
+  test('バーの形：「拡大表示」があっても、「コメント」の位置（右端）は、変わらない。ライト・ダーク・狭い窓で、窓からはみ出さず、文字が読める', async ({
     page,
     app,
   }) => {
@@ -628,7 +628,7 @@ test.describe('画像・図の拡大（F37）', () => {
       expect(bar.x + bar.width, `${w}px：右`).toBeLessThanOrEqual(w);
       const z = await box(page.locator('#act-zoom'));
       const c = await box(page.locator('#act-comment'));
-      expect(z.x + z.width, '「拡大」は、「コメント」の左').toBeLessThanOrEqual(c.x + 1);
+      expect(z.x + z.width, '「拡大表示」は、「コメント」の左').toBeLessThanOrEqual(c.x + 1);
       if (w === 1360 && scheme === 'light') expect(Math.abs(c.x + c.width - textRight)).toBeLessThan(2); // 「コメント」の右端は、拡大のないバーと、同じ
       const colors = await page.locator('#act-zoom').evaluate((e) => ({
         ink: getComputedStyle(e).color,

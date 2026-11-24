@@ -153,7 +153,7 @@ export interface UiState {
   olderOpen: ReadonlySet<string>;
   /** 答えないまま会話が進んだ質問を、「答える」で開いたもの（質問のメッセージ ID） */
   askOpen: ReadonlySet<string>;
-  /** 右のパネルの切り替え：進行中・解決済み・すべて */
+  /** 右のパネルの切り替え：未解決・解決済み・すべて */
   tab: Tab;
   /** 解決済みの 1 行を、押して開いたスレッド */
   rowOpen: ReadonlySet<string>;
@@ -168,7 +168,7 @@ export interface UiState {
   toast: ToastState | null;
   /** 画面の広さ（左の一覧の開閉・右の幅・関連の線。localStorage `rikai-ui`） */
   ui: UiPrefs;
-  /** 自動で隠す窓（788px 未満）で、☰ で、左の一覧を、本文の上に重ねて（ドロワー）出しているか（保存しない。保存した `ui.sideOpen` は、書き換えない：F23(3)） */
+  /** 自動で隠す窓（1100px 以下）で、☰ で、左の一覧を、本文の上に重ねて（ドロワー）出しているか（保存しない。保存した `ui.sideOpen` は、書き換えない：F23(3)） */
   narrowSideOpen: boolean;
   /** 狭い窓（〜900px）で、取っ手で変えた右の幅（保存しない：リロード・窓を広げると、保存した幅に戻る。保存した `ui.panelW` は、書き換えない：F23(3)）。null は、保存した幅のまま */
   panelWNarrow: number | null;
@@ -278,7 +278,7 @@ export interface UiActions {
   setCompareMode: (mode: ResolvedTheme | null) => void;
   setCompareChangesOnly: (on: boolean) => void;
   // ---- 画面の広さ ----
-  /** 左の一覧を、しまう・出す。autoHidden（788px 未満の、自動で隠す窓）では、保存せず、本文の上に重ねて出す・しまう。広い窓では、保存して、重ねて出したものは、しまう */
+  /** 左の一覧を、しまう・出す。autoHidden（1100px 以下の、自動で隠す窓）では、保存せず、本文の上に重ねて出す・しまう。広い窓では、保存して、重ねて出したものは、しまう */
   toggleSide: (autoHidden?: boolean) => void;
   /** 重ねて出した左の一覧（ドロワー）を、しまう */
   closeSideDrawer: () => void;
@@ -290,8 +290,8 @@ export interface UiActions {
   setNotify: (on: boolean) => void;
   /** 外観のモードを選ぶ（ライト・ダーク・システム）。`<html data-theme>` に反映して、保存する */
   setTheme: (mode: ThemeMode) => void;
-  /** 右の幅を変える。save: false は、ドラッグの途中（離したとき、persistUi で保存する） */
-  setPanelW: (w: number, opts?: { save?: boolean }) => void;
+  /** 右の幅を変える。save: false は、ドラッグの途中（離したとき、persistUi で保存する）。user: false は、「もとの幅」に戻す（利用者が決めた印を消す）。既定は、利用者が決めた幅（印を付ける） */
+  setPanelW: (w: number, opts?: { save?: boolean; user?: boolean }) => void;
   persistUi: () => void;
 }
 
@@ -614,7 +614,7 @@ export const useUi = create<UiStore>()((set, get) => {
       saveUi(get().ui);
     },
     setPanelW: (w, opts) => {
-      set((s) => ({ ui: { ...s.ui, panelW: w } }));
+      set((s) => ({ ui: { ...s.ui, panelW: w, panelUser: opts?.user ?? true } }));
       if (opts?.save !== false) saveUi(get().ui);
     },
     persistUi: () => saveUi(get().ui),

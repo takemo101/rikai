@@ -202,11 +202,11 @@ test('保存した回答がある質問は、最初から、その回答で出�
   expect(screen.getByRole('button', { name: '取り消す' })).toBeEnabled();
 });
 
-test('送信済みの回答：入力は、すべて無効・「回答を送信済み」・保存・取り消しのボタンはない', () => {
+test('送信済みの回答：入力は、すべて無効・「回答を AI に送りました」・保存・取り消しのボタンはない', () => {
   renderPanel([withAsk('single', { answer: { choice: 'b' }, sent: true })]);
   expect(qa('.ask input').every((i) => (i as HTMLInputElement).disabled)).toBe(true);
   expect(screen.getByLabelText(/案 B/).closest('label')).toHaveClass('on');
-  expect(q('.ask-foot .chip.ok')?.textContent).toBe('回答を送信済み');
+  expect(q('.ask-foot .chip.ok')?.textContent).toBe('回答を AI に送りました');
   expect(screen.queryByRole('button', { name: /保存|取り消す/ })).toBeNull();
 });
 

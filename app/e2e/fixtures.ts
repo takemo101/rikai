@@ -43,7 +43,7 @@ export interface RikaiApp {
   pull(topic?: string): Promise<Json>;
   poll(topic?: string, timeoutSec?: number): Promise<Json>;
   status(topic?: string): Promise<Json>;
-  // Submit 済みの round が届くまで待って、その内容を返す
+  // AI に送った後の round が届くまで待って、その内容を返す
   nextRound(topic?: string): Promise<Json>;
   // サーバーを止める
   stopServer(): Promise<void>;

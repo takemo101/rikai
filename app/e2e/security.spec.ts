@@ -137,7 +137,7 @@ test.describe('画面の CSP と、外への通信（N1・N3）', () => {
     app.external.length = 0; // 試した通信（CSP が止めた）は、数えない
   });
 
-  test('使っている間の通信は、すべて 127.0.0.1（このサーバー）だけ。外部の画像・Mermaid・コメント・Submit を含む（N1・F17）', async ({
+  test('使っている間の通信は、すべて 127.0.0.1（このサーバー）だけ。外部の画像・Mermaid・コメント・AI に送る を含む（N1・F17）', async ({
     page,
     app,
   }) => {

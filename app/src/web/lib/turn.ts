@@ -2,8 +2,8 @@
 //
 // 判定の優先順（上から）：
 //   closed     終了したトピック（既存の「終了」）
-//   unsent     あなたが、まだ送っていない：未送信のコメント・返信・回答・解決がある（開いているトピックだけ）→「未送信 n 件。Submit」
-//   waiting-ai Submit 済みで、AI が未処理の round がある（pending > 0）→「AIの返信待ち」
+//   unsent     あなたが、まだ送っていない：未送信のコメント・返信・回答・解決がある（開いているトピックだけ）→「未送信 n 件」（上のバーには出さない：「AI に送る」の数で言う）
+//   waiting-ai 「AI に送る」を押して、AI が未処理の round がある（pending > 0）→「AI の返信待ち」
 //   empty      スレッドがない（印を出さない）
 //   your-turn  あなたの番：AI の新着返信（seen にない AI の発言）か、未回答の質問がある（青）
 //   open       未解決のスレッドだけが残っている（新着も未回答の質問もない）：灰色の中立な印「未解決 n」
@@ -107,13 +107,13 @@ export function turnDetail(t: Turn): string {
   return parts.join('・');
 }
 
-/** 印の見える文言：「あなたの番 2」（数は、スレッドの数）・「未解決 3」・「未送信 3 件」・「AIの返信待ち」・「すべて解決」 */
+/** 印の見える文言：「あなたの番 2」（数は、スレッドの数）・「未解決 3」・「未送信 3 件」・「AI の返信待ち」・「すべて解決」 */
 export function turnLabel(t: Turn): string {
   switch (t.kind) {
     case 'unsent':
       return `未送信 ${t.unsent} 件`;
     case 'waiting-ai':
-      return 'AIの返信待ち';
+      return 'AI の返信待ち';
     case 'your-turn':
       return t.mine > 0 ? `あなたの番 ${t.mine}` : 'あなたの番';
     case 'open':
@@ -131,7 +131,7 @@ export function turnStateName(t: Turn): string {
     case 'unsent':
       return '未送信あり';
     case 'waiting-ai':
-      return 'AIの返信待ち';
+      return 'AI の返信待ち';
     case 'your-turn':
       return 'あなたの番';
     case 'open':
@@ -173,7 +173,7 @@ export function firstTarget(threads: readonly Thread[], seen: ReadonlySet<string
 export const TITLE_MAX = 40;
 
 /**
- * タブのタイトル（`document.title`）：`(n) あなたの番 | 題 | rikai`（n＝スレッドの数）・`未解決 n | 題 | rikai`・`AIの返信待ち | 題 | rikai`・`未送信 3 件 | 題 | rikai`・`すべて解決 | 題 | rikai`。
+ * タブのタイトル（`document.title`）：`(n) あなたの番 | 題 | rikai`（n＝スレッドの数）・`未解決 n | 題 | rikai`・`AI の返信待ち | 題 | rikai`・`未送信 3 件 | 題 | rikai`・`すべて解決 | 題 | rikai`。
  * コメントなし・終了・状態がないとき `題 | rikai`。題がなければ `rikai`。題は、40 字に切る（文字のまま：HTML として解釈されない）
  */
 export function docTitle(turn: Turn | null, title: string | null | undefined): string {
