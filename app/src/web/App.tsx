@@ -132,7 +132,7 @@ export function App() {
         }
         style={{ '--panel-w': `${w}px` } as CSSProperties}
       >
-        <TopBar view={view} status={status} />
+        <TopBar view={view} status={status} save={{ markdown: pageQ.data, failed: pageQ.isError }} />
         <SideNav topics={topics ?? []} currentSlug={target && !unsupported ? target.slug : null} view={view} />
         <main id="doc">
           <DocBar view={view} />
