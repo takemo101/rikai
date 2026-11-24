@@ -3,7 +3,7 @@
 // 拡大表示で書いた下書きは、閉じたあとも、本文のパネルに残り、パネルの「AI に送る」で送る。ドックの中の添付の画像は、押すと、その上に重ねて、拡大表示で開く（閉じると、ここへ戻る）。
 import { MessageSquarePlus } from 'lucide-react';
 import { useContext, useEffect, useMemo, useRef } from 'react';
-import type { AppFrame } from '../doc/appBridge';
+import type { AppFrame } from '../doc/frameRegistry';
 import { blockAnchor, blockLabel } from '../doc/render/blocks';
 import { noteMouseDown, zoomOnCardClick } from '../doc/zoomOpen';
 import { openComposer } from '../interact/compose';

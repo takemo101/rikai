@@ -7,8 +7,8 @@ import { getView } from '../lib/view';
 import { isClickGesture } from '../lib/zoom';
 import { cloneSvgForZoom } from '../lib/zoomSvg';
 import { ATTACHED_ALT, toast, useUi } from '../store/ui';
-import { cancelAllPicks } from './appBridge';
 import { focusRefOf } from './focusBlock';
+import { cancelAllPicks } from './framePick';
 import { appSpecOf } from './render/apps';
 import type { BlockEl } from './render/blocks';
 

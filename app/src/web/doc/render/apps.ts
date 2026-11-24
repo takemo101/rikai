@@ -6,9 +6,10 @@ import type { FrameWidth } from '../../lib/frameWidth';
 import { type ResolvedTheme, resolvedTheme } from '../../lib/theme';
 import type { View } from '../../lib/view';
 import { mountToolbar } from '../AppToolbar';
-import { compareFrameState, initialFrameState, registerFrame } from '../appBridge';
+import { registerFrame } from '../frameBridge';
+import { compareFrameState, initialFrameState } from '../frameState';
 
-/** 自動の高さの枠の、最初の高さ（px）。中身の知らせ（appBridge.ts）が届くまで */
+/** 自動の高さの枠の、最初の高さ（px）。中身の知らせ（frameBridge.ts）が届くまで */
 const AUTO_INITIAL_HEIGHT = 200;
 
 export interface AppsContext {
@@ -55,7 +56,7 @@ export function appFrameDom(
   mode: ResolvedTheme,
   opts: { title?: string; eager?: boolean } = {},
 ): { wrap: HTMLElement; iframe: HTMLIFrameElement } {
-  // 高さ：`height=480`（数）は固定・それ以外は自動（枠の中身が知らせる：appBridge.ts）。自動の最初の高さは、小さめ（知らせが届くまで）
+  // 高さ：`height=480`（数）は固定・それ以外は自動（枠の中身が知らせる：frameBridge.ts）。自動の最初の高さは、小さめ（知らせが届くまで）
   const ht = fixed === null ? AUTO_INITIAL_HEIGHT : Math.min(1200, Math.max(120, fixed));
   const iframe = h('iframe', {
     class: 'appframe',
@@ -67,7 +68,7 @@ export function appFrameDom(
     src: `/appframe/${encodeURIComponent(view.slug)}/${encodeURIComponent(view.page)}/${view.version}/${n}?mode=${mode}`,
     height: String(ht),
   });
-  // 枠の置き場：`.appview`（本文の幅の基準。縮小しきれないときは、横にスクロール）> `.appscale`（縮小後の大きさを持つ箱）> iframe。選んだ幅が、本文より広いときは、縮小して見せる（appBridge.ts）。登録は、画面に付けたあと（幅を測る）
+  // 枠の置き場：`.appview`（本文の幅の基準。縮小しきれないときは、横にスクロール）> `.appscale`（縮小後の大きさを持つ箱）> iframe。選んだ幅が、本文より広いときは、縮小して見せる（frameBridge.ts）。登録は、画面に付けたあと（幅を測る）
   return { wrap: h('div', { class: 'appview' }, h('div', { class: 'appscale' }, iframe)), iframe };
 }
 

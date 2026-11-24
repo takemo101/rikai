@@ -2,7 +2,7 @@
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 import { topicKey } from '../../../src/web/api/queries';
 import { queryClient } from '../../../src/web/api/queryClient';
-import { requestFrameSnapshot } from '../../../src/web/doc/appBridge';
+import { requestFrameSnapshot } from '../../../src/web/doc/frameRegistry';
 import { markBlocks } from '../../../src/web/doc/render/blocks';
 import {
   FRAME_PLACEHOLDER_TEXT,
@@ -15,8 +15,8 @@ import { useUi } from '../../../src/web/store/ui';
 import { meta, resetAll, topicState } from '../helpers';
 
 // 枠自身に画像を作らせる（F42）：枠は、テストが決める。既定は、応答しない（null：箱）
-vi.mock('../../../src/web/doc/appBridge', async (orig) => ({
-  ...(await orig<typeof import('../../../src/web/doc/appBridge')>()),
+vi.mock('../../../src/web/doc/frameRegistry', async (orig) => ({
+  ...(await orig<typeof import('../../../src/web/doc/frameRegistry')>()),
   requestFrameSnapshot: vi.fn(async () => null),
 }));
 const frameSnap = vi.mocked(requestFrameSnapshot);

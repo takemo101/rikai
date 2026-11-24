@@ -2,13 +2,15 @@
 // **新しい iframe を作る**（同じ内容・同じ `sandbox="allow-scripts"`・同じ `APP_CSP`・同じ橋）。本文の枠は、動かさない（動かすと、再読み込みで状態が消え、本文の枠が壊れる）。
 // 本文の枠の状態（スライダーなど）は、引き継がない（既知の制約）。個別表示の枠は、`registerFrame` で橋の登録簿に入る：枠からの `pick`・`state`・`snapshot` は、**本文の枠と同じ検査**
 // （`e.source`＝この枠の `contentWindow`・形・大きさ・頻度・`reveal`）で受ける。**錨は、本文の、元の枠（ブロック）**。閉じる・本文から消える・開き直すときは、必ず `releaseApps` で外す（リスナー・iframe を残さない）。
-// 幅の切り替え・縮小表示・枠だけのライト／ダークは、本文の枠と同じ部品（`AppToolbar`・`appBridge`）。範囲の枠の重ねは、枠の置き場（`.appscale`）の中に置く（縮小・横スクロールに、追従する）。
+// 幅の切り替え・縮小表示・枠だけのライト／ダークは、本文の枠と同じ部品（`AppToolbar`・`frameBridge`）。範囲の枠の重ねは、枠の置き場（`.appscale`）の中に置く（縮小・横スクロールに、追従する）。
 import { X } from 'lucide-react';
 import { useCallback, useLayoutEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { createPortal } from 'react-dom';
 import { pickLabel } from '../../shared/htmlapp-bridge';
 import { AppToolbar } from '../doc/AppToolbar';
-import { type AppFrame, initialFrameState, registerFrame, releaseApps } from '../doc/appBridge';
+import { registerFrame } from '../doc/frameBridge';
+import { type AppFrame, releaseApps } from '../doc/frameRegistry';
+import { initialFrameState } from '../doc/frameState';
 import { appFrameDom } from '../doc/render/apps';
 import { blockAnchor, frameOf } from '../doc/render/blocks';
 import { openComposer } from '../interact/compose';

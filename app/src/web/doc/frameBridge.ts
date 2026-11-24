@@ -4,94 +4,20 @@
 // `e.source` が、**この画面が置いた枠の `contentWindow` のどれか**でなければ、捨てる（ほかの窓・別のタブ・添付画像のプレビューなどの iframe は、受けない）。
 // その枠の高さだけを変える（1 つの枠が、別の枠の高さを、変えられない）。値は、厳密な形・数・上下限を確かめる。固定の高さ（`height=480`）の枠は、報告を無視する。
 // メッセージの受け口は、ドキュメントで 1 つ（枠が 1 つ以上あるあいだだけ、付ける：参照カウント）。後始末は、`releaseApps`（本文を描き直す前・本文が消えるとき）。
-// 枠の外観：資料が、画面の配色への対応を示した枠（`shared/htmlapp-theme.ts`：オプトイン）だけ、画面の外観に従う（`by: 'auto'`）。
-// 示さない従来の枠は、常にライト（画面の外観が変わっても、触らない）。ツールバーでの切り替え（`by: 'user'`）は、どの枠でも効く（利用者の明示の操作）。
-// 枠の幅：選んだ幅で、枠の中のレイアウトを計算する（iframe の実際の幅＝選んだ幅。`@media`・`vw`・`100%` が、その幅で効く）。本文の幅より広いときは、
-// `transform: scale()` で、本文の幅に収めて見せる（DevTools のデバイスモードと同じ。ラッパーの高さ＝枠の高さ × 縮小率）。選んだ幅が、本文の幅以下なら、縮小しない。
-// 縮小率の下限は 50%（それ以下は読めない）：下限で止まって、まだ本文の幅に収まらないときは、枠の置き場を、横にスクロールさせる。
 // 書き戻し（F42）：枠 → 画面は、`pick`（利用者が、要素を選んだとき）・`state`（`rikai.state(obj)`）・`pick-cancel`。**`pick` は、その枠が、選択モード（利用者が、ボタンを押した）のときだけ**受ける
 // （枠のコードが、利用者の操作なしに、下書きを作れない）。値は、`shared/htmlapp-bridge.ts` の検査を通ったものだけ。枠ごとの最新の `state` は、メモリだけに持つ（保存しない）。
 // 枠の画像（`snapshot-req` → `snapshot`）：範囲選択の画像（F25）に枠が入るとき、枠自身に、自分の見た目を画像にさせる。応答は、**こちらが出した id の、その枠からの、1 回だけ**を受ける
-// （古い・偽・兄弟の枠の応答は、捨てる）。2 秒で、時間切れ（枠が応答しない：null → 箱に戻る）。画像は、PNG の data URL・長さ・形を確かめ、**画像として読めて、大きさが上限の中**のものだけ使う。
-// 枠の幅・外観の切り替えは、保存しない（再読み込みで、自動・画面の外観に戻る）。本文を描き直しても（コメントの追加など）、同じ版の中では、覚えている。
-import {
-  type PickInfo,
-  parseEsc,
-  parsePick,
-  parseSnapshot,
-  parseState,
-  SNAPSHOT_MAX_SIDE,
-  snapshotId,
-} from '../../shared/htmlapp-bridge';
+// 以下、状態は `frameState.ts`・登録簿は `frameRegistry.ts`・選択モードの Esc は `framePick.ts`・画像の検査は `frameSnapshot.ts`。
+import { type PickInfo, parseEsc, parsePick, parseSnapshot, parseState, snapshotId } from '../../shared/htmlapp-bridge';
 import { parseResize } from '../../shared/htmlapp-resize';
-import type { FrameWidth } from '../lib/frameWidth';
-import { isImeKey } from '../lib/keys';
-import type { ResolvedTheme } from '../lib/theme';
+import { onPickKey, pickingFrames } from './framePick';
+import { type AppFrame, type Entry, frames } from './frameRegistry';
+import { decodesWithinLimit, SNAPSHOT_TIMEOUT_MS } from './frameSnapshot';
+import { type FrameState, frameScale, frameScrolls, memory } from './frameState';
 
 /** 1 つの枠の高さを、反映する回数の上限（1 秒あたり）。超えた分は、最後の値だけ、あとで反映する（連打で、画面が詰まらない） */
 export const APPLY_LIMIT = 6;
 export const APPLY_WINDOW_MS = 1000;
-
-/** 枠の表示の状態。`forced`：枠だけ、画面の外観とは別にしている。`avail`：本文の幅（枠の置き場の幅。px。測れる前は 0） */
-export interface FrameState {
-  width: FrameWidth;
-  mode: ResolvedTheme;
-  forced: boolean;
-  avail: number;
-  /** 要素を選んでいる（選択モード）：利用者が、ボタンを押してから、1 つ選ぶ・中止する・Esc・枠が消える、まで */
-  picking: boolean;
-}
-
-/** 縮小率の下限（これより小さくすると、読めない）。本文の幅に、これでも収まらないときは、横にスクロールさせる */
-export const MIN_SCALE = 0.5;
-
-/** 縮小率：選んだ幅が、本文の幅より広いときだけ、本文の幅に収める（MIN_SCALE 〜 1）。測れていない（avail 0）・自動は、1 */
-export const frameScale = (width: FrameWidth, avail: number): number =>
-  width !== 'auto' && avail > 0 && width > avail ? Math.max(MIN_SCALE, avail / width) : 1;
-
-/** 縮小しても、選んだ幅が、本文の幅に収まらない（下限で止まった）：枠の置き場を、横にスクロールさせる */
-export const frameScrolls = (width: FrameWidth, avail: number): boolean =>
-  width !== 'auto' && avail > 0 && width * frameScale(width, avail) > avail + 0.5;
-
-export interface AppFrame {
-  readonly iframe: HTMLIFrameElement;
-  /** 自動の高さか（false：固定の高さ。報告を無視する） */
-  readonly auto: boolean;
-  get(): FrameState;
-  subscribe(cb: () => void): () => void;
-  setWidth(width: FrameWidth): void;
-  /** 枠だけの外観（画面の外観とは別）。再読み込みせず、`theme` を送る */
-  setMode(mode: ResolvedTheme): void;
-  /** 枠を外すとき（`releaseApps`）に呼ぶ後始末を足す */
-  onRelease(fn: () => void): void;
-  /** 要素を選ぶ（選択モードに入る）／やめる。同時に選べる枠は、1 つ（ほかの枠は、中止する） */
-  startPick(): void;
-  cancelPick(): void;
-  /** この枠が知らせた、最新の状態（検査済みの JSON）。なければ null */
-  latestState(): string | null;
-  /** 枠自身に、自分の見た目を、画像（PNG の data URL）にさせる。応答しない・不正・読めない・大きすぎるときは null（時間切れは 2 秒） */
-  requestSnapshot(): Promise<string | null>;
-}
-
-/** 枠の画像を待つ時間（ms） */
-export const SNAPSHOT_TIMEOUT_MS = 2000;
-let snapshotSeq = 0;
-
-/** PNG の data URL が、画像として読めて、大きさ（幅・高さ）が上限の中か */
-function decodesWithinLimit(png: string): Promise<boolean> {
-  return new Promise((resolve) => {
-    const im = new Image();
-    im.onload = () =>
-      resolve(
-        im.naturalWidth > 0 &&
-          im.naturalHeight > 0 &&
-          im.naturalWidth <= SNAPSHOT_MAX_SIDE &&
-          im.naturalHeight <= SNAPSHOT_MAX_SIDE,
-      );
-    im.onerror = () => resolve(false);
-    im.src = png;
-  });
-}
 
 /** 枠 → 画面の、書き戻しの受け口（`registerFrame` に渡す） */
 export interface FrameHandlers {
@@ -110,50 +36,7 @@ export interface FrameHandlers {
   onEsc?: () => void;
 }
 
-interface Entry extends AppFrame {
-  /** 枠から届いたメッセージ（この枠の contentWindow から来たもの）を、種類ごとに、検査して使う */
-  receive(data: unknown): void;
-  /** 画面の外観が変わったとき：枠だけの外観を解いて、画面に合わせる */
-  follow(mode: ResolvedTheme): void;
-  /** 枠が知らせた高さ（検査済み）を、反映の列に入れる */
-  push(height: number): void;
-  release(): void;
-}
-
-const frames = new Set<Entry>();
-
-// 同じ版の中で、本文を描き直しても（コメントの追加など）、枠の幅・枠だけの外観を覚える。版・ページが変わったら、捨てる
-let memoryKey = '';
-const memory = new Map<number, { width: FrameWidth; mode: ResolvedTheme | null }>();
-
-/**
- * 枠の、最初の状態。`viewKey`：`<トピック>/<ページ>/<版>`・`n`：枠の番号・`page`：いまの画面の外観・`follows`：資料が、画面の配色への対応を示しているか
- * （示さない従来の枠は、常にライト）。同じ版の中で覚えている幅・枠だけの外観があれば、それ（`src` の `?mode=` も、これで決める）
- */
-export function initialFrameState(viewKey: string, n: number, page: ResolvedTheme, follows: boolean): FrameState {
-  if (memoryKey !== viewKey) {
-    memoryKey = viewKey;
-    memory.clear();
-  }
-  const m = memory.get(n);
-  return {
-    width: m?.width ?? 'auto',
-    mode: m?.mode ?? (follows ? page : 'light'),
-    forced: m?.mode != null,
-    avail: 0,
-    picking: false,
-  };
-}
-
-/** 版を並べて比べる画面（F44）の枠の、最初の状態：比較用ツールバーの選び（幅・枠だけの外観。null は、画面に従う）。覚えは使わない */
-export function compareFrameState(
-  width: FrameWidth,
-  mode: ResolvedTheme | null,
-  page: ResolvedTheme,
-  follows: boolean,
-): FrameState {
-  return { width, mode: mode ?? (follows ? page : 'light'), forced: mode !== null, avail: 0, picking: false };
-}
+let snapshotSeq = 0;
 
 /** 1 つの枠の、`state` を受ける頻度の上限（1 秒あたり。橋は、1 秒に 4 回まで）。超えた分は、捨てる */
 const STATE_LIMIT = 8;
@@ -168,13 +51,6 @@ function onMessage(e: MessageEvent): void {
     return;
   }
 }
-
-/** 選択モードの枠があるあいだ、親の Esc で、中止する（枠の中の Esc は、枠が自分で中止して、知らせる） */
-function onPickKey(e: KeyboardEvent): void {
-  if (e.key !== 'Escape' || isImeKey(e)) return; // 変換中の Esc は、変換の取り消し
-  for (const f of frames) f.cancelPick();
-}
-const pickingFrames = (except?: AppFrame): boolean => [...frames].some((f) => f !== except && f.get().picking);
 
 /**
  * 枠（iframe）を、橋に登録する。`iframe` の親が、縮小後の大きさを持つ箱・その親が、本文の幅の箱（幅の基準。横にスクロールする箱）。`n`：枠の番号（覚えるときの印。`initialFrameState` と同じ版の中）。
@@ -417,44 +293,3 @@ export function registerFrame(
   frames.add(entry);
   return entry;
 }
-
-/** 画面の外観が変わった：対応を示した枠を、その外観にする（枠だけの外観は、解く）。対応を示さない枠は、触らない。再読み込みしない（枠の中の状態は、保たれる） */
-export function followPageTheme(mode: ResolvedTheme): void {
-  for (const f of frames) f.follow(mode);
-}
-
-/** この枠（`.htmlapp`・iframe の祖先）の、最新の状態（検査済みの JSON）。なければ null（「この枠にコメント」が、下書きの `frameMeta.state` に持つ） */
-export function latestStateOf(box: ParentNode): string | null {
-  for (const f of frames) if (box.contains(f.iframe)) return f.latestState();
-  return null;
-}
-
-/** `container` の中の、登録した枠（文書の順）。版を並べて比べる画面（F44）の、比較用ツールバーが、左右の枠に、同じ幅・外観を適用する */
-export function framesIn(container: ParentNode): AppFrame[] {
-  return [...frames].filter((f) => container.contains(f.iframe));
-}
-
-/** この iframe（登録した枠）に、自分の見た目を画像にさせる。枠でない・応答しない・不正なときは null */
-export function requestFrameSnapshot(iframe: HTMLIFrameElement): Promise<string | null> {
-  for (const f of frames) if (f.iframe === iframe) return f.requestSnapshot();
-  return Promise.resolve(null);
-}
-
-/** 選択モードの枠が、1 つでもあれば、すべて中止して true（個別表示の Esc：道具の中止が、閉じるより先。F43）。なければ false */
-export function cancelAllPicks(): boolean {
-  let any = false;
-  for (const f of [...frames]) {
-    if (!f.get().picking) continue;
-    any = true;
-    f.cancelPick();
-  }
-  return any;
-}
-
-/** `container` の中の枠を、すべて外す（本文を描き直す前・本文が消えるとき）。枠が 0 になったら、メッセージの受け口も外す */
-export function releaseApps(container: ParentNode): void {
-  for (const f of [...frames]) if (container.contains(f.iframe)) f.release();
-}
-
-/** 試験用：登録中の枠の数（受け口が付いているのは、1 以上のあいだだけ） */
-export const registeredFrames = (): number => frames.size;

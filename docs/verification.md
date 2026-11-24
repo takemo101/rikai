@@ -1343,6 +1343,26 @@
 
 **数字**：上の件数（Vitest 999 件〔P3 の対応のあと〕・lint エラー 0・build 成功。e2e 373 件の 3 回連続の全件成功は、P3 の対応の前）は、親が、全体で確認した（e2e は、P3 の対応のあとは、再実行していない）。レビューが数えた数字（Vitest 997 件・7,382 手・20 通り・24 段・24 枚中 17 枚）・バンドルの差・壊して確かめた件数は、それぞれ、独立レビューと担当の報告による。
 
+### 整理フェーズ ④b：橋（`appBridge.ts`）を 5 つのファイルに分ける（2026-11-24。RIK-060。SPEC §6・§8。移動だけ）
+
+**対象**：`web/doc/appBridge.ts`（460 行）を、5 つのファイルに分けた（`frameState.ts` 63 行・`frameSnapshot.ts` 23 行・`frameRegistry.ts` 67 行・`framePick.ts` 21 行・`frameBridge.ts` 295 行）。**`appBridge.ts` は消した。再公開はしない**（呼び出し側の import は、`src` 15 ファイル・テスト 8 ファイルを、新しい場所へ書き換えた）。**独立レビューは、受けない**（移動だけ。本体が同一であることを、行ごとに照合して確認した。親も、別の照合で確認した：取りこぼしに見えるのは、複数行の import の続きと、`export ` を前置きした 2 行だけ）。
+
+**環境**：headless Chrome（実際の Chrome。`RIKAI_CHROME` を環境変数で渡した）・Vitest（jsdom・node）。
+
+**自動テスト**：`appBridge.test.ts` → `frameBridge.test.ts` に名前を変えた（import だけ書き換え。分割しない：共通の準備を別ファイルに出す必要があり、「テスト名・内容は変えない」に反するため）。`region.test.ts` の `vi.mock` の対象を `frameRegistry` に。**全体は、親が確認した：Vitest 999 件（89 ファイル）・lint エラー 0・build 成功。e2e 373 件を 3 回流して、373 件成功・373 件成功・372 件成功＋1 件失敗**（`focus.spec.ts:559`「枠の中の Esc」。2.9〜3.1 分・`workers: 4`・`RIKAI_CHROME` を環境変数で渡した・2026-11-24）。**この失敗は、④b が原因ではない**（下の調査）。（担当の確認：複製で build・typecheck・biome・vitest 999 件・e2e 373 件〔1 回〕。）
+
+- **本体が同一である証拠（担当の報告）**：元の 31〜460 行のうち、空行でない全行が、新しいファイルに、連続した部分文字列として、そのまま入っている（取りこぼし 0 行）。手を入れたのは、他のファイルから使うための `export ` の前置き（`memory`・`decodesWithinLimit`・`Entry`・`frames`・`onPickKey`・`pickingFrames`）・import・先頭コメントの配り直しだけ。旧名 `appBridge.ts` を指すコメントを、9 か所直した（コメントの文言だけ）。**触っていない**：`shared/htmlapp-bridge.ts` の検査の本体・`onMessage`（移動のみ）・`appframe-bridge.ts`・`APP_CSP`・e2e。
+- **依存の向き（一方向）**：`frameState → frameRegistry → framePick → frameBridge`・`frameState → frameBridge`・`frameSnapshot → frameBridge`・`frameRegistry → frameBridge`。実行時の循環 0 件（`src` 143 ファイル）。
+- **分けなかったもの**：「書き戻し」「要素選択」の受け取り（`receive` の中の `pick`・`state`・`esc`・`snapshot`）は、`registerFrame` のクロージャの内側にあるので、本体を 1 文字も変えない条件では分けられず、`frameBridge.ts` に残した（`framePick.ts` には、クロージャの外にある選択モードの関数だけ）。
+- **壊して、落ちることを確かめた（担当の報告）**：`frameBridge.ts` の `e.source` の窓の照合の行を消す（5 件落ちた）・`frameState.ts` の `memory.get(n + 1)`（3 件）・`frameSnapshot.ts` の大きさの上限を 8 倍（1 件）・`frameRegistry.ts` の `releaseApps` が箱の外の枠まで外す（1 件）・`framePick.ts` の Esc のキーを Enter に（2 件）。
+- **バンドル**：`index.js` 551,167 → 551,162 バイト（−5。gzip 181,629 → 181,717 で +88）・`rikai.js` は同一。
+
+**`focus.spec.ts:559` の調査（親）**：`main`（0.29.0 ＋ ④a。④b の前）の複製で、同じコマンド（`--repeat-each 6 --workers 4`）を 2 回流して、1 回は 6 件成功・もう 1 回は 5 件成功＋1 件失敗（同じテストが落ちた）。④b の作業ツリーでは、`--workers 1` で 6 回中 6 回成功・`--workers 4` で 6 回中 4 回成功＋2 回失敗。**結論：並列〔負荷〕のときだけ、ときどき落ちる、④b より前からある不安定さ**（④b の変更は、原因ではない）。
+
+**確認していない範囲・残る課題**：実際のマウス・Safari・Firefox。**`focus.spec.ts:559` と `htmlapp-writeback.spec.ts:184` の 2 件は、並列のときだけ落ちる既知の不安定さ。安定化は、未対応**。`memory` は、`frameState.ts` から export した可変の `Map` を、`registerFrame` が書く・`snapshotSeq` は、`registerFrame` 内で増やすため、`frameBridge.ts` に残した（`FrameHost`〔`code.md` §3.3 の「あとで」の部分〕を入れるときに整理する候補。今回はやらない：移動と論理の変更を混ぜない）。
+
+**数字**：上の件数（Vitest 999 件・e2e 373 件を 3 回：373 成功・373 成功・372 成功＋1 失敗）は、親が、全体で確認した（「3 回連続で全件成功」ではない）。`focus.spec.ts:559` の調査の数字（`main` の複製：6 件成功／5 件成功＋1 件失敗・④b：`--workers 1` で 6 回中 6 回成功・`--workers 4` で 6 回中 4 回成功＋2 回失敗）も、親が確認した。行ごとの照合は、担当の報告と、親の別の照合の、両方で確認した。バンドルの差・壊して確かめた件数は、担当の報告による。
+
 ### 人間の確認待ち
 
 AI は、これらを合格にしない。

@@ -43,7 +43,7 @@ export const PURIFY: Config = {
 let appCtx: { n: number; srcs: string[] } | null = null;
 
 /**
- * 枠の高さ（情報文字列）：`height=480`（120〜1200px）は、**固定**。`height` がない・`height=auto`・読めない値は、`auto`（枠の中身に合わせて、枠が、高さを知らせる。apps.ts・appBridge.ts）。
+ * 枠の高さ（情報文字列）：`height=480`（120〜1200px）は、**固定**。`height` がない・`height=auto`・読めない値は、`auto`（枠の中身に合わせて、枠が、高さを知らせる。apps.ts・frameBridge.ts）。
  * 従来の資料（`height=` を書いたもの）は、固定のまま
  */
 export function appHeight(info: string): number | 'auto' {

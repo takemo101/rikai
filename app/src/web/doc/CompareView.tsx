@@ -10,8 +10,8 @@ import { escapeStep } from '../lib/escape';
 import type { View } from '../lib/view';
 import { type CompareState, useUi } from '../store/ui';
 import { ModeButton, WidthButtons } from './AppToolbar';
-import { releaseApps } from './appBridge';
 import { applyCompareMode, applyCompareWidth, publishCompareFrames, useCompareFrames } from './compareFrames';
+import { releaseApps } from './frameRegistry';
 import { type CompareResult, renderCompare } from './render/compare';
 
 /** 比較用ツールバー：左右のすべての枠に、同じ幅・枠だけの外観を適用する（枠の状態は、共有しない） */

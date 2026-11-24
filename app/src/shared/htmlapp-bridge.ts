@@ -269,7 +269,7 @@ export function parseFrameMeta(data: unknown): FrameMetaResult {
 
 /**
  * `{ __rikai: 1, type: 'esc' }` の検査（枠の中の Esc を、親へ転送：個別表示で、閉じる・道具の中止に流す。F43）。**この 2 つのキーだけ**：余分なキー・型違いは、捨てる（false）。
- * 受けるのは、個別表示の枠だけ（親の登録で決まる）。1 つの枠につき、頻度の上限がある（`appBridge.ts`）
+ * 受けるのは、個別表示の枠だけ（親の登録で決まる）。1 つの枠につき、頻度の上限がある（`web/doc/frameBridge.ts`）
  */
 export const parseEsc = (data: unknown): boolean =>
   isObj(data) && data.__rikai === 1 && data.type === 'esc' && onlyKeys(data, ['__rikai', 'type']);

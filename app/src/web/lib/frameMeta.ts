@@ -1,5 +1,5 @@
 // 枠から取った情報（`frameMeta`。F45）を、下書きに持つ形にする・送る形にする。純粋な関数（DOM・ストアに触れない）。
-// 検査は `parseFrameMeta`（shared）の 1 か所：枠から届いた pick・状態は、橋（`appBridge.ts`）で検査済みだが、下書きに入れる前に、保存・送信の形でも通す
+// 検査は `parseFrameMeta`（shared）の 1 か所：枠から届いた pick・状態は、橋（`frameBridge.ts`）で検査済みだが、下書きに入れる前に、保存・送信の形でも通す
 // （サーバーが拒むものを、画面で先に断る：16KB の上限など）。
 import { type PickInfo, parseFrameMeta } from '../../shared/htmlapp-bridge';
 import type { FrameMeta } from '../../shared/types';

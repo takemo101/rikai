@@ -7,7 +7,7 @@ import { afterEach, beforeAll, beforeEach, expect, test, vi } from 'vitest';
 import { type TopicState, topicKey, useTopic } from '../../src/web/api/queries';
 import { queryClient } from '../../src/web/api/queryClient';
 import { Article } from '../../src/web/doc/Article';
-import { registeredFrames } from '../../src/web/doc/appBridge';
+import { registeredFrames } from '../../src/web/doc/frameRegistry';
 import { blockAnchor } from '../../src/web/doc/render/blocks';
 import { escapeStep } from '../../src/web/lib/escape';
 import { useRoute } from '../../src/web/lib/route';

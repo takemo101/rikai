@@ -7,7 +7,7 @@ import { $$ } from '../lib/dom';
 import { frameMetaOf } from '../lib/frameMeta';
 import { type BlockEl, type DocModel, locEl, nextEpoch, useDoc } from '../store/doc';
 import { toast, useUi } from '../store/ui';
-import { latestStateOf, releaseApps } from './appBridge';
+import { latestStateOf, releaseApps } from './frameRegistry';
 import { articleTid } from './hit';
 import { blockAnchor } from './render/blocks';
 import { FOCUS_ENTRY, mediaOfEntry } from './render/focusable';

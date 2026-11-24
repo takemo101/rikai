@@ -8,8 +8,8 @@
 // モーダル：開いている間、窓の後ろ（`#app` の、ほかの要素）は `inert`（キーボード・マウス・読み上げの、どれも届かない）。Tab は、窓の中を回る（外へ出ない）。
 // 開いたとき、フォーカスを、ここへ。閉じたとき、開く前の要素へ戻す（なくなっていれば、本文の、その画像・図・枠の入口へ）。
 import { useCallback, useEffect, useRef, useState } from 'react';
-import type { AppFrame } from '../doc/appBridge';
 import { entryElementOf, resolveFocusBlock } from '../doc/focusBlock';
+import type { AppFrame } from '../doc/frameRegistry';
 import { useRegionDeps } from '../interact/useRegionDeps';
 import { escapeStep } from '../lib/escape';
 import { useDoc } from '../store/doc';

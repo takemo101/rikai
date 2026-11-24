@@ -4,7 +4,7 @@
 import { SquareDashed } from 'lucide-react';
 import { type PointerEvent, useCallback, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { cancelAllPicks } from '../doc/appBridge';
+import { cancelAllPicks } from '../doc/framePick';
 import { $ } from '../lib/dom';
 import type { Box } from '../lib/geom';
 import { RANGE_TOO_SMALL } from '../lib/messages';

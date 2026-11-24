@@ -9,7 +9,7 @@ import type { FrameWidth } from '../../lib/frameWidth';
 import type { ResolvedTheme } from '../../lib/theme';
 import type { View } from '../../lib/view';
 import type { BlockEl } from '../../store/doc';
-import { type AppFrame, framesIn, releaseApps } from '../appBridge';
+import { type AppFrame, framesIn, releaseApps } from '../frameRegistry';
 import { fillApps } from './apps';
 import { blockEls, markBlocks, plainText, sigTag, tagLabel } from './blocks';
 import { mdToFragment } from './markdown';
