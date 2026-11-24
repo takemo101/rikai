@@ -1,4 +1,4 @@
-// スレッドのカード（`.thread`）：札・対象の引用・発言（古いやり取りは折りたたむ：F29）・返信の入力・「解決」／「再開する」。
+// スレッドのカード（`.thread`）：札・対象の引用・発言（古いやり取りは折りたたむ：F29）・返信の入力（選んでいないカードは、1 行に畳む：P5）・「解決」／「再開する」。
 import {
   Check,
   ChevronRight,
@@ -16,14 +16,13 @@ import type { ReactNode } from 'react';
 import { isLegacyFromFrame } from '../../shared/htmlapp-bridge';
 import type { Thread } from '../../shared/types';
 import { useMutations } from '../api/mutations';
-import { FromFrame } from '../htmlapp/FrameMetaChip';
 import { isModEnter } from '../lib/keys';
 import type { View } from '../lib/view';
 import type { DocModel } from '../store/doc';
 import { useUi } from '../store/ui';
 import { caretAtEnd } from './caret';
 import { AttachButton, ImageBar } from './ImageBar';
-import { foldMessages, quoteOf, threadStatus } from './logic';
+import { foldMessages, quoteOf, replyExpanded, threadStatus } from './logic';
 import { MessageView } from './Message';
 import { usePanel } from './panelContext';
 import { Quote } from './Quote';
@@ -74,8 +73,9 @@ export function ThreadCard({ view, thread: t, full = false, model, seen, editing
 
   const cls = ['thread', stCls, active && 'active', fresh && 'fresh', linked && 'linked'].filter(Boolean).join(' ');
   const segments = foldMessages(t, { full, seen, editing });
-  // 「枠から」の札：**`frameMeta` の有無で決める**（本文の見出しの行には、頼らない：資料の本文の `<div>枠から：p</div>` や、利用者が本文に「【枠から】」と書いたコメントに、付かない）。
-  // `frameMeta` を持たない旧い形のコメント（0.25.x まで：本文に見出しと JSON）だけ、錨の形＋最初の発言の見出しの行で判定する
+  // `data-from-frame`（左の線）：**`frameMeta` の有無で決める**（本文の見出しの行には、頼らない：資料の本文の `<div>枠から：p</div>` や、利用者が本文に「【枠から】」と書いたコメントに、付かない）。
+  // `frameMeta` を持たない旧い形のコメント（0.25.x まで：本文に見出しと JSON）だけ、錨の形＋最初の発言の見出しの行で判定する。
+  // 見出しの行に「枠から」の札は、出さない（引用の行「枠から：button」と、情報の行「要素を選びました（…）」で足りる：P5）
   const first = t.messages[0];
   const fromFrame =
     t.messages.some((m) => m.author === 'user' && m.frameMeta) ||
@@ -111,7 +111,6 @@ export function ThreadCard({ view, thread: t, full = false, model, seen, editing
           </span>
         ) : null}
         {future ? <span className="chip small">後の版のコメント</span> : null}
-        {fromFrame ? <FromFrame /> : null}
         <Quote anchor={t.anchor} text={quoteOf(t)} />
       </div>
       {segments.map((s) =>
@@ -150,6 +149,8 @@ function ThreadFoot({ view, thread: t }: { view: View; thread: Thread }) {
   const slug = view.slug;
   const key = `reply-${t.id}`;
   const draft = useUi((s) => s.drafts.reply[t.id] ?? '');
+  const active = useUi((s) => s.active === t.id);
+  const uploading = useUi((s) => (s.uploadingBy[key] ?? 0) > 0);
   const setReplyDraft = useUi((s) => s.setReplyDraft);
   const setRowOpen = useUi((s) => s.setRowOpen);
   const resetImgs = useUi((s) => s.resetImgs);
@@ -187,13 +188,24 @@ function ThreadFoot({ view, thread: t }: { view: View; thread: Thread }) {
       </div>
     );
   }
+  // 選んでいないカードの返信欄は、1 行（「返信…」）に畳む。欄は、畳んでも DOM にある（Tab・スクリーンリーダーで届く・書きかけは、そのまま）。
+  // 欄にフォーカスしたら、そのカードを選ぶ（→ 開く。押す手間は、増えない。ボタンを押している間に、畳まれない）
+  const open = replyExpanded({ active, draft, imgs: imgs.length, uploading });
   return (
-    <div className="th-foot">
+    // biome-ignore lint/a11y/noStaticElementInteractions: フォーカスが入ったら、カードを選ぶだけ（操作の入口は、中の欄・ボタン）
+    <div
+      className={open ? 'th-foot' : 'th-foot fold'}
+      onFocus={() => {
+        if (useUi.getState().active !== t.id) useUi.getState().setActive(t.id);
+      }}
+    >
       <textarea
-        rows={2}
+        className={open ? undefined : 'fold'}
+        rows={open ? 3 : 1}
         ref={caretAtEnd}
         data-key={key}
-        placeholder="返信・追加の質問（⌘/Ctrl+Enter で追加。画像は、貼り付け・ドラッグでも）"
+        aria-label="返信・追加の質問"
+        placeholder={open ? '返信・追加の質問（⌘/Ctrl+Enter で追加。画像は、貼り付け・ドラッグでも）' : '返信…'}
         value={draft}
         onChange={(e) => setReplyDraft(t.id, e.target.value)}
         onKeyDown={(e) => {
@@ -204,30 +216,32 @@ function ThreadFoot({ view, thread: t }: { view: View; thread: Thread }) {
         }}
         {...handlers}
       />
-      <ImageBar imgKey={key} slug={slug} />
-      <div className="row">
-        <AttachButton imgKey={key} slug={slug} />
-        <button
-          type="button"
-          className="primary small"
-          title="返信を、下書きに追加します（⌘/Ctrl＋Enter）。まだ AI には送られません（「AI に送る」で送ります）"
-          onClick={() => void sendReply()}
-        >
-          <Plus aria-hidden="true" focusable="false" />
-          追加
-        </button>
-        <button
-          type="button"
-          className="ghost small"
-          title="理解できたら、解決にします"
-          onClick={() =>
-            void resolve({ topic: slug, thread: t.id, resolved: true }, { onOk: () => setRowOpen(t.id, false) })
-          }
-        >
-          <Check aria-hidden="true" focusable="false" />
-          解決
-        </button>
-      </div>
+      {open ? <ImageBar imgKey={key} slug={slug} /> : null}
+      {open ? (
+        <div className="row">
+          <AttachButton imgKey={key} slug={slug} />
+          <button
+            type="button"
+            className="primary small"
+            title="返信を、下書きに追加します（⌘/Ctrl＋Enter）。まだ AI には送られません（「AI に送る」で送ります）"
+            onClick={() => void sendReply()}
+          >
+            <Plus aria-hidden="true" focusable="false" />
+            追加
+          </button>
+          <button
+            type="button"
+            className="ghost small"
+            title="理解できたら、解決にします"
+            onClick={() =>
+              void resolve({ topic: slug, thread: t.id, resolved: true }, { onOk: () => setRowOpen(t.id, false) })
+            }
+          >
+            <Check aria-hidden="true" focusable="false" />
+            解決
+          </button>
+        </div>
+      ) : null}
     </div>
   );
 }

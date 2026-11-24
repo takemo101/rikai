@@ -2,7 +2,7 @@
 // 押せない（下の文字を選べる）・解決済みタブ／1 枚だけ見るで、本数が変わる・オン／オフ（localStorage `rikai-ui`・DocBar のトグル）。
 import type { Page } from '@playwright/test';
 import { expect, type RikaiApp, test } from './fixtures';
-import { dragSelect, hoverBlock, ui } from './ui';
+import { dragSelect, hoverBlock, selectCard, ui } from './ui';
 
 const paras = Array.from({ length: 30 }, (_, i) => `第${i + 1}段落の文章です。そのあとに、続きの文字があります。`);
 const DOC_LONG = `# 長い資料\n\n${paras.join('\n\n')}\n`;
@@ -325,6 +325,7 @@ test.describe('関連の線（F35）', () => {
     await openLong(page, app, [3, 4, 5]);
     const u = ui(page);
     const tab = (n: string) => page.locator('.tab', { hasText: n });
+    await selectCard(u.threads.nth(0)); // 返信欄は、選んでいないカードでは畳まれている（P5）
     await u.threads.nth(0).getByRole('button', { name: '解決', exact: true }).click();
     await expect(tab('解決済み')).toHaveText('解決済み1');
     await expect(paths(page)).toHaveCount(2); // 未解決のタブ：解決済みは、カードがない

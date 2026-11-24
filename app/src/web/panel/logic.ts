@@ -12,6 +12,20 @@ export const shownMessages = (t: Msgs): Message[] => t.messages.filter((m) => m.
 export const hasUnsent = (t: Msgs): boolean => t.messages.some((m) => m.author === 'user' && !m.sent);
 
 /**
+ * 「資料を vN に更新」を、**文字つきで出す**発言の ID：資料の更新（`revision`）を持つ AI の発言のうち、いちばん新しいもの（なければ null）。
+ * 古い更新は、`↻vN` の小さなリンクにする（同じ緑の札と「v2 を見る」が、返信のたびに並ばない：P5）
+ */
+export const latestRevisionId = (t: Msgs): string | null =>
+  t.messages.findLast((m) => m.author === 'ai' && m.revision !== undefined)?.id ?? null;
+
+/**
+ * 返信欄を開いて見せるか（P5。閉じたときは、1 行の「返信…」）：カードを選んでいる（欄にフォーカスしても選ぶ）・書きかけの文・付けた画像・アップロード中。
+ * **書きかけがあるカードは、いつも開く**（書いた文が、見えなくならない）
+ */
+export const replyExpanded = (s: { active: boolean; draft: string; imgs: number; uploading: boolean }): boolean =>
+  s.active || s.draft !== '' || s.imgs > 0 || s.uploading;
+
+/**
  * カードの札の種類。色は、上のバーの `#turn` と同じ意味：
  * ok＝解決（緑）・draft＝未送信（琥珀）・new／yours＝あなたの番（青：AI の返信／未回答の質問）・aiwait＝AI の番（灰色：AI の返信待ち）・wait＝札なし
  */

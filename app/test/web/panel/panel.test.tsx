@@ -460,7 +460,7 @@ const META = {
 const LEGACY =
   '【枠から】要素を選びました（枠の自己申告。下の JSON）：button（x:1 y:2 w:3 h:4）\n\n```json\n{}\n```\n\nこれは私の依頼';
 
-test('「枠から」の札（F45）：frameMeta を持つコメント・入力欄にだけ付く（本文の見出しの行には頼らない）。資料の生の `<div>枠から：p</div>`（錨は同じ形）・本文に「【枠から】」と書いた利用者のコメント・AI の発言には、付かない。旧い形（frameMeta なし・見出しの行と JSON）は、旧いコメントのためだけに、付く', () => {
+test('「枠から」の印（F45）：カードの左の線（data-from-frame）と、入力欄の札は、frameMeta を持つものにだけ付く（本文の見出しの行には頼らない）。資料の生の `<div>枠から：p</div>`（錨は同じ形）・本文に「【枠から】」と書いた利用者のコメント・AI の発言には、付かない。旧い形（frameMeta なし・見出しの行と JSON）の線は、旧いコメントのためだけに付く。カードの見出しの行には、札を出さない（P5）', () => {
   const frame = anchor('', { blockTag: 'DIV', label: '枠から：button' });
   const rawDiv = anchor('', { blockTag: 'DIV', label: '枠から：p' }); // 資料の生の <div>枠から：p</div> へのコメント：錨の形は、本物と同じ
   const para = anchor('枠から：button', { blockTag: 'P', label: '枠から：button' });
@@ -473,10 +473,11 @@ test('「枠から」の札（F45）：frameMeta を持つコメント・入力�
     thread({ id: 't6', anchor: frame, messages: [user(LEGACY)] }), // 旧い形：付く
     thread({ id: 't7', anchor: frame, messages: [user('先の発言'), ai('返信'), user('追加', { frameMeta: META })] }), // どの発言でも
   ]);
+  // 見出しの行の札「枠から」は、出さない（引用の行・情報の行で足りる：P5）。左の線（`data-from-frame`）だけが、枠から来たコメントの印
   const badge = (id: string) => q(`.thread[data-tid="${id}"] .th-head .fromframe`) !== null;
   const attr = (id: string) => q(`.thread[data-tid="${id}"]`)?.hasAttribute('data-from-frame');
   for (const id of ['t1', 't6', 't7']) {
-    expect(badge(id), id).toBe(true);
+    expect(badge(id), id).toBe(false);
     expect(attr(id), id).toBe(true);
   }
   for (const id of ['t2', 't3', 't4', 't5']) {

@@ -203,7 +203,7 @@ test.describe('後方互換：旧い形のコメント（frameMeta なし・本�
     await expect(ui(page).threads).toHaveCount(2);
     const [legacy, plain] = [ui(page).threads.nth(0), ui(page).threads.nth(1)];
     await expect(legacy.locator('.msg.user .body')).toHaveText(LEGACY); // 文字のまま
-    await expect(legacy.locator('.th-head .fromframe')).toHaveText('枠から');
+    await expect(legacy.locator('.fromframe')).toHaveCount(0); // 見出しの行に札は出さない（P5）。左の線だけが、旧い判定で付く
     await expect(legacy).toHaveAttribute('data-from-frame', '');
     await expect(legacy.locator('.framemeta')).toHaveCount(0);
     await expect(plain.locator('.fromframe')).toHaveCount(0);
@@ -236,7 +236,8 @@ test.describe('後方互換：旧い形のコメント（frameMeta なし・本�
     await expect(ui(page).threads).toHaveCount(2);
     const withRow = ui(page).threads.locator('.framemeta');
     await expect(withRow).toHaveCount(1);
-    await expect(ui(page).threads.locator('.th-head .fromframe')).toHaveCount(2); // 札は、新旧とも
+    await expect(ui(page).threads.locator('.fromframe')).toHaveCount(0); // 札は、新旧とも出さない（P5）
+    await expect(ui(page).threads.and(page.locator('[data-from-frame]'))).toHaveCount(2); // 左の線は、新旧とも
     await expect(ui(page).threads.filter({ hasText: '新しい形' }).locator('.msg.user .body')).toHaveText('新しい形');
   });
 });

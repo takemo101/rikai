@@ -4,7 +4,7 @@ import path from 'node:path';
 import type { Page } from '@playwright/test';
 import { expect, type RikaiApp, test } from './fixtures';
 import { makePng } from './samples';
-import { addTextComment, fillAndAdd, openComposerOnText, submitAll, ui } from './ui';
+import { addTextComment, fillAndAdd, openComposerOnText, selectCard, submitAll, ui } from './ui';
 
 // 返信を 1 往復：ユーザーが返信して送り、AI が返信する（コマンドで）
 async function replyCycle(page: Page, app: RikaiApp, userText: string, aiText: string) {
@@ -94,6 +94,7 @@ test.describe('タブと解決済みの 1 行（F33）', () => {
     await seed(page, app);
     await expect(tab(page, '未解決')).toHaveAttribute('aria-selected', 'true');
     await expect(tab(page, '未解決')).toHaveText('未解決3');
+    await selectCard(u.threads.filter({ hasText: '朝についての確認' })); // 返信欄は、選んでいないカードでは畳まれている（P5）
     await u.threads.filter({ hasText: '朝についての確認' }).getByRole('button', { name: '解決', exact: true }).click();
     await expect(tab(page, '未解決')).toHaveText('未解決2');
     await expect(tab(page, '解決済み')).toHaveText('解決済み1');
@@ -121,6 +122,7 @@ test.describe('タブと解決済みの 1 行（F33）', () => {
   }) => {
     const u = ui(page);
     await seed(page, app);
+    await selectCard(u.threads.filter({ hasText: '朝についての確認' })); // 返信欄は、選んでいないカードでは畳まれている（P5）
     await u.threads.filter({ hasText: '朝についての確認' }).getByRole('button', { name: '解決', exact: true }).click();
     await tab(page, '解決済み').click();
     const row = page.locator('.donerow');
@@ -139,6 +141,7 @@ test.describe('タブと解決済みの 1 行（F33）', () => {
   test('本文の、解決済みの文の強調を押すと、一覧の中で、そのカードが開く（F33(2)）', async ({ page, app }) => {
     const u = ui(page);
     await seed(page, app);
+    await selectCard(u.threads.filter({ hasText: '朝についての確認' })); // 返信欄は、選んでいないカードでは畳まれている（P5）
     await u.threads.filter({ hasText: '朝についての確認' }).getByRole('button', { name: '解決', exact: true }).click();
     await expect(tab(page, '解決済み')).toHaveText('解決済み1');
     await expect(u.threads).toHaveCount(2); // 未解決
@@ -150,6 +153,7 @@ test.describe('タブと解決済みの 1 行（F33）', () => {
   test('入力欄は、解決済みのタブでも出る。追加すると、未解決へ戻る（F22(3)・F33）', async ({ page, app }) => {
     const u = ui(page);
     await seed(page, app);
+    await selectCard(u.threads.filter({ hasText: '朝についての確認' })); // 返信欄は、選んでいないカードでは畳まれている（P5）
     await u.threads.filter({ hasText: '朝についての確認' }).getByRole('button', { name: '解決', exact: true }).click();
     await tab(page, '解決済み').click();
     await openComposerOnText(page, 'ごはんを食べます');
@@ -264,6 +268,7 @@ test.describe('画像の添付（F24）', () => {
     await addTextComment(page, '猫は朝によく鳴きます', '一つ目');
     await addTextComment(page, '日向でよく丸くなります', '二つ目');
     await expect(u.threads).toHaveCount(2);
+    await selectCard(u.threads.first()); // 返信欄は、選んでいないカードでは畳まれている（P5）。1 枚目を選んでから、高さを測る
     const heights = () => u.threads.evaluateAll((cs) => cs.map((c) => Math.round(c.getBoundingClientRect().height)));
     const before = await heights();
     let release = () => {};
@@ -389,6 +394,7 @@ test.describe('画像の添付（F24）', () => {
     const u = ui(page);
     await app.apply({ threads: [{ page: 'root', body: '確認です。' }] });
     const card = u.threads.first();
+    await selectCard(card); // 返信欄は、選んでいないカードでは畳まれている（P5）
     await pickFiles(page, card, [png(60, 40)]);
     await expect(card.locator('.th-foot .thumb img')).toHaveCount(1);
     await card.locator('textarea').fill('画像つきの返信');

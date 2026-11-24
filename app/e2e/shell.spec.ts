@@ -252,6 +252,7 @@ test.describe('狭い窓（〜900px）', () => {
           }),
         );
         expect(stacked, '件数は、名前の下').toEqual([true, true, true]);
+        await u.threads.first().locator('.th-head').click(); // 返信欄は、選んでいないカードでは 1 行に畳まれている（P5）：選ぶと開いて、96px 以上
         const h = await u.threads
           .first()
           .locator('textarea')

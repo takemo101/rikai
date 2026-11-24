@@ -232,6 +232,11 @@ test('返信：書いて「追加」→ POST（文・画像）→ 下書きが�
     },
   });
   const ta = q('textarea[data-key="reply-t1"]') as HTMLTextAreaElement;
+  // 選んでいないカード：1 行（「返信…」）・ボタンは出ない。欄は DOM にあり、フォーカスすると、カードを選んで開く（P5）
+  expect(ta.placeholder).toBe('返信…');
+  expect(screen.queryByRole('button', { name: '追加' })).toBeNull();
+  await userEvent.click(ta);
+  expect(useUi.getState().active).toBe('t1');
   expect(ta.placeholder).toContain('⌘/Ctrl+Enter で追加');
   await userEvent.click(screen.getByRole('button', { name: '追加' }));
   expect(view.posts).toHaveLength(0);
@@ -381,6 +386,7 @@ test('「解決」→ POST（resolved: true）→ 未解決から消え、解決
   );
   act(() => useUi.getState().setRowOpen('t1', true)); // 古い「開いた」状態が残っていても、解決で、行に戻る
   const card = q('.thread[data-tid="t1"]') as HTMLElement;
+  await userEvent.click(q('.th-head', card) as HTMLElement); // カードを選ぶと、返信欄が開いて、「解決」が出る（P5）
   await userEvent.click(within(card).getByRole('button', { name: '解決' }));
   await waitFor(() => expect(qa('#threads .thread')).toHaveLength(1));
   expect(view.posts[0]).toMatchObject({ path: '/api/resolve', body: { topic: 'demo', thread: 't1', resolved: true } });

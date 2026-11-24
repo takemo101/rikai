@@ -176,8 +176,9 @@ test('要素を選ぶボタン：範囲を選んでいる間に押すと、範�
 });
 
 // ---- 下書きの操作の近くに、「まだ AI には送られません」の手がかり（0.28.0。「AI に送る」を名前にそろえたあと、「追加」「保存」が、送ると取り違えられないように） ----
-test('「まだ AI には送られません」の手がかり：新しいコメントの入力欄（見える 1 行）・追加ボタンの title・カードの返信の追加ボタンの title。保存した回答は「保存済み（未送信）」', () => {
+test('「まだ AI には送られません」の手がかり：新しいコメントの入力欄（見える 1 行）・追加ボタンの title・カードの返信の追加ボタンの title。保存した回答は「保存済み（未送信）」', async () => {
   renderPanel([thread({ id: 't1', anchor: anchor('文'), messages: [user('先のコメント', { sent: true })] })]);
+  await userEvent.click(document.querySelector('.thread[data-tid="t1"] .th-head') as HTMLElement); // 選ぶと、返信欄が開く（P5）
   act(() => {
     useUi.getState().startComposer(anchor('別の文'));
   });
