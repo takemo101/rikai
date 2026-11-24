@@ -5,7 +5,7 @@
 // **土台のスタイル・画面の外観への追従は、中身が、対応を示したときだけ**（`shared/htmlapp-theme.ts` の `followsTheme`：オプトイン）。
 // 示さない資料（従来の、自分で全部書いたもの）には、**橋のスクリプトだけ**を足す（土台なし・`data-theme` なし・`color-scheme` なし：常に、従来のライトの見た目）。
 // 隔離（`APP_CSP`）は、変えない：インラインのスクリプト・スタイルは、すでに許されている。外への通信を足さない。
-import { SNAPSHOT_MAX_SIDE, STATE_MAX_BYTES, STYLE_KEYS } from '../shared/htmlapp-bridge';
+import { SNAPSHOT_MAX_SIDE, STATE_MAX_BYTES, STYLE_KEYS, STYLE_VALUE_MAX } from '../shared/htmlapp-bridge';
 import { bridgeColorDecls, followsTheme } from '../shared/htmlapp-theme';
 
 export type FrameMode = 'light' | 'dark';
@@ -157,7 +157,7 @@ return sel.slice(0,200);
 }
 function describe(el){
 var r=el.getBoundingClientRect(),cs=getComputedStyle(el),st={};
-for(var i=0;i<STYLES.length;i++){var v=cs.getPropertyValue(STYLES[i]);if(v)st[STYLES[i]]=String(v).slice(0,80);}
+for(var i=0;i<STYLES.length;i++){var v=cs.getPropertyValue(STYLES[i]);if(v)st[STYLES[i]]=String(v).slice(0,${STYLE_VALUE_MAX});}
 return{__rikai:1,type:'pick',selector:selectorOf(el),tag:el.tagName.toLowerCase(),
 text:(el.textContent||'').replace(/\\s+/g,' ').trim().slice(0,80),
 rect:{x:Math.round(r.left),y:Math.round(r.top),w:Math.round(r.width),h:Math.round(r.height)},

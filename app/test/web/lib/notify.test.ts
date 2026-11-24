@@ -13,6 +13,7 @@ import {
   type NotifyEnv,
   notifyBody,
   shouldNotify,
+  snapshotFromFresh,
   snapshotOf,
 } from '../../../src/web/lib/notify';
 import { NOTIFY_ICON, NOTIFY_ICON_SOURCE_SHA256 } from '../../../src/web/lib/notifyIcon';
@@ -196,4 +197,33 @@ test('通知のアイコン：data:image/png;base64 の定数。PNG の署名・
 test('通知のアイコンは、public/favicon.svg を描いたもの：元が変わっていたら、作り直す（lib/notifyIcon.ts のコメント）', () => {
   const svg = fs.readFileSync(path.resolve(__dirname, '../../../src/web/public/favicon.svg'));
   expect(createHash('sha256').update(svg).digest('hex')).toBe(NOTIFY_ICON_SOURCE_SHA256);
+});
+
+// 一覧の窓（F46）：件数が窓の上限に達したら、「以上」と出す
+test('窓に達した件数は、「以上」：窓つきの一覧の fresh で、新着が窓の大きさ（以上）のとき。窓に満たなければ、付けない。累計しても、以上は残る', () => {
+  const ids = (n: number, p: string) => Array.from({ length: n }, (_, i) => `${p}${i}`);
+  const f = (replies: string[], window: number) =>
+    snapshotFromFresh({ replies, asks: [], openAsks: [], versions: ['root@1'], window });
+  const prev = f(ids(3, 'a'), 5);
+  expect(shouldNotify(prev, f(ids(3, 'a').concat(['n1', 'n2']), 5), ENV)).toEqual({ replies: 2, asks: 0, versions: 0 }); // 満たない
+  const full = shouldNotify(prev, f(['x1', 'x2', 'x3', 'x4', 'x5'], 5), ENV); // 窓の大きさ（5）がすべて新着
+  expect(full).toEqual({ replies: 5, asks: 0, versions: 0, capped: { replies: true } });
+  expect(notifyBody('資料', full as NonNullable<typeof full>)).toBe('資料：AI から返信が届きました（返信 5 以上）');
+  // 累計：前の 1 に、窓いっぱいの 5 → 「返信 6 以上」。ほかの項目は、そのまま
+  const sum = addDelta({ replies: 1, asks: 0, versions: 2 }, full as NonNullable<typeof full>);
+  expect(sum).toEqual({ replies: 6, asks: 0, versions: 2, capped: { replies: true } });
+  expect(notifyBody('資料', sum)).toBe('資料：AI から返信が届きました（返信 6 以上・新しい版 2）');
+  expect(addDelta(sum, { replies: 1, asks: 0, versions: 0 }).capped).toEqual({ replies: true });
+  // 上限なし（開いているトピック）は、付けない
+  expect(
+    delta(
+      snap([T('t', [])]),
+      snap([
+        T(
+          't',
+          Array.from({ length: 300 }, (_, i) => ai(`a${i}`)),
+        ),
+      ]),
+    )?.capped,
+  ).toBeUndefined();
 });

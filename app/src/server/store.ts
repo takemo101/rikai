@@ -2,6 +2,7 @@
 // プロジェクトのルートは、createStore(root) の引数で渡す（モジュールの状態を持たない）。
 import fs from 'node:fs';
 import path from 'node:path';
+import { FRESH_MAX, type Fresh, freshOf } from '../shared/fresh'; // 新着の判定に使う ID（F46）
 import { type Progress, progressOf } from '../shared/progress'; // 画面と同じ数え方（理解の進み具合）
 import type { Meta, PageInfo, Thread, ThreadsFile } from '../shared/types';
 import { HttpError, now, readJSON, sleepSync, writeJSON } from './util';
@@ -48,7 +49,15 @@ export interface Store {
   countUnsent(th: ThreadsFile): number;
   topicState(slug: string): { rev: number; meta: Meta; threads: Thread[]; unsent: number };
   newTopic(slug: string, title: string, source: string, markdown: string): Meta;
-  progressOrNull(slug: string): Progress | null;
+  summaryOrNull(m: Meta, window?: number): TopicSummary | null;
+  /** meta.json の更新時刻（ms。なければ 0）：一覧で、更新が新しいトピックを選ぶ */
+  updatedAt(slug: string): number;
+}
+
+/** 一覧に付ける、トピックごとの要約：理解の進み具合と、新着の判定に使う ID（`fresh`。F46） */
+export interface TopicSummary {
+  progress: Progress;
+  fresh: Fresh;
 }
 
 export function countUnsent(th: ThreadsFile): number {
@@ -187,18 +196,42 @@ export function createStore(root: string): Store {
     return meta;
   }
 
-  // 一覧に付ける、理解の進み具合。threads.json が壊れたトピックがあっても、一覧全体を 500 にしない（そのトピックは、数なし）。
-  // 警告は、トピックごとに 1 回だけ。壊れたファイルの中身が、エラーの文に入ることがあるので、種類（name）だけを出す
+  // 一覧に付ける要約（理解の進み具合・新着の ID）。threads.json が壊れたトピックがあっても、一覧全体を 500 にしない（そのトピックは、要約なし）。
+  // 警告は、トピックごとに 1 回だけ。壊れたファイルの中身が、エラーの文に入ることがあるので、種類（name）だけを出す。
+  // **一覧の取得のたびに、全トピックの threads.json を読み直さない**：トピックごとに、`rev`・threads.json の更新時刻・大きさが同じなら、前の結果を使う
+  // （進み具合と新着の ID は、同じ 1 回の走査で作る。手で書き換えたファイルは、更新時刻・大きさで気づく）
   const warnedThreads = new Set<string>();
-  function progressOrNull(slug: string): Progress | null {
+  const summaries = new Map<string, { key: string; value: TopicSummary | null }>();
+  function summaryOrNull(m: Meta, window = FRESH_MAX): TopicSummary | null {
+    const file = path.join(tdir(m.slug), 'threads.json');
+    let key = `${m.rev}:${window}:none`;
     try {
-      return progressOf(loadThreads(slug).threads);
+      const st = fs.statSync(file);
+      key = `${m.rev}:${window}:${st.mtimeMs}:${st.size}`;
+    } catch {
+      // ファイルがない：新しいトピック（読むと、空）
+    }
+    const hit = summaries.get(m.slug);
+    if (hit && hit.key === key) return hit.value;
+    let value: TopicSummary | null = null;
+    try {
+      const threads = loadThreads(m.slug).threads;
+      value = { progress: progressOf(threads), fresh: { ...freshOf(threads, m.pages, window), window } };
     } catch (e) {
-      if (!warnedThreads.has(slug)) {
-        warnedThreads.add(slug);
-        console.error(`threads.json を読めません（${slug}: ${(e as Error).name}）`);
+      if (!warnedThreads.has(m.slug)) {
+        warnedThreads.add(m.slug);
+        console.error(`threads.json を読めません（${m.slug}: ${(e as Error).name}）`);
       }
-      return null;
+    }
+    summaries.set(m.slug, { key, value });
+    return value;
+  }
+
+  function updatedAt(slug: string): number {
+    try {
+      return fs.statSync(path.join(tdir(slug), 'meta.json')).mtimeMs;
+    } catch {
+      return 0;
     }
   }
 
@@ -220,6 +253,7 @@ export function createStore(root: string): Store {
     countUnsent,
     topicState,
     newTopic,
-    progressOrNull,
+    summaryOrNull,
+    updatedAt,
   };
 }

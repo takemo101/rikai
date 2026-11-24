@@ -329,3 +329,46 @@ test.describe('本文を書かずに「コメントを追加」', () => {
     expect((await threadsOf(app, 'need2')).length).toBe(0);
   });
 });
+
+test.describe('見た目の値の上限（300 字）', () => {
+  const LONG = lines(
+    `${BT}html-app height=160`,
+    '<button id="a">短め</button> <button id="b">長い</button>',
+    '<script>',
+    "function fam(n){var o=[];for(var i=0;i<n;i++)o.push('Fn-abcdefgh'+(100+i));return o.join(', ');}",
+    "document.getElementById('a').style.fontFamily=fam(18);", // 約 250 字：切れない
+    "document.getElementById('b').style.fontFamily=fam(40);", // 約 520 字：300 字で切る
+    '</script>',
+    BT,
+  );
+
+  test('300 字までの font-family は、切れずに frameMeta.pick.styles に入る。それより長い値は、300 字に切って（pick は、捨てない）、AI に届く', async ({
+    page,
+    app,
+  }) => {
+    await app.switchTopic(page, 'sty', '見た目', `# 題\n\n${LONG}`);
+    await page.waitForTimeout(1500);
+    const pickTo = async (id: string, text: string) => {
+      await capOf(page).locator('button[data-pick]').click();
+      await frameOf(page).locator(id).click();
+      await expect(ui(page).composer.locator('.framemeta')).toBeVisible();
+      await ui(page).composer.locator('textarea').fill(text);
+      await ui(page).composer.getByRole('button', { name: 'コメントを追加' }).click();
+      await expect(ui(page).threads).toHaveCount(text === '短め' ? 1 : 2);
+      await page.waitForTimeout(1500); // コメントが届くと、本文（と枠）は、描き直される
+    };
+    const shortFamily = await frameOf(page)
+      .locator('#a')
+      .evaluate((e) => getComputedStyle(e).fontFamily);
+    expect(shortFamily.length).toBeGreaterThan(200);
+    expect(shortFamily.length).toBeLessThanOrEqual(300);
+    await pickTo('#a', '短め');
+    await pickTo('#b', '長い');
+    await submitAll(page);
+    const round = await app.nextRound();
+    const fam = (text: string) =>
+      round.items.flatMap((i: Json) => i.new).find((m: Json) => m.text === text).frameMeta.pick.styles['font-family'];
+    expect(fam('短め')).toBe(shortFamily); // 切れない
+    expect(fam('長い')).toHaveLength(300); // 300 字で切る
+  });
+});

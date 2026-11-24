@@ -1,15 +1,18 @@
 // @vitest-environment jsdom
 // ブラウザの通知（F41）：ベル（オン・オフ・許可を求める・拒否・denied・未対応・保存の復元）と、更新を受けて通知を出す部分（ベースライン・増えたとき・条件）
+
+import { useQuery } from '@tanstack/react-query';
 import { act, fireEvent, render } from '@testing-library/react';
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
-import { topicKey } from '../../src/web/api/queries';
+import type { Fresh } from '../../src/shared/fresh';
+import { topicKey, topicsKey } from '../../src/web/api/queries';
 import { queryClient } from '../../src/web/api/queryClient';
 import { NotifyBell } from '../../src/web/layout/NotifyBell';
 import { useBrowserNotify } from '../../src/web/layout/useBrowserNotify';
 import { NOTIFY_ICON } from '../../src/web/lib/notifyIcon';
 import { UI_KEY } from '../../src/web/lib/storage';
 import { useUi } from '../../src/web/store/ui';
-import { meta, msg, renderWithClient, resetAll, thread, topicState } from './helpers';
+import { meta, msg, renderWithClient, resetAll, summary, thread, topicState } from './helpers';
 
 /** 偽の Notification：許可・作られた通知を、テストが決める */
 class FakeNotification {
@@ -367,4 +370,215 @@ test('許可を求める：新しい形（Promise）でも、古い形のコー�
   await act(async () => fireEvent.click(bell()));
   expect(useUi.getState().ui.notify).toBe(false);
   expect(bell().dataset.notify).toBe('disabled');
+});
+
+// ---- ほかのトピックの新着（F46）：一覧の `fresh` の、前回との差 ----
+const fresh = (over: Partial<Fresh> = {}): Fresh => ({
+  replies: [],
+  asks: [],
+  openAsks: [],
+  versions: ['root@1'],
+  ...over,
+});
+const item = (slug: string, f?: Fresh, over: Record<string, unknown> = {}) =>
+  summary(slug, { title: `${slug} の資料`, ...(f ? { fresh: f } : {}), ...over });
+const putList = (...items: ReturnType<typeof item>[]) => act(() => void queryClient.setQueryData(topicsKey, items));
+const bodies = () => FakeNotification.made.map((n) => [n.options.tag, n.options.body]);
+
+test('ほかのトピック：最初の一覧は、ベースライン（出さない）。AI の返信が増えたら、そのトピックの名前と件数で、1 回出る。tag はトピックごと。押すと、そのトピックを開く', () => {
+  setup();
+  putList(item('b', fresh({ replies: ['m1'] })));
+  expect(FakeNotification.made).toHaveLength(0);
+  putList(item('b', fresh({ replies: ['m1', 'secret-id-2'], versions: ['root@1', 'root@2'] })));
+  expect(bodies()).toEqual([['rikai-b', 'b の資料：AI から返信が届きました（返信 1・新しい版 1）']]);
+  expect(JSON.stringify(FakeNotification.made[0]?.options)).not.toContain('secret-id-2'); // ID は、載せない
+  location.hash = '#/demo/root';
+  (FakeNotification.made[0] as FakeNotification).onclick?.();
+  expect(location.hash).toBe('#/b/root');
+});
+
+test('ほかのトピック：同じ一覧の取り直し・読んだだけ・解決の取り消し（未回答の質問が戻る）・ID が減るだけでは、出ない。ID の入れ替え・質問は、出る', () => {
+  setup();
+  putList(item('b', fresh({ replies: ['m1'], asks: ['m2'], openAsks: [] })));
+  putList(item('b', fresh({ replies: ['m1'], asks: ['m2'], openAsks: [] }), { rev: 2 })); // 取り直し
+  putList(item('b', fresh({ replies: ['m1'], asks: ['m2'], openAsks: ['m2'] }))); // 解決の取り消し：質問が、また未回答になる（前回の asks に、ある）
+  putList(item('b', fresh({ replies: [], asks: [], openAsks: [] }))); // 減る
+  expect(FakeNotification.made).toHaveLength(0);
+  putList(item('b', fresh({ replies: ['m9'], asks: [], openAsks: [] }))); // 入れ替え：新しい ID
+  putList(item('b', fresh({ replies: ['m9'], asks: ['m10'], openAsks: ['m10'] })));
+  expect(bodies()).toEqual([
+    ['rikai-b', 'b の資料：AI から返信が届きました（返信 1）'],
+    ['rikai-b', 'b の資料：AI から返信が届きました（返信 1・質問 1）'], // 累計：前の 1 に、質問 1
+  ]);
+});
+
+test('ほかのトピック：新しく一覧に現れたトピックは、ベースライン。閉じたトピック・fresh のないもの（上限超え・読めない）・読めない形式は、対象外。fresh が戻っても、すべて新着にはならない', () => {
+  setup();
+  putList(item('b', fresh({ replies: ['m1'] })));
+  putList(item('b', fresh({ replies: ['m1'] })), item('c', fresh({ replies: ['c1', 'c2'] }))); // c が現れた
+  expect(FakeNotification.made).toHaveLength(0);
+  putList(
+    item('b', fresh({ replies: ['m1'] }), { closed: true }),
+    item('c', undefined), // fresh なし：触らない
+    { slug: 'u', title: '新しい形式', unsupported: true } as unknown as ReturnType<typeof item>,
+  );
+  putList(item('b', fresh({ replies: ['m1', 'm2'] }), { closed: true }));
+  expect(FakeNotification.made).toHaveLength(0); // 閉じたトピック
+  putList(item('c', fresh({ replies: ['c1', 'c2'] }))); // fresh が戻った：前回と同じ → 出ない
+  expect(FakeNotification.made).toHaveLength(0);
+  putList(item('c', fresh({ replies: ['c1', 'c2', 'c3'] })));
+  expect(bodies()).toEqual([['rikai-c', 'c の資料：AI から返信が届きました（返信 1）']]);
+});
+
+test('ほかのトピック：累計は、トピックごと（別のトピックの件数と混ざらない）。画面が見える状態に戻ったら 0。つながり直した直後は、ベースライン', () => {
+  setup();
+  putList(item('b', fresh({ replies: ['b1'] })), item('c', fresh({ replies: ['c1'] })));
+  putList(item('b', fresh({ replies: ['b1', 'b2'] })), item('c', fresh({ replies: ['c1'] })));
+  putList(item('b', fresh({ replies: ['b1', 'b2', 'b3'] })), item('c', fresh({ replies: ['c1', 'c2'] })));
+  expect(bodies()).toEqual([
+    ['rikai-b', 'b の資料：AI から返信が届きました（返信 1）'],
+    ['rikai-b', 'b の資料：AI から返信が届きました（返信 2）'],
+    ['rikai-c', 'c の資料：AI から返信が届きました（返信 1）'],
+  ]);
+  vi.spyOn(document, 'hasFocus').mockReturnValue(true);
+  act(() => void window.dispatchEvent(new Event('focus')));
+  vi.spyOn(document, 'hasFocus').mockReturnValue(false);
+  putList(item('b', fresh({ replies: ['b1', 'b2', 'b3', 'b4'] })), item('c', fresh({ replies: ['c1', 'c2'] })));
+  expect(FakeNotification.made[3]?.options.body).toBe('b の資料：AI から返信が届きました（返信 1）');
+  act(() => useUi.getState().setLive(false));
+  act(() => useUi.getState().setLive(true)); // 再接続
+  putList(item('b', fresh({ replies: ['b1', 'b2', 'b3', 'b4', 'b5'] })), item('c', fresh({ replies: ['c1', 'c2'] })));
+  expect(FakeNotification.made).toHaveLength(4); // 切れている間の増加は、ベースライン
+  putList(
+    item('b', fresh({ replies: ['b1', 'b2', 'b3', 'b4', 'b5', 'b6'] })),
+    item('c', fresh({ replies: ['c1', 'c2'] })),
+  );
+  expect(FakeNotification.made[4]?.options.body).toBe('b の資料：AI から返信が届きました（返信 1）');
+});
+
+test('ほかのトピック：画面を見ているとき・ベルがオフ・許可なしでは、出ない', () => {
+  for (const o of [{ focused: true }, { enabled: false }, { permission: 'denied' as const }]) {
+    resetAll();
+    setup(o);
+    putList(item('b', fresh({ replies: ['m1'] })));
+    putList(item('b', fresh({ replies: ['m1', 'm2'] })));
+    expect(FakeNotification.made, JSON.stringify(o)).toHaveLength(0);
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+  }
+});
+
+/** 開いている（トピックの取得を見ている）トピック：取得の結果は、`data.current[slug]` */
+function Open({ slug, data }: { slug: string; data: { current: Record<string, ReturnType<typeof state>> } }) {
+  useQuery({
+    queryKey: topicKey(slug),
+    queryFn: async () => data.current[slug] as ReturnType<typeof state>,
+    staleTime: 0,
+  });
+  return null;
+}
+const flush = () => act(async () => void (await new Promise((r) => setTimeout(r, 0))));
+
+test('開いているトピックは、一覧の経路から除く：二重に通知しない（トピックの取得の経路だけで、1 回）。閉じて開き直すと、一覧の経路が見る', async () => {
+  setup();
+  const data = { current: { demo: state([ai('a1')]) } };
+  const opened = renderWithClient(<Open slug="demo" data={data} />);
+  await flush(); // トピックの取得：ベースライン
+  putList(item('demo', fresh({ replies: ['a1'] })));
+  // 返信 a2 が届く：一覧の更新が先・トピックの取得が後（逆でも同じ）
+  putList(item('demo', fresh({ replies: ['a1', 'a2'] }), { rev: 2 }));
+  expect(FakeNotification.made).toHaveLength(0); // 一覧の経路は、開いているトピックを見ない
+  data.current.demo = state([ai('a1'), ai('a2')], 1, 2);
+  await act(async () => void (await queryClient.invalidateQueries({ queryKey: topicKey('demo') })));
+  expect(bodies()).toEqual([['rikai-demo', '猫の資料：AI から返信が届きました（返信 1）']]); // 1 回だけ
+  // 一覧が、もう一度、同じ内容で届く：二重にならない
+  putList(item('demo', fresh({ replies: ['a1', 'a2'] }), { rev: 3 }));
+  expect(FakeNotification.made).toHaveLength(1);
+  // 別のトピックへ移る（取得を見なくなる）：一覧の経路が、このトピックを見る。前回（全体）との差だけ
+  opened.unmount();
+  putList(item('demo', fresh({ replies: ['a1', 'a2', 'a3'] }), { rev: 4 }));
+  expect(FakeNotification.made).toHaveLength(2);
+  expect(FakeNotification.made[1]?.options.body).toBe('demo の資料：AI から返信が届きました（返信 2）'); // 画面を見ていない間の累計（先の 1 ＋ 今回の 1）
+});
+
+test('トピックの切り替えの競合：切り替えの瞬間に届いた一覧・取得で、二重にも洩れにもならない。開いたトピックは、取得で、ベースラインを取り直す（一覧の窓とは、比べない）', async () => {
+  setup();
+  const data = { current: { demo: state([ai('a1')]), other: state([ai('o1')]) } };
+  // other の資料の題を使うため、別の meta
+  data.current.other = topicState({
+    rev: 1,
+    meta: meta({
+      slug: 'other',
+      title: '別の資料',
+      pages: { root: { title: 'R', parent: null, versions: 1, createdAt: '' } },
+    }),
+    threads: [thread({ id: 'o', messages: [msg({ sent: true }), ai('o1')] })],
+  });
+  const first = renderWithClient(<Open slug="demo" data={data} />);
+  await flush();
+  putList(item('demo', fresh({ replies: ['a1'] })), item('other', fresh({ replies: ['o1'] })));
+  // demo → other へ：other の取得を見始める（取得の結果は、o2 まで進んでいる：一覧の前回は、o1）。その間に、一覧が届く
+  data.current.other = topicState({
+    rev: 2,
+    meta: meta({
+      slug: 'other',
+      rev: 2,
+      title: '別の資料',
+      pages: { root: { title: 'R', parent: null, versions: 1, createdAt: '' } },
+    }),
+    threads: [thread({ id: 'o', messages: [msg({ sent: true }), ai('o1'), ai('o2')] })],
+  });
+  const second = renderWithClient(<Open slug="other" data={data} />);
+  putList(
+    item('demo', fresh({ replies: ['a1', 'a2'] }), { rev: 2 }), // demo：まだ取得を見ている（first が生きている）→ 一覧の経路は、見ない
+    item('other', fresh({ replies: ['o1', 'o2'] }), { rev: 2 }), // other：取得を見ている → 一覧の経路は、見ない
+  );
+  first.unmount();
+  await flush(); // other の取得：一覧から取得への切り替え → ベースライン（o2 を、新着にしない）
+  expect(bodies()).toEqual([]);
+  putList(
+    item('demo', fresh({ replies: ['a1', 'a2'] }), { rev: 3 }),
+    item('other', fresh({ replies: ['o1', 'o2'] }), { rev: 3 }),
+  );
+  expect(bodies()).toEqual([['rikai-demo', 'demo の資料：AI から返信が届きました（返信 1）']]); // demo（もう開いていない）：1 回。other は、出ない
+  // 開いた other に、次の返信 o3：取得の経路で、1 回
+  data.current.other = topicState({
+    rev: 3,
+    meta: meta({
+      slug: 'other',
+      rev: 3,
+      title: '別の資料',
+      pages: { root: { title: 'R', parent: null, versions: 1, createdAt: '' } },
+    }),
+    threads: [thread({ id: 'o', messages: [msg({ sent: true }), ai('o1'), ai('o2'), ai('o3')] })],
+  });
+  await act(async () => void (await queryClient.invalidateQueries({ queryKey: topicKey('other') })));
+  expect(bodies()[1]).toEqual(['rikai-other', '別の資料：AI から返信が届きました（返信 1）']);
+  second.unmount();
+});
+
+test('一覧の窓（fresh.window）：窓が広がったトピックは、ベースライン（古い ID が、新しく窓に入っても、新着にしない）。狭まるだけなら、古い ID が窓から消えるだけ。窓いっぱいの新着は、「以上」', () => {
+  setup();
+  const win = (ids: string[], window: number) => item('b', fresh({ replies: ids, window }));
+  const ids = (a: number, b: number, p = 'r') => Array.from({ length: b - a + 1 }, (_, i) => `${p}${a + i}`);
+  putList(win(ids(11, 20), 10)); // 窓 10：r11〜r20
+  putList(win(ids(15, 20), 6)); // 狭まる（トピックが増えた）：窓から、古い ID が消えるだけ
+  expect(FakeNotification.made).toHaveLength(0);
+  putList(win(ids(11, 20), 10)); // 広がる（トピックが減った）：r11〜r14 が、新しく窓に入る：新着ではない（ベースライン）
+  expect(FakeNotification.made).toHaveLength(0);
+  putList(win(ids(12, 21), 10)); // 本当の新着 r21
+  expect(bodies()).toEqual([['rikai-b', 'b の資料：AI から返信が届きました（返信 1）']]);
+  // 窓いっぱい（10 件）が、すべて新着：「10 以上」。さらに累計
+  putList(win(ids(22, 31), 10));
+  expect(FakeNotification.made[1]?.options.body).toBe('b の資料：AI から返信が届きました（返信 11 以上）');
+});
+
+test('閉じたトピックは、記憶を消す：ベースラインにしてから、閉じて、開き直したあとは、閉じている間に増えた分を、新着にしない（誤通知なし）。次の新着は、正しく出る', () => {
+  setup();
+  putList(item('b', fresh({ replies: ['m1'] })));
+  putList(item('b', fresh({ replies: ['m1'] }), { closed: true }));
+  putList(item('b', fresh({ replies: ['m1', 'm2', 'm3'] }))); // 開き直した：ベースライン（閉じている間の分は、新着にしない）
+  expect(FakeNotification.made).toHaveLength(0);
+  putList(item('b', fresh({ replies: ['m1', 'm2', 'm3', 'm4'] })));
+  expect(bodies()).toEqual([['rikai-b', 'b の資料：AI から返信が届きました（返信 1）']]);
 });

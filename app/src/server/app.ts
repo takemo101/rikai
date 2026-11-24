@@ -11,6 +11,7 @@ import { type Context, Hono, type MiddlewareHandler } from 'hono';
 import { HTTPException } from 'hono/http-exception';
 import { streamSSE } from 'hono/streaming';
 import { apiBodies, topicQuery } from '../shared/api';
+import { FRESH_TOPICS_MAX, freshWindow } from '../shared/fresh';
 import type { PageInfo } from '../shared/types';
 import type { Actions } from './actions';
 import { createAppFrames } from './appframe';
@@ -199,25 +200,38 @@ export function createApp(opts: AppOptions) {
   // 読み取りの API と、画面からの操作（POST）。パスは、/api の下（hc の型は、ここから）
   const api = new Hono()
     .get('/ping', (c) => c.json({ ok: true as const, root: store.root }, 200, JSON_HEADERS))
-    .get('/topics', (c) =>
-      c.json(
-        store.listTopics().map((m) =>
-          isSupported(m)
-            ? {
-                slug: m.slug,
-                title: m.title,
-                closed: !!m.closed,
-                pending: (m.pending || []).length,
-                rev: m.rev,
-                progress: store.progressOrNull(m.slug),
-                unsupported: false as const,
-              }
-            : { slug: m.slug, title: topicTitle(m), unsupported: true as const },
-        ),
+    .get('/topics', (c) => {
+      // fresh（新着の判定に使う ID。F46）：通知の対象（閉じていない・読める形式）の**すべてに**付ける。窓（各項目の上限）は、対象の数で割った大きさ（`fresh.window`。画面が、窓の変化を見分ける）。
+      // 対象が `FRESH_TOPICS_MAX` を超えるときだけ、予算を超える：更新が新しいトピックから順に、その数だけ付ける
+      const metas = store.listTopics();
+      const targets = metas.filter((m) => isSupported(m) && !m.closed);
+      const window = freshWindow(targets.length);
+      const withFresh = new Set(
+        (targets.length > FRESH_TOPICS_MAX
+          ? [...targets].sort((x, y) => store.updatedAt(y.slug) - store.updatedAt(x.slug)).slice(0, FRESH_TOPICS_MAX)
+          : targets
+        ).map((m) => m.slug),
+      );
+      return c.json(
+        metas.map((m) => {
+          if (!isSupported(m)) return { slug: m.slug, title: topicTitle(m), unsupported: true as const };
+          const sum = store.summaryOrNull(m, window);
+          const fresh = sum && withFresh.has(m.slug) ? sum.fresh : undefined;
+          return {
+            slug: m.slug,
+            title: m.title,
+            closed: !!m.closed,
+            pending: (m.pending || []).length,
+            rev: m.rev,
+            progress: sum?.progress ?? null,
+            ...(fresh ? { fresh } : {}),
+            unsupported: false as const,
+          };
+        }),
         200,
         JSON_HEADERS,
-      ),
-    )
+      );
+    })
     // since：画面が、前に受け取った rev。同じなら、`{ unchanged: true }` だけを返す（型のための Zod。読み取りは、下で、旧と同じに）
     .get(
       '/topic/:slug',

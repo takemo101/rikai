@@ -1,18 +1,10 @@
 // 右のパネルの、純粋な判定（React・ストアに触れない）。旧 app.js の threadStatus・askDraftValid・askStale・renderThread の折りたたみ・composerSlot・renderDoneRow・画像の検査と同じ。
+import { answerOf, askStale } from '../../shared/fresh';
 import type { Ask, Message, Thread } from '../../shared/types';
 import { trunc } from '../lib/dom';
 import type { AskDraft } from '../store/ui';
 
 type Msgs = Pick<Thread, 'messages'>;
-
-/** 質問 q への、いちばん新しい回答（なければ null） */
-export function answerOf(t: Msgs, q: Pick<Message, 'id'>): Message | null {
-  for (let i = t.messages.length - 1; i >= 0; i--) {
-    const m = t.messages[i];
-    if (m && m.kind === 'answer' && m.to === q.id) return m;
-  }
-  return null;
-}
 
 /** 回答（kind が answer）は、質問の下の入力欄で見せるので、メッセージの列からは除く */
 export const shownMessages = (t: Msgs): Message[] => t.messages.filter((m) => m.kind !== 'answer');
@@ -61,16 +53,6 @@ export function askDraftValid(ask: Ask, d: AskDraft | null | undefined): boolean
     default:
       return !!(d.text ?? '').trim();
   }
-}
-
-/**
- * 答えないまま、会話が進んだ質問（あとに、**送信した**利用者の発言がある。別の質問への回答は、数えない）。
- * もう、答えを求めない：小さく見せて、「答える」で開く（答えたければ、答えられる）
- */
-export function askStale(t: Pick<Thread, 'resolved' | 'messages'>, q: Message): boolean {
-  if (answerOf(t, q) || t.resolved) return false;
-  const i = t.messages.findIndex((x) => x.id === q.id);
-  return t.messages.slice(i + 1).some((m) => m.author === 'user' && m.sent && m.kind !== 'answer');
 }
 
 // ---- 回答の下書きの更新（保存した回答や、前の下書きを、書き換えず、作り直す） ----

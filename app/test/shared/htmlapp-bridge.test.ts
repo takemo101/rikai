@@ -14,6 +14,7 @@ import {
   SNAPSHOT_MAX_CHARS,
   STATE_MAX_BYTES,
   STYLE_KEYS,
+  STYLE_VALUE_MAX,
   snapshotId,
 } from '../../src/shared/htmlapp-bridge';
 import type { FrameMeta } from '../../src/shared/types';
@@ -75,7 +76,7 @@ test('pick：不正は、全体を捨てる（型違い・長すぎる・NaN・�
     pick({ rect: [1, 2, 3, 4] }),
     pick({ styles: { content: 'x' } }),
     pick({ styles: { color: 1 } }),
-    pick({ styles: { color: 'x'.repeat(81) } }),
+    pick({ styles: { color: 'x'.repeat(301) } }),
     pick({ styles: { 'background-image': 'url(https://evil.example/x.png)' } }),
     pick({ styles: JSON.parse('{"__proto__":{"color":"red"}}') }),
     pick({ styles: Object.fromEntries(Array.from({ length: 30 }, (_, i) => [`k${i}`, 'x'])) }),
@@ -204,7 +205,7 @@ test('frameMeta：不正は、全体を捨てる（理由つき。値は、理�
     { pick: { ...fields, rect: { x: 0, y: 0, w: -1, h: 1 } } },
     { pick: { ...fields, frame: { w: Number.NaN, h: 1 } } },
     { pick: { ...fields, styles: { 'x-evil': 'a' } } },
-    { pick: { ...fields, styles: { color: 'x'.repeat(81) } } },
+    { pick: { ...fields, styles: { color: 'x'.repeat(301) } } },
     { pick: { ...fields, styles: { color: 5 } } },
     { pick: { ...fields, styles: JSON.parse('{"__proto__":"x"}') } },
     { state: { a: 1 } }, // 文字列（JSON）でなければ、断る：parseState の出力と同じ形
@@ -619,4 +620,24 @@ test('parseEsc：{ __rikai: 1, type: "esc" } だけ。余分なキー・型違�
     42,
   ])
     expect(parseEsc(bad), JSON.stringify(bad)).toBe(false);
+});
+
+test('見た目の値の上限は 300 字（font-family などが切れない）。301 字は、pick ごと捨てる（これまでどおり）。text 80・selector 200 は、そのまま', () => {
+  const long = (n: number) => 'F'.repeat(n);
+  expect(STYLE_VALUE_MAX).toBe(300);
+  expect(parsePick(pick({ styles: { 'font-family': long(300) } }))?.styles['font-family']).toHaveLength(300);
+  expect(parsePick(pick({ styles: { 'font-family': long(301) } }))).toBeNull();
+  expect(parsePick(pick({ text: 'x'.repeat(81) }))).toBeNull();
+  expect(parsePick(pick({ selector: 'a'.repeat(201) }))).toBeNull();
+  // 20 個の許可リストのキーが、すべて 300 字でも、frameMeta の 16KB に収まる（約 6KB）
+  const all = Object.fromEntries(STYLE_KEYS.map((k) => [k, long(300)]));
+  const p = picked({ styles: all });
+  const r = meta({ pick: p, state: JSON.stringify({ a: 'x'.repeat(900) }) });
+  expect(r.ok).toBe(true);
+  expect(JSON.stringify(okMeta({ pick: p }).pick).length).toBeLessThan(7000);
+  // 保存した形（見える化のあと）も、300 字（見える形は 1 字と数える）で測る：300 字ぴったりのゼロ幅文字は通り、301 字は断る
+  const zw = (n: number) => '\u200B'.repeat(n);
+  const stored = okMeta({ pick: picked({ styles: { color: zw(300) } }) });
+  expect(okMeta(stored)).toEqual(stored);
+  expect(meta({ pick: { ...stored.pick, styles: { color: `${stored.pick?.styles.color}\\u200B` } } }).ok).toBe(false);
 });
