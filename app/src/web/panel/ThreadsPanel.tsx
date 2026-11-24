@@ -1,6 +1,6 @@
 // 右のパネル（`<aside id="threads">`）：見出し・切り替え（進行中・解決済み・すべて）・固定の上部・新しいコメントの入力欄・スレッドのカード・解決済みの 1 行・
-// 番号で 1 枚だけ見る（solo）。ライトボックス（`#lightbox`）も、ここが出す（旧 index.html の置き場）。
-// 描き直しても、入力欄のフォーカス・選択範囲・パネルのスクロールは、そのまま：カードは、キーで、同じ DOM を使い回す（旧は、毎回、作り直して、戻していた）。
+// 番号で 1 枚だけ見る（solo）。ライトボックス（`#lightbox`）も、ここが出す。
+// 描き直しても、入力欄のフォーカス・選択範囲・パネルのスクロールは、そのまま：カードは、キーで、同じ DOM を使い回す。
 // 入力欄が、並びの中で動いても、React が、フォーカスと選択範囲を、戻す。スクロールの位置は、ここ（useKeepScroll）が、戻す。
 
 import { ArrowLeft, ChevronRight, Spline } from 'lucide-react';
@@ -34,8 +34,10 @@ import { type PanelActions, PanelContext, usePanel } from './panelContext';
 import { ThreadCard } from './ThreadCard';
 import { preventFileDropOutside } from './useImageAttach';
 
-const EMPTY_HINT =
-  '本文の文を選ぶと「コメント」が出ます。ブロックにマウスを置くと出るバーの「コメント」でも、付けられます。本文の好きな範囲は、右下の「範囲を選ぶ」から、ドラッグで選べます。';
+/** コメントがまだないときの案内：要点は 2 行（文を選ぶ・ブロックにマウスを置く）。ほかの付け方（範囲）は、畳む */
+const EMPTY_HINT = '本文の文を選ぶと「コメント」が出ます。';
+const EMPTY_HINT_BLOCK = '図や表は、マウスを置くと出る「コメント」から。';
+const EMPTY_HINT_MORE = '右下の「範囲を選ぶ」から、本文の好きな範囲を、ドラッグで選んでも、コメントできます。';
 
 export function ThreadsPanel({ view }: ThreadsPanelProps) {
   const panelRef = useRef<HTMLElement>(null);
@@ -58,7 +60,7 @@ export function ThreadsPanel({ view }: ThreadsPanelProps) {
     setScrollReq(null);
   });
 
-  // 本文から選ばれた（番号・強調を押した：呼ぶ側は、ストアの focusThread だけ）ときも、カードを、見える所へ（旧の focusThread は、押すたびに）。
+  // 本文から選ばれた（番号・強調を押した：呼ぶ側は、ストアの focusThread だけ）ときも、カードを、見える所へ。
   // 連番で見る：選んでいるものを、もう一度選んでも、戻す。カードの見出しを押したときは、動かすのは、本文：カードは、動かさない
   const focusSeq = useUi((s) => s.focusSeq);
   const docFocus = useRef<{ tid: string; at: number } | null>(null);
@@ -121,7 +123,7 @@ export function ThreadsPanel({ view }: ThreadsPanelProps) {
 
   return (
     <PanelContext.Provider value={actions}>
-      {/* biome-ignore lint/a11y/useKeyWithClickEvents: サムネイルの画像の押下を、パネル全体で受ける（旧と同じ。画像は、押す前提のマウス操作） */}
+      {/* biome-ignore lint/a11y/useKeyWithClickEvents: サムネイルの画像の押下を、パネル全体で受ける（画像は、押す前提のマウス操作） */}
       <aside id="threads" ref={panelRef} onClick={openLightboxOnImage} onMouseDown={noteMouseDown}>
         {view ? <Threads view={view} panelRef={panelRef} /> : null}
       </aside>
@@ -144,7 +146,7 @@ function openLightboxOnImage(e: MouseEvent<HTMLElement>): void {
   if (body) zoomOnClick(e.nativeEvent, body);
 }
 
-// ---- スクロールの位置を戻す（旧 renderThreads の、描き直しの前後） ----
+// ---- スクロールの位置を戻す（描き直しの前後） ----
 
 /**
  * 描くとき（DOM が、まだ前のまま）に、パネルのスクロールの位置を覚え、描いたあとに戻す。
@@ -168,7 +170,7 @@ function useModelFor(view: View): DocModel | null {
   return model && model.key === view.key ? model : null;
 }
 
-// memo：選んだ・カードへ動かす（ThreadsPanel の状態）だけでは、描き直さない（見たものの一覧は、描き直すときの値のまま：旧と同じ）
+// memo：選んだ・カードへ動かす（ThreadsPanel の状態）だけでは、描き直さない（見たものの一覧は、描き直すときの値のまま）
 const Threads = memo(function Threads({ view, panelRef }: { view: View; panelRef: RefObject<HTMLElement | null> }) {
   useKeepScroll(panelRef);
   const model = useModelFor(view);
@@ -205,8 +207,8 @@ const Threads = memo(function Threads({ view, panelRef }: { view: View; panelRef
         id="links-toggle"
         type="button"
         className="iconbtn"
-        title="関連の線：コメントと、本文の対象を、線で結ぶ"
-        aria-label="関連の線を出す"
+        title={`関連の線（いま：${links ? 'オン' : 'オフ'}）：コメントと、本文の対象を、線で結ぶ。押すと、${links ? '隠します' : '出します'}`}
+        aria-label="関連の線"
         aria-pressed={links}
         onClick={() => useUi.getState().toggleLinks()}
       >
@@ -235,7 +237,12 @@ const Threads = memo(function Threads({ view, panelRef }: { view: View; panelRef
     if (!list.length && !composer)
       body.push(
         <div className="empty" key="empty">
-          {EMPTY_HINT}
+          <p>{EMPTY_HINT}</p>
+          <p>{EMPTY_HINT_BLOCK}</p>
+          <details className="empty-more">
+            <summary>ほかの付け方</summary>
+            <p>{EMPTY_HINT_MORE}</p>
+          </details>
         </div>,
       );
     if (list.length) {
@@ -341,7 +348,7 @@ function DoneRow({ thread: t, num }: { thread: Thread; num: number | undefined }
       data-tid={t.id}
       title="押すと、このコメントが開きます"
       onClick={() => {
-        // 開いて、描いてから、選ぶ（見たことにする）：開いた直後の発言に、「新着」の印が、残る（旧と同じ順）
+        // 開いて、描いてから、選ぶ（見たことにする）：開いた直後の発言に、「新着」の印が、残る
         flushSync(() => setRowOpen(t.id, true));
         focusThread(t.id, false);
       }}

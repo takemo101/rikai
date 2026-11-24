@@ -207,15 +207,11 @@ test('ページを移ると閉じる（子ページ・別のトピック）。�
   await waitFor(() => expect(document.getElementById('compare')).toBeNull());
 });
 
-test('版が 1 つのページ：押せない（aria-disabled・理由）。押すと、理由が出て、開かない', async () => {
+// 旧：破線の押せないボタンを出し、押すと理由のトースト（F44 (1)）。比べる相手がないので、出さない（RIK-055。UX の分析 P8）
+test('版が 1 つのページ：「並べて比べる」を出さない。開けない', async () => {
   server(1);
   await openApp();
-  const b = byId('btn-compare');
-  expect(b).toHaveAttribute('aria-disabled', 'true');
-  expect(b).toHaveAttribute('title', expect.stringContaining('版が 2 つ以上'));
-  expect(b).toHaveAccessibleDescription(expect.stringContaining('版が 2 つ以上'));
-  fireEvent.click(b);
-  await waitFor(() => expect(byId('toast')).toHaveTextContent('版が 2 つ以上になると'));
+  expect(document.getElementById('btn-compare')).toBeNull();
   expect(useUi.getState().compare).toBeNull();
   expect(document.getElementById('compare')).toBeNull();
   expect(useUi.getState().openCompare()).toBe(false);

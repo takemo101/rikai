@@ -134,6 +134,23 @@ test('画面：URL の合言葉を Cookie に移す（属性・名前）。画�
   assert.match(await page.text(), /<title>rikai<\/title>/);
 });
 
+test('画面の配布物（index.html・assets/*・favicon.svg）は、すべて no-store：ファイル名にハッシュを付けない前提（古いものが、ブラウザに残らない）', async () => {
+  const cookie = { Cookie: `rikai_t_${PORT}=${TOKEN}` };
+  const css = fs.readdirSync(path.join(PUBLIC_DIR, 'assets')).find((f) => f.endsWith('.css'));
+  assert.ok(css, 'assets/ に CSS がある');
+  for (const [url, headers] of [
+    ['/', cookie],
+    [builtAsset(), {}],
+    [`/assets/${css}`, {}],
+    ['/favicon.svg', {}],
+    ['/assets/theme-init.js', {}],
+    ['/assets/nothing.js', {}], // 404 も
+  ] as const) {
+    const r = await call(url, { headers });
+    assert.equal(r.headers.get('cache-control'), 'no-store', `${url}（${r.status}）`);
+  }
+});
+
 test('静的ファイル・画像：パスの外へ出ない。画像は sandbox', async () => {
   assert.equal((await call(builtAsset())).status, 200);
   assert.equal((await call('/favicon.svg')).status, 200);

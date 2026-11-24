@@ -1,7 +1,0 @@
-/* Tailwind v4：theme と utilities だけ。preflight は入れない（旧 CSS の app.css が崩れるため）。
-   utilities を探すのは、src/web の中だけ（server・test の文字を、クラス名と見なして、拾わないように）。
-   utilities は、`tw:` の接頭辞つき（`tw:flex` など）。資料（AI が書いた HTML）の class は、無害化を通る：接頭辞がないと、`<div class="hidden">` が、画面のクラスに当たってしまう。
-   app.css は、layer に入れない（layer のないスタイルが、いつも勝つので、旧の見た目が、そのまま保たれる） */
-@layer theme, utilities;
-@import "tailwindcss/theme.css" layer(theme) prefix(tw);
-@import "tailwindcss/utilities.css" layer(utilities) prefix(tw) source("..");

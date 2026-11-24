@@ -7,6 +7,7 @@ import type { Anchor, Rect } from '../../shared/types';
 import { requestFrameSnapshot } from '../doc/appBridge';
 import { blockAnchor, frameOf } from '../doc/render/blocks';
 import { $, $$, trunc } from '../lib/dom';
+import { RANGE_TOO_SMALL } from '../lib/messages';
 import { getView } from '../lib/view';
 import type { Size } from '../lib/zoom';
 import { toast, useUi } from '../store/ui';
@@ -69,7 +70,7 @@ export function finishRegion(vr: ViewportRect, deps: RegionDeps): void {
   const fr = frame.getBoundingClientRect();
   const rect = ratioRect(vr, fr);
   if (!rect) {
-    toast('範囲が小さすぎます。ドラッグで、範囲を選んでください', true);
+    toast(RANGE_TOO_SMALL, true);
     return;
   }
   // 範囲が、1 つの画像・図の中に収まるなら、元の解像度から切り出す。そうでなければ、表示されている本文を、画像にする

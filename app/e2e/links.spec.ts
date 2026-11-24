@@ -378,14 +378,16 @@ test.describe('関連の線（F35）', () => {
     await expect(paths(page)).toHaveCount(2);
   });
 
-  test('トグル：右のパネルの見出し（「コメント」の右端）の「関連の線を出す」ボタンで、消える・出る。再読み込みしても残る', async ({
+  test('トグル：右のパネルの見出し（「コメント」の右端）の「関連の線」ボタンで、消える・出る。再読み込みしても残る', async ({
     page,
     app,
   }) => {
     await openLong(page, app, [3, 4]);
-    const toggle = page.getByRole('button', { name: '関連の線を出す' });
-    await expect(ui(page).panel.locator('.panel-top').getByRole('button', { name: '関連の線を出す' })).toHaveCount(1);
-    await expect(ui(page).docbar.getByRole('button', { name: '関連の線を出す' })).toHaveCount(0);
+    const toggle = page.getByRole('button', { name: '関連の線', exact: true });
+    await expect(
+      ui(page).panel.locator('.panel-top').getByRole('button', { name: '関連の線', exact: true }),
+    ).toHaveCount(1);
+    await expect(ui(page).docbar.getByRole('button', { name: '関連の線', exact: true })).toHaveCount(0);
     await expect(toggle).toHaveAttribute('aria-pressed', 'true');
     await toggle.click();
     await expect(page.locator('svg#links')).toHaveCount(0);
@@ -505,6 +507,7 @@ test.describe('関連の線（F35）', () => {
     await app.switchTopic(page, 'wrap', '折り返しの資料', `# 折り返しの資料\n\n${long}あとに続く短い文です。\n`);
     await app.apply({ threads: [{ page: 'root', anchor: { quote: long }, body: '確認です。' }] }, { topic: 'wrap' });
     await expect(ui(page).threads).toHaveCount(1);
+    await expect(page.locator('#links path[data-tid]')).toBeAttached(); // 線は、カードが出たあと、測ってから描かれる：待ってから測る
     const r = await page.evaluate(() => {
       const marks = [...document.querySelectorAll<HTMLElement>('#article mark.hl')];
       const rects = marks.flatMap((m) => [...m.getClientRects()]);

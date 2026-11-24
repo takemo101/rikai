@@ -2,7 +2,7 @@
 // 光らせるのは、`.linked` クラス。光っているスレッドは、`useUi` の `linkedTid`。
 //   - 本文（`#article`）にマウスを置く → `setLinked`＋右のカードを見える所へ（入力欄を開いている間は、動かさない）
 //   - 右のカード（`#threads`）にマウスを置く → `setLinked`
-//   - 番号・範囲の枠（`#badges`）にマウスを置く → W1 の overlay が `setLinked` する
+//   - 番号・範囲の枠（`#badges`）にマウスを置く → `overlay/` が `setLinked` する
 //   - `linkedTid` が変わる・本文が描き直される・層（番号・カード）が置き直される → `.linked` を付け直す（置き直されても、光ったまま）
 import { articleTid } from '../doc/hit';
 import { locEl, type ThreadLoc, useDoc } from '../store/doc';

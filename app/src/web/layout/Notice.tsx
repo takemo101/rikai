@@ -7,7 +7,7 @@ export function Notice({ text }: { text: string }) {
   );
 }
 
-/** 案内の文言（旧 app.js の route と同じ） */
+/** 案内の文言 */
 export const NOTICE = {
   noTopics: 'トピックがありません。/rikai で資料を作ってください。',
   onlyUnsupported: '読めるトピックがありません（新しい形式のトピックだけです）。rikai を更新してください。',

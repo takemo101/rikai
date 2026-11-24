@@ -1,4 +1,4 @@
-// コメントの位置づけと、本文の強調（旧 app.js の `applyHighlights`・`markPending`）。
+// コメントの位置づけと、本文の強調。
 // 文：`findQuote` → `mark.hl[data-tid]`。ブロック：`locateBlock` → `.blk-thread[data-tid]`。近似は `approx`。
 // 番号の印は、本文の中に入れない（コメントの位置づけに使う本文の文字を、変えない。`overlay/`）。
 import { findQuote, locateBlock } from '../../../shared/anchor';

@@ -1,9 +1,7 @@
-// 画面の状態（旧 app.js の `S` と、モジュールの `let` のうち、サーバーの状態でないもの）。サーバーの状態は、api/queries.ts（TanStack Query）。
+// 画面の状態。サーバーの状態は、api/queries.ts（TanStack Query）。
 // **書き込みは、ここの関数だけ**（部品が、状態を直接書き換えない）。値は、書き換えず、作り直す（selector で、変化を見分けるため）。
 // localStorage：`rikai-seen`（seen）・`rikai-ui`（ui）。読み書きは lib/storage.ts。
 //
-// 旧の `S` との対応：composer・active・showChanges・drafts・imgGen・uploading・editing・seen・olderOpen・askOpen・tab・rowOpen・solo は、同じ名前。
-// 旧の `linkedTid`（モジュールの let）・`regState`（範囲を選んでいる間）・`S.regDrag` は、linkedTid・regMode・regDrag。
 // サーバーの状態（topics・topic・md・offline・error）と、導出（page・version）は、ここにない（queries.ts・lib/view.ts）。
 // 本文の DOM を指すもの（locs・nums・approx・pendingEl・regions・blkBadges…）は、store/doc.ts の DocModel。
 import { create } from 'zustand';
@@ -193,7 +191,7 @@ export interface UiActions {
   removeFrameMeta: () => void;
   /** 入力欄を閉じる（やめる・送った・別のページへ移った）：対象・書きかけの文・画像を消し、画像の世代を進める */
   closeComposer: () => void;
-  /** 対象だけを、閉じる（書きかけの文・画像は、残す。ページ内のリンクを押したとき：旧と同じ） */
+  /** 対象だけを、閉じる（書きかけの文・画像は、残す。ページ内のリンクを押したとき） */
   dropComposerTarget: () => void;
   /** 範囲の切り出し画像を、付けた。入力欄が、同じもの（id）のときだけ */
   setComposerRegionImg: (composerId: number, name: string) => void;
@@ -623,5 +621,5 @@ export const useUi = create<UiStore>()((set, get) => {
   };
 });
 
-/** React の外から、トーストを出す（旧 `toast()`） */
+/** React の外から、トーストを出す */
 export const toast = (msg: string, err = false): void => useUi.getState().showToast(msg, err);

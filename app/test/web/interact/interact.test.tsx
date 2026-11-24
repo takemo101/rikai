@@ -6,8 +6,9 @@ import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 import { topicKey } from '../../../src/web/api/queries';
 import { queryClient } from '../../../src/web/api/queryClient';
 import { markBlocks } from '../../../src/web/doc/render/blocks';
-import { handleEscape, Interact } from '../../../src/web/interact/Interact';
+import { Interact } from '../../../src/web/interact/Interact';
 import * as region from '../../../src/web/interact/region';
+import { escapeStep } from '../../../src/web/lib/escape';
 import { parseHash } from '../../../src/web/lib/route';
 import { buildView, type View } from '../../../src/web/lib/view';
 import { dispatchAdjust } from '../../../src/web/overlay/regionAdjust';
@@ -182,7 +183,7 @@ test('枠の外を押す・窓の大きさが変わる・Esc：やめる', () =>
   expect(ui().regMode).toBe('selecting');
 });
 
-test('Esc の順：範囲選択 → ドラッグ中（W1 に任せる）→ ライトボックス', () => {
+test('Esc の順：範囲選択 → ドラッグ中（overlay に任せる）→ ライトボックス', () => {
   mountDoc(viewOf(1));
   ui().openLightbox('/asset/x.png');
   ui().setRegMode('selecting');
@@ -190,15 +191,15 @@ test('Esc の順：範囲選択 → ドラッグ中（W1 に任せる）→ ラ�
   expect(ui().regMode).toBe('idle');
   expect(ui().lightbox).toMatchObject({ kind: 'img', src: '/asset/x.png' }); // 同じ Esc で、ライトボックスまでは、閉じない
   ui().setRegDrag(true);
-  expect(handleEscape()).toBe(true);
+  expect(escapeStep()).toBe(true);
   expect(ui().lightbox).toMatchObject({ kind: 'img', src: '/asset/x.png' });
   ui().setRegDrag(false);
   fireEvent.keyDown(document, { key: 'Escape' });
   expect(ui().lightbox).toBeNull();
-  expect(handleEscape()).toBe(false);
+  expect(escapeStep()).toBe(false);
 });
 
-test('枠の調整（F31）：W1 の adjust イベントで finishRegion（調整後の矩形）', () => {
+test('枠の調整（F31）：overlay の adjust イベントで finishRegion（調整後の矩形）', () => {
   mountDoc(viewOf(1));
   dispatchAdjust({ left: 120, top: 100, width: 200, height: 60 });
   expect(vi.mocked(region.finishRegion).mock.calls[0]?.[0]).toEqual({ left: 120, top: 100, width: 200, height: 60 });

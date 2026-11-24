@@ -7,6 +7,7 @@ import {
   firstTarget,
   openAsksOf,
   showsTurn,
+  submitOffReason,
   TITLE_MAX,
   turnCount,
   turnDetail,
@@ -193,4 +194,18 @@ test('切り詰めは、コードポイント単位：絵文字（サロゲー�
   expect([...trunc(comb, 40)].length).toBe(40);
   // 家族の絵文字（ZWJ 連結）：コードポイントで切る（孤立したサロゲートは、出ない）
   expect(trunc('👨‍👩‍👧‍👦'.repeat(20), 40)).not.toMatch(lone);
+});
+
+test('Submit が押せない理由：未送信なら null。終了・AI の返信待ち・コメントなし・ほかの状態ごとに、別の文。トピックがなければ、その旨', () => {
+  const mine = [T('t1', [ai('a1')])];
+  expect(submitOffReason(turn(mine, { unsent: 2 }))).toBeNull();
+  expect(submitOffReason(turn(mine, { closed: true }))).toContain('終了');
+  expect(submitOffReason(turn(mine, { pending: 1 }))).toContain('AI の返信を待っています');
+  expect(submitOffReason(turn([]))).toContain('コメントを書くと、送れます');
+  for (const t of [turn(mine), turn(mine, { seen: new Set(['a1']) }), turn([T('t1', [ai('a1')], { resolved: true })])])
+    expect(submitOffReason(t)).toContain('未送信のものがありません'); // あなたの番・未解決・すべて解決：送るものがない
+  expect(submitOffReason(null)).toContain('トピックがありません');
+  // どの理由も、空でない・互いに違う（押せない理由が、状態ごとに言い分けられる）
+  const all = [turn(mine, { closed: true }), turn(mine, { pending: 1 }), turn([]), turn(mine)].map(submitOffReason);
+  expect(new Set(all).size).toBe(4);
 });

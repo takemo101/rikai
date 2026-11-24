@@ -1,5 +1,5 @@
 // DocModel：本文（命令的な島）を描いたあとの、「どこに何があるか」。
-// **書くのは Article（W1）だけ**。パネル（W2）・番号の層と範囲の枠（W1 の overlay）・入口のバー（W3）は、読むだけ。
+// **書くのは Article だけ**。パネル・番号の層と範囲の枠（`overlay/`）・入口のバー（`interact/`）は、読むだけ。
 // 本文の DOM は、React が差分更新しない島なので、要素への参照は、ここ経由で受け渡す（古いものは、epoch で見分ける）。
 import { create } from 'zustand';
 import type { Rect } from '../../shared/types';
@@ -53,7 +53,7 @@ export interface DocModel {
   nums: Map<string, number>;
   /** 近い内容・同じ位置のブロックに表示した（本文の文字が変わった）スレッド */
   approx: Map<string, Approx>;
-  /** 入力中の対象（`composer.anchor`）を、本文で強調した要素（旧 `S.pendingEl`）。ないときは null */
+  /** 入力中の対象（`composer.anchor`）を、本文で強調した要素。ないときは null */
   pending: HTMLElement | SVGElement | null;
   /** 差分の件数。差分を出していなければ null */
   diff: DiffSummary | null;
@@ -74,7 +74,7 @@ let epoch = 0;
 /** DocModel.epoch に付ける、単調に増える数 */
 export const nextEpoch = (): number => ++epoch;
 
-/** 本文の順で、スレッドを並べる比較（旧 docOrder）。位置のあるものが先・位置が同じ（または、どちらもない）なら、順を変えない */
+/** 本文の順で、スレッドを並べる比較。位置のあるものが先・位置が同じ（または、どちらもない）なら、順を変えない */
 export function docOrder(model: DocModel | null, a: string, b: string): number {
   const ea = model ? locEl(model.locs.get(a)) : null;
   const eb = model ? locEl(model.locs.get(b)) : null;

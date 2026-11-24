@@ -17,10 +17,10 @@ export const PUBLIC_DIR = path.resolve(
   'public',
 );
 
-/** ビルドした、画面の本体（assets/index-<ハッシュ>.js）のパス。ハッシュは、ビルドのたびに変わるので、探す */
+/** ビルドした、画面の本体（assets/index.js。ファイル名にハッシュは付けない）のパス */
 export function builtAsset(): string {
-  const name = fs.readdirSync(path.join(PUBLIC_DIR, 'assets')).find((f) => /^index-.*\.js$/.test(f));
-  if (!name) throw new Error('skills/rikai/public/assets/index-*.js がない（pnpm run build:web）');
+  const name = fs.readdirSync(path.join(PUBLIC_DIR, 'assets')).find((f) => f === 'index.js');
+  if (!name) throw new Error('skills/rikai/public/assets/index.js がない（pnpm run build:web）');
   return `/assets/${name}`;
 }
 

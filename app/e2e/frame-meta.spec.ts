@@ -1,7 +1,7 @@
 // 枠から取った情報（frameMeta。F45）：実際の API（合言葉つき）への不正な frameMeta・見えない文字・旧い形の（frameMeta なし・本文に見出しと JSON の）コメント・狭い窓。実際の Chrome・本物の枠。資料・コメントは、作り物。
 import type { Locator, Page } from '@playwright/test';
 import { expect, type Json, type RikaiApp, test } from './fixtures';
-import { submitAll, ui } from './ui';
+import { clickUntilPicked, submitAll, ui } from './ui';
 
 const BT = '```';
 const lines = (...l: string[]) => `${l.join('\n')}\n`;
@@ -230,7 +230,7 @@ test.describe('後方互換：旧い形のコメント（frameMeta なし・本�
     await expect(ui(page).threads).toHaveCount(1);
     await page.waitForTimeout(1500); // コメントが届くと、本文（と枠）は描き直される：落ち着いてから、枠を操作する
     await capOf(page).locator('button[data-pick]').click();
-    await frameOf(page).locator('#go').click();
+    await clickUntilPicked(frameOf(page).locator('#go'), ui(page).composer);
     await ui(page).composer.locator('textarea').fill('新しい形');
     await ui(page).composer.getByRole('button', { name: 'コメントを追加' }).click();
     await expect(ui(page).threads).toHaveCount(2);
@@ -252,7 +252,7 @@ test.describe('狭い窓・ライト／ダーク', () => {
       await app.switchTopic(page, `nw-${scheme}`, '狭い窓', DOC);
       await page.waitForTimeout(1200);
       await capOf(page).locator('button[data-pick]').click();
-      await frameOf(page).locator('#go').click();
+      await clickUntilPicked(frameOf(page).locator('#go'), ui(page).composer.locator('.framemeta'));
       const u = ui(page);
       await expect(u.composer.locator('.framemeta')).toBeVisible();
       await openRow(rowOf(u.composer));
@@ -296,7 +296,7 @@ test.describe('本文を書かずに「コメントを追加」', () => {
     await app.switchTopic(page, 'need', '本文', DOC);
     await page.waitForTimeout(1500);
     await capOf(page).locator('button[data-pick]').click();
-    await frameOf(page).locator('#go').click();
+    await clickUntilPicked(frameOf(page).locator('#go'), ui(page).composer.locator('.framemeta'));
     const u = ui(page);
     await expect(u.composer.locator('.framemeta')).toBeVisible();
     await u.composer.getByRole('button', { name: 'コメントを追加' }).click();
@@ -320,8 +320,8 @@ test.describe('本文を書かずに「コメントを追加」', () => {
     await capOf(page).getByRole('button', { name: '個別表示', exact: true }).click();
     await page.waitForTimeout(1800);
     await page.locator('#lightbox button[data-pick]').click();
-    await page.frameLocator('#lightbox iframe.appframe').locator('#go').click();
     const dock = page.locator('#lightbox .fv-dock .thread.composer');
+    await clickUntilPicked(page.frameLocator('#lightbox iframe.appframe').locator('#go'), dock.locator('.framemeta'));
     await expect(dock.locator('.framemeta')).toBeVisible();
     await dock.getByRole('button', { name: 'コメントを追加' }).click();
     await expect(ui(page).toast).toContainText(NEED);

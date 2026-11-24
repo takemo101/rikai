@@ -1,4 +1,4 @@
-// 範囲の枠の調整（F31）：枠の DOM とドラッグは、W1 の overlay が持つ。離したとき、W1 は、`EventTarget`（`overlay/regionAdjust.ts` の `regionAdjustTarget`）に、
+// 範囲の枠の調整（F31）：枠の DOM とドラッグは、`overlay/` が持つ。離したとき、`overlay/` は、`EventTarget`（`overlay/regionAdjust.ts` の `regionAdjustTarget`）に、
 // イベント `adjust`（`detail`：ビューポートの矩形 `{ left, top, width, height }`）を出す。ここで購読して、範囲で、対象・見出し・切り出しの画像を、作り直す（`finishRegion`）。
 import { ADJUST_EVENT } from '../overlay/regionAdjust';
 import type { ViewportRect } from './geometry';

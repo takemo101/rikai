@@ -1,7 +1,6 @@
 // ローカルの HTTP アプリ（Hono）：画面の配信・読み取りの API・画面からの操作（actions）。
 // 合言葉（token）・Host・Origin を確かめる。ストア・合言葉・ポート・操作は、createApp の引数で渡す（モジュールの状態を持たない）。
 // 待ち受け（127.0.0.1・ポート）は serve.ts。ここは、要求を受けて応答を返すだけなので、`app.request()` で、ポートを開かずに試せる。
-// 旧 skills/rikai/lib/server.js の `handler` と、パス・状態コード・ヘッダー・本文・エラーの文言が、同じ。
 import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -58,7 +57,7 @@ const MIME: Record<string, string> = {
   '.json': 'application/json; charset=utf-8',
 };
 
-// 画面が配る、public/ の中のもの：`/favicon.svg` と、Vite のハッシュつきの `/assets/*`（それ以外は、配らない。index.html は、別の経路）
+// 画面が配る、public/ の中のもの：`/favicon.svg` と、Vite の出力の `/assets/*`（ファイル名にハッシュは付けない。どの応答も `no-store`）（それ以外は、配らない。index.html は、別の経路）
 const FAVICON_PATH = '/favicon.svg';
 const ASSETS_PREFIX = '/assets/';
 
@@ -79,7 +78,7 @@ const indexCsp = (host: string): string =>
 const APP_CSP =
   "sandbox allow-scripts; default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data:; font-src data:; media-src 'none'; connect-src 'none'; frame-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'self'";
 
-// ---- 応答（旧 `send`・`serveFile`）。どの応答も、Cache-Control: no-store・nosniff を付ける ----
+// ---- 応答（`send`・`serveFile`）。どの応答も、Cache-Control: no-store・nosniff を付ける ----
 const BASE_HEADERS = { 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff' } as const;
 const JSON_HEADERS = { 'Content-Type': 'application/json; charset=utf-8', ...BASE_HEADERS } as const;
 
@@ -118,12 +117,12 @@ function parseCookies(header: string | undefined): Map<string, string> {
   return o;
 }
 
-// URL のパスの部分の、%XX の符号を戻す。壊れた符号は、URIError（呼ぶ側が、404 にするか、内部エラーにする。旧実装と同じ）
+// URL のパスの部分の、%XX の符号を戻す。壊れた符号は、URIError（呼ぶ側が、404 にするか、内部エラーにする）
 const decode = (s: string): string => decodeURIComponent(s);
 
 // 本文の読み込み：上限を、読みながら数える（Content-Length を信用しない）。超えたら 413。空の本文は `{}`。
-// zValidator('json') は、JSON の Content-Type の要求しか読まない（旧実装は、Content-Type を見なかった）ので、読んだ文字列を、
-// Content-Type を足した要求に載せ直す。JSON が不正なら、zValidator が 400 の例外にする（onError で、旧と同じ 400 'JSON が不正です' にそろえる）
+// zValidator('json') は、JSON の Content-Type の要求しか読まない（本文の Content-Type は見ない）ので、読んだ文字列を、
+// Content-Type を足した要求に載せ直す。JSON が不正なら、zValidator が 400 の例外にする（onError で、400 'JSON が不正です' にそろえる）
 function jsonBody(max: number): MiddlewareHandler {
   return async (c, next) => {
     const chunks: Uint8Array[] = [];
@@ -141,7 +140,7 @@ function jsonBody(max: number): MiddlewareHandler {
         chunks.push(value);
       }
     }
-    // 先頭の BOM は、JSON ではない（旧実装は、JSON.parse が落として 400）。載せ直すと、Request の本文の読み取りが BOM を落とすので、ここで断る
+    // 先頭の BOM は、JSON ではない（JSON.parse が落として 400）。載せ直すと、Request の本文の読み取りが BOM を落とすので、ここで断る
     const text = Buffer.concat(chunks).toString('utf8');
     if (text.startsWith('\uFEFF')) throw new HttpError(400, 'JSON が不正です');
     const headers = new Headers(c.req.raw.headers);
@@ -160,7 +159,7 @@ function run<B extends { topic: string }, R extends object>(fn: (b: B) => R, b: 
 }
 
 /**
- * Zod の形に合わない本文の扱い。旧実装は、形を見ずに、checkSlug → 操作の検査へ進めた（文言・状態コードは、そこで決まる）。
+ * Zod の形に合わない本文の扱い。形は見ずに、checkSlug → 操作の検査へ進める（文言・状態コードは、そこで決まる）。
  * 同じ応答にそろえるため、失敗しても、同じ道（run）へ、受け取ったままの本文を流す（Zod は、hc の型のため）
  */
 const lenient =
@@ -232,7 +231,7 @@ export function createApp(opts: AppOptions) {
         JSON_HEADERS,
       );
     })
-    // since：画面が、前に受け取った rev。同じなら、`{ unchanged: true }` だけを返す（型のための Zod。読み取りは、下で、旧と同じに）
+    // since：画面が、前に受け取った rev。同じなら、`{ unchanged: true }` だけを返す（型のための Zod。読み取りは、下で行う）
     .get(
       '/topic/:slug',
       zValidator('query', topicQuery, () => undefined),
@@ -276,7 +275,7 @@ export function createApp(opts: AppOptions) {
     })
     .get('/page/:slug/:page/:v', (c) => {
       const parts = c.req.path.slice('/api/page/'.length).split('/');
-      if (parts.length !== 3 || !/^\d+$/.test(parts[2] as string)) throw new HttpError(404, 'not found'); // 版は、数字だけ（旧は、パスの形で振り分けた）
+      if (parts.length !== 3 || !/^\d+$/.test(parts[2] as string)) throw new HttpError(404, 'not found'); // 版は、数字だけ
       const [slug, page, v] = [decode(parts[0] as string), decode(parts[1] as string), Number(parts[2])];
       const meta = store.loadMeta(slug);
       const pg = meta.pages[page] as PageInfo | undefined;
@@ -338,7 +337,7 @@ export function createApp(opts: AppOptions) {
   };
 
   const app = new Hono({
-    // パスは、符号を戻さない、そのままの形で照合する（旧実装と同じ。`%2F` などが、パスの区切りや、別の名前に化けない）。
+    // パスは、符号を戻さない、そのままの形で照合する（`%2F` などが、パスの区切りや、別の名前に化けない）。
     // 認証（下の use）も、この同じパスで決める（照合と認証で、パスの見え方が、ずれない）
     getPath: (req) => new URL(req.url).pathname,
   });

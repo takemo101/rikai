@@ -97,7 +97,7 @@ export function Lightbox() {
   }, [zt]);
 
   return (
-    // biome-ignore lint/a11y/useKeyWithClickEvents: 閉じるキーは Esc（上の keydown）。添付の画像は、旧と同じ DOM（押すと閉じる）
+    // biome-ignore lint/a11y/useKeyWithClickEvents: 閉じるキーは Esc（上の keydown）。添付の画像は、既存の DOM（押すと閉じる）
     <div
       id="lightbox"
       ref={rootRef}

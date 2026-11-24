@@ -6,6 +6,7 @@ import { ArrowLeftRight, Crosshair, Expand, Monitor, Moon, Smartphone, Sun, Tabl
 import { useSyncExternalStore } from 'react';
 import { createRoot } from 'react-dom/client';
 import type { ResolvedTheme } from '../lib/theme';
+import { useUi } from '../store/ui';
 import { type AppFrame, FRAME_WIDTHS, type FrameWidth, frameScale, frameScrolls } from './appBridge';
 
 // 幅：名前・px。aria-label は「枠の幅：名前（px）」。title は、本文より広いとき、縮小率を足す（枠の中のレイアウトは、選んだ幅で計算して、本文の幅に収まるよう縮小して見せる）
@@ -95,7 +96,12 @@ export function AppToolbar({ frame, onFocus }: { frame: AppFrame; onFocus?: (() 
         title={PICK_LABEL}
         aria-label={PICK_LABEL}
         aria-pressed={state.picking}
-        onClick={() => (state.picking ? frame.cancelPick() : frame.startPick())}
+        onClick={() => {
+          if (state.picking) return frame.cancelPick();
+          // 本文の「範囲を選ぶ」と「要素を選ぶ」は、同時に ON にしない（範囲の重ねが、枠を覆って、要素を押せなくなる）：あとから始めたほうが、前のほうを止める
+          if (useUi.getState().regMode === 'selecting') useUi.getState().setRegMode('idle');
+          frame.startPick();
+        }}
       >
         <Crosshair aria-hidden="true" focusable="false" />
       </button>

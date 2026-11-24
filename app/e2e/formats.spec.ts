@@ -1,7 +1,7 @@
 // 資料の形式と無害化（F9・F26・F28・N3）：diff・json・terminal・trace・Mermaid・html-app（枠の中のスクリプトが動く・親に触れない・「ソースを見る」）・
 // 無害化（<script>・onerror・javascript: が出ない）
 import { expect, test } from './fixtures';
-import { addTextComment, hoverBlock, ui } from './ui';
+import { addTextComment, clickToCount, hoverBlock, ui } from './ui';
 
 const BT = '```';
 const lines = (...l: string[]) => `${l.join('\n')}\n`;
@@ -249,8 +249,8 @@ test.describe('html-app（実行できる枠）', () => {
     await expect.poll(() => iframes.nth(1).getAttribute('height')).not.toBe('200');
     await page.waitForTimeout(300);
     // 本物のマウスで押す：枠の中のスクリプトが、反応する
-    await f.locator('#inc').click();
-    await f.locator('#inc').click();
+    await clickToCount(f.locator('#inc'), f.locator('#count'), 1);
+    await clickToCount(f.locator('#inc'), f.locator('#count'), 2);
     await expect(f.locator('#count')).toHaveText('2');
     await expect(page.frameLocator('iframe').nth(1).locator('#second')).toHaveText('二つ目の枠');
   });

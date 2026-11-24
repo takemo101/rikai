@@ -1,4 +1,4 @@
-// 画面の広さ：右のコメントの幅の、上限・既定と、窓の幅の購読。旧 app.js の panelMax・panelWidth・applyUi の数の部分。
+// 画面の広さ：右のコメントの幅の、上限・既定と、窓の幅の購読。
 import { useSyncExternalStore } from 'react';
 import { PANEL_MIN } from '../lib/storage';
 import { useUi } from '../store/ui';

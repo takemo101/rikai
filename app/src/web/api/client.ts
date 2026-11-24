@@ -16,7 +16,7 @@ export class ApiError extends Error {
 }
 
 /**
- * 応答を読む（旧 `api()` と同じ）。JSON でなければ「通信エラー」・`!res.ok` か `ok: false` なら、サーバーの error の文言で、ApiError。
+ * 応答を読む。JSON でなければ「通信エラー」・`!res.ok` か `ok: false` なら、サーバーの error の文言で、ApiError。
  * T は、呼ぶ側が、hc の応答の型（成功のもの）で指定する。
  */
 export async function read<T>(res: Response): Promise<T> {

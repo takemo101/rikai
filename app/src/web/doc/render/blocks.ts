@@ -1,5 +1,5 @@
-// 本文のブロックと、コメントの位置づけに使う文字（旧 app.js の「ブロックと本文テキスト」）。本文の島（`#article`）と、断片（無害化した DocumentFragment）の、どちらにも使える。
-// W3（選択・範囲）も、ここを import して使う：`frameOf`・`mediaOf`・`blockEls`・`blockText`・`blockLabel`・`blockAnchor`・`textIndex`・`boundaryOffset`・`elOf`。
+// 本文のブロックと、コメントの位置づけに使う文字。本文の島（`#article`）と、断片（無害化した DocumentFragment）の、どちらにも使える。
+// `interact/`（選択・範囲）も、ここを import して使う：`frameOf`・`mediaOf`・`blockEls`・`blockText`・`blockLabel`・`blockAnchor`・`textIndex`・`boundaryOffset`・`elOf`。
 import { EXCERPT } from '../../../shared/anchor';
 import type { Anchor } from '../../../shared/types';
 import { hash, trunc } from '../../lib/dom';
@@ -36,7 +36,7 @@ export function blockEls(root: ParentNode): BlockEl[] {
 }
 
 /**
- * ブロックの文字（位置づけ・版の差分に使う）。図は、ソース（URI エンコードのまま：ハッシュが、旧と同じになるように）。
+ * ブロックの文字（位置づけ・版の差分に使う）。図は、ソース（URI エンコードのまま：ハッシュが、保存済みのものと合うように）。
  * **実行できる枠は、ソース**（置き場の見出しの文字は、番号で決まるので、使わない：枠を足す・消すと、コメントが別の枠に付く）
  */
 export function blockText(el: BlockEl): string {

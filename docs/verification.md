@@ -1228,6 +1228,29 @@
 
 **数字**：上の件数（Vitest 938・e2e 331）は、親が、全体で確認した。壊して確かめた件数は、実装担当の報告による。
 
+### 整理フェーズ ②：ファイル名のハッシュ廃止・Tailwind 撤去・e2e の並列化・小さな UI の直し（2026-11-24。RIK-055。SPEC F47・§6・§8。版 0.27.2）
+
+**対象**：整理分析（2026-11-24）の結果、利用者が承認した：`public/` のファイル名からハッシュを外す・使っていない Tailwind（と shadcn/ui の計画）を外す・e2e を `workers: 4` に・小さな UI の直し（P8・P10）。
+
+**独立レビュー（1 回。実際の Chrome・実際に動かした）**：**Blocker なし・Major 1**。**問題なしと確認**：ビルド一致（複製でビルドした `public/` と `rikai.js` が、作業ツリーと同じ）・chunk 名はハッシュを外すと 1 対 1 で衝突なし・**`no-store` が全経路**（`/`・`/assets/*`・`/favicon.svg`・ワーカー・404 2 種・403・`/api/*`・SSE・`/appframe/*`）・**ブラウザに古いファイルが残らない**（Chrome で通信を見ながら、最初の表示・再読み込み・別ページから戻る、の 3 回とも、4 つのファイルを取り直し、ディスクキャッシュから読んだものは 0 件）・Tailwind を外した影響（ビルド後の CSS の差は、バナーと `@layer theme,utilities;` が消えたことと、新しい UI のルールだけ。`@layer` は名前の宣言だけで、優先順位は変わらない。ピクセルの差は、ライト・ダーク × 1360・420 の 4 通りで測り、新しい `.empty>p` の余白だけ）・lock は `tailwindcss` 系の削除と `jiti` の `optional: true` だけ・`build.test.ts`（`katex.js` を改ざん・vite の設定にハッシュを戻す：どちらも失敗）・Vitest 5 回連続 950/950・`events.test` の「最大 5 回書き直す」は、本物の見逃しを隠さない（`fs.watch` の通知が来ないように壊すと 3 件失敗）・`focus.spec` の GC 計測は、漏れを入れると失敗・`clickUntilPicked` は、意図しないコメントを作らない・UI（押せない Submit の理由〔`title`・`#submit-wrap` の `title`・アクセシビリティツリー〕・「Claude Code 以外は…」は初回だけ・v1 で「並べて比べる」は 0 個で、SSE で v2 になると出る・関連の線・外観・**範囲選択と要素選択の排他**〔あらゆる順序で、固まらない〕・範囲のラベルは 1 行で、`rikai poll` の `anchor.label` は全文のまま・トースト〔420px で「範囲を選ぶ」と重ならない・`role="alert"`・`#toast-region` は `aria-live="off"`〕）・掃除（コードの変化なし・削除したものは参照なし・セキュリティ・N3 の注意書きは意味が残っている）・壊して確かめた分：落ちなかったものなし。
+
+**Major（e2e の不安定。`workers: 4` で、直されていなかった 2 件）**：4 回流して、全件通ったのは 1 回だけ。(1) `compare.spec.ts:608`（比較画面の枠の中の `#b` を押しても、`#n` が 0 のまま：2 回）。(2) `theme.spec.ts:651`（「light：解決済みの文字」のコントラスト比が NaN：1 回）。`--workers=1 --repeat-each 10` では 20/20 通過・`--workers=4 --fully-parallel --repeat-each 12` で 2/24 失敗。→ **直した**（下）。**Minor**：(a) SharedWorker のファイル（`eventsWorker-*.js`）だけは、ハッシュつきのまま残した（判断：同じオリジン・同じ URL なら、SharedWorker は、開いている古いタブのものを共有してしまい、新旧が混ざる。ハッシュつきなら、中身が変わると URL が変わる。履歴は膨らまない）。(b) 文書の CSS の数字が古い → 数字を外した。**この修正（e2e の待ち方・文書だけ）の、再レビューは、受けていない**（5 回連続の e2e で確認）。
+
+**環境**：headless Chrome（実際の Chrome。`RIKAI_CHROME` を環境変数で渡した）・Vitest（jsdom・node）。
+
+**自動テスト**：新規：`test/web/small-fixes.test.tsx`・`e2e/ux-small.spec.ts` 9 件・`test/web/lib/turn.test.ts`・`test/web/storage.test.ts`・`test/server/app.test.ts`（全応答の `Cache-Control: no-store`：`/`・`index.js`・`index.css`・`/favicon.svg`・`/assets/theme-init.js`・404）。**最後の修正のあとの全体は、親が確認した：Vitest 950 件（84 ファイル）・e2e 340 件（`workers: 4`・2.6〜2.7 分）を、ビルドのあと、3 回連続で全件成功（lint もエラー 0・`RIKAI_CHROME` を環境変数で渡した・2026-11-24）**。
+
+- **ハッシュ名の廃止**：ビルドを、`App.tsx` に 1 行足す前後で 2 回比べた：**変わるのは `index.js` の 1 ファイル（0.55MB）だけ**・chunk 名の衝突なし（93 ファイルのまま）。**例外：SharedWorker のファイル（`eventsWorker-*.js`）だけは、ハッシュつき**（上のレビューの Minor (a)。`App.tsx` を変えて作り直しても、ワーカーの名前は同じだった）。`build.test.ts` の検査は、ハッシュなしでも意味が保たれる。**わざと壊して、落ちることを確かめた（担当の報告）**：`index.js` に 1 行追記・chunk を 1 つ消す・古い `index-OLDHASH1.js` を足す。過去の履歴の 91.8MB は、小さくならない。
+- **Tailwind の撤去**：`tw:` のクラスは 0 件。ビルド後の CSS を、外す前後で比べた（その時点）：差は、Tailwind のバナーと `@layer theme,utilities;` の宣言だけ。見た目は同じ。
+- **e2e の並列化（`workers: 4`）**：初めの 6 回は、毎回別のテストが 1 件ずつ落ちた（別の担当の e2e と同時に流れていて、負荷が高かった）。直したもの：`focus.spec`（個別表示を 50 回、開閉：`Nodes` の増加が 454〔許容 60〕→ `expect.poll` で測り直す）・`htmlapp-writeback`（`clickUntilPicked`。12 か所）・`links.spec`（線が出るまで待つ）。そのあと、独立レビューが、さらに 2 件を見つけた（上の Major）。**直した（担当の報告）**：**(a) `compare.spec.ts:608`**：原因は、`loaded()` で読み込みを待ったあとに、1 回押すだけで、並列の負荷で、枠のハンドラーが付く前（または、枠が作り直される前）に押すと、増えなかったこと。`e2e/ui.ts` に **`clickToCount(button, counter, count)`**（枠の中の数が `count-1` のときだけ押し直し、`count` になるまで待つ：押し過ぎで超えない）を足し、`compare.spec` の 5 か所・`formats`・`htmlapp-bridge` の `#inc`・`htmlapp-writeback` の `#b`（`clickUntilPicked`）に適用した。**(b) `theme.spec.ts:651` の NaN：原因を特定して、直した**（一度も再現できておらず、根拠から特定）：落ちたのは「解決済みの文字」だけで、この検査は、テスト冒頭で読む `termBg`（端末の背景色）を使う。本文は、スレッドが届くと描き直される。要素を取ってから評価するまでの間に、要素が外れると、`getComputedStyle` が空文字列を返し、`rgbOf('')` が空配列になり、`lum` が NaN になる。**`readStyle`**（外れた要素・空の値を読んだら、読み直す）を足し、`termBg` と `mark()` の両方に使った。色のパース関数と transition は、原因ではない。**確認（担当の報告）**：`pnpm run test:e2e`（`workers: 4`）を **5 回連続で全件成功**（340 件・162・159・162・161・163 秒・失敗 0・flaky 0）・`theme.spec` の「端末」は、`--workers=1 --repeat-each 10` で 10/10・`--workers=4 --fully-parallel --repeat-each 40` で 40/40・CPU 負荷 14 本で `--repeat-each 60` で 60/60・theme と compare の 2 ファイル全体を、`--workers=4 --fully-parallel --repeat-each 6` で 264/264（CPU 負荷 8 本）。`relay.ts` は、一度閉じたポートを再び開く（隙間がある：実測で、衝突は出なかった）。
+- **`events.test.ts` の間欠的な失敗**：原因：`fs.watch` が、購読のあと非同期に始まるため、`ready` の直後の書き込みが、負荷が高いと、見逃される（全 83 ファイルの並列実行のときだけ。単独では、CPU 負荷をかけても 20/20 通った）。待ちの上限を 3,000ms → 10,000ms・テストの制限時間 30 秒・届くまで最大 5 回、書き直す形に直した：**8 回連続で通った**（担当の報告）。
+- **UI（F47）**：新規の試験が、押せない Submit の理由・トーストの入れ物・関連の線の名前・外観の名前・範囲選択と要素選択の排他・`Quote` の省略（保存される `anchor.label` が、全文のままであることも、e2e で確認）を確かめる。**既存の試験の、意図した変更**：`compare.spec.ts`・`compare-ui.test.tsx`（v1 では「並べて比べる」を出さない）・`links.spec.ts`（ボタン名「関連の線」）・`theme.spec.ts`・`theme-ui.test.tsx`（システム時の名前に「いまは…」）。**壊して、落ちることを確かめた（担当の報告）**：単体 11 箇所・e2e 3 箇所：すべて落ちた。
+- **古いコメント・文書の掃除**：`W0〜W3`・「旧 …」の言及・未使用の少量（`.row .grow`・`SupportedSummary`・`ApiName`・`handleEscape`）を削除。`architecture.md` の「一覧の更新のたびに全トピックを読む（0.26.x まで）」は、0.27.0 で解決済みと思われるが、**キャッシュの効果を測っていない**と書かれているので、そのまま。
+
+**確認していない範囲**：**実際のマウス・Safari・Firefox**（`title` の見え方）・420px で、待ち状態の上のバーの「コピー」が切れること（以前から。P9 の範囲）。
+
+**数字**：上の件数（Vitest 950・e2e 340・3 回連続）は、親が、全体で確認した。壊して確かめた件数・担当の 5 回連続・繰り返しの回数は、担当の報告による。
+
 ### 人間の確認待ち
 
 AI は、これらを合格にしない。

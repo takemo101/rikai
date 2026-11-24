@@ -1,4 +1,4 @@
-// 本文の外の層（`<div id="badges" aria-hidden="true">`）：番号の丸と、範囲の枠（旧 app.js の `placeBadges` と、その周りのイベント）。
+// 本文の外の層（`<div id="badges" aria-hidden="true">`）：番号の丸と、範囲の枠、その周りのイベント。
 // 層の中身は、測定してから置く（命令的）：React の子は、持たない。DocModel（`useDoc`）から作る。
 //
 // 置き直す契機：DocModel の変化・入力欄の対象の変化・`ResizeObserver`（本文・`#docscroll`）・画像の読み込み・窓の大きさ・左の一覧の開閉・右の幅。
@@ -138,7 +138,7 @@ export function Overlays({ view, scrollRef }: OverlaysProps) {
       const tid = tidOf(e);
       const thread = tid && tid !== 'pending' ? viewRef.current?.topic.threads.find((t) => t.id === tid) : undefined;
       if (!thread) return;
-      // 旧と同じ順：solo を決め、パネルを描き直してから、選ぶ（続けて呼ぶと、開いた直後の AI の発言の「●」〔未読〕が、消える）
+      // 順序：solo を決め、パネルを描き直してから、選ぶ（続けて呼ぶと、開いた直後の AI の発言の「●」〔未読〕が、消える）
       flushSync(() => useUi.getState().openSolo(thread.id));
       useUi.getState().focusThread(thread);
     };
@@ -152,7 +152,7 @@ export function Overlays({ view, scrollRef }: OverlaysProps) {
     };
     const onLeave = (): void => useUi.getState().setLinked(null);
 
-    // 入力中の範囲の枠を、ドラッグで動かし・角と辺で大きさを変える。離したら、その範囲を、W3 へ渡す（`regionAdjustTarget`。書きかけの文字は、残る）
+    // 入力中の範囲の枠を、ドラッグで動かし・角と辺で大きさを変える。離したら、その範囲を、`interact/` へ渡す（`regionAdjustTarget`。書きかけの文字は、残る）
     const onDown = (e: PointerEvent): void => {
       const box = e.target instanceof Element ? e.target.closest<HTMLElement>('.regionbox.pending') : null;
       if (!box || e.button !== 0 || !useUi.getState().composer) return;

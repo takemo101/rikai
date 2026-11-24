@@ -26431,7 +26431,7 @@ function createApp(opts) {
     return serveFile(file2);
   };
   const app = new Hono3({
-    // パスは、符号を戻さない、そのままの形で照合する（旧実装と同じ。`%2F` などが、パスの区切りや、別の名前に化けない）。
+    // パスは、符号を戻さない、そのままの形で照合する（`%2F` などが、パスの区切りや、別の名前に化けない）。
     // 認証（下の use）も、この同じパスで決める（照合と認証で、パスの見え方が、ずれない）
     getPath: (req) => new URL(req.url).pathname
   });

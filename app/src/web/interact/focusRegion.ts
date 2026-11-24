@@ -8,6 +8,7 @@ import type { Rect } from '../../shared/types';
 import type { AppFrame } from '../doc/appBridge';
 import { type BlockEl, blockAnchor, frameOf, mediaOf } from '../doc/render/blocks';
 import { trunc } from '../lib/dom';
+import { RANGE_UNMEASURABLE } from '../lib/messages';
 import type { Size } from '../lib/zoom';
 import { toast } from '../store/ui';
 import { boxToRatio, ratioToBox } from './focusGeom';
@@ -95,7 +96,7 @@ export function finishFocusApp(
   const base = frameOf(block).getBoundingClientRect();
   const rect = virtual ? ratioRect(virtual, base) : null;
   if (!rect) {
-    toast('範囲が小さすぎる・本文の枠の位置を測れません。もう一度、範囲を選んでください', true);
+    toast(RANGE_UNMEASURABLE, true);
     return;
   }
   const paper = getComputedStyle(iframe).backgroundColor;

@@ -1,4 +1,4 @@
-// 画面の全体（旧 index.html の静的なシェルと、app.js のルーティング・更新）。W1〜W3 の部品を、旧 DOM の場所に置く（contracts.ts）。
+// 画面の全体（シェル・ルーティング・更新）。本文・番号の層・右のパネル・入口の部品を、決まった DOM の場所に置く（contracts.ts）。
 import { type CSSProperties, type ReactNode, type RefObject, useEffect, useRef } from 'react';
 import { useServerEvents } from './api/events';
 import { usePage, useTopic, useTopics } from './api/queries';
@@ -67,7 +67,7 @@ export function App() {
     if (pageErrorMsg) toast(pageErrorMsg, true);
   }, [pageErrorMsg]);
 
-  // 本文の取得は、失敗したら、そのままになる（版の本文は変わらないので、`staleTime: Infinity`）。トピックの更新が来る度（1.5 秒ごと）に、取り直す（旧は、次の更新で、戻った）
+  // 本文の取得は、失敗したら、そのままになる（版の本文は変わらないので、`staleTime: Infinity`）。トピックの更新が来る度（1.5 秒ごと）に、取り直す
   const { refetch: refetchPage, isError: pageFailed } = pageQ;
   const { refetch: refetchPrev, isError: prevFailed } = prevQ;
   const topicUpdatedAt = topicQ.dataUpdatedAt;
@@ -99,7 +99,7 @@ export function App() {
     if (notice !== null) useDoc.getState().setModel(null);
   }, [notice]);
 
-  // 本文の中のページへのリンクを押したら、入力欄の対象は、閉じる（旧と同じ）
+  // 本文の中のページへのリンクを押したら、入力欄の対象は、閉じる
   useEffect(() => {
     const onClick = (e: MouseEvent): void => {
       if (e.target instanceof Element && e.target.closest('a.pagecard, a.pagelink'))
@@ -157,7 +157,7 @@ export function App() {
 }
 
 /**
- * ルートが変わったときの、画面の状態の整理（旧 route()）：
+ * ルートが変わったときの、画面の状態の整理：
  *  - 見ている場所（slug・ページ・明示の版）が変わったら、選んでいるスレッドを外し、本文の先頭へ戻す
  *  - 別のトピック・ページへ移ったら、書きかけのコメントを「対象を失った下書き」へ移す（黙って消さない）。別のトピックへは、添付した画像（そのトピックの assets/）を持ち越さない
  *  - 実質、見ている版が変わったら（`/v2` を明示して、最新版へ、などは、変わらない）、書きかけを、黙って閉じない：最新版なら、対象を探し直して続ける・そうでなければ「対象を失った下書き」へ

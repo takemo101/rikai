@@ -1,6 +1,18 @@
 // @vitest-environment jsdom
 import { beforeEach, expect, test } from 'vitest';
-import { DEFAULT_UI, loadSeen, loadUi, SEEN_KEY, SEEN_MAX, saveSeen, saveUi, UI_KEY } from '../../src/web/lib/storage';
+import {
+  DEFAULT_UI,
+  loadSeen,
+  loadSendHintSeen,
+  loadUi,
+  SEEN_KEY,
+  SEEN_MAX,
+  SEND_HINT_KEY,
+  saveSeen,
+  saveSendHintSeen,
+  saveUi,
+  UI_KEY,
+} from '../../src/web/lib/storage';
 
 beforeEach(() => localStorage.clear());
 
@@ -62,4 +74,12 @@ test('ui：通知（notify）は、真偽値だけ。既定・古い保存・壊
     localStorage.setItem(UI_KEY, JSON.stringify({ notify: bad, panelW: 410 }));
     expect(loadUi()).toMatchObject({ notify: false, panelW: 410 });
   }
+});
+
+test('送信後の案内（Claude Code 以外）：見せたかを覚える。既定は「まだ」・壊れた値も「まだ」', () => {
+  expect(loadSendHintSeen()).toBe(false);
+  saveSendHintSeen();
+  expect(loadSendHintSeen()).toBe(true);
+  localStorage.setItem(SEND_HINT_KEY, 'oops');
+  expect(loadSendHintSeen()).toBe(false);
 });

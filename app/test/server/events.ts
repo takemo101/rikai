@@ -86,7 +86,7 @@ export function openEvents(
       headers: res.headers,
       events,
       comments,
-      waitFor: (pred, ms = 3000) => wait(pred, ms, 0),
+      waitFor: (pred, ms = 10_000) => wait(pred, ms, 0), // 上限だけ（満たされれば、すぐ返る）。負荷の下でも足りる長さ
       quiet: (ms) => wait(() => true, ms, events.length),
       ended: endedP.promise,
       close: () => req.destroy(),

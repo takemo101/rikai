@@ -22,7 +22,7 @@ export interface RunningServer {
  * サーバーを起こして、待ち受けを始める（ポートは空きポート）。テストも使う。
  * ポートは、待ち受けが始まってから分かる（Host・Origin の検査と Cookie の名前に使うので、そのあとで、アプリを作る）。
  * 先にポートだけ取って閉じる方法は、閉じてから開くまでの間に、ほかのプロセスに取られうるので、使わない。
- * publicDir：画面（旧 UI）の置き場。省略すると、バンドル（rikai.js）の横の public/
+ * publicDir：画面の置き場。省略すると、バンドル（rikai.js）の横の public/
  * feed：変更の通知（SSE）の元。省略すると、ここで作る（テストは、`fs.watch` の差し替えなどのために渡す）
  */
 export function startServer(
@@ -41,8 +41,8 @@ export function startServer(
     // 待ち受けが始まった、同じ回のうちに取りつける（要求は、このあとにしか来ない）
     const listener = getRequestListener((req, env) => app.fetch(req, env));
     server.on('request', (incoming, outgoing) => {
-      // 要求の URL は、旧実装と同じ読み方（`new URL(req.url, 'http://localhost')` のパスと問い合わせ）で、自分の待ち受け先の URL にする。
-      // node-server は、Host から URL を組み、おかしな Host を 400 で断るが、Host の検査は、app が行う（403。旧と同じ応答）
+      // 要求の URL は、`new URL(req.url, 'http://localhost')` のパスと問い合わせで、自分の待ち受け先の URL にする。
+      // node-server は、Host から URL を組み、おかしな Host を 400 で断るが、Host の検査は、app が行う（403）
       try {
         const u = new URL(incoming.url ?? '/', 'http://localhost');
         incoming.url = `http://127.0.0.1:${port}${u.pathname}${u.search}`;

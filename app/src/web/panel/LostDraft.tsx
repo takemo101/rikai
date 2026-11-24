@@ -1,6 +1,7 @@
 // 対象を失った下書き（F44）：比べる画面を開いている間に新しい版が届き、書きかけのコメントの対象が、新しい版で見つからなくなったとき。
 // 書きかけの文を、**別の対象に付けない**（次に開く入力欄には、入れない）：パネルの上に、注記つきで 1 件だけ出し、利用者が、コピー・破棄を選ぶ。文は、文字として出す（React の子）。
 import { Copy, Trash2 } from 'lucide-react';
+import { COPY_FAILED } from '../lib/messages';
 import { toast, useUi } from '../store/ui';
 
 export function LostDraft() {
@@ -9,12 +10,12 @@ export function LostDraft() {
   const copy = (): void => {
     const clip = navigator.clipboard;
     if (!clip) {
-      toast('コピーできませんでした。文を選んで、コピーしてください', true);
+      toast(COPY_FAILED, true);
       return;
     }
     clip.writeText(lost.text).then(
       () => toast('文をコピーしました'),
-      () => toast('コピーできませんでした。文を選んで、コピーしてください', true),
+      () => toast(COPY_FAILED, true),
     );
   };
   return (

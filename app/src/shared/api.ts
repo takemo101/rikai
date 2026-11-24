@@ -1,6 +1,6 @@
 // HTTP の POST /api/<操作> のリクエストの形（Zod）。型のための、ゆるい形だけ。
-// 意味の検査（長さ・値の範囲・存在・状態）と、エラーの文言は、サーバーの actions・norm* が行う（旧実装のまま）。
-// 値の型は、旧実装が実行時に受けていた範囲（数の文字列など）に合わせて、ゆるくしてある。
+// 意味の検査（長さ・値の範囲・存在・状態）と、エラーの文言は、サーバーの actions・norm* が行う。
+// 値の型は、実行時に受ける範囲（数の文字列など）に合わせて、ゆるくしてある。
 import { z } from 'zod';
 
 const topic = z.string();
@@ -48,7 +48,6 @@ export const topicQuery = z.object({ since: z.string().optional() });
  */
 export type ChangedEvent = { topics: true } | { slug: string; rev: number };
 
-export type ApiName = keyof typeof apiBodies;
 export type AttachBody = z.infer<typeof attachBody>;
 export type CommentBody = z.infer<typeof commentBody>;
 export type ReplyBody = z.infer<typeof replyBody>;

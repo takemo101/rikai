@@ -1,4 +1,4 @@
-// 本文の描画（旧 app.js の `renderDoc`）。順番：Markdown → 無害化 → ブロックの番号づけ →（v2 以降）差分 → DOM の差し替え → html-app の枠 → Mermaid（非同期）→ 強調。
+// 本文の描画。順番：Markdown → 無害化 → ブロックの番号づけ →（v2 以降）差分 → DOM の差し替え → html-app の枠 → Mermaid（非同期）→ 強調。
 // 非同期の継ぎ目：Mermaid の完了を待つあいだに、別の描画が始まっていたら（`isCurrent()` が false）、ここで止める（古い描画に、強調を適用しない）。
 import type { Anchor, Thread } from '../../../shared/types';
 import type { View } from '../../lib/view';

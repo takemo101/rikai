@@ -199,7 +199,7 @@ export function ActionBar({ scroller, latest }: Props) {
 
   return (
     // 押しても、文の選択を外さない。バーへ向かう間・バーの上にいる間は、ブロックのバーを消さない（マウスだけの、見た目のための処理）
-    // biome-ignore lint/a11y/noStaticElementInteractions: 旧と同じ DOM（役割を足さない）。操作は、中の button
+    // biome-ignore lint/a11y/noStaticElementInteractions: 既存の DOM（役割を足さない）。操作は、中の button
     <div
       id="actbar"
       ref={barEl}
