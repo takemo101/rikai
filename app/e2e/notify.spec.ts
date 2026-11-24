@@ -262,7 +262,7 @@ test.describe('ブラウザの通知（F41）', () => {
     await page.locator('.tab', { hasText: '解決済み' }).click();
     await page.locator('.donerow').click();
     await u.threads.first().getByRole('button', { name: '再開する' }).click(); // 解決の取り消し：未解決に戻る
-    await page.locator('.tab', { hasText: '進行中' }).click();
+    await page.locator('.tab', { hasText: '未解決' }).click();
     await expect(u.threads).toHaveCount(1);
     await page.waitForTimeout(1000);
     expect(await notes(page)).toHaveLength(0);

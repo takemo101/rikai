@@ -107,7 +107,8 @@ test('橋：自動の枠は、知らせた高さに従う。固定の枠は、�
   }
 });
 
-test('ツールバー：見出しの行に、幅（4 つの数＋自動）と枠のライト/ダーク。アイコンだけ（本文の文字を増やさない）・aria-label と title・「この枠にコメント」は、そのまま', () => {
+// 意図した変更（0.28.0）：アイコンだけだった 8 個を、文字のボタンに（幅は数字・外観は現在の状態・要素を選ぶはアイコン＋文字）。名前（aria-label）は、見える文字を含める。クリック数は、同じ（1 回）
+test('ツールバー：見出しの行に、幅（4 つの数＋自動）と枠のライト/ダーク・要素を選ぶ。文字のボタン・aria-label と title・「この枠にコメント」は、そのまま', () => {
   const { root, onComment } = boxes(true);
   const cap = root.querySelector('.htmlapp .cap') as HTMLElement;
   const tools = cap.querySelector('.apptools') as HTMLElement;
@@ -118,27 +119,36 @@ test('ツールバー：見出しの行に、幅（4 つの数＋自動）と枠
     '枠の幅：タブレット（768px）',
     '枠の幅：デスクトップ（1280px）',
     '枠の幅：ワイドデスクトップ（1920px）',
-    '枠の幅：本文の幅いっぱい',
+    '枠の幅：自動（本文の幅いっぱい）',
     '枠の外観：ライト。押すと、ダークにします',
-    '枠の中の要素を選んでコメント',
+    '要素を選ぶ（枠の中の要素を選んでコメント）',
   ]);
+  // 見える文字：幅は数字・自動、外観は現在の状態、要素を選ぶ
+  expect(buttons.map((b) => b.textContent)).toEqual(['375', '768', '1280', '1920', '自動', 'ライト', '要素を選ぶ']);
   for (const b of buttons) {
     const label = b.getAttribute('aria-label') as string;
-    // 幅の数は、本文より広いと、本文の幅いっぱいになる：title で伝える
     expect(b.title).toBe(label); // 本文の幅に収まるとき（jsdom：幅は測れない）は、縮小率を足さない
-    expect(b.textContent).toBe(''); // テキストなし
-    expect(b.querySelector('svg')).not.toBeNull();
+    // 名前に、見える文字を含める（見える文字と、読み上げる名前が、食い違わない：幅の「375」「自動」・「ライト」・「要素を選ぶ」）
+    expect(label).toContain(b.textContent as string);
   }
+  // アイコンは、外観（状態）と要素を選ぶだけ。幅は、数字だけ
   expect(
     buttons.map(
       (b) =>
         b
           .querySelector('svg')
           ?.getAttribute('class')
-          ?.match(/lucide-([a-z-]+)/)?.[1],
+          ?.match(/lucide-([a-z-]+)/)?.[1] ?? null,
     ),
-  ).toEqual(['smartphone', 'tablet', 'monitor', 'tv', 'arrow-left-right', 'sun', 'crosshair']);
-  expect(tools.textContent).toBe(''); // 選んでいないときは、説明も、文字なし（選んでいる間だけ、出る：aria-live）
+  ).toEqual([null, null, null, null, null, 'sun', 'crosshair']);
+  expect(buttons.every((b) => b.classList.contains('tbtn'))).toBe(true);
+  // 組の見出し（幅・外観）：読み上げの外（aria-hidden）。組には、名前
+  expect([...tools.querySelectorAll('[role="group"]')].map((g) => g.getAttribute('aria-label'))).toEqual([
+    '枠の幅（px）',
+    '枠の外観',
+  ]);
+  expect(tools.querySelectorAll('.grp-l[aria-hidden="true"]')).toHaveLength(2);
+  expect(tools.querySelector('.apppick')?.textContent).toBe(''); // 選んでいないときは、説明は、空（選んでいる間だけ出る：aria-live）
   expect(tools.querySelector('[role="status"][aria-live="polite"]')).not.toBeNull();
   // コメントのボタン：ツールバーの外・あとに、そのまま
   const link = cap.querySelector('button.link') as HTMLButtonElement;
@@ -232,7 +242,7 @@ test('ツールバー：選んだ幅が本文より広いとき、title に縮�
     expect(btn('1280').title).toBe('枠の幅：デスクトップ（1280px・表示は 50% に縮小）'); // 640px ちょうどで、収まる：横にスクロールしない
     expect(btn('1920').title).toBe('枠の幅：ワイドデスクトップ（1920px・表示は 50% に縮小。横にスクロールできます）');
     expect(btn('1280').getAttribute('aria-label')).toBe('枠の幅：デスクトップ（1280px）');
-    expect(btn('auto').title).toBe('枠の幅：本文の幅いっぱい');
+    expect(btn('auto').title).toBe('枠の幅：自動（本文の幅いっぱい）');
     fireEvent.click(btn('1280'));
     const f = root.querySelector('iframe') as HTMLIFrameElement;
     expect(f.style.width).toBe('1280px');
@@ -245,7 +255,7 @@ test('ツールバー：選んだ幅が本文より広いとき、title に縮�
   }
 });
 
-test('比べる画面の枠（compare）：onComment・onPick・onFocus を渡しても、入口（個別のツールバー・「この枠にコメント」・個別表示）を出さない。最新版の枠でも', () => {
+test('比べる画面の枠（compare）：onComment・onPick・onFocus を渡しても、入口（個別のツールバー・「この枠にコメント」・拡大表示）を出さない。最新版の枠でも', () => {
   const topic = topicState({
     meta: meta({ pages: { root: { title: 'T', parent: null, versions: 1, createdAt: '' } } }),
   });

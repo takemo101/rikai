@@ -13,14 +13,14 @@ export const hasUnsent = (t: Msgs): boolean => t.messages.some((m) => m.author =
 
 /**
  * カードの札の種類。色は、上のバーの `#turn` と同じ意味：
- * ok＝解決（緑）・draft＝未送信（琥珀）・new／yours＝あなたの番（青：AI の返信／回答待ち）・aiwait＝AI の番（灰色：AI の返信待ち）・wait＝札なし
+ * ok＝解決（緑）・draft＝未送信（琥珀）・new／yours＝あなたの番（青：AI の返信／未回答の質問）・aiwait＝AI の番（灰色：AI の返信待ち）・wait＝札なし
  */
 export type StatusClass = 'ok' | 'draft' | 'new' | 'wait' | 'yours' | 'aiwait';
 
 /**
  * カードの上の札：[文言, クラス]。既定の `wait`（AI の確認待ち：送った発言を、AI が処理したが、返信がない）は、札を出さない（呼ぶ側）。
- * `pending`：Submit 済みで、AI が未処理の round の番号（`meta.pending`）。最後の発言が、その round のものなら「AIの返信待ち」。
- * AI の新着返信と、未回答の質問が重なるときは、「回答待ち」の 1 つ（あなたの番）
+ * `pending`：AI に送って、AI が未処理の round の番号（`meta.pending`）。最後の発言が、その round のものなら「AI の返信待ち」。
+ * AI の新着返信と、未回答の質問が重なるときは、「未回答の質問」の 1 つ（あなたの番）
  */
 export function threadStatus(
   t: Pick<Thread, 'resolved' | 'messages'>,
@@ -31,10 +31,11 @@ export function threadStatus(
   const m = t.messages[t.messages.length - 1];
   if (m && m.author === 'ai')
     return t.messages.some((q) => !t.resolved && q.ask && !answerOf(t, q) && !askStale(t, q))
-      ? ['回答待ち', 'yours']
-      : ['AIの返信', 'new'];
-  if (m && m.author === 'user' && m.round !== undefined && pending.includes(m.round)) return ['AIの返信待ち', 'aiwait'];
-  return ['AIの確認待ち', 'wait'];
+      ? ['未回答の質問', 'yours']
+      : ['AI の返信', 'new'];
+  if (m && m.author === 'user' && m.round !== undefined && pending.includes(m.round))
+    return ['AI の返信待ち', 'aiwait'];
+  return ['AI の返信待ち', 'wait'];
 }
 
 /** 回答の下書きが、保存してよい形か（サーバーの normAnswer の、手前の目安） */
@@ -175,7 +176,7 @@ export function lastSpeech(t: Msgs): string {
 
 /** 対象の文字（カードの引用）。AI 起点で、位置のないスレッドは「AIからの質問」 */
 export const quoteOf = (t: Pick<Thread, 'anchor'>): string =>
-  t.anchor ? t.anchor.quote || t.anchor.label : 'AIからの質問';
+  t.anchor ? t.anchor.quote || t.anchor.label : 'AI からの質問';
 
 // ---- 画像の添付（F24）。形式・大きさ・枚数の最終の検査は、サーバー ----
 

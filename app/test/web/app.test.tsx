@@ -115,12 +115,14 @@ test('旧 index.html の ID が、そろっている（旧 CSS・旧の確認手
   expect(byId('app')).not.toContainElement(byId('toast'));
 });
 
-test('トピックなし：案内・Submit は押せない・終了のダイアログは開ける', async () => {
+test('トピックなし：案内・「AI に送る」は押せない・終了のダイアログは開ける', async () => {
   server([]);
   renderWithClient(<App />);
   await screen.findByText('トピックがありません。/rikai で資料を作ってください。');
   expect(byId('btn-submit')).toBeDisabled();
-  expect(byId('btn-submit')).toHaveTextContent('Submit');
+  expect(byId('btn-submit')).toHaveTextContent('AI に送る'); // 英語の「Submit」は、画面に残さない（0.28.0）
+  expect(byId('btn-submit')).not.toHaveTextContent('Submit');
+  expect(byId('btn-submit')).not.toHaveTextContent('（'); // 0 件のときは、数を出さない
   expect(byId('top-title')).toHaveTextContent('');
   expect(byId('ended')).toHaveAttribute('hidden');
   fireEvent.click(byId('btn-end'));
@@ -162,7 +164,8 @@ test('読めない形式のトピックを開く：専用の案内・そのト�
   expect(byId('top-title')).toHaveTextContent('');
 });
 
-test('上のバー：解決 N/M・回答 K/L・Submit (件数)・押すと、件数の文言つきのダイアログ', async () => {
+// 意図した変更（0.28.0）：進み具合（解決 N/M・回答 K/L）は、左のトピック行だけ。上のバーには出さない。未送信の数は、「AI に送る（n）」のボタンが持つ
+test('上のバー：進み具合は出さない（左のトピック行だけ）・「AI に送る（件数）」・押すと、件数の文言つきのダイアログ', async () => {
   location.hash = '#/demo/root';
   const ask: Thread = thread({
     id: 't2',
@@ -174,8 +177,15 @@ test('上のバー：解決 N/M・回答 K/L・Submit (件数)・押すと、件
   });
   server([summary('demo')], { demo: topicState({ unsent: 2, threads: [thread(), ask] }) });
   renderWithClient(<App />);
-  await waitFor(() => expect(byId('top-status')).toHaveTextContent('解決 1/2・回答 1/1'));
-  expect(byId('btn-submit')).toHaveTextContent('Submit (2)');
+  await waitFor(() => expect(byId('side').querySelector('li.cur .chip')).toHaveTextContent('1/2'));
+  expect(byId('top')).not.toHaveTextContent('解決 1/2'); // 上のバーに、進み具合はない
+  expect(byId('top')).not.toHaveTextContent('回答 1/1');
+  expect(byId('side').querySelector('li.cur .chip')).toHaveAttribute(
+    'title',
+    expect.stringContaining('解決 1/2・回答 1/1'),
+  );
+  expect(byId('btn-submit')).toHaveTextContent('AI に送る（2）');
+  expect(byId('top-status')).not.toHaveTextContent('未送信'); // 未送信は、札でなく、ボタンの数
   expect(byId('btn-submit')).toBeEnabled();
   fireEvent.click(byId('btn-submit'));
   expect((byId('submitdlg') as HTMLDialogElement).open).toBe(true);
@@ -188,7 +198,7 @@ test('AI の返信待ち：札・ヒント・コピー（クリップボード�
   vi.stubGlobal('navigator', { ...navigator, clipboard: { writeText } });
   server([summary('demo')], { demo: topicState({ meta: meta({ pending: [1] }) }) });
   renderWithClient(<App />);
-  await within(byId('top-status')).findByText('AIの返信待ち');
+  await within(byId('top-status')).findByText('AI の返信待ち');
   expect(byId('top-status')).toHaveTextContent('Claude Code 以外は「rikai に送りました」と伝えてください');
   fireEvent.click(within(byId('top-status')).getByRole('button', { name: 'コピー' }));
   expect(writeText).toHaveBeenCalledWith('rikai(demo)に送りました。rikai pull demo で読んで返信してください');
@@ -282,7 +292,11 @@ test('版・ページ：パンくず・版の選択（新しい順・最新に�
   const sel = byId('docbar').querySelector('select') as HTMLSelectElement;
   expect([...sel.options].map((o) => o.textContent)).toEqual(['v2（最新）', 'v1']);
   expect(sel.value).toBe('1');
-  expect(byId('docbar')).toHaveTextContent('過去の版 v1 を表示中（コメントは最新版にだけ付けられます）');
+  expect(byId('docbar')).toHaveTextContent('過去の版 v1（コメントは最新版で）');
+  expect(byId('docbar').querySelector('.pastver')).toHaveAttribute(
+    'title',
+    '過去の版 v1 を表示中です。コメントは、最新版にだけ付けられます',
+  );
   expect(within(byId('docbar')).getByRole('link', { name: '最新版へ' })).toHaveAttribute('href', '#/demo/root');
   expect(byId('docbar').querySelector('[data-key="chk-changes"]')).toBeNull(); // v1 は、差分なし
 
@@ -297,6 +311,33 @@ test('版・ページ：パンくず・版の選択（新しい順・最新に�
   expect(useUi.getState().showChanges).toBe(false);
   fireEvent.change(sel, { target: { value: '1' } });
   expect(location.hash).toBe('#/demo/root/v1');
+});
+
+test('本文の上のバー：中身がない（版が 1 つの、子でないページ）ときは、出さない（hidden：高さ 0。ID は残る）。子ページ・版が複数・過去の版では、出す', async () => {
+  location.hash = '#/demo/root';
+  server([summary('demo')], { demo: topicState({ meta: meta() }) }); // root だけ・v1 だけ
+  renderWithClient(<App />);
+  await waitFor(() => expect(byId('article')).toHaveTextContent('本文 root v1'));
+  expect(byId('docbar')).toHaveAttribute('hidden');
+  expect(byId('docbar')).toBeEmptyDOMElement();
+});
+
+test('本文の上のバー：子ページ（パンくず）・版が複数・過去の版は、出す（hidden でない）', async () => {
+  location.hash = '#/demo/detail';
+  server([summary('demo')], { demo: topicState({ meta: meta({ pages: pages2 }) }) });
+  renderWithClient(<App />);
+  await waitFor(() => expect(byId('article')).toHaveTextContent('本文 detail v1'));
+  expect(byId('docbar')).not.toHaveAttribute('hidden'); // 子ページ：パンくず
+  act(() => {
+    location.hash = '#/demo/root';
+  });
+  await waitFor(() => expect(byId('article')).toHaveTextContent('本文 root v2'));
+  expect(byId('docbar')).not.toHaveAttribute('hidden'); // 版が複数：版の選択
+  act(() => {
+    location.hash = '#/demo/root/v1';
+  });
+  await waitFor(() => expect(byId('article')).toHaveTextContent('本文 root v1'));
+  expect(byId('docbar')).not.toHaveAttribute('hidden'); // 過去の版
 });
 
 test('v2 を見ていると、前の版（v1）の本文も取る。変更の数は、本文の島が DocModel に入れたもの', async () => {
@@ -315,7 +356,13 @@ test('v2 を見ていると、前の版（v1）の本文も取る。変更の数
     if (m) useDoc.getState().setModel({ ...m, diff: { changed: 2, added: 1, removed: 0 } });
   });
   expect(byId('docbar')).toHaveTextContent('変更 2・追加 1・削除 0');
-  expect(byId('docbar')).toHaveTextContent('右端の緑の線：前の版から変えたところ');
+  // 0.28.0：凡例は、件数の札の頭の、色の見本（全文は title）。説明の文は、見える文字にない（1 行に収めるため）
+  expect(byId('docbar').querySelector('.stats .legend-swatch')).not.toBeNull();
+  expect(byId('docbar').querySelector('.stats')).toHaveAttribute(
+    'title',
+    '前の版との比較。右端の緑の線：前の版から変えたところ',
+  );
+  expect(byId('docbar')).not.toHaveTextContent('右端の緑の線');
   // 別のページ・版の DocModel の件数は、出さない
   act(() => {
     const m = useDoc.getState().model;
@@ -356,7 +403,7 @@ test('左の一覧：進み具合・待ち・終了の印と、ページの木�
   await waitFor(() => expect(side.querySelector('li.cur .chip')).toHaveTextContent('1/3'));
   const b = within(side).getByText('ビー').closest('li') as HTMLElement;
   expect(b).toHaveTextContent('1/4');
-  expect(within(b).getByText('待ち')).toHaveClass('chip', 'wait', 'small');
+  expect(within(b).getByText('AI の返信待ち')).toHaveClass('chip', 'wait', 'small');
   expect(within(within(side).getByText('シー').closest('li') as HTMLElement).getByText('終了')).toBeInTheDocument();
   const tree = side.querySelector('ul.tree') as HTMLElement;
   expect(within(tree).getByRole('link', { name: /全体/ })).toHaveClass('cur');
@@ -369,9 +416,11 @@ test('左の一覧：進み具合・待ち・終了の印と、ページの木�
 test('左の一覧の開閉・右の幅は、保存した設定から。#app に、side-collapsed と --panel-w', async () => {
   localStorage.setItem(
     UI_KEY,
-    JSON.stringify({ sideOpen: false, panelW: 500, links: true, theme: 'system', notify: false }),
+    JSON.stringify({ sideOpen: false, panelW: 500, panelUser: true, links: true, theme: 'system', notify: false }),
   );
-  useUi.setState({ ui: { sideOpen: false, panelW: 500, links: true, theme: 'system', notify: false } });
+  useUi.setState({
+    ui: { sideOpen: false, panelW: 500, panelUser: true, links: true, theme: 'system', notify: false },
+  });
   server([]);
   renderWithClient(<App />);
   await screen.findByText('トピックがありません。/rikai で資料を作ってください。');
@@ -384,10 +433,10 @@ test('左の一覧の開閉・右の幅は、保存した設定から。#app に
   expect(JSON.parse(localStorage.getItem(UI_KEY) ?? '{}').sideOpen).toBe(true);
   // 窓が狭いと、上限で抑える
   act(() => {
-    Object.defineProperty(window, 'innerWidth', { value: 900, configurable: true });
+    Object.defineProperty(window, 'innerWidth', { value: 700, configurable: true });
     window.dispatchEvent(new Event('resize'));
   });
-  expect(byId('app').style.getPropertyValue('--panel-w')).toBe('332px'); // 900 − 168（狭い窓の左の一覧）− 400（狭い窓の、本文の最小）。狭い窓（〜900px）は、本文を広く残す（RIK-040）
+  expect(byId('app').style.getPropertyValue('--panel-w')).toBe('300px'); // 700 − 0（1100px 以下は、左の一覧が隠れる）− 400（狭い窓の、本文の最小）。狭い窓（〜900px）は、本文を広く残す（RIK-040）。0.28.0：隠す境界が 788px 未満から 1100px 以下に上がり、900px では 500px（保存した幅のまま）になるため、700px で上限を見る
 });
 
 test('トースト：出る・エラーは 6 秒・通常は 2.8 秒で消える', async () => {
@@ -606,14 +655,14 @@ test('外観の変化（上のバーのボタン）で、配色への対応を�
   document.documentElement.removeAttribute('data-theme');
 });
 
-// 自動で隠す窓（788px 未満）の左の一覧（ドロワー）・狭い窓の取っ手の幅：どちらも保存しない一時の状態（RIK-040）
+// 自動で隠す窓（1100px 以下。旧：788px 未満）の左の一覧（ドロワー）・狭い窓の取っ手の幅：どちらも保存しない一時の状態（RIK-040）
 const resizeTo = (w: number) =>
   act(() => {
     Object.defineProperty(window, 'innerWidth', { value: w, configurable: true });
     window.dispatchEvent(new Event('resize'));
   });
 
-test('〜787px：☰ で、左の一覧が、本文の上に重なる（side-drawer）。本文・右の幅は、変わらない。Esc・外を押す・☰ で、しまう', async () => {
+test('〜1100px：☰ で、左の一覧が、本文の上に重なる（side-drawer）。本文・右の幅は、変わらない。Esc・外を押す・☰ で、しまう', async () => {
   server([]);
   renderWithClient(<App />);
   await screen.findByText('トピックがありません。/rikai で資料を作ってください。');
@@ -641,14 +690,14 @@ test('〜787px：☰ で、左の一覧が、本文の上に重なる（side-dra
   expect(localStorage.getItem(UI_KEY)).toBeNull(); // どれも、保存しない
 });
 
-test('回帰：600px で ☰ → 800px で ☰（しまう：保存）→ 600px に戻しても、左の一覧は、勝手に出てこない', async () => {
+test('回帰：600px で ☰ → 1200px で ☰（しまう：保存）→ 600px に戻しても、左の一覧は、勝手に出てこない', async () => {
   server([]);
   renderWithClient(<App />);
   await screen.findByText('トピックがありません。/rikai で資料を作ってください。');
   resizeTo(600);
   fireEvent.click(byId('btn-side'));
   expect(byId('app')).toHaveClass('side-drawer');
-  resizeTo(800); // 自動で隠す窓を出る：重ねた一覧は、しまう
+  resizeTo(1200); // 自動で隠す窓（1100px 以下）を出る：重ねた一覧は、しまう
   expect(byId('app')).not.toHaveClass('side-drawer');
   expect(useUi.getState().narrowSideOpen).toBe(false);
   expect(byId('app')).not.toHaveClass('side-collapsed'); // 保存した開閉（開）：並ぶ
@@ -665,9 +714,10 @@ test('狭い窓の取っ手の幅は、窓を広げると、捨てる：保存�
   renderWithClient(<App />);
   await screen.findByText('トピックがありません。/rikai で資料を作ってください。');
   resizeTo(800);
-  expect(byId('app').style.getPropertyValue('--panel-w')).toBe('232px');
+  // 0.28.0：1100px 以下では、既定（380）のままなら、右の幅は、細い既定（280）。左の一覧は隠れるので、上限は 800 − 400 = 400（旧：232）
+  expect(byId('app').style.getPropertyValue('--panel-w')).toBe('280px');
   fireEvent.keyDown(screen.getByRole('separator'), { key: 'ArrowRight' });
-  expect(byId('app').style.getPropertyValue('--panel-w')).toBe('220px');
+  expect(byId('app').style.getPropertyValue('--panel-w')).toBe('256px');
   expect(useUi.getState().ui.panelW).toBe(380);
   expect(localStorage.getItem(UI_KEY)).toBeNull();
   resizeTo(1200);
@@ -680,12 +730,12 @@ test('タブのタイトル（F39）：いま、誰の番か・資料の題。�
   server([summary('demo')], { demo: topicState({ unsent: 3, threads: [thread()] }) });
   renderWithClient(<App />);
   await waitFor(() => expect(document.title).toBe('未送信 3 件 | デモの資料 | rikai'));
-  // Submit 済み → AI の返信待ち
+  // AI に送った後 → AI の返信待ち
   queryClient.setQueryData(
     topicKey('demo'),
     topicState({ rev: 2, meta: meta({ rev: 2, pending: [1] }), threads: [thread()] }),
   );
-  await waitFor(() => expect(document.title).toBe('AIの返信待ち | デモの資料 | rikai'));
+  await waitFor(() => expect(document.title).toBe('AI の返信待ち | デモの資料 | rikai'));
   // AI が返信：あなたの番（新着の返信 1）
   queryClient.setQueryData(
     topicKey('demo'),

@@ -33,24 +33,37 @@ test('#turn：role="status"・aria-live="polite"。コメントなしは、出�
   expect(turn()).toBeNull();
 });
 
-test('未送信：「未送信 n 件 → Submit」。Submit に attn の輪。押すと Submit へフォーカス。AI の返信待ちも続くときは、小さく並べる', () => {
+// 意図した変更（0.28.0）：上のバーの札に、未送信の形（「未送信 n 件 → AI に送る」。隣の AI に送る に focus() を移すだけ）は、出さない。未送信の数は、「AI に送る（n）」のボタン自体が持つ。札は、未送信を除いた状態
+test('未送信：札（#turn）には出さない（未送信を除いた状態：AI の返信待ち）。「AI に送る（n）」に数と attn の輪。前回分の返信待ちの札・コピーは、そのまま', () => {
   bar(viewOf({ unsent: 2, threads: [T('t1', [msg({ sent: false })])], meta: meta({ pending: [1] }) }));
-  expect(turn()).toHaveClass('turn', 'unsent');
+  expect(turn()).toHaveClass('turn', 'waiting-ai'); // 未送信ではなく、その下の状態
+  expect(turn()).not.toHaveClass('unsent');
   expect(turn()?.getAttribute('role')).toBe('status');
   expect(turn()?.getAttribute('aria-live')).toBe('polite');
-  expect(turn()).toHaveTextContent('未送信 2 件');
-  expect(turn()).toHaveTextContent('→ Submit');
-  expect(document.getElementById('btn-submit')).toHaveClass('primary', 'attn');
-  // 前回分の返信待ち：控えめな札（と、コピーのボタン）
-  expect(document.getElementById('top-status')?.querySelector('.chip.wait')).toHaveTextContent('AIの返信待ち');
-  fireEvent.click(within(turn() as HTMLElement).getByRole('button'));
-  expect(document.activeElement).toBe(document.getElementById('btn-submit'));
+  expect(turn()).toHaveTextContent('AI の返信待ち');
+  expect(turn()).not.toHaveTextContent('未送信');
+  expect(turn()).not.toHaveTextContent('→');
+  expect(document.getElementById('top-status')?.querySelector('.chip.wait')).toBeNull(); // 札が 1 つ（以前は、未送信の札と別に、返信待ちの札が並んだ）
+  const b = document.getElementById('btn-submit') as HTMLElement;
+  expect(b).toHaveClass('primary', 'attn');
+  expect(b).toHaveTextContent('AI に送る（2）');
+  expect(within(turn() as HTMLElement).queryByRole('button')).toBeNull(); // 待ちの札は、押せない（旧：未送信の札は、AI に送るへ focus を移した）
+  expect(
+    within(document.getElementById('top-status') as HTMLElement).getByRole('button', { name: 'コピー' }),
+  ).toBeTruthy();
+});
+
+test('未送信だけ（返信待ちでない）：札は、出さない（未送信を除くと、未解決だけ）。未送信の件数は、ボタンの数だけ', () => {
+  bar(viewOf({ unsent: 3, threads: [T('t1', [msg({ sent: false })])] }));
+  expect(turn()).toBeNull(); // 下書きだけ（未解決だけ）：札で言うことはない
+  expect(document.getElementById('top')).not.toHaveTextContent('未送信 3 件');
+  expect(document.getElementById('btn-submit')).toHaveTextContent('AI に送る（3）');
 });
 
 test('AI の返信待ち：灰色の印（押しても移らない：ボタンでない）。コピーのボタン・ヒントは、残る', () => {
   bar(viewOf({ threads: [T('t1', [msg()])], meta: meta({ pending: [1] }) }));
   expect(turn()).toHaveClass('waiting-ai');
-  expect(turn()).toHaveTextContent('AIの返信待ち');
+  expect(turn()).toHaveTextContent('AI の返信待ち');
   expect(within(turn() as HTMLElement).queryByRole('button')).toBeNull();
   expect(document.getElementById('btn-submit')).not.toHaveClass('attn');
   expect(
@@ -106,20 +119,14 @@ test('読み上げ：見える文字は aria-hidden・`aria-live` の中は、�
   expect(live()).toBe('状態：あなたの番'); // 件数だけが変わった：同じ
   expect(turn()?.querySelector('.turn-t')?.getAttribute('aria-hidden')).toBe('true');
   r.unmount();
-  // 未送信の件数が変わる
+  // 未送信の件数が変わる：札は、未送信を含まない（出ない）。数は、ボタンの名前に
   const u = (n: number) => viewOf({ unsent: n, threads: [T('t1', [msg({ sent: false })])] });
   const r2 = render(<TopBar view={u(1)} status={OK} />);
-  expect(live()).toBe('状態：未送信あり');
-  expect(turn()).toHaveTextContent('未送信 1 件');
+  expect(turn()).toBeNull(); // 札は、なし（下書きだけ）
+  expect(document.getElementById('btn-submit')).toHaveTextContent('AI に送る（1）');
   r2.rerender(<TopBar view={u(2)} status={OK} />);
-  expect(turn()).toHaveTextContent('未送信 2 件');
-  expect(live()).toBe('状態：未送信あり'); // aria-live の中は、変わらない
-  expect(
-    within(turn() as HTMLElement)
-      .getByRole('button')
-      .getAttribute('aria-label'),
-  ).toContain('未送信 2 件'); // 件数は、ボタンの名前に
-  expect(live()).not.toMatch(/\d/);
+  expect(document.getElementById('btn-submit')).toHaveTextContent('AI に送る（2）');
+  expect(turn()).toBeNull();
 });
 
 test('すべて解決（緑）。サーバーに接続できないときは、#turn を出さない（接続の警告が先）', () => {
@@ -153,7 +160,9 @@ test('左の一覧の印：開いていないトピックは、要約だけ（�
   render(<SideNav topics={topics} currentSlug="demo" view={view} />);
   const li = (t: string) =>
     document.evaluate(`//li[contains(., '${t}')]`, document, null, 9, null).singleNodeValue as HTMLElement;
-  expect(li('開いている資料').querySelector('.chip.draft')?.getAttribute('aria-label')).toBe('未送信 1 件。Submit'); // 開いている：未送信（#turn と同じ）
+  expect(li('開いている資料').querySelector('.chip.draft')?.getAttribute('aria-label')).toBe(
+    '未送信 1 件。「AI に送る」で送ります',
+  ); // 開いている：未送信（#turn と同じ）
   const mine = li('自分の番').querySelector('.chip.yours');
   expect(mine?.getAttribute('aria-label')).toBe('あなたの番');
   expect(mine?.getAttribute('title')).toBe('あなたの番');
@@ -169,13 +178,13 @@ test('左の一覧の印：開いていないトピックは、要約だけ（�
   expect(li('終わった資料').querySelector('.turn-mark')).toBeNull();
 });
 
-test('カードの札：解決済み／未送信／回答待ち（AI の返信と質問が重なっても 1 つ）／AIの返信／AIの返信待ち（pending の round）／札なし', () => {
+test('カードの札：解決済み／未送信／未回答の質問（AI の返信と質問が重なっても 1 つ）／AI の返信／AI の返信待ち（pending の round）／札なし', () => {
   expect(threadStatus(T('t', [ai('a')], { resolved: true }))).toEqual(['解決済み', 'ok']);
   expect(threadStatus(T('t', [msg({ sent: false })]))).toEqual(['未送信', 'draft']);
-  // AI の返信と、未回答の質問が重なる：「回答待ち」の 1 つ
-  expect(threadStatus(T('t', [ai('a', { ask: ASK })]))).toEqual(['回答待ち', 'yours']);
-  expect(threadStatus(T('t', [ai('q', { ask: ASK }), ai('a')]))).toEqual(['回答待ち', 'yours']);
-  expect(threadStatus(T('t', [ai('a')]))).toEqual(['AIの返信', 'new']);
+  // AI の返信と、未回答の質問が重なる：「未回答の質問」の 1 つ
+  expect(threadStatus(T('t', [ai('a', { ask: ASK })]))).toEqual(['未回答の質問', 'yours']);
+  expect(threadStatus(T('t', [ai('q', { ask: ASK }), ai('a')]))).toEqual(['未回答の質問', 'yours']);
+  expect(threadStatus(T('t', [ai('a')]))).toEqual(['AI の返信', 'new']);
   // 答えた質問は、数えない
   expect(
     threadStatus(
@@ -190,10 +199,10 @@ test('カードの札：解決済み／未送信／回答待ち（AI の返信�
         ai('a2'),
       ]),
     ),
-  ).toEqual(['AIの返信', 'new']);
-  // 送った発言を、AI が処理待ち：その round が pending のときだけ「AIの返信待ち」
+  ).toEqual(['AI の返信', 'new']);
+  // 送った発言を、AI が処理待ち：その round が pending のときだけ「AI の返信待ち」
   const sent = T('t', [msg({ sent: true, round: 2 })]);
-  expect(threadStatus(sent, [2])).toEqual(['AIの返信待ち', 'aiwait']);
-  expect(threadStatus(sent, [1])).toEqual(['AIの確認待ち', 'wait']);
-  expect(threadStatus(sent)).toEqual(['AIの確認待ち', 'wait']);
+  expect(threadStatus(sent, [2])).toEqual(['AI の返信待ち', 'aiwait']);
+  expect(threadStatus(sent, [1])).toEqual(['AI の返信待ち', 'wait']);
+  expect(threadStatus(sent)).toEqual(['AI の返信待ち', 'wait']);
 });

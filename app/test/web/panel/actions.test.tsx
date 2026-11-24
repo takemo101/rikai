@@ -22,7 +22,7 @@ const qa = (sel: string, root: ParentNode = document) => [...root.querySelectorA
 const text = (el: Element | null) => el?.textContent ?? '';
 
 // ---- コメントを追加（F4・F5） ----
-test('コメントを追加：入力欄に書いて「コメントを追加」→ POST（対象・版・文・画像）→ 入力欄が閉じる・追加したカードが選ばれる（active）・「解決済み」の切り替えなら「進行中」へ・1 枚だけ見ていても、一覧へ戻る', async () => {
+test('コメントを追加：入力欄に書いて「コメントを追加」→ POST（対象・版・文・画像）→ 入力欄が閉じる・追加したカードが選ばれる（active）・「解決済み」の切り替えなら「未解決」へ・1 枚だけ見ていても、一覧へ戻る', async () => {
   const a = anchor('選んだ文');
   const view = renderPanel([thread({ id: 't1', messages: [user('先のコメント')] })], {
     onPost: (path, _body, server) => {
@@ -86,7 +86,7 @@ test('コメントを追加：空・空白だけは、送らない。⌘/Ctrl+En
   await userEvent.keyboard('{Control>}{Enter}{/Control}');
   expect(view.posts).toHaveLength(0);
   expect(useUi.getState().toast).toMatchObject({
-    msg: '画像のアップロード中です。終わってから、送ってください',
+    msg: '画像のアップロード中です。終わってから、追加してください',
     err: true,
   });
   act(() => useUi.getState().endUpload());
@@ -366,7 +366,7 @@ test('削除：確認なしで POST → 取り直して、消える', async () =
 });
 
 // ---- 解決・再開 ----
-test('「解決」→ POST（resolved: true）→ 進行中から消え、解決済みの 1 行へ。開いていた行の状態は、戻る', async () => {
+test('「解決」→ POST（resolved: true）→ 未解決から消え、解決済みの 1 行へ。開いていた行の状態は、戻る', async () => {
   const view = renderPanel(
     [thread({ id: 't1', anchor: anchor('文'), messages: [user('質問'), ai('答え')] }), thread({ id: 't2' })],
     {
@@ -396,9 +396,9 @@ test('「解決」→ POST（resolved: true）→ 進行中から消え、解決
   await userEvent.click(within(open).getByRole('button', { name: '再開する' }));
   await waitFor(() => expect(view.posts).toHaveLength(2));
   expect(view.posts[1]).toMatchObject({ path: '/api/resolve', body: { thread: 't1', resolved: false } });
-  await waitFor(() => expect(screen.getByRole('tab', { name: /進行中/ })).toHaveTextContent('進行中2'));
+  await waitFor(() => expect(screen.getByRole('tab', { name: /未解決/ })).toHaveTextContent('未解決2'));
   expect(useUi.getState().rowOpen.has('t1')).toBe(false);
-  await userEvent.click(screen.getByRole('tab', { name: /進行中/ }));
+  await userEvent.click(screen.getByRole('tab', { name: /未解決/ }));
   expect(qa('#threads .thread').map((c) => c.dataset.tid)).toEqual(['t1', 't2']);
   expect(q('.thread[data-tid="t1"] textarea[data-key="reply-t1"]')).not.toBeNull();
 });

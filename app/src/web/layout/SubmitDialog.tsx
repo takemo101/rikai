@@ -1,4 +1,4 @@
-// 「AI に送信」のダイアログ（`#submitdlg`）。未送信の件数と、全体へのメモ（任意）。「送信する」で POST /api/submit → 「第N回として送信しました」。
+// 「AI に送る」のダイアログ（`#submitdlg`）。未送信の件数と、全体へのメモ（任意）。「AI に送る」で POST /api/submit → 「第N回として AI に送りました」。
 // キャンセルしても、メモは残す。送信できたら、メモを空にする。
 import { Send } from 'lucide-react';
 import { type SyntheticEvent, useRef, useState } from 'react';
@@ -30,7 +30,7 @@ export function SubmitDialog({ slug, unsent }: SubmitDialogProps) {
       {
         onOk: (r) => {
           setNote('');
-          useUi.getState().showToast(`第${r.round}回として送信しました`);
+          useUi.getState().showToast(`第${r.round}回として AI に送りました`);
         },
       },
     );
@@ -41,7 +41,7 @@ export function SubmitDialog({ slug, unsent }: SubmitDialogProps) {
       <form method="dialog">
         <h3>
           <Send aria-hidden="true" focusable="false" />
-          AI に送信
+          AI に送る
         </h3>
         <p id="submitdlg-summary">未送信のコメント・回答など {unsent} 件を AI に送ります。</p>
         <label className="note-label">
@@ -60,7 +60,7 @@ export function SubmitDialog({ slug, unsent }: SubmitDialogProps) {
           </button>
           <button type="submit" id="submitdlg-ok" value="ok" className="primary">
             <Send aria-hidden="true" focusable="false" />
-            送信する
+            AI に送る
           </button>
         </div>
       </form>

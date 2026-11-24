@@ -55,7 +55,9 @@ test.describe('版と差分', () => {
     const chk = page.getByLabel('前の版からの変更を表示');
     await expect(chk).toBeChecked();
     await expect(u.docbar).toContainText('変更 2・追加 1・削除 1');
-    await expect(u.docbar).toContainText('右端の緑の線：前の版から変えたところ');
+    // 0.28.0：凡例は、件数の札の頭の色の見本（説明の文は title）。1 行に収めるため
+    await expect(u.docbar.locator('.stats .legend-swatch')).toBeVisible();
+    await expect(u.docbar.locator('.stats')).toHaveAttribute('title', /右端の緑の線：前の版から変えたところ/);
 
     // 変更・追加のブロックに、印。変わらないブロックには、ない
     await expect(u.article.locator('.blk.changed')).toHaveCount(3);
@@ -94,7 +96,7 @@ test.describe('版と差分', () => {
     await chk.uncheck();
     await expect(u.article.locator('.blk.changed')).toHaveCount(0);
     await expect(u.article.locator('summary')).toHaveCount(0);
-    await expect(u.docbar).not.toContainText('右端の緑の線');
+    await expect(u.docbar.locator('.stats .legend-swatch')).toHaveCount(0); // 件数の札は、変更を表示していない間は、出ない（凡例も）
     await chk.check();
     await expect(u.article.locator('.blk.changed')).toHaveCount(3);
 
@@ -112,7 +114,12 @@ test.describe('版と差分', () => {
     await reviseToV2(page, app);
     await page.locator('#docbar select').selectOption('1');
     await expect(page).toHaveURL(/#\/demo\/root\/v1$/);
-    await expect(u.docbar).toContainText('過去の版 v1 を表示中');
+    // 0.28.0：警告は短い文（全文は title）。1 行に収めるため
+    await expect(u.docbar.locator('.pastver')).toContainText('過去の版 v1（コメントは最新版で）');
+    await expect(u.docbar.locator('.pastver')).toHaveAttribute(
+      'title',
+      '過去の版 v1 を表示中です。コメントは、最新版にだけ付けられます',
+    );
     await expect(u.article.locator('p', { hasText: '一日に三回' })).toBeVisible(); // v1 の本文
     await expect(u.article.locator('.blk.changed')).toHaveCount(0); // v1 には差分がない
     await expect(page.getByLabel('前の版からの変更を表示')).toHaveCount(0);
@@ -178,7 +185,7 @@ test.describe('版と差分', () => {
 
     // v2（最新ではない）：前の版（v1）との差分が出る
     await page.locator('#docbar select').selectOption('2');
-    await expect(u.docbar).toContainText('過去の版 v2 を表示中');
+    await expect(u.docbar).toContainText('過去の版 v2（コメントは最新版で）');
     await expect(u.docbar).toContainText('変更 2・追加 1・削除 1');
     await expect(page.getByLabel('前の版からの変更を表示')).toBeChecked();
     await expect(u.article.locator('.blk.changed')).toHaveCount(3);

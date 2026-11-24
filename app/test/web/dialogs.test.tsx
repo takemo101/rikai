@@ -19,6 +19,8 @@ test('SubmitDialog：開くまでは閉じている。開くと、件数の文�
   renderWithClient(<SubmitDialog slug="demo" unsent={3} />);
   expect(dlg('submitdlg').open).toBe(false);
   act(() => useUi.getState().openDialog('submit'));
+  expect(screen.getByRole('heading', { name: 'AI に送る', hidden: true })).toBeInTheDocument(); // 見出しも、確定ボタンと同じ名前（旧：「AI に送信」「送信する」）
+  expect(screen.getByRole('button', { name: 'AI に送る', hidden: true })).toBeInTheDocument();
   expect(dlg('submitdlg').open).toBe(true);
   expect(screen.getByText('未送信のコメント・回答など 3 件を AI に送ります。')).toBeInTheDocument();
   expect(confirm).not.toHaveBeenCalled();
@@ -47,7 +49,7 @@ test('SubmitDialog：Esc（value なしで閉じる）でも、送らない', as
   expect(useUi.getState().dialog).toBeNull();
 });
 
-test('SubmitDialog：「送信する」で、メモつきで送る → 「第N回として送信しました」・メモを空に・トピックを取り直す', async () => {
+test('SubmitDialog：「AI に送る」で、メモつきで送る → 「第N回として AI に送りました」・メモを空に・トピックを取り直す', async () => {
   queryClient.setQueryData(['topic', 'demo'], topicState({ unsent: 2 }));
   const { calls } = mockFetch((req) =>
     req.method === 'POST' ? { body: { ok: true, round: 4 } } : { body: topicState({ rev: 2, unsent: 0 }) },
@@ -55,8 +57,8 @@ test('SubmitDialog：「送信する」で、メモつきで送る → 「第N�
   renderWithClient(<SubmitDialog slug="demo" unsent={2} />);
   act(() => useUi.getState().openDialog('submit'));
   fireEvent.change(screen.getByPlaceholderText('特定の箇所に紐づかない伝言があれば'), { target: { value: '伝言' } });
-  fireEvent.click(screen.getByRole('button', { name: '送信する', hidden: true }));
-  await waitFor(() => expect(useUi.getState().toast?.msg).toBe('第4回として送信しました'));
+  fireEvent.click(screen.getByRole('button', { name: 'AI に送る', hidden: true }));
+  await waitFor(() => expect(useUi.getState().toast?.msg).toBe('第4回として AI に送りました'));
   expect(calls[0]).toMatchObject({ method: 'POST', path: '/api/submit', body: { topic: 'demo', note: '伝言' } });
   await waitFor(() => expect(calls.some((c) => c.path === '/api/topic/demo')).toBe(true));
   expect(screen.getByPlaceholderText('特定の箇所に紐づかない伝言があれば')).toHaveValue('');
@@ -68,7 +70,7 @@ test('SubmitDialog：送信に失敗したら、エラーのトースト・メ�
   renderWithClient(<SubmitDialog slug="demo" unsent={1} />);
   act(() => useUi.getState().openDialog('submit'));
   fireEvent.change(screen.getByPlaceholderText('特定の箇所に紐づかない伝言があれば'), { target: { value: '伝言' } });
-  fireEvent.click(screen.getByRole('button', { name: '送信する', hidden: true }));
+  fireEvent.click(screen.getByRole('button', { name: 'AI に送る', hidden: true }));
   await waitFor(() => expect(useUi.getState().toast).toMatchObject({ msg: '送るものがありません', err: true }));
   expect(screen.getByDisplayValue('伝言')).toBeInTheDocument();
 });

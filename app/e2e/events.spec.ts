@@ -35,7 +35,7 @@ const ANCHOR = {
   label: '',
 };
 
-/** ページ（のオリジン）へ、コメントを 1 件入れて Submit する（fetch）。かかった時間（ms）を返す */
+/** ページ（のオリジン）へ、コメントを 1 件入れて AI に送る（fetch）。かかった時間（ms）を返す */
 async function commentAndSubmit(page: Page, slug: string): Promise<number> {
   return page.evaluate(
     async ([topic, anchor]) => {

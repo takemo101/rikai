@@ -1,4 +1,4 @@
-// 右のパネル（`<aside id="threads">`）：見出し・切り替え（進行中・解決済み・すべて）・固定の上部・新しいコメントの入力欄・スレッドのカード・解決済みの 1 行・
+// 右のパネル（`<aside id="threads">`）：見出し・切り替え（未解決・解決済み・すべて）・固定の上部・新しいコメントの入力欄・スレッドのカード・解決済みの 1 行・
 // 番号で 1 枚だけ見る（solo）。ライトボックス（`#lightbox`）も、ここが出す。
 // 描き直しても、入力欄のフォーカス・選択範囲・パネルのスクロールは、そのまま：カードは、キーで、同じ DOM を使い回す。
 // 入力欄が、並びの中で動いても、React が、フォーカスと選択範囲を、戻す。スクロールの位置は、ここ（useKeepScroll）が、戻す。
@@ -247,7 +247,7 @@ const Threads = memo(function Threads({ view, panelRef }: { view: View; panelRef
       );
     if (list.length) {
       const tabs: [Tab, string, number][] = [
-        ['live', '進行中', live.length],
+        ['live', '未解決', live.length],
         ['done', '解決済み', done.length],
         ['all', 'すべて', list.length],
       ];
@@ -282,7 +282,7 @@ const Threads = memo(function Threads({ view, panelRef }: { view: View; panelRef
       if (!live.length && list.length && tab === 'live')
         body.push(
           <div className="empty" key="empty-live">
-            進行中のコメントは、ありません。
+            未解決のコメントは、ありません。
           </div>,
         );
     } else if (composerNode) body.push(composerNode);

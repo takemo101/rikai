@@ -58,7 +58,7 @@ function mountArticle() {
   });
   const view = buildView({ slug: 'demo', page: 'root', version: 1 }, topic);
   if (!view) throw new Error('view');
-  // 個別表示（F43）の右のドックは、トピックを TanStack Query から読む（ルート・取得済みのトピック）。ここでは、作り物のものを、置く
+  // 拡大表示（F43）の右のドックは、トピックを TanStack Query から読む（ルート・取得済みのトピック）。ここでは、作り物のものを、置く
   mockFetch((req) => (req.path === '/api/topic/demo' ? { body: topic } : undefined));
   queryClient.setQueryData(topicKey('demo'), topic);
   location.hash = '#/demo/root';
@@ -136,7 +136,7 @@ test('本文の DOM は、変わらない：開いても・ズームしても・
   const before = art.innerHTML;
   press(q('.mermaid-block svg', art) as Element);
   expect(art.innerHTML).toBe(before);
-  fireEvent.click(q('button[aria-label="拡大"]') as HTMLElement);
+  fireEvent.click(q('button[aria-label="ズームイン"]') as HTMLElement);
   fireEvent.keyDown(document, { key: '0' });
   expect(art.innerHTML).toBe(before);
   fireEvent.keyDown(document, { key: 'Escape' });
@@ -209,15 +209,15 @@ test('返信の本体の、画像・図も、開く（ズーム・移動がで�
   expect(useUi.getState().lightbox).toBeNull();
 });
 
-test('ズーム：＋／−／全体表示・キー（＋ − 0）・ホイール・ダブルクリック（全体表示 ↔ 等倍）。範囲は、全体表示〜上限', async () => {
+test('ズーム：＋／−／全体に合わせる・キー（＋ − 0）・ホイール・ダブルクリック（全体に合わせる ↔ 等倍）。範囲は、全体に合わせる〜上限', async () => {
   const { art } = mountArticle();
   await settle();
   press(q('.mermaid-block svg', art) as Element);
-  expect(pct()).toBe(94); // 全体表示：窓 1024 の 92%（942）/ 自然な幅 1000
-  const out = q<HTMLButtonElement>('button[aria-label="縮小"]') as HTMLButtonElement;
-  const inn = q<HTMLButtonElement>('button[aria-label="拡大"]') as HTMLButtonElement;
-  const fit = q<HTMLButtonElement>('button[aria-label="全体表示"]') as HTMLButtonElement;
-  expect(out.disabled).toBe(true); // 全体表示より、縮めない
+  expect(pct()).toBe(94); // 全体に合わせる：窓 1024 の 92%（942）/ 自然な幅 1000
+  const out = q<HTMLButtonElement>('button[aria-label="ズームアウト"]') as HTMLButtonElement;
+  const inn = q<HTMLButtonElement>('button[aria-label="ズームイン"]') as HTMLButtonElement;
+  const fit = q<HTMLButtonElement>('button[aria-label="全体に合わせる"]') as HTMLButtonElement;
+  expect(out.disabled).toBe(true); // 全体に合わせるより、縮めない
   expect(fit.disabled).toBe(true);
   fireEvent.click(inn);
   expect(pct()).toBe(118); // × 1.25
@@ -241,9 +241,9 @@ test('ズーム：＋／−／全体表示・キー（＋ − 0）・ホイー�
   expect(inn.disabled).toBe(true);
   fireEvent.click(fit);
   fireEvent.doubleClick(q('.lb-stage') as Element, { clientX: 500, clientY: 400 });
-  expect(pct()).toBe(100); // 全体表示 → 等倍
+  expect(pct()).toBe(100); // 全体に合わせる → 等倍
   fireEvent.doubleClick(q('.lb-stage') as Element, { clientX: 500, clientY: 400 });
-  expect(pct()).toBe(94); // → 全体表示
+  expect(pct()).toBe(94); // → 全体に合わせる
 });
 
 test('閉じる：X・Esc・背景（図の外）を押す。図の上を押しても・ドラッグの終わりでは、閉じない。ツールバーを押しても、閉じない', async () => {
@@ -259,8 +259,8 @@ test('閉じる：X・Esc・背景（図の外）を押す。図の上を押し�
   fireEvent.pointerUp(stage, { button: 0, clientX: 500, clientY: 400, pointerId: 1 });
   expect(lb().hidden).toBe(false);
   // ズームして、ドラッグ：閉じない・動く
-  fireEvent.click(q('button[aria-label="拡大"]') as HTMLElement);
-  fireEvent.click(q('button[aria-label="拡大"]') as HTMLElement);
+  fireEvent.click(q('button[aria-label="ズームイン"]') as HTMLElement);
+  fireEvent.click(q('button[aria-label="ズームイン"]') as HTMLElement);
   const t0 = (q('.lb-stage') as HTMLElement).style.transform;
   fireEvent.pointerDown(view, { button: 0, clientX: 100, clientY: 100, pointerId: 2 });
   fireEvent.pointerMove(view, { clientX: 160, clientY: 100, pointerId: 2 });

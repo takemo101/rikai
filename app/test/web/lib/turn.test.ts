@@ -118,7 +118,7 @@ test('開いているトピックと、要約だけの判定は、（未送信�
 
 test('文言：見える文字は「あなたの番 n（スレッドの数）」「未解決 n」「未送信 n 件」。内訳は、項目の数で、別', () => {
   expect(turnLabel(turn([T('t', [ai('a')])], { unsent: 3 }))).toBe('未送信 3 件');
-  expect(turnLabel(turn([T('t', [ai('a')])], { pending: 1 }))).toBe('AIの返信待ち');
+  expect(turnLabel(turn([T('t', [ai('a')])], { pending: 1 }))).toBe('AI の返信待ち');
   const mine = turn([T('t1', [ask('q1')]), T('t2', [ai('a2')])]);
   expect(turnLabel(mine)).toBe('あなたの番 2');
   expect(turnDetail(mine)).toBe('AI の返信 2・未回答の質問 1');
@@ -136,7 +136,7 @@ test('読み上げる状態の名前（aria-live の中）：件数を含まな�
   const mine = (...ids: string[]) => turnStateName(turn(ids.map((id) => T(id, [ai(`a${id}`)]))));
   expect(mine('t1')).toBe('あなたの番');
   expect(mine('t1', 't2', 't3')).toBe(mine('t1'));
-  expect(turnStateName(turn([T('t', [ai('a')])], { pending: 1 }))).toBe('AIの返信待ち');
+  expect(turnStateName(turn([T('t', [ai('a')])], { pending: 1 }))).toBe('AI の返信待ち');
   expect(turnStateName(turn([T('t', [user('u')])]))).toBe('未解決あり');
   expect(turnStateName(turn([T('t', [], { resolved: true })]))).toBe('すべて解決');
   expect(turnStateName(turn([]))).toBe('');
@@ -156,13 +156,13 @@ test('押したときの行き先：AI の新着返信のあるスレッド → 
   expect(firstTarget([t0], new Set())).toBeNull();
 });
 
-test('タブのタイトル：(n) あなたの番（n＝スレッドの数）／未解決 n／AIの返信待ち／未送信 n 件／すべて解決／状態なし。題は 40 字に切る。文字のまま', () => {
+test('タブのタイトル：(n) あなたの番（n＝スレッドの数）／未解決 n／AI の返信待ち／未送信 n 件／すべて解決／状態なし。題は 40 字に切る。文字のまま', () => {
   const mine = turn([T('t1', [ask('q1')]), T('t2', [ai('a2')])]);
   expect(docTitle(mine, '資料')).toBe('(2) あなたの番 | 資料 | rikai');
   // 1 つの返信に質問が付いているだけ：(1)（2 回数えない）
   expect(docTitle(turn([T('t1', [ask('q1')])]), '資料')).toBe('(1) あなたの番 | 資料 | rikai');
   expect(docTitle(turn([T('t', [user('u')]), T('s', [user('v')])]), '資料')).toBe('未解決 2 | 資料 | rikai'); // (n) なし
-  expect(docTitle(turn([T('t', [ai('a')])], { pending: 1 }), '資料')).toBe('AIの返信待ち | 資料 | rikai');
+  expect(docTitle(turn([T('t', [ai('a')])], { pending: 1 }), '資料')).toBe('AI の返信待ち | 資料 | rikai');
   expect(docTitle(turn([T('t', [ai('a')])], { unsent: 3 }), '資料')).toBe('未送信 3 件 | 資料 | rikai');
   expect(docTitle(turn([T('t', [], { resolved: true })]), '資料')).toBe('すべて解決 | 資料 | rikai');
   expect(docTitle(turn([]), '資料')).toBe('資料 | rikai');
@@ -196,7 +196,7 @@ test('切り詰めは、コードポイント単位：絵文字（サロゲー�
   expect(trunc('👨‍👩‍👧‍👦'.repeat(20), 40)).not.toMatch(lone);
 });
 
-test('Submit が押せない理由：未送信なら null。終了・AI の返信待ち・コメントなし・ほかの状態ごとに、別の文。トピックがなければ、その旨', () => {
+test('AI に送る が押せない理由：未送信なら null。終了・AI の返信待ち・コメントなし・ほかの状態ごとに、別の文。トピックがなければ、その旨', () => {
   const mine = [T('t1', [ai('a1')])];
   expect(submitOffReason(turn(mine, { unsent: 2 }))).toBeNull();
   expect(submitOffReason(turn(mine, { closed: true }))).toContain('終了');

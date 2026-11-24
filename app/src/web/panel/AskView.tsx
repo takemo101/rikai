@@ -180,7 +180,7 @@ export function AskView({ slug, thread, q }: Props) {
       foot = (
         <span className="chip ok">
           <CircleCheck aria-hidden="true" focusable="false" />
-          {saved.sent ? '回答を送信済み' : '回答済み'}
+          {saved.sent ? '回答を AI に送りました' : '回答済み'}
         </span>
       );
   } else {

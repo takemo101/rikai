@@ -1,4 +1,4 @@
-// 入口のバー（`#actbar`。「コメント」。画像・図・html-app の枠を含むブロックでは、「拡大」（個別表示。F43）も）。文を選ぶと、選んだ文の上に・ブロックにマウスを置くと、そのブロックの右上に出る（範囲は、右下に浮かぶ「範囲を選ぶ」）。
+// 入口のバー（`#actbar`。「コメント」。画像・図を含むブロックでは、「拡大表示」（F43）も。**html-app の枠には、出さない**：入口は、枠の見出しに 1 つにそろえた）。文を選ぶと、選んだ文の上に・ブロックにマウスを置くと、そのブロックの右上に出る（範囲は、右下に浮かぶ「範囲を選ぶ」）。
 // ブロックにマウスを置くと、入口のバーを、そのブロックの右上（ブロックの上）に出す。バーへ向かう間に消えない・別のブロックへ飛ばないように、
 // ポインターが「そのブロックの、バーの高さ上〜下端 × 箱の右端まで」の帯にいる間は、同じブロックのまま出し続ける（`inBand`）。
 // 帯の外でも、本文の箱の右の余白にいる間は、同じ高さにある本文のブロックを探す（左の余白は、探さない）。
@@ -148,6 +148,13 @@ export function ActionBar({ scroller, latest }: Props) {
         return;
       }
       const blk = blockAt(e.clientX, e.clientY, art);
+      // html-app の枠には、バーを出さない（入口は、枠の見出しに 1 つにそろえた：「この枠にコメント」「要素を選ぶ」「拡大表示」）
+      if (blk?.classList.contains('htmlapp')) {
+        window.clearTimeout(c.hideTimer);
+        if (c.mode === 'blk') hide();
+        c.blk = null;
+        return;
+      }
       if (!blk) {
         scheduleHide();
         return;
@@ -214,12 +221,12 @@ export function ActionBar({ scroller, latest }: Props) {
         <button
           id="act-zoom"
           type="button"
-          aria-label="拡大"
-          title="この画像・図・枠を、個別表示で、大きく見ます（範囲を選んで、コメントもできます）"
+          aria-label="拡大表示"
+          title="この画像・図を、拡大表示で、大きく見ます（範囲を選んで、コメントもできます）"
           onClick={onZoom}
         >
           <ZoomIn aria-hidden="true" focusable="false" />
-          拡大
+          拡大表示
         </button>
       ) : null}
       <button id="act-comment" type="button" title="この文・ブロックに、コメントします" onClick={onComment}>

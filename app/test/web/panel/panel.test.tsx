@@ -44,7 +44,7 @@ test('view が null：空の aside だけ', async () => {
   expect(q('#threads')?.children).toHaveLength(0);
 });
 
-test('カード：番号・札（未送信／AIの返信）・対象の引用。既定の「AIの確認待ち」は、札を出さない', () => {
+test('カード：番号・札（未送信／AI の返信）・対象の引用。既定の「AI の返信待ち」は、札を出さない', () => {
   const t1 = thread({ id: 't1', anchor: anchor('一つ目の文'), messages: [user('質問です', { sent: false })] });
   const t2 = thread({
     id: 't2',
@@ -65,9 +65,9 @@ test('カード：番号・札（未送信／AIの返信）・対象の引用。
   expect(q('.th-head .chip', c1)?.textContent).toBe('未送信');
   expect(q('.th-head .quote', c1)?.textContent).toBe('一つ目の文');
   expect(c2).toHaveClass('new');
-  expect(q('.th-head .chip.new', c2)?.textContent).toBe('AIの返信');
+  expect(q('.th-head .chip.new', c2)?.textContent).toBe('AI の返信');
   expect(c3).toHaveClass('wait');
-  expect(q('.th-head .chip.wait', c3)).toBeNull(); // 「AIの確認待ち」の札は、出さない
+  expect(q('.th-head .chip.wait', c3)).toBeNull(); // 「AI の返信待ち」の札は、出さない
   expect(q('.th-head .no', c3)).toBeNull(); // 位置が見つからない：番号なし
   // 位置が「見つからない」と、本文が言っている（kind: none）：印を出す。まだ、本文が知らないスレッド（locs にない）は、出さない
   expect(q('.th-head .chip.warn', c3)?.textContent).toBe('修正で文が変わりました');
@@ -104,9 +104,9 @@ test('近似の表示（近い内容・同じ位置）・過去の版のスレ�
   expect(chips('t3')).toEqual(['v3', '後の版のコメント']);
 });
 
-test('AI 起点のスレッド（対象なし）は、引用が「AIからの質問」', () => {
+test('AI 起点のスレッド（対象なし）は、引用が「AI からの質問」', () => {
   renderPanel([thread({ id: 't1', origin: 'ai', anchor: null, messages: [ai('こんにちは')] })]);
-  expect(q('.thread .quote')?.textContent).toBe('AIからの質問');
+  expect(q('.thread .quote')?.textContent).toBe('AI からの質問');
 });
 
 test('別のページのスレッドは出ない', () => {
@@ -116,8 +116,8 @@ test('別のページのスレッドは出ない', () => {
 
 // ---- F33：切り替え・解決済みの 1 行 ----
 const mixed = () => [
-  thread({ id: 't1', anchor: anchor('進行中の一'), messages: [user('いち')] }),
-  thread({ id: 't2', anchor: anchor('進行中の二'), messages: [user('に')] }),
+  thread({ id: 't1', anchor: anchor('未解決の一'), messages: [user('いち')] }),
+  thread({ id: 't2', anchor: anchor('未解決の二'), messages: [user('に')] }),
   thread({
     id: 't3',
     anchor: anchor('解決した文'),
@@ -126,10 +126,10 @@ const mixed = () => [
   }),
 ];
 
-test('切り替え（進行中・解決済み・すべて）：数つき・既定は進行中・押すと、出るものが変わる', async () => {
+test('切り替え（未解決・解決済み・すべて）：数つき・既定は未解決・押すと、出るものが変わる', async () => {
   renderPanel(mixed());
   const tabs = qa('.tabs [role="tab"]');
-  expect(tabs.map((t) => t.textContent)).toEqual(['進行中2', '解決済み1', 'すべて3']);
+  expect(tabs.map((t) => t.textContent)).toEqual(['未解決2', '解決済み1', 'すべて3']);
   expect(tabs.map((t) => t.getAttribute('aria-selected'))).toEqual(['true', 'false', 'false']);
   expect(cardIds()).toEqual(['t1', 't2']);
   expect(qa('.donerow')).toHaveLength(0);
@@ -145,9 +145,9 @@ test('切り替え（進行中・解決済み・すべて）：数つき・既�
   expect(useUi.getState().tab).toBe('all');
 });
 
-test('空の切り替え：進行中が 0 のときの一言', () => {
+test('空の切り替え：未解決が 0 のときの一言', () => {
   renderPanel([thread({ id: 't3', resolved: true })]);
-  expect(q('#threads .empty')?.textContent).toBe('進行中のコメントは、ありません。');
+  expect(q('#threads .empty')?.textContent).toBe('未解決のコメントは、ありません。');
 });
 
 test('空の切り替え：解決済みが 0 のとき、「解決済み」を押すと、一言', async () => {
@@ -182,7 +182,7 @@ test('解決済みの 1 行：番号・対象・最後の発言（AI の Markdow
   expect(q('.donerow')).not.toBeNull();
 });
 
-test('本文から、解決済みを選ぶ（ストアの focusThread）と、「進行中」の切り替えなら「すべて」へ移って、開いて見せる', () => {
+test('本文から、解決済みを選ぶ（ストアの focusThread）と、「未解決」の切り替えなら「すべて」へ移って、開いて見せる', () => {
   const t3 = mixed()[2];
   if (!t3) throw new Error('fixture');
   renderPanel(mixed());
@@ -382,7 +382,7 @@ test('F30：質問 A（答えず、続けた）は小さく出て、B（答え�
   expect(q('.pill', stale)).toBeNull();
   expect(within(stale).queryByRole('button', { name: '回答を保存' })).toBeNull();
 
-  // B：ふつうに出る（ボタンは無効・「回答を送信済み」）
+  // B：ふつうに出る（ボタンは無効・「回答を AI に送りました」）
   const askB = qa('.ask').find((a) => q('.ask-q', a)?.textContent === '質問 B：公開しますか？') as HTMLElement;
   expect(askB).not.toHaveClass('stale');
   expect(
@@ -391,7 +391,7 @@ test('F30：質問 A（答えず、続けた）は小さく出て、B（答え�
     ['はい', true, true],
     ['いいえ', true, false],
   ]);
-  expect(q('.ask-foot .chip.ok', askB)?.textContent).toBe('回答を送信済み');
+  expect(q('.ask-foot .chip.ok', askB)?.textContent).toBe('回答を AI に送りました');
 
   // 「答える」：A の入力が、ふつうに出る
   await userEvent.click(within(stale).getByRole('button', { name: '答える' }));
@@ -413,7 +413,7 @@ test('F30：解決済みのスレッドの質問は、小さくならない（�
 });
 
 // ---- F22：入力欄は、対象の位置の順 ----
-test('入力欄：対象の位置の順に、スレッドの間へ入る（いつも一番上、ではない）。進行中を出さない切り替えでは、一番上', async () => {
+test('入力欄：対象の位置の順に、スレッドの間へ入る（いつも一番上、ではない）。未解決を出さない切り替えでは、一番上', async () => {
   const [p1, p2, p3, target] = blocks(4) as [HTMLElement, HTMLElement, HTMLElement, HTMLElement];
   // 本文の順：p1（t1）・p2（t2）・target（入力中の対象）・p3（t3）
   target.before(p3);
@@ -513,7 +513,7 @@ test('入力欄：対象が本文にない（pending が null）なら、先頭�
     't1',
     't2',
   ]);
-  expect(q('.thread.composer .hint')).toBeNull();
+  expect(q('.thread.composer .hint:not(.composer-note)')).toBeNull(); // 対象の説明は出さない（「まだ AI には送られません」の注記は、別）
   document.body.replaceChildren();
   resetAll();
   renderPanel([]);

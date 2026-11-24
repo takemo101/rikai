@@ -7,8 +7,8 @@ import {
   Clock,
   Hourglass,
   MessageCircleQuestion,
+  Plus,
   RotateCcw,
-  Send,
   Sparkles,
   TriangleAlert,
 } from 'lucide-react';
@@ -161,7 +161,7 @@ function ThreadFoot({ view, thread: t }: { view: View; thread: Thread }) {
     const text = draft.trim();
     const state = useUi.getState();
     if (state.uploading) {
-      state.showToast('画像のアップロード中です。終わってから、送ってください', true);
+      state.showToast('画像のアップロード中です。終わってから、追加してください', true);
       return;
     }
     if (!text && !imgs.length) return;
@@ -220,10 +220,10 @@ function ThreadFoot({ view, thread: t }: { view: View; thread: Thread }) {
         <button
           type="button"
           className="primary small"
-          title="返信を追加します（⌘/Ctrl＋Enter）"
+          title="返信を、下書きに追加します（⌘/Ctrl＋Enter）。まだ AI には送られません（「AI に送る」で送ります）"
           onClick={() => void sendReply()}
         >
-          <Send aria-hidden="true" focusable="false" />
+          <Plus aria-hidden="true" focusable="false" />
           追加
         </button>
         <button

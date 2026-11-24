@@ -847,12 +847,12 @@ test('枠の画像：時間切れは 2 秒。待っている間に枠が消え�
   await expect(requestFrameSnapshot(document.createElement('iframe'))).resolves.toBeNull();
 });
 
-test('枠の中の Esc（esc）：個別表示の枠（onEsc を渡した枠）だけが、受ける。送り元の窓・形・頻度（1 秒に 6 回まで）を検査する。本文の枠・兄弟の枠の esc は、何もしない', () => {
+test('枠の中の Esc（esc）：拡大表示の枠（onEsc を渡した枠）だけが、受ける。送り元の窓・形・頻度（1 秒に 6 回まで）を検査する。本文の枠・兄弟の枠の esc は、何もしない', () => {
   const onEsc = vi.fn();
   const focus = addFrame({ n: 0, onEsc });
   const body = addFrame({ n: 1 }); // 本文の枠：onEsc がない
   const esc = { __rikai: 1, type: 'esc' };
-  post(body.win, esc); // 兄弟・本文の枠：個別表示の枠の onEsc は、呼ばれない
+  post(body.win, esc); // 兄弟・本文の枠：拡大表示の枠の onEsc は、呼ばれない
   post(window, esc);
   post(null, esc);
   expect(onEsc).not.toHaveBeenCalled();

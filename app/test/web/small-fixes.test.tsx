@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-// 画面の小さな直し（RIK-055。UX の分析 P8・P10）：トーストの読み上げ・Submit が押せない理由・送信後の案内（初回だけ）・空の説明・関連の線の名前・位置の名前の 1 行表示・範囲と要素の排他。
+// 画面の小さな直し（RIK-055。UX の分析 P8・P10）：トーストの読み上げ・AI に送る が押せない理由・送信後の案内（初回だけ）・空の説明・関連の線の名前・位置の名前の 1 行表示・範囲と要素の排他。
 import { act, fireEvent, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
@@ -11,7 +11,7 @@ import { parseHash } from '../../src/web/lib/route';
 import { buildView } from '../../src/web/lib/view';
 import { toast, useUi } from '../../src/web/store/ui';
 import { meta, resetAll, topicState } from './helpers';
-import { anchor, renderPanel, stubScroll, thread, user } from './panel/fixtures';
+import { ai, anchor, renderPanel, stubScroll, thread, user } from './panel/fixtures';
 
 beforeEach(() => {
   resetAll();
@@ -53,18 +53,18 @@ test('トースト：読み上げの入れ物（#toast-region）は、トース�
   expect(screen.getByRole('alert')).toHaveTextContent('画像は 4 枚までです');
 });
 
-// ---- Submit が押せない理由 ----
-test('Submit が押せないとき：理由を title（無効のボタンを包む span にも）と、読み上げの説明（aria-describedby）で言う。コメントがなければ「コメントを書くと、送れます」', () => {
+// ---- AI に送る が押せない理由 ----
+test('AI に送る が押せないとき：理由を title（無効のボタンを包む span にも）と、読み上げの説明（aria-describedby）で言う。コメントがなければ「コメントを書くと、送れます」', () => {
   render(<TopBar view={viewOf()} status={OK} />);
   const b = $id('btn-submit');
   expect(b).toBeDisabled();
   expect(b).toHaveAttribute('title', expect.stringContaining('コメントを書くと、送れます'));
   expect($id('submit-wrap')).toHaveAttribute('title', b.getAttribute('title') as string);
   expect(b).toHaveAccessibleDescription(expect.stringContaining('コメントを書くと、送れます'));
-  expect(b).toHaveTextContent('Submit'); // 名前（見える文字）は、変えない
+  expect(b).toHaveTextContent('AI に送る'); // 名前（見える文字）。0 件のときは、数を出さない
 });
 
-test('Submit：状態ごとに理由が違う（AI の返信待ち・あなたの番）。未送信があれば、押せて、理由も説明もない', () => {
+test('AI に送る：状態ごとに理由が違う（AI の返信待ち・あなたの番）。未送信があれば、押せて、理由も説明もない', () => {
   const t = thread({ id: 't1', messages: [] });
   const { rerender } = render(<TopBar view={viewOf({ threads: [t], meta: meta({ pending: [1] }) })} status={OK} />);
   expect($id('btn-submit')).toHaveAttribute('title', expect.stringContaining('AI の返信を待っています'));
@@ -172,4 +172,51 @@ test('要素を選ぶボタン：範囲を選んでいる間に押すと、範�
   fireEvent.click(pick); // もう一度：やめる（範囲には、触らない）
   expect(frame.cancelPick).toHaveBeenCalledTimes(1);
   expect(useUi.getState().regMode).toBe('idle');
+});
+
+// ---- 下書きの操作の近くに、「まだ AI には送られません」の手がかり（0.28.0。「AI に送る」を名前にそろえたあと、「追加」「保存」が、送ると取り違えられないように） ----
+test('「まだ AI には送られません」の手がかり：新しいコメントの入力欄（見える 1 行）・追加ボタンの title・カードの返信の追加ボタンの title。保存した回答は「保存済み（未送信）」', () => {
+  renderPanel([thread({ id: 't1', anchor: anchor('文'), messages: [user('先のコメント', { sent: true })] })]);
+  act(() => {
+    useUi.getState().startComposer(anchor('別の文'));
+  });
+  const c = document.querySelector('.thread.composer') as HTMLElement;
+  expect(c.querySelector('.composer-note')).toHaveClass('hint');
+  expect(c.querySelector('.composer-note')).toHaveTextContent(
+    '追加しても、まだ AI には送られません（「AI に送る」で送ります）',
+  );
+  const add = [...c.querySelectorAll('button')].find((b) =>
+    b.textContent?.includes('コメントを追加'),
+  ) as HTMLButtonElement;
+  expect(add).toHaveAttribute('title', expect.stringContaining('まだ AI には送られません'));
+  expect(add.querySelector('svg')?.getAttribute('class')).toContain('lucide-plus'); // 紙飛行機（送る）の絵は、「AI に送る」だけ
+  const reply = [...document.querySelectorAll('.thread:not(.composer) .th-foot button')].find(
+    (b) => b.textContent?.trim() === '追加',
+  ) as HTMLButtonElement;
+  expect(reply).toHaveAttribute('title', expect.stringContaining('まだ AI には送られません'));
+  expect(reply.querySelector('svg')?.getAttribute('class')).toContain('lucide-plus');
+});
+
+// ---- 状態の言葉（C4）：同じ状態には、画面のどこでも同じ言葉 ----
+test('状態の言葉：カードの札・上の札・タブ・左の一覧が、同じ言葉（AI の返信待ち／未回答の質問／AI の返信／未解決／解決済み／未送信）', async () => {
+  const { threadStatus } = await import('../../src/web/panel/logic');
+  const { turnLabel, turnOfTopic } = await import('../../src/web/lib/turn');
+  const base = { threads: [], unsent: 0, pending: 0, closed: false, seen: new Set<string>() };
+  expect(turnLabel(turnOfTopic({ ...base, pending: 1 }))).toBe('AI の返信待ち'); // 上の札
+  expect(threadStatus(thread({ id: 't', messages: [user('a', { round: 1, sent: true })] }), [1])[0]).toBe(
+    'AI の返信待ち',
+  ); // カードの札：同じ言葉
+  expect(
+    threadStatus(thread({ id: 't', messages: [ai('質問です', { ask: { type: 'yes_no', question: '？' } })] }))[0],
+  ).toBe('未回答の質問'); // カードの札：上の札の内訳と同じ言葉
+  expect(threadStatus(thread({ id: 't', messages: [ai('返信です')] }))[0]).toBe('AI の返信');
+  expect(threadStatus(thread({ id: 't', resolved: true, messages: [] }))[0]).toBe('解決済み');
+  expect(threadStatus(thread({ id: 't', messages: [user('a', { sent: false })] }))[0]).toBe('未送信');
+  // 旧い言葉は、ない
+  const all = [
+    turnLabel(turnOfTopic({ ...base, pending: 1 })),
+    threadStatus(thread({ id: 't', messages: [user('a', { round: 1, sent: true })] }), [1])[0],
+    threadStatus(thread({ id: 't', messages: [user('a', { sent: true })] }))[0],
+  ].join(' ');
+  expect(all).not.toMatch(/AIの|確認待ち|回答待ち/);
 });

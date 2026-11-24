@@ -1,6 +1,6 @@
 // 画面の広さ：右のコメントの幅の、上限・既定と、窓の幅の購読。
 import { useSyncExternalStore } from 'react';
-import { PANEL_MIN } from '../lib/storage';
+import { PANEL_DEFAULT, PANEL_MIN } from '../lib/storage';
 import { useUi } from '../store/ui';
 
 /** 左の一覧の幅（CSS の --side-w。広い窓は 230px・〜900px は 168px）と、本文の領域に残す最小の幅 */
@@ -12,17 +12,21 @@ export const NARROW_MAX = 900;
 export const PANEL_MIN_NARROW = 220;
 export const DOC_MIN_NARROW = 400;
 /**
- * この幅より狭い窓では、左の一覧を、自動で隠す（保存した sideOpen は、書き換えない）：左の一覧（168）・右の幅の下限（220）・本文の最小（400）が、並べて入らない幅。
- * 左の一覧が戻ると、本文が 400px を割る（788px 未満）ので、そこまでは、隠す。隠している間は、☰ で、本文の上に重ねて出せる（ドロワー）
+ * 1100px 以下の窓では、左の一覧を、自動で隠す（保存した sideOpen は、書き換えない）：半画面（720〜1100px）で、本文が読める幅を残すため
+ * （左の一覧 230 と右のコメント 380 を並べると、1100px で本文が 490px・900px で 400px しかなかった。0.28.0 で、隠す境界を、788px 未満から、1100px 以下に上げた）。
+ * 隠している間は、☰ で、本文の上に重ねて出せる（ドロワー）。1101px からは、保存した開閉
  */
-export const SIDE_AUTO_HIDE_BELOW = SIDE_W_NARROW + PANEL_MIN_NARROW + DOC_MIN_NARROW;
+export const SIDE_AUTO_HIDE_BELOW = 1101;
+/** この幅以下の窓では、右のコメントの既定の幅を、細くする（本文を広く残す）。利用者が取っ手で決めた幅は、そのまま（`effectiveSavedWidth`） */
+export const PANEL_NARROW_BELOW = 1101;
+export const PANEL_DEFAULT_NARROW = 280;
 /** 矢印キーの、1 回の変化量 */
 export const KEY_STEP = 24;
 
 export const isNarrow = (innerWidth: number): boolean => innerWidth <= NARROW_MAX;
 export const sideAutoHidden = (innerWidth: number): boolean => innerWidth < SIDE_AUTO_HIDE_BELOW;
 
-/** 左の一覧を、本文の列の横に並べているか：保存した開閉。ただし、自動で隠す窓（788px 未満）では、並べない */
+/** 左の一覧を、本文の列の横に並べているか：保存した開閉。ただし、自動で隠す窓（1100px 以下）では、並べない */
 export function sideShown(sideOpen: boolean, innerWidth: number): boolean {
   return sideOpen && !sideAutoHidden(innerWidth);
 }
@@ -50,6 +54,18 @@ export function panelWidth(saved: number, max: number, min: number = PANEL_MIN):
   return Math.min(Math.max(min, Number(saved) || min), max);
 }
 
+/**
+ * 覚えている幅のうち、窓の幅に応じて使う値：1100px 以下で、利用者が決めていない（`user` が false）なら、細い既定（280）。
+ * 利用者が決めた幅は、取っ手でちょうど既定と同じ値（380）にしたときも、そのまま（値でなく、印で決める）。印のない保存（古い版）の、380 は、既定のまま。
+ */
+export function effectiveSavedWidth(saved: number, innerWidth: number, user: boolean): number {
+  return innerWidth < PANEL_NARROW_BELOW && !user && Number(saved) === PANEL_DEFAULT ? PANEL_DEFAULT_NARROW : saved;
+}
+
+/** 取っ手の「もとの幅」（ダブルクリック）：窓の幅に応じた既定（1100px 以下は 280・それより広ければ 380）。狭い窓（〜900px）の取っ手は、保存した幅に印を付けられないので、この値を、その窓の間だけ使う */
+export const defaultPanelWidth = (innerWidth: number): number =>
+  innerWidth < PANEL_NARROW_BELOW ? PANEL_DEFAULT_NARROW : PANEL_DEFAULT;
+
 const subscribe = (onChange: () => void): (() => void) => {
   window.addEventListener('resize', onChange);
   return () => window.removeEventListener('resize', onChange);
@@ -65,7 +81,7 @@ export function usePanelGeometry(): {
   sideShown: boolean;
   /** 左の一覧を、本文の上に重ねて出している（ドロワー） */
   drawer: boolean;
-  /** 自動で隠す窓（788px 未満） */
+  /** 自動で隠す窓（1100px 以下） */
   autoHidden: boolean;
   /** 狭い窓（〜900px） */
   narrow: boolean;
@@ -74,12 +90,14 @@ export function usePanelGeometry(): {
   const sideOpen = useUi((s) => s.ui.sideOpen);
   const narrowSideOpen = useUi((s) => s.narrowSideOpen);
   const narrow = isNarrow(width);
+  // 狭い窓（〜900px）で、取っ手で変えた幅（その窓の間だけ）は、いつも、利用者が決めた幅
   const saved = useUi((s) => (narrow && s.panelWNarrow !== null ? s.panelWNarrow : s.ui.panelW));
+  const user = useUi((s) => (narrow && s.panelWNarrow !== null) || s.ui.panelUser);
   const shown = sideShown(sideOpen, width);
   const min = panelMin(width);
   const max = panelMax(shown, width);
   return {
-    w: panelWidth(saved, max, min),
+    w: panelWidth(effectiveSavedWidth(saved, width, user), max, min),
     min,
     max,
     sideShown: shown,

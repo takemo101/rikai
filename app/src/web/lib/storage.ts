@@ -1,4 +1,4 @@
-// このブラウザの localStorage に覚えるもの：`rikai-seen`（見た AI のメッセージの ID）・`rikai-ui`（左の一覧の開閉・右の幅・関連の線の表示・外観のモード）・`rikai-send-hint`（送信後の案内を、見せたか）。
+// このブラウザの localStorage に覚えるもの：`rikai-seen`（見た AI のメッセージの ID）・`rikai-ui`（左の一覧の開閉・右の幅と、利用者が決めた印・関連の線の表示・外観のモード）・`rikai-send-hint`（送信後の案内を、見せたか）。
 // サーバーには送らない（資料・コメントとは別）。壊れていたら既定のまま・保存できなくても使える。
 import { DEFAULT_THEME, parseTheme, type ThemeMode } from './theme';
 
@@ -12,6 +12,8 @@ export const SEEN_MAX = 2000;
 export interface UiPrefs {
   sideOpen: boolean;
   panelW: number;
+  /** 右の幅を、利用者が取っ手で決めたか（値でなく、印で持つ：380 を、わざと選んでも、「既定のまま」と見分けるため）。false は、既定のまま（1100px 以下では、細い既定 280 で出す）。古い保存（この印がない）は false */
+  panelUser: boolean;
   /** コメントと本文の対象を結ぶ線（関連の線）を出すか */
   links: boolean;
   /** 外観のモード（ライト・ダーク・システム） */
@@ -24,6 +26,7 @@ export const PANEL_DEFAULT = 380;
 export const DEFAULT_UI: UiPrefs = {
   sideOpen: true,
   panelW: PANEL_DEFAULT,
+  panelUser: false,
   links: true,
   theme: DEFAULT_THEME,
   notify: false,
@@ -72,8 +75,13 @@ export function loadUi(): UiPrefs {
       if (typeof o.links === 'boolean') ui.links = o.links;
       if (typeof o.notify === 'boolean') ui.notify = o.notify;
       ui.theme = parseTheme(o.theme);
-      if (typeof o.panelW === 'number' || typeof o.panelW === 'string')
-        ui.panelW = Number(o.panelW) || DEFAULT_UI.panelW;
+      if (typeof o.panelW === 'number' || typeof o.panelW === 'string') {
+        const w = Number(o.panelW);
+        if (w) {
+          ui.panelW = w;
+          if (typeof o.panelUser === 'boolean') ui.panelUser = o.panelUser; // 幅が読めたときだけ、印を信じる
+        }
+      }
     }
   } catch {
     // 壊れていたら、既定のまま

@@ -1,4 +1,4 @@
-// AI の質問（ask。F10・F21・F30）：5 つの型 → 回答を保存・取り消し → Submit（pull に answer が届く）→ 固定 →「答えずに、会話が進みました」
+// AI の質問（ask。F10・F21・F30）：5 つの型 → 回答を保存・取り消し → AI に送る（pull に answer が届く）→ 固定 →「答えずに、会話が進みました」
 import type { Page } from '@playwright/test';
 import { expect, test } from './fixtures';
 import { addTextComment, submitAll, ui } from './ui';
@@ -46,13 +46,13 @@ async function seedAll(page: Page, app: { apply: (b: unknown) => Promise<unknown
 }
 
 test.describe('AI の質問と回答', () => {
-  test('5 つの型：答えて「回答を保存」→ 未送信 → Submit で answer が pull に届く → 送信済みで固定（F10・F21）', async ({
+  test('5 つの型：答えて「回答を保存」→ 未送信 → AI に送る で answer が pull に届く → 送信済みで固定（F10・F21）', async ({
     page,
     app,
   }) => {
     const u = ui(page);
     await seedAll(page, app);
-    await expect(u.top).toContainText('回答 0/5');
+    await expect(u.side.locator('li.cur .chip.small').first()).toHaveAttribute('title', /回答 0\/5/); // 進み具合は、左のトピック行（上のバーには出さない：0.28.0）
     const save = (c: ReturnType<typeof askCard>) => c.getByRole('button', { name: '回答を保存' });
 
     // 単一選択
@@ -63,8 +63,8 @@ test.describe('AI の質問と回答', () => {
     await save(single).click();
     await expect(single.getByRole('button', { name: '保存済み（未送信）' })).toBeDisabled();
     await expect(single.getByRole('button', { name: '取り消す' })).toBeVisible();
-    await expect(u.submit).toHaveText('Submit (1)');
-    await expect(u.top).toContainText('回答 0/5'); // 保存しただけでは、数えない
+    await expect(u.submit).toHaveText('AI に送る（1）');
+    await expect(u.side.locator('li.cur .chip.small').first()).toHaveAttribute('title', /回答 0\/5/); // 進み具合は、左のトピック行（上のバーには出さない：0.28.0） // 保存しただけでは、数えない
 
     // 複数選択＋その他
     const multi = askCard(page, ASKS.multi.question);
@@ -98,7 +98,7 @@ test.describe('AI の質問と回答', () => {
     await save(free).click();
     await expect(free.getByRole('button', { name: '保存済み（未送信）' })).toBeVisible();
 
-    await expect(u.submit).toHaveText('Submit (5)');
+    await expect(u.submit).toHaveText('AI に送る（5）');
     await submitAll(page);
 
     // pull：型ごとの回答の形
@@ -117,14 +117,14 @@ test.describe('AI の質問と回答', () => {
     expect(all).toContain('{"value":4}');
     expect(all).toContain('{"text":"猫は夜に活発です"}');
 
-    // 送信済み：「回答を送信済み」・入力は固定・数に入る
-    await expect(single).toContainText('回答を送信済み');
+    // 送信済み：「回答を AI に送りました」・入力は固定・数に入る
+    await expect(single).toContainText('回答を AI に送りました');
     await expect(single.getByLabel('魚')).toBeDisabled();
     await expect(single.getByLabel('魚')).toBeChecked();
     await expect(save(single)).toHaveCount(0);
     await expect(yn.getByRole('button', { name: 'はい', exact: true })).toBeDisabled();
     await expect(free.getByPlaceholder('自分の言葉で')).toBeDisabled();
-    await expect(u.top).toContainText('回答 5/5');
+    await expect(u.side.locator('li.cur .chip.small').first()).toHaveAttribute('title', /回答 5\/5/); // 進み具合は、左のトピック行（上のバーには出さない：0.28.0）
   });
 
   test('保存した回答は、選び直せる・取り消せる。取り消すと、送る変更でなくなる（F5・F10）', async ({ page, app }) => {
@@ -133,7 +133,7 @@ test.describe('AI の質問と回答', () => {
     const single = askCard(page, ASKS.single.question);
     await single.getByLabel('草').check();
     await single.getByRole('button', { name: '回答を保存' }).click();
-    await expect(u.submit).toHaveText('Submit (1)');
+    await expect(u.submit).toHaveText('AI に送る（1）');
     // 選び直して保存
     await single.getByLabel('カリカリ').check();
     await single.getByRole('button', { name: '回答を保存' }).click();
@@ -160,7 +160,7 @@ test.describe('AI の質問と回答', () => {
     await single.getByRole('button', { name: '回答を保存' }).click();
     await submitAll(page);
     await app.nextRound();
-    await expect(single).toContainText('回答を送信済み');
+    await expect(single).toContainText('回答を AI に送りました');
     const t = JSON.parse((await app.http(`/api/topic/${app.slug}`, { auth: true })).body);
     const th = t.threads.find((x: { messages: Array<{ ask?: { question: string } }> }) =>
       x.messages.some((m) => m.ask?.question === ASKS.single.question),
@@ -226,7 +226,7 @@ test.describe('AI の質問と回答', () => {
     await expect(card.getByLabel('草')).toBeDisabled();
     await card.getByRole('button', { name: 'はい', exact: true }).click();
     await card.getByRole('button', { name: '回答を保存' }).last().click();
-    await expect(u.submit).toHaveText('Submit (1)');
+    await expect(u.submit).toHaveText('AI に送る（1）');
   });
 
   test('答えないまま会話が進んだ質問は、小さく見える。「答える」で、また答えられる（F30）', async ({ page, app }) => {
@@ -251,7 +251,7 @@ test.describe('AI の質問と回答', () => {
     await expect(card.getByLabel('魚')).toBeVisible();
     await card.getByLabel('魚').check();
     await card.getByRole('button', { name: '回答を保存' }).click();
-    await expect(u.submit).toHaveText('Submit (1)');
+    await expect(u.submit).toHaveText('AI に送る（1）');
   });
 
   test('ユーザーのコメントから始まるスレッドへの、質問つきの返信は、答えられる形で出る（F10・F30）', async ({
@@ -273,7 +273,7 @@ test.describe('AI の質問と回答', () => {
     await expect(card).not.toContainText('答えずに、会話が進みました');
     await card.getByRole('button', { name: 'はい', exact: true }).click();
     await card.getByRole('button', { name: '回答を保存' }).click();
-    await expect(u.submit).toHaveText('Submit (1)');
+    await expect(u.submit).toHaveText('AI に送る（1）');
   });
 
   test('答えた質問・まだ会話が進んでいない質問は、小さくならない（F30）', async ({ page, app }) => {
@@ -289,7 +289,7 @@ test.describe('AI の質問と回答', () => {
     await one.locator('textarea').fill('追加の発言');
     await one.getByRole('button', { name: '追加', exact: true }).click();
     await submitAll(page);
-    await expect(one).toContainText('回答を送信済み');
+    await expect(one).toContainText('回答を AI に送りました');
     await expect(one).not.toContainText('答えずに、会話が進みました'); // 答えたので
     await expect(askCard(page, '質問その二')).not.toContainText('答えずに、会話が進みました'); // 別のスレッドの発言では、進まない
     await expect(askCard(page, '質問その二').getByRole('button', { name: 'はい', exact: true })).toBeVisible();

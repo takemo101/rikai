@@ -318,7 +318,7 @@ test.describe('関連の線（F35）', () => {
     await expect(ui(page).actbar).toBeVisible();
   });
 
-  test('解決済み：進行中のタブでは、引かない（カードがない）。解決済みのタブでは、1 行（.donerow）には引かない。開いたカードには、灰色の線。1 枚だけ見るで、1 本', async ({
+  test('解決済み：未解決のタブでは、引かない（カードがない）。解決済みのタブでは、1 行（.donerow）には引かない。開いたカードには、灰色の線。1 枚だけ見るで、1 本', async ({
     page,
     app,
   }) => {
@@ -327,7 +327,7 @@ test.describe('関連の線（F35）', () => {
     const tab = (n: string) => page.locator('.tab', { hasText: n });
     await u.threads.nth(0).getByRole('button', { name: '解決', exact: true }).click();
     await expect(tab('解決済み')).toHaveText('解決済み1');
-    await expect(paths(page)).toHaveCount(2); // 進行中のタブ：解決済みは、カードがない
+    await expect(paths(page)).toHaveCount(2); // 未解決のタブ：解決済みは、カードがない
 
     await tab('解決済み').click();
     await expect(page.locator('.donerow')).toHaveCount(1);
@@ -336,7 +336,7 @@ test.describe('関連の線（F35）', () => {
     await page.locator('.donerow').click(); // 開く：カードが出る
     await expect(page.locator('#links g.resolved path.cn')).toHaveCount(1);
     await tab('すべて').click();
-    await expect(paths(page)).toHaveCount(3); // 進行中 2 ＋ 開いている解決済み 1
+    await expect(paths(page)).toHaveCount(3); // 未解決 2 ＋ 開いている解決済み 1
     // 開いた直後は、そのカードが active（アクセントで強調）：別のカードを選ぶと、解決済みは、灰色（--muted）に戻る
     await u.threads.first().locator('.th-head').click();
     await expect(page.locator('#links g.resolved')).not.toHaveClass(/active/);

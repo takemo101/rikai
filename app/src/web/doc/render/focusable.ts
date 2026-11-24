@@ -26,7 +26,7 @@ export function markFocusEntries(art: HTMLElement): void {
     entry.setAttribute('aria-haspopup', 'dialog');
     entry.setAttribute(
       'aria-label',
-      el instanceof HTMLImageElement ? `${el.alt || '画像'}を、個別表示で開く` : '図を、個別表示で開く',
+      el instanceof HTMLImageElement ? `${el.alt || '画像'}を、拡大表示で開く` : '図を、拡大表示で開く',
     );
   }
 }

@@ -351,7 +351,7 @@ test.describe('外観のモード（F36）', () => {
   }) => {
     await app.switchTopic(page, 'th', '外観', DOC);
     await expect(ui(page).submit).toBeDisabled();
-    await auditBoth(page, '無効の Submit');
+    await auditBoth(page, '無効の AI に送る');
     await addTextComment(page, '猫は朝によく鳴きます', '一つ目');
     await addTextComment(page, '最後の段落です', '二つ目');
     await expect(ui(page).threads.first().locator('textarea')).toHaveAttribute('placeholder', /返信/);
@@ -361,7 +361,7 @@ test.describe('外観のモード（F36）', () => {
     await page.locator('.tab', { hasText: 'すべて' }).click();
     await expect(page.locator('#badges .bno.resolved')).toHaveCount(1);
     await auditBoth(page, '解決済み（丸・.no）');
-    await page.locator('.tab', { hasText: '進行中' }).click();
+    await page.locator('.tab', { hasText: '未解決' }).click();
     // #actbar（文を選ぶと出る）
     await dragSelect(page, '最後の段落です');
     await expect(ui(page).actbar).toBeVisible();
@@ -383,8 +383,8 @@ test.describe('外観のモード（F36）', () => {
     await expect(ui(page).toast).toBeHidden();
     // トースト（通常）：送信
     await ui(page).submit.click();
-    await ui(page).submitdlg.getByRole('button', { name: '送信する' }).click();
-    await expect(ui(page).toast).toContainText('送信しました');
+    await ui(page).submitdlg.getByRole('button', { name: 'AI に送る' }).click();
+    await expect(ui(page).toast).toContainText('AI に送りました');
     await auditBoth(page, 'トースト（通常）');
   });
 

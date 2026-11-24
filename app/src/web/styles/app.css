@@ -123,6 +123,11 @@ button.iconbtn, #btn-side { width: 26px; height: 26px; padding: 0; background: t
 button.iconbtn:hover:not(:disabled), #btn-side:hover { background: var(--hover); color: var(--ink); }
 button.iconbtn:active:not(:disabled), #btn-side:active { background: var(--line); }
 button.iconbtn svg.lucide, #btn-side svg.lucide { width: 15px; height: 15px; }
+/* 文字のボタン（枠の見出し・比較用ツールバー）：幅は数字・外観は現在の状態・要素を選ぶ／拡大表示はアイコン＋文字。押している間（aria-pressed）は、色つき */
+button.tbtn { display: inline-flex; align-items: center; gap: 3px; height: 22px; padding: 0 5px; font-size: var(--fs-s); line-height: 1.4; color: var(--muted); background: transparent; border: 1px solid transparent; border-radius: var(--r-s); white-space: nowrap; }
+button.tbtn:hover:not(:disabled) { background: var(--hover); color: var(--ink); }
+button.tbtn[aria-pressed="true"] { background: var(--accent-a10); color: var(--accent-ink); }
+button.tbtn svg.lucide { width: 13px; height: 13px; }
 button.link { display: inline-flex; align-items: center; gap: 4px; background: none; border: 0; color: var(--accent-ink); padding: 2px 0; font-size: var(--fs-s); }
 button.link:hover { text-decoration: underline; }
 .btnlink { display: inline-flex; align-items: center; gap: 3px; color: var(--accent-ink); font-size: var(--fs-s); text-decoration: none; }
@@ -147,10 +152,10 @@ button.link:hover { text-decoration: underline; }
 /* 左の一覧をしまう：列の幅を 0 にする（要素は消さない。消すと、残りの列が詰まって、配置が崩れる） */
 #app.side-collapsed { --side-w: 0px; --article-w: 920px; }
 #app.side-collapsed #side { visibility: hidden; padding: 0; border: 0; overflow: hidden; }
-/* 自動で隠す窓（788px 未満）で、☰ で出した左の一覧：本文の上に重ねる（ドロワー）。本文・右のパネルの幅は、変えない */
+/* 自動で隠す窓（1100px 以下）で、☰ で出した左の一覧：本文の上に重ねる（ドロワー）。本文・右のパネルの幅は、変えない */
 #app.side-drawer #doc { grid-column: 2; grid-row: 2; } /* 一覧が、列から外れても、本文・パネルは、自分の列のまま */
 #app.side-drawer #threads { grid-column: 3; grid-row: 2; }
-#app.side-collapsed.side-drawer #side { visibility: visible; position: absolute; grid-column: 1 / -1; grid-row: 2; top: 0; bottom: 0; left: 0; width: 168px; z-index: 40; padding: 8px 0 24px; border-right: 1px solid var(--line); overflow: auto; box-shadow: var(--shadow-pop); }
+#app.side-collapsed.side-drawer #side { visibility: visible; position: absolute; grid-column: 1 / -1; grid-row: 2; top: 0; bottom: 0; left: 0; width: 230px; z-index: 40; padding: 8px 0 24px; border-right: 1px solid var(--line); overflow: auto; box-shadow: var(--shadow-pop); }
 /* 右のコメントの幅を変える取っ手（コメントの左端の線の上） */
 #panel-resizer { position: absolute; top: 44px; bottom: 0; right: calc(var(--panel-w) - 4px); width: 8px; cursor: col-resize; z-index: 30; touch-action: none; }
 #panel-resizer:hover, #panel-resizer.drag, #panel-resizer:focus-visible { background: var(--accent-a22); outline: 0; }
@@ -210,7 +215,14 @@ button.turn-btn:hover { background: var(--hover); }
 
 /* ---- 中央：本文の上のバー ---- */
 #doc { display: flex; flex-direction: column; min-width: 0; min-height: 0; position: relative; }
-#docbar { display: flex; align-items: center; gap: 12px; padding: 4px 16px; min-height: 40px; border-bottom: 1px solid var(--line); background: var(--paper); flex-wrap: wrap; }
+#docbar { display: flex; align-items: center; gap: 4px 6px; padding: 4px 12px; min-height: 40px; border-bottom: 1px solid var(--line); background: var(--paper); flex-wrap: wrap; } /* 折り返しは、本文の列の幅で決まる：足りなければ折り返し（2 行以上）、十分なら 1 行（窓の幅でなく、右のコメントを広げた後の、本文の列。隠れない） */
+#docbar[hidden] { display: none; } /* 中身がないとき（版が 1 つの、子でないページ）：高さ 0 */
+#docbar > * { flex-shrink: 0; }
+/* 過去の版の警告・パンくずは、基準の幅を 0 にして、行に収まるかの判断では、最小の幅（警告 92px・パンくず 120px）で数える：先に、これが縮み（警告は省略記号。全文は title）、それでも足りなければ、行が折り返す。余白は、まず、これが取る（上限は、中身の幅） */
+#docbar > .pastver { flex: 1000 1 0; min-width: 92px; max-width: max-content; }
+#docbar > .crumbs { flex: 1000 1 0; min-width: 120px; max-width: max-content; margin-right: auto; }
+#docbar > :first-child:not(.crumbs) { margin-left: auto; } /* 右に寄せる（空の要素を挟むと、隙間が 2 つ増えて、1 行に収まらなかった）：パンくずが、先頭にあるときは、その右 */
+#docbar .pastver .chip-t { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .crumbs { display: flex; gap: 2px; align-items: center; font-size: var(--fs); min-width: 0; }
 .crumbs a { color: var(--muted); text-decoration: none; padding: 1px 4px; border-radius: var(--r-s); }
 .crumbs a:hover { color: var(--accent-ink); background: var(--hover); }
@@ -220,8 +232,7 @@ button.turn-btn:hover { background: var(--hover); }
 .verpick svg.lucide { position: absolute; left: 8px; color: var(--muted); pointer-events: none; }
 .verpick select { padding: 3px 8px 3px 26px; font-size: var(--fs-s); }
 label.chk { font-size: var(--fs-s); color: var(--muted); display: flex; gap: 6px; align-items: center; cursor: pointer; }
-.legend { display: inline-flex; align-items: center; gap: 6px; font-size: var(--fs-s); color: var(--muted); }
-.legend .swatch { display: inline-block; width: 3px; height: 14px; border-radius: 2px; background: var(--change); }
+.swatch { display: inline-block; width: 3px; height: 14px; border-radius: 2px; background: var(--change); } /* 凡例の色の見本（件数の札の頭：右端の緑の線と同じ色） */
 #links-toggle[aria-pressed=true] { color: var(--accent-ink); background: var(--accent-soft); }
 
 /* ---- 中央：本文（白い紙の上。カードの枠・影はなし） ---- */
@@ -250,11 +261,24 @@ label.chk { font-size: var(--fs-s); color: var(--muted); display: flex; gap: 6px
 .mm-err { color: var(--warn); font-size: var(--fs-s); text-align: left; }
 /* 実行できる枠（html-app）：隔離した iframe */
 .htmlapp { margin: 1em 0; }
-.htmlapp .cap { display: flex; flex-wrap: wrap; align-items: center; gap: 2px 8px; font-size: var(--fs-s); color: var(--muted); margin-bottom: 4px; user-select: none; }
-.htmlapp .apptools { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 1px; max-width: 100%; }
-.htmlapp .apptools button.iconbtn { width: 24px; height: 24px; }
+/* 見出し：説明の文（折り返す）・道具・「この枠にコメント」。`container-type` は、見出しの幅で、見た目を切り替えるため（下の @container：見出しは、道具が 1 行に収まる作りに） */
+.htmlapp .cap { container-type: inline-size; display: flex; flex-wrap: wrap; align-items: center; gap: 2px 8px; font-size: var(--fs-s); color: var(--muted); margin-bottom: 4px; user-select: none; }
+.htmlapp .apptools { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 2px 8px; max-width: 100%; }
+.grp { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 1px; } /* 枠の見出し・拡大表示のツールバーの、ひとまとまり（幅・外観）。先頭の小さな文字は、見出し */
+.grp-l { margin-right: 2px; }
 .htmlapp .apppick { color: var(--accent-ink); font-size: var(--fs-s); margin-left: 6px; }
-.htmlapp .apptools button.iconbtn[aria-pressed="true"] { background: var(--accent-a10); color: var(--accent-ink); }
+/* 見出しが狭いとき：道具が 1 行に収まる作りに（広い窓の幅・パネルを広げた窓でも、見出しが 3 段以上にならない）。文字は、DOM に残す（font-size 0：名前は aria-label・title、`textContent`・Tab の順は変わらない）。幅・外観の押す数は、同じ（1 回）
+   〜640px：「幅」「外観」の小さな見出しを省き、「要素を選ぶ」「拡大表示」は、アイコンだけに。〜460px：外観も、アイコンだけ（太陽・月で、状態が分かる）・幅の数字の余白を詰める */
+@container (max-width: 640px) {
+  .htmlapp .apptools { gap: 2px 4px; }
+  .htmlapp .apptools .grp-l { display: none; }
+  .htmlapp .apptools button.tbtn[data-pick], .htmlapp .apptools button.tbtn[data-focus-open] { font-size: 0; gap: 0; padding: 0 6px; }
+  .htmlapp .apptools button.tbtn svg.lucide { width: 14px; height: 14px; }
+}
+@container (max-width: 460px) {
+  .htmlapp .apptools button.tbtn[data-frame-mode] { font-size: 0; gap: 0; padding: 0 6px; }
+  .htmlapp .apptools button.tbtn[data-width] { padding: 0 4px; }
+}
 :is(.htmlapp, .fv-app) .appframe { display: block; width: 100%; margin-inline: auto; border: 0; box-shadow: 0 0 0 1px var(--line); border-radius: var(--r); } /* 枠の線は、box-shadow（border は、border-box の枠の見える高さを削り、中身が、2px 隠れて、スクロールバーが出る）。枠の中は、別の文書（AI が書いたもの）。橋が、画面の外観（?mode=）と配色の土台を渡す。幅の切り替え（375/768/1280/1920px）は、style.width（appBridge.ts） */
 :is(.htmlapp, .fv-app) .appframe[data-mode="light"] { background: #fff; color-scheme: light; } /* 枠の地：ライトは白（従来どおり）・ダークは黒。中の文書が、地を描かない従来の資料でも、文字が読める（data-mode は、appBridge.ts が付ける：画面の外観に従う枠は画面の外観・従来の枠は、利用者が選ぶまでライト） */
 :is(.htmlapp, .fv-app) .appframe[data-mode="dark"] { background: #09090b; color-scheme: dark; }
@@ -314,8 +338,6 @@ label.chk { font-size: var(--fs-s); color: var(--muted); display: flex; gap: 6px
 #compare .cmptools { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 14px; padding: 4px 8px; background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); }
 #compare .cmptools-bar { margin: 0; padding: 0; border: 0; min-width: 0; display: inline-flex; flex-wrap: wrap; align-items: center; gap: 1px; }
 #compare .cmptools-t { margin-right: 6px; font-size: var(--fs-s); color: var(--muted); }
-#compare .cmptools button.iconbtn { width: 24px; height: 24px; }
-#compare .cmptools button.iconbtn[aria-pressed="true"] { background: var(--accent-a10); color: var(--accent-ink); }
 #compare .cmpgrid.loading { opacity: 0.55; }
 #compare .cmpcell { position: relative; min-width: 0; padding: 0 12px; border-radius: var(--r-s); }
 #compare .cmpcell > :is(p, h1, h2, h3, h4, ul, ol, table, pre, blockquote):first-child { margin-top: 0.4em; }
@@ -489,7 +511,7 @@ mark.hl.pending { background: var(--accent-soft); outline: 1.5px dashed var(--ac
 #threads .panel-h { display: flex; align-items: center; justify-content: space-between; padding: 4px 0 0 2px; }
 #threads .panel-h button { margin: -2px 0; }
 .panel-top { position: sticky; top: -6px; z-index: 4; margin: -6px calc(var(--tpad) * -1) 0; padding: 6px var(--tpad) 4px; background: var(--surface); } /* 見出し・切り替えは、スクロールしても、右パネルの上に固定する（上に -6px：#threads の上の余白の分） */
-/* 切り替え（進行中・解決済み・すべて） */
+/* 切り替え（未解決・解決済み・すべて） */
 .tabs { display: flex; gap: 2px; margin: 4px 0 2px; padding: 2px; background: var(--hover); border: 1px solid var(--line); border-radius: var(--r-l); }
 .tab { flex: 1; border: 0; background: transparent; color: var(--muted); font-size: var(--fs-s); padding: 3px 8px; border-radius: var(--r); }
 .tab:hover { color: var(--ink); }
@@ -598,7 +620,7 @@ dialog p { margin: 0 0 12px; color: var(--ink-2); }
 .ended-list { list-style: none; padding: 0; }
 .ended-list a { color: var(--accent-ink); font-size: 15px; }
 
-/* ---- 右のパネルが、280px より狭いとき（狭い窓：220〜280px）：余白・切り替えの文字・ボタンの行を、詰める ---- */
+/* ---- 右のパネルが、280px 以下のとき（狭い窓：220〜280px。1100px 以下の細い既定の 280px を含む）：余白・切り替えの文字・ボタンの行を、詰める ---- */
 #app.panel-tight #threads { --tpad: 10px; }
 #app.panel-tight .tab { padding: 3px 2px; line-height: 1.3; white-space: nowrap; }
 #app.panel-tight .tab .n { display: block; margin: 0; }
@@ -618,7 +640,7 @@ dialog p { margin: 0 0 12px; color: var(--ink-2); }
   .brand, #top-status .hint { display: none; }
   .turn-go { display: none; } /* 狭い窓：印は、状態の名前だけ（左の一覧は、アイコンだけ。名前は title・aria-label） */
   #top-title:not(:empty)::before { display: none; }
-  #docbar { padding: 4px 10px; gap: 8px; }
+  #docbar { padding: 4px 10px; }
   #docscroll { padding: 20px 12px 120px 8px; }
   .md { font-size: 14px; }
   .md h1 { font-size: 20px; }
@@ -678,13 +700,25 @@ dialog p { margin: 0 0 12px; color: var(--ink-2); }
 #lightbox .fv-tools button:focus-visible { outline: 2px solid #fff; outline-offset: 0; }
 #lightbox .fv-tools button:disabled { opacity: 0.4; }
 #lightbox .fv-tools svg.lucide { width: 16px; height: 16px; }
-#lightbox .fv-apptools { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 1px; padding-right: 6px; margin-right: 4px; border-right: 1px solid rgba(255, 255, 255, 0.2); }
+#lightbox .fv-tools .grp-l { color: rgba(255, 255, 255, 0.7); font-size: var(--fs-s); }
+#lightbox .fv-apptools { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 2px 10px; padding-right: 6px; margin-right: 4px; border-right: 1px solid rgba(255, 255, 255, 0.2); }
 #lightbox .fv-hint:empty, #lightbox .fv-tools .apppick:empty { display: none; }
 #lightbox .fv-hint, #lightbox .fv-tools .apppick { position: absolute; left: 0; top: calc(100% + 6px); width: max-content; max-width: calc(100vw - 32px); padding: 3px 10px; font-size: var(--fs-s); color: var(--tip-ink); background: var(--tip-bg); border: 1px solid var(--tip-edge); border-radius: var(--r-s); pointer-events: none; }
 /* html-app の枠のステージ：利用できる幅いっぱい。縦に長いときは、ステージがスクロールする */
 #lightbox .fv-main.app { display: flex; flex-direction: column; }
-#lightbox .fv-appbar { flex: none; display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: 8px; padding: 16px 16px 4px; }
+#lightbox .fv-appbar { flex: none; display: flex; flex-wrap: nowrap; align-items: flex-start; gap: 8px; padding: 16px 16px 4px; } /* 折り返さない：閉じる（×）は、いつも上の行の右端。道具が、足りない幅の中で、自分の中で折り返す */
 #lightbox .fv-appbar .fv-tools, #lightbox .fv-appbar .lb-tools { position: relative; top: auto; left: auto; right: auto; max-width: none; }
+#lightbox .fv-appbar .fv-tools { flex: 0 1 auto; min-width: 0; }
+#lightbox .fv-appbar .lb-tools { flex: none; margin-left: auto; }
+/* 窓が狭い（〜1100px：ステージは 760px 以下）：道具の帯が、2〜3 行に増えないよう、「幅」「外観」の小さな見出しを省き、ボタンの余白を詰める。〜900px：「要素を選ぶ」「範囲を選ぶ」・外観は、アイコンだけ（名前は aria-label・title。文字は DOM に残す：font-size 0）。押す数は同じ */
+@media (max-width: 1100px) {
+  #lightbox .fv-appbar .fv-tools .grp-l { display: none; }
+  #lightbox .fv-appbar .fv-tools button { padding: 0 6px; gap: 4px; }
+  #lightbox .fv-appbar .fv-apptools { gap: 2px 4px; }
+}
+@media (max-width: 900px) {
+  #lightbox .fv-appbar .fv-tools button[data-pick], #lightbox .fv-appbar .fv-tools button[data-tool="region"], #lightbox .fv-appbar .fv-tools button[data-frame-mode] { font-size: 0; gap: 0; }
+}
 #lightbox .fv-appstage { flex: 1 1 0; min-height: 0; overflow: auto; padding: 12px 20px 24px; }
 #lightbox .fv-app { max-width: 100%; }
 /* ステージに重ねる、既存の範囲コメントの枠・番号（F35・F23 の見た目）。押すと、ドックの、そのスレッドが選ばれる */

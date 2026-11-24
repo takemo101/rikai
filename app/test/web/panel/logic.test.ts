@@ -38,11 +38,11 @@ function shape(segs: ReturnType<typeof foldMessages>): string[] {
 }
 const allSeen = (ms: Message[]) => new Set(ms.map((m) => m.id));
 
-test('threadStatus：解決済み > 未送信 > AIの返信（最後が AI）> AIの確認待ち', () => {
+test('threadStatus：解決済み > 未送信 > AI の返信（最後が AI）> AI の返信待ち', () => {
   expect(threadStatus(T([me('a')], { resolved: true }))).toEqual(['解決済み', 'ok']);
   expect(threadStatus(T([ai('a'), me('b', false)]))).toEqual(['未送信', 'draft']);
-  expect(threadStatus(T([me('a'), ai('b')]))).toEqual(['AIの返信', 'new']);
-  expect(threadStatus(T([ai('a'), me('b')]))).toEqual(['AIの確認待ち', 'wait']);
+  expect(threadStatus(T([me('a'), ai('b')]))).toEqual(['AI の返信', 'new']);
+  expect(threadStatus(T([ai('a'), me('b')]))).toEqual(['AI の返信待ち', 'wait']);
   // 未送信は、回答でも数える（保存しただけの回答）
   expect(threadStatus(T([ask('q'), ans('a', 'q', false)]))[1]).toBe('draft');
 });

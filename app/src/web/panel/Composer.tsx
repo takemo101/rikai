@@ -1,6 +1,6 @@
 // 新しいコメントの入力欄（`.thread.composer`）。対象（本文の点線の部分）の引用・書きかけの文・画像・「コメントを追加」・「やめる」。
 // 開く（対象を選んだ・選び直した）たびに、欄にフォーカスを移し、カードを真ん中へ。
-import { Send } from 'lucide-react';
+import { Plus } from 'lucide-react';
 import { useEffect, useRef } from 'react';
 import { useMutations } from '../api/mutations';
 import { effectiveFrameMeta } from '../lib/frameMeta';
@@ -52,13 +52,13 @@ export function Composer({ view, composer, pending, dock = false }: Props) {
     const text = draft.trim();
     const ui = useUi.getState();
     if (ui.uploading) {
-      ui.showToast('画像のアップロード中です。終わってから、送ってください', true);
+      ui.showToast('画像のアップロード中です。終わってから、追加してください', true);
       return;
     }
     if (!text && !imgs.length) {
       // 枠から取った情報だけでは、送れない（本文は、利用者の言葉）：知らせて、入力欄へ戻す
       if (meta) {
-        ui.showToast('コメントの本文を書いてください（枠から取った情報だけでは送れません）', true);
+        ui.showToast('コメントの本文を書いてください（枠から取った情報だけでは追加できません）', true);
         area.current?.focus();
       }
       return;
@@ -128,14 +128,20 @@ export function Composer({ view, composer, pending, dock = false }: Props) {
       <ImageBar imgKey="composer" slug={slug} />
       <div className="row">
         <AttachButton imgKey="composer" slug={slug} />
-        <button type="button" className="primary small" onClick={() => void submit()}>
-          <Send aria-hidden="true" focusable="false" />
+        <button
+          type="button"
+          className="primary small"
+          title="コメントを、下書きに追加します（まだ AI には送られません）"
+          onClick={() => void submit()}
+        >
+          <Plus aria-hidden="true" focusable="false" />
           コメントを追加
         </button>
         <button type="button" className="ghost small" onClick={() => useUi.getState().closeComposer()}>
           やめる
         </button>
       </div>
+      <div className="hint composer-note">追加しても、まだ AI には送られません（「AI に送る」で送ります）</div>
     </div>
   );
 }

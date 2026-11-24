@@ -129,7 +129,8 @@ test.describe('画面の広さ（F23）', () => {
   });
 });
 
-// 狭い窓（RIK-040）：〜900px は、右の幅の下限を 220px に下げ、本文の領域に 400px を残す。〜700px は、左の一覧を、自動で隠す（保存した値は、書き換えない）
+// 狭い窓（RIK-040）：〜900px は、右の幅の下限を 220px に下げ、本文の領域に 400px を残す。〜1100px は、左の一覧を、自動で隠す（保存した値は、書き換えない。0.28.0：旧は 788px 未満）。
+// 1100px 以下で、右の幅が既定（380）のままなら、細い既定（280）で始まる（本文を広く：1100px で 820px・900px で 620px。旧：490px・400px）
 test.describe('狭い窓（〜900px）', () => {
   const BT = '```';
   const DOC = `# 狭い窓\n\n猫は朝によく鳴きます。長い文の途中に、折り返しの確認のための言葉を、いくつも並べて、本文の列の幅を測ります。\n\n二つ目の段落です。\n\n${BT}js\nconst meals = 3;\n${BT}\n\n最後の段落です。\n`;
@@ -199,8 +200,9 @@ test.describe('狭い窓（〜900px）', () => {
     [900, true, 400],
     [800, true, 400],
     [800, false, 400],
-    [788, true, 400], // 788px（168 + 220 + 400）から、左の一覧が、本文の列の横に並ぶ
-    [787, true, 400], // 787px 以下は、左の一覧を、自動で隠す
+    [1101, true, 400], // 1101px から、左の一覧が、本文の列の横に並ぶ（本文は 491px）。0.28.0：旧は 788px から
+    [1100, true, 400], // 1100px 以下は、左の一覧を、自動で隠す（本文は 820px）
+    [788, true, 400],
     [700, true, 400],
     [600, true, 300],
     [600, false, 300],
@@ -226,7 +228,7 @@ test.describe('狭い窓（〜900px）', () => {
         'ページの横スクロール',
       ).toBeLessThanOrEqual(0);
       // タブの文字が切れない（名前は、そのまま）
-      for (const name of ['進行中', '解決済み', 'すべて'])
+      for (const name of ['未解決', '解決済み', 'すべて'])
         await expect(page.locator('.tab', { hasText: name })).toBeVisible();
       const broken = await page.evaluate(() =>
         [...document.querySelectorAll('.tab')]
@@ -262,9 +264,9 @@ test.describe('狭い窓（〜900px）', () => {
     });
   }
 
-  // 意図した変更：自動で隠す境界は、700/701px から、788px（168 + 220 + 400）に変えた。701〜787px で、左の一覧が戻ると、本文が 400px を割っていたため。
+  // 意図した変更：自動で隠す境界は、700/701px から、788px（168 + 220 + 400）に、さらに 0.28.0 で、1100px 以下に変えた（半画面で、本文が読める幅を残すため）。
   // 隠している間は、☰ で、本文の上に重ねて（ドロワー）出す：本文・パネルの幅は、変わらない（400px 前後でも、本文の列が、つぶれない）
-  for (const width of [400, 500, 600, 787]) {
+  for (const width of [400, 500, 600, 788, 1100]) {
     test(`${width}px：☰ で、左の一覧が、本文の上に重なる（本文・右のパネルの幅は、変わらない）。Esc・外を押す・☰ で、しまう。保存した sideOpen は、そのまま`, async ({
       page,
     }) => {
@@ -312,13 +314,13 @@ test.describe('狭い窓（〜900px）', () => {
     });
   }
 
-  test('788px 以上は、☰ で、保存する（本文の列の横に並べる）。窓を広げると、保存した開閉に戻る（F23(3)）', async ({
+  test('1101px 以上は、☰ で、保存する（本文の列の横に並べる）。窓を広げると、保存した開閉に戻る（F23(3)）', async ({
     page,
   }) => {
     const u = ui(page);
     const btn = page.locator('#btn-side');
     await page.evaluate(() => localStorage.setItem('rikai-ui', JSON.stringify({ sideOpen: true, links: true })));
-    await page.setViewportSize({ width: 788, height: 800 });
+    await page.setViewportSize({ width: 1101, height: 800 });
     await page.reload();
     await u.article.locator('.blk').first().waitFor();
     await expect(btn).toHaveAttribute('aria-expanded', 'true');
@@ -326,14 +328,14 @@ test.describe('狭い窓（〜900px）', () => {
     await btn.click();
     await expect(btn).toHaveAttribute('aria-expanded', 'false');
     expect((await uiState(page)).sideOpen).toBe(false);
-    await page.setViewportSize({ width: 1000, height: 800 });
+    await page.setViewportSize({ width: 1400, height: 800 });
     await expect(btn).toHaveAttribute('aria-expanded', 'false'); // 保存した「しまう」のまま
     await btn.click();
     await expect(btn).toHaveAttribute('aria-expanded', 'true');
     await expect.poll(async () => (await u.side.boundingBox())?.width ?? 0).toBeGreaterThan(150);
   });
 
-  test('回帰：600px で ☰（重ねて出す）→ 800px に広げて ☰（しまう：保存）→ 600px に戻しても、左の一覧は、勝手に出てこない', async ({
+  test('回帰：600px で ☰（重ねて出す）→ 1200px に広げて ☰（しまう：保存）→ 600px に戻しても、左の一覧は、勝手に出てこない', async ({
     page,
   }) => {
     const u = ui(page);
@@ -347,7 +349,7 @@ test.describe('狭い窓（〜900px）', () => {
     await resize(600, 220);
     await btn.click();
     await expect(btn).toHaveAttribute('aria-expanded', 'true');
-    await resize(800, 232); // 保存した「開く」：本文の列の横に並ぶ（800 − 168 − 400）
+    await resize(1200, 610); // 保存した「開く」：本文の列の横に並ぶ（1200 − 230 − 360）
     await expect(btn).toHaveAttribute('aria-expanded', 'true');
     await btn.click();
     await expect(btn).toHaveAttribute('aria-expanded', 'false');
@@ -358,20 +360,25 @@ test.describe('狭い窓（〜900px）', () => {
     // ☰ を押さずに、広げて、戻すだけでも、重ねた一覧は、勝手に出てこない
     await btn.click();
     await expect(btn).toHaveAttribute('aria-expanded', 'true');
-    await resize(1000, 640); // 保存した「しまう」：窓の 70%（700）でなく、1000 − 360
+    await resize(1300, 909); // 保存した「しまう」（自動で隠す窓を出る：1101px 以上）：窓の 70%（1300 × 0.7 = 909.99… の切り捨て）。1300 − 360 = 940 より小さい
     await resize(600, 220);
     await expect(btn).toHaveAttribute('aria-expanded', 'false');
     expect((await u.side.boundingBox())?.width ?? 0).toBeLessThan(5);
   });
 
-  test('境界（788px）を、1px ずつ：本文は、どこでも 400px 以上・右のパネルは 220px 以上（787 → 788 で、本文が急に狭くならない）', async ({
+  test('境界（1100px）を、1px ずつ：本文は、どこでも 400px 以上・右のパネルは 220px 以上。1100 以下は左の一覧が隠れ、1101 から並ぶ（本文は 820px → 491px）', async ({
     page,
   }) => {
     const u = ui(page);
-    for (let w = 776; w <= 800; w++) {
+    for (let w = 1092; w <= 1110; w++) {
       await page.setViewportSize({ width: w, height: 800 });
       await expect.poll(async () => (await box(u.doc)).width, { message: `${w}px：本文` }).toBeGreaterThanOrEqual(399);
       expect((await box(u.panel)).width, `${w}px：パネル`).toBeGreaterThanOrEqual(219);
+      await expect
+        .poll(() => u.side.evaluate((e) => e.getBoundingClientRect().width > 5), {
+          message: `${w}px：左の一覧が並ぶか`,
+        })
+        .toBe(w >= 1101);
     }
   });
 
@@ -384,8 +391,8 @@ test.describe('狭い窓（〜900px）', () => {
     const at900 = (await box(u.doc)).width;
     await page.setViewportSize({ width: 901, height: 800 });
     await expect(rz).toHaveAttribute('aria-valuemin', '280');
-    await expect.poll(async () => (await box(u.doc)).width).toBeLessThanOrEqual(365); // 901 − 230（左の一覧）− 311（上限）= 360
-    expect((await box(u.doc)).width).toBeLessThan(at900 - 30);
+    // 0.28.0：901px も、左の一覧は隠れる（1100px 以下）。右の幅は細い既定の 280：本文は 621px
+    await expect.poll(async () => (await box(u.doc)).width).toBeGreaterThanOrEqual(at900 - 5);
   });
 
   test('回帰：保存 380・800px で ← を 1 回 → 保存は、380 のまま。1200px に戻すと、パネルは 380（280 に縮まない）', async ({
@@ -394,10 +401,11 @@ test.describe('狭い窓（〜900px）', () => {
     const u = ui(page);
     await page.setViewportSize({ width: 800, height: 800 });
     const rz = page.locator('#panel-resizer');
-    await expect(rz).toHaveAttribute('aria-valuemax', '232'); // 狭い窓の表示になってから
+    await expect(rz).toHaveAttribute('aria-valuemax', '400'); // 狭い窓の表示になってから（800 − 0（左の一覧は隠れる）− 400。旧：232）
+    await expect.poll(async () => Math.round((await box(u.panel)).width)).toBe(280); // 既定のままなら、細い既定
     await rz.focus();
     await page.keyboard.press('ArrowRight');
-    await expect.poll(async () => (await box(u.panel)).width).toBeLessThanOrEqual(221);
+    await expect.poll(async () => (await box(u.panel)).width).toBeLessThanOrEqual(257);
     expect((await uiState(page)).panelW).toBeUndefined(); // 何も保存しない
     await page.setViewportSize({ width: 1200, height: 800 });
     await expect.poll(async () => Math.round((await box(u.panel)).width)).toBe(380);
@@ -423,16 +431,16 @@ test.describe('狭い窓（〜900px）', () => {
       await expect.poll(async () => (await uiState(page)).panelW).toBe(saved);
     }
     await page.setViewportSize({ width: 800, height: 800 });
-    await expect.poll(width).toBeLessThan(240); // 本文に 400px を残す（左の一覧 168px）
+    await expect.poll(width).toBeLessThanOrEqual(401); // 本文に 400px を残す（左の一覧は、隠れる）
     expect((await box(u.doc)).width).toBeGreaterThanOrEqual(399);
     expect((await uiState(page)).panelW).toBe(saved);
     await page.setViewportSize({ width: 1360, height: 900 });
     await expect.poll(async () => Math.round(await width())).toBe(saved);
 
-    // 取っ手：800px。下限 220・上限（232）
+    // 取っ手：800px。下限 220・上限（400）
     await page.setViewportSize({ width: 800, height: 800 });
     await expect(rz).toHaveAttribute('aria-valuemin', '220');
-    await expect(rz).toHaveAttribute('aria-valuemax', '232');
+    await expect(rz).toHaveAttribute('aria-valuemax', '400');
     const drag = async (x: number) => {
       const b = await box(rz);
       await page.mouse.move(b.x + b.width / 2, b.y + 100);
@@ -444,12 +452,12 @@ test.describe('狭い窓（〜900px）', () => {
     await expect.poll(width).toBeLessThanOrEqual(221);
     expect(await width()).toBeGreaterThanOrEqual(219);
     await drag(5); // 左の端まで：上限（本文に 400px）
-    await expect.poll(width).toBeGreaterThan(230);
-    expect(await width()).toBeLessThanOrEqual(233);
+    await expect.poll(width).toBeGreaterThan(390);
+    expect(await width()).toBeLessThanOrEqual(401);
     expect((await box(u.doc)).width).toBeGreaterThanOrEqual(399);
     // 矢印キー：下限を下回らない
     await rz.focus();
-    for (let i = 0; i < 4; i++) await page.keyboard.press('ArrowRight');
+    for (let i = 0; i < 9; i++) await page.keyboard.press('ArrowRight');
     await expect.poll(width).toBeLessThanOrEqual(221);
     expect(await width()).toBeGreaterThanOrEqual(219);
     expect((await uiState(page)).panelW).toBe(saved); // 狭い窓の取っ手は、保存した幅を書き換えない
@@ -476,7 +484,7 @@ test.describe('複数のトピック（F15・F21）', () => {
     await expect(u.article).toContainText('猫は朝によく鳴きます');
   });
 
-  test('Submit 済みで AI の返信待ちのトピックに「待ち」。解決の数が、左の一覧と上のバーに出る（F15・F21）', async ({
+  test('AI に送った後で AI の返信待ちのトピックに「待ち」。解決の数が、左の一覧に出る（0.28.0：上のバーには出さない）（F15・F21）', async ({
     page,
     app,
   }) => {
@@ -491,15 +499,15 @@ test.describe('複数のトピック（F15・F21）', () => {
     await expect(mine).not.toContainText('待ち');
     await submitAll(page);
     await expect(mine).toContainText('待ち');
-    await expect(u.top).toContainText('AIの返信待ち');
+    await expect(u.top).toContainText('AI の返信待ち');
     await expect(u.side.locator('.topics li', { hasText: 'もう一つの資料' })).not.toContainText('待ち');
     const r = await app.nextRound();
     await app.apply({ round: r.round, replies: [{ thread: r.items[0].thread, body: '返信です。' }] });
     await expect(mine).not.toContainText('待ち');
-    await expect(u.top).not.toContainText('AIの返信待ち');
+    await expect(u.top).not.toContainText('AI の返信待ち');
     await u.threads.first().getByRole('button', { name: '解決', exact: true }).click();
     await expect(mine).toContainText('1/1');
-    await expect(u.top).toContainText('解決 1/1');
+    await expect(u.top).not.toContainText('解決 1/1'); // 進み具合は、左のトピック行だけ
   });
 });
 
@@ -574,7 +582,7 @@ test.describe('終了（F16・F34）', () => {
     await expect(u.ended).toBeHidden();
     await expect(u.threads).toHaveCount(1);
     await expect(u.threads.first()).toContainText('残るコメント');
-    await expect(u.submit).toHaveText('Submit (1)');
+    await expect(u.submit).toHaveText('AI に送る（1）');
   });
 });
 

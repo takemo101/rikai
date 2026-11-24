@@ -44,7 +44,7 @@ const stateOf = async (body: Locator): Promise<Record<string, unknown>> =>
   JSON.parse((await body.locator('pre').textContent()) ?? 'null');
 
 test.describe('要素を選んでコメント', () => {
-  test('ボタン → 枠の中の要素を押す → 入力欄は空・上に「枠から」の情報の行（開くと、セレクタ・文字・位置・見た目・状態）。押した要素の click は動かない。自動では送らない。Submit すると、text は利用者の言葉だけ・frameMeta が別項目で AI に届く', async ({
+  test('ボタン → 枠の中の要素を押す → 入力欄は空・上に「枠から」の情報の行（開くと、セレクタ・文字・位置・見た目・状態）。押した要素の click は動かない。自動では送らない。AI に送ると、text は利用者の言葉だけ・frameMeta が別項目で AI に届く', async ({
     page,
     app,
   }) => {
@@ -53,7 +53,7 @@ test.describe('要素を選んでコメント', () => {
     const f = frameOf(page);
     const pick = capOf(page).locator('button[data-pick]');
     await expect(pick).toHaveAttribute('aria-pressed', 'false');
-    await expect(pick).toHaveAttribute('title', '枠の中の要素を選んでコメント');
+    await expect(pick).toHaveAttribute('title', '要素を選ぶ（枠の中の要素を選んでコメント）'); // 0.28.0：見える文字「要素を選ぶ」を名前に含める
     await pick.click();
     await expect(pick).toHaveAttribute('aria-pressed', 'true');
     await expect(capOf(page).locator('[role="status"]')).toHaveText('枠の中で、要素を押してください（Esc で中止）');
@@ -94,10 +94,10 @@ test.describe('要素を選んでコメント', () => {
     expect(Number(m?.[4])).toBeGreaterThan(20);
     expect(await stateOf(body)).toEqual({ clicks: 0, form: 'login' });
     await expect(body.locator('input, textarea, button')).toHaveCount(0); // 編集できない
-    // 自動では、送らない：Submit していない・コメントも、まだ保存していない
+    // 自動では、送らない：AI に送っていない・コメントも、まだ保存していない
     await app.pull().then((r) => expect(r.status).not.toBe('feedback'));
     await expect(u.threads).toHaveCount(0);
-    // あなたが一言を書いて、追加 → Submit
+    // あなたが一言を書いて、追加 → AI に送る
     await u.composer.locator('textarea').fill('このボタンの色を、もう少し濃くしたい');
     await u.composer.getByRole('button', { name: 'コメントを追加' }).click();
     await expect(u.composer).toHaveCount(0);
@@ -444,7 +444,7 @@ test.describe('枠の画像（枠自身が、自分の見た目を画像にす�
         });
         expect(corner).toBeLessThan(80);
       }
-      // 追加 → Submit → AI に、ラベルと frameMeta.imageFromFrame が届く（本文には、入らない）
+      // 追加 → AI に送る → AI に、ラベルと frameMeta.imageFromFrame が届く（本文には、入らない）
       await ui(page).composer.locator('textarea').fill('この帯の色が気になる');
       await ui(page).composer.getByRole('button', { name: 'コメントを追加' }).click();
       await expect(ui(page).threads.first().locator('.fm-sum')).toHaveText('枠の画像は、枠自身が作ったもの');
@@ -693,7 +693,7 @@ test.describe('枠が決めた文字：見えない文字は、見える形に�
     const d2 = (await (await openRow(rowOf(ui(page).composer))).textContent()) ?? '';
     expect(hiddenIn(d2)).toBe(0);
     expect(d2).toContain('u{E0049}');
-    // 保存して、Submit しても、AI に届くものに、見えない文字は、ない
+    // 保存して、AI に送っても、AI に届くものに、見えない文字は、ない
     await ui(page).composer.locator('textarea').fill('一言');
     await ui(page).composer.getByRole('button', { name: 'コメントを追加' }).click();
     await expect(ui(page).threads).toHaveCount(1);
@@ -748,7 +748,7 @@ test.describe('枠が決めた文字：見えない文字は、見える形に�
     const d2 = (await (await openRow(rowOf(ui(page).composer))).textContent()) ?? '';
     expect(hiddenIn(d2)).toBe(0);
     expect(d2).toContain('u{E0149}');
-    // 保存して、Submit しても、AI に届くものに、見えない文字は、ない
+    // 保存して、AI に送っても、AI に届くものに、見えない文字は、ない
     await ui(page).composer.locator('textarea').fill('一言');
     await ui(page).composer.getByRole('button', { name: 'コメントを追加' }).click();
     await submitAll(page);

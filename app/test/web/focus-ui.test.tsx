@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-// 個別表示（フォーカスビュー。F43）：右のドック（入力欄は、本文のパネルと同じ下書き）・Esc の順序・入口の出し分け（キーボード）・フォーカスの戻り・html-app の個別表示の枠（同じ隔離・橋の検査・破棄）・
+// 拡大表示（フォーカスビュー。F43）：右のドック（入力欄は、本文のパネルと同じ下書き）・Esc の順序・入口の出し分け（キーボード）・フォーカスの戻り・html-app の拡大表示の枠（同じ隔離・橋の検査・破棄）・
 // 本文の更新への追従（対象が消えたら閉じる）・窓の後ろの inert・Tab の輪・範囲の枠の重ね。実際の測定・ドラッグ・画素は、e2e（`app/e2e/focus.spec.ts`）。
 import { act, fireEvent } from '@testing-library/react';
 import { useEffect, useState } from 'react';
@@ -127,7 +127,7 @@ const openMermaid = () =>
   fireEvent.keyDown(q('#article .mermaid-block[data-focus-entry]') as Element, { key: 'Enter' });
 
 // ============================================================================
-test('ドックの入力欄は、本文のパネルと同じ下書き：個別表示で書いた下書きは、閉じたあとも、パネルに残る', async () => {
+test('ドックの入力欄は、本文のパネルと同じ下書き：拡大表示で書いた下書きは、閉じたあとも、パネルに残る', async () => {
   await mount();
   press(q('#article img[alt="図"]') as Element);
   expect(lb().classList.contains('fv')).toBe(true);
@@ -140,7 +140,7 @@ test('ドックの入力欄は、本文のパネルと同じ下書き：個別�
   fireEvent.change(dockComposerArea() as HTMLTextAreaElement, { target: { value: '書きかけ' } });
   expect(ui().drafts.composer).toBe('書きかけ'); // 本文のパネルと同じストア
   expect(panelComposerArea()?.value).toBe('書きかけ');
-  // 個別表示のあいだ、窓の後ろのパネルの入力欄は、フォーカスを受けない（ドックの入力欄が、受ける）
+  // 拡大表示のあいだ、窓の後ろのパネルの入力欄は、フォーカスを受けない（ドックの入力欄が、受ける）
   expect(document.activeElement).not.toBe(panelComposerArea());
   esc();
   await settle();
@@ -216,17 +216,17 @@ test('入口の出し分け：フォーカスできる（Tab で届く）のは�
   for (const e of entries) {
     expect(e.getAttribute('tabindex')).toBe('0');
     expect(e.getAttribute('role')).toBe('button');
-    expect(e.getAttribute('aria-label')).toContain('個別表示');
+    expect(e.getAttribute('aria-label')).toContain('拡大表示');
   }
   expect(q('#article img[alt="リンクの画像"]')?.hasAttribute('data-focus-entry')).toBe(false);
   expect(q('#article .img-blocked')?.hasAttribute('data-focus-entry')).toBe(false);
   expect(q('#article .htmlapp svg')?.closest('[data-focus-entry]')).toBeNull(); // 枠の見出しの、アイコン
-  // html-app：見出しの「個別表示」ボタン（Tab で届く）
+  // html-app：見出しの「拡大表示」ボタン（Tab で届く）
   const open = q<HTMLButtonElement>('#article .htmlapp button[data-focus-open]');
-  expect(open?.getAttribute('aria-label')).toBe('個別表示');
+  expect(open?.getAttribute('aria-label')).toBe('拡大表示');
 });
 
-test('キーボード：フォーカスした画像・図で、Enter・Space → 個別表示（コメントの有無に関係なく）。Esc で閉じると、開いた所にフォーカスが戻る', async () => {
+test('キーボード：フォーカスした画像・図で、Enter・Space → 拡大表示（コメントの有無に関係なく）。Esc で閉じると、開いた所にフォーカスが戻る', async () => {
   await mount();
   const [img, mm] = all('#article [data-focus-entry]') as [HTMLElement, HTMLElement];
   img.focus();
@@ -286,7 +286,7 @@ test('窓の後ろは inert：開いている間、本文・パネル・上の�
 });
 
 // ============================================================================
-test('ドックに、このブロックのコメントだけが出る。未送信の数も（Submit は、画面のバーのまま：ここには、押すボタンがない）', async () => {
+test('ドックに、このブロックのコメントだけが出る。未送信の数も（AI に送る は、画面のバーのまま：ここには、押すボタンがない）', async () => {
   await mount();
   const a = blockAnchor(q('#article .mermaid-block') as HTMLElement);
   const other = blockAnchor(q('#article img[alt="図"]')?.closest('[data-bid]') as HTMLElement);
@@ -305,7 +305,7 @@ test('ドックに、このブロックのコメントだけが出る。未送�
   expect(q('#lightbox .fv-dock')?.textContent).not.toContain('画像へのコメント');
   expect(q('#lightbox .fv-unsent')?.textContent).toBe('未送信 1 件');
   expect(q('#lightbox .fv-dock #btn-submit')).toBeNull();
-  // 返信が届く（トピックの更新）：個別表示は、開いたまま、ドックのカードが増える
+  // 返信が届く（トピックの更新）：拡大表示は、開いたまま、ドックのカードが増える
   const next = topicState({
     threads: [
       thread({
@@ -338,7 +338,7 @@ test('既存の範囲コメントの枠・番号が、ステージに重なる�
   const box = q<HTMLElement>('#lightbox .fv-box[data-tid="tr"]');
   expect(box).not.toBeNull();
   expect(box?.querySelector('.fv-no')?.textContent).toBe('1');
-  // 全体表示：窓（1024×768。測れないので窓の大きさ）に、92%・90% で収まる。viewBox は 1000×500
+  // 全体に合わせる：窓（1024×768。測れないので窓の大きさ）に、92%・90% で収まる。viewBox は 1000×500
   const fit = Math.min((1024 * 0.92) / 1000, (768 * 0.9) / 500);
   const [w, h] = [1000 * fit, 500 * fit];
   const [left, top] = [512 - w / 2, 384 - h / 2];
@@ -353,7 +353,7 @@ test('既存の範囲コメントの枠・番号が、ステージに重なる�
     0.3 * w2,
     1,
   );
-  // 押すと、そのスレッドが選ばれ、個別表示は、開いたまま
+  // 押すと、そのスレッドが選ばれ、拡大表示は、開いたまま
   fireEvent.click(q('#lightbox .fv-box[data-tid="tr"]') as HTMLElement);
   expect(ui().active).toBe('tr');
   expect(lb().hidden).toBe(false);
@@ -381,7 +381,7 @@ test('対象のブロックが、更新で消えたら、閉じて、知らせ�
   act(() => setMarkdown('# 題\n\n図は、なくなりました。\n'));
   await settle();
   expect(lb().hidden).toBe(true);
-  expect(ui().toast?.msg).toContain('個別表示の対象が見つからなくなった');
+  expect(ui().toast?.msg).toContain('拡大表示の対象が見つからなくなった');
   expect(ui().drafts.composer).toBe('消えるまえの下書き');
 });
 
@@ -403,7 +403,7 @@ const PICK = {
   frame: { w: 100, h: 100 },
 };
 
-test('html-app：個別表示は、新しい iframe（sandbox は allow-scripts だけ・allow は空・同じ src の形）。本文の枠は、動かさない。閉じたら、破棄して、登録簿から外す', async () => {
+test('html-app：拡大表示は、新しい iframe（sandbox は allow-scripts だけ・allow は空・同じ src の形）。本文の枠は、動かさない。閉じたら、破棄して、登録簿から外す', async () => {
   await mount();
   const body = bodyFrame();
   expect(registeredFrames()).toBe(1);
@@ -419,7 +419,7 @@ test('html-app：個別表示は、新しい iframe（sandbox は allow-scripts 
   expect(f.getAttribute('src')).toBe(body.getAttribute('src')); // 同じ内容（同じ番号・同じ版）。?mode も、同じ外観
   expect(f.getAttribute('referrerpolicy')).toBe('no-referrer');
   expect(registeredFrames()).toBe(2);
-  // 個別表示の枠には、「個別表示」ボタンがない（本文の枠の見出しにだけ）
+  // 拡大表示の枠には、「拡大表示」ボタンがない（本文の枠の見出しにだけ）
   expect(q('#lightbox button[data-focus-open]')).toBeNull();
   expect(q('#lightbox button[data-pick]')).not.toBeNull();
   esc();
@@ -445,13 +445,13 @@ test('開閉を 50 回：iframe・登録簿が、増えない。message の受�
   }
   const added = add.mock.calls.filter(([t]) => t === 'message').length;
   const removed = remove.mock.calls.filter(([t]) => t === 'message').length;
-  expect(added).toBe(0); // 本文の枠があるので、受け口は、1 つのまま（個別表示の枠が、足さない・外さない）
+  expect(added).toBe(0); // 本文の枠があるので、受け口は、1 つのまま（拡大表示の枠が、足さない・外さない）
   expect(removed).toBe(0);
   add.mockRestore();
   remove.mockRestore();
 });
 
-test('個別表示の枠からの pick は、本文の枠と同じ検査で受ける：その枠が選択モードのときだけ・送り元の窓で。錨は、本文の、元の枠（ブロック）', async () => {
+test('拡大表示の枠からの pick は、本文の枠と同じ検査で受ける：その枠が選択モードのときだけ・送り元の窓で。錨は、本文の、元の枠（ブロック）', async () => {
   await mount();
   const block = q('#article .htmlapp') as HTMLElement;
   fireEvent.click(q('#article .htmlapp button[data-focus-open]') as HTMLElement);
@@ -461,7 +461,7 @@ test('個別表示の枠からの pick は、本文の枠と同じ検査で受�
   // 選択モードでない：枠が、勝手に送っても、下書きは、作らない
   send(PICK, win);
   expect(ui().composer).toBeNull();
-  // 選択モード：個別表示の枠
+  // 選択モード：拡大表示の枠
   fireEvent.click(q('#lightbox button[data-pick]') as HTMLElement);
   expect(q('#lightbox button[data-pick]')?.getAttribute('aria-pressed')).toBe('true');
   // なりすまし：本文の枠・ウィンドウ自身・送り元なし・兄弟の窓は、受けない
@@ -488,7 +488,7 @@ test('個別表示の枠からの pick は、本文の枠と同じ検査で受�
   send({ ...PICK, selector: 'b' }, win);
   expect(ui().composer?.id).toBe(id);
   expect(q('#lightbox button[data-pick]')?.getAttribute('aria-pressed')).toBe('false');
-  // 状態：個別表示の枠の `state` が、次の下書きに添う（本文の枠の状態ではない）
+  // 状態：拡大表示の枠の `state` が、次の下書きに添う（本文の枠の状態ではない）
   send({ __rikai: 1, type: 'state', json: '{"slider":7}' }, bodyWin);
   send({ __rikai: 1, type: 'state', json: '{"slider":70}' }, win);
   ui().closeComposer();
@@ -499,7 +499,7 @@ test('個別表示の枠からの pick は、本文の枠と同じ検査で受�
   expect(JSON.parse(ui().composer?.frameMeta?.state as string)).toEqual({ slider: 70 });
 });
 
-test('html-app の個別表示：Esc の順序（要素選択の中止 → 閉じる）。ドックの「この枠にコメント」に、個別表示の枠の状態が添う', async () => {
+test('html-app の拡大表示：Esc の順序（要素選択の中止 → 閉じる）。ドックの「この枠にコメント」に、拡大表示の枠の状態が添う', async () => {
   await mount();
   fireEvent.click(q('#article .htmlapp button[data-focus-open]') as HTMLElement);
   await settle();
@@ -538,15 +538,15 @@ test('最新版でないとき：コメントの道具は使えない（読め�
   expect(q('.lb-pct')?.textContent).not.toBe('94%');
 });
 
-test('枠の中の Esc（橋が転送）：個別表示の枠からだけ、閉じる・道具の中止の順序に流れる。本文の枠からは、何も起きない。選択モードの Esc は、二重にならない', async () => {
+test('枠の中の Esc（橋が転送）：拡大表示の枠からだけ、閉じる・道具の中止の順序に流れる。本文の枠からは、何も起きない。選択モードの Esc は、二重にならない', async () => {
   await mount();
   const ESC = { __rikai: 1, type: 'esc' };
   const bodyWin = bodyFrame().contentWindow as Window;
-  send(ESC, bodyWin); // 本文の枠（個別表示が閉じているとき）：何もしない
+  send(ESC, bodyWin); // 本文の枠（拡大表示が閉じているとき）：何もしない
   fireEvent.click(q('#article .htmlapp button[data-focus-open]') as HTMLElement);
   await settle();
   const win = focusFrame().contentWindow as Window;
-  send(ESC, bodyWin); // 本文の枠からの esc は、個別表示を閉じない
+  send(ESC, bodyWin); // 本文の枠からの esc は、拡大表示を閉じない
   expect(lb().hidden).toBe(false);
   ui().setFocusTool('region');
   send(ESC, win); // 1 回目：道具の中止
@@ -566,7 +566,7 @@ test('枠の中の Esc（橋が転送）：個別表示の枠からだけ、閉�
 });
 
 // ---- 日本語の変換中（IME）：Esc・Enter は、変換の操作：閉じない・送信しない ----
-test('IME の変換中（isComposing・keyCode 229）の Esc は、個別表示を閉じない・道具を止めない。変換が終われば、ふつうに閉じる', async () => {
+test('IME の変換中（isComposing・keyCode 229）の Esc は、拡大表示を閉じない・道具を止めない。変換が終われば、ふつうに閉じる', async () => {
   await mount();
   press(mermaidSvg());
   await settle();
@@ -604,7 +604,7 @@ test('IME の変換中の Ctrl/⌘+Enter は、ドックの入力欄・パネル
   expect(posts()).toBe(1); // 変換が終わっていれば、送る
 });
 
-test('本文の枠（onEsc なし）から esc が来ても、個別表示は閉じず、道具も止まらない（個別表示の枠だけが、esc を受ける）', async () => {
+test('本文の枠（onEsc なし）から esc が来ても、拡大表示は閉じず、道具も止まらない（拡大表示の枠だけが、esc を受ける）', async () => {
   await mount();
   fireEvent.click(q('#article .htmlapp button[data-focus-open]') as HTMLElement);
   await settle();
@@ -613,11 +613,11 @@ test('本文の枠（onEsc なし）から esc が来ても、個別表示は閉
   for (let i = 0; i < 3; i++) send(ESC, bodyFrame().contentWindow as Window);
   expect(ui().focusTool).toBe('region');
   expect(lb().hidden).toBe(false);
-  send(ESC, focusFrame().contentWindow as Window); // 個別表示の枠からは、効く
+  send(ESC, focusFrame().contentWindow as Window); // 拡大表示の枠からは、効く
   expect(ui().focusTool).toBe('idle');
 });
 
-test('html-app の個別表示：幅の既定は、本文の枠がいま選んでいる幅（プリセット）。幅が違うときだけ、注記が出る', async () => {
+test('html-app の拡大表示：幅の既定は、本文の枠がいま選んでいる幅（プリセット）。幅が違うときだけ、注記が出る', async () => {
   await mount();
   const body = bodyFrame();
   // 本文の枠の幅を 1280 に

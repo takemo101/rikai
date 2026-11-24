@@ -77,7 +77,7 @@ export function FocusDock({ focus, ctx, frame }: { focus: FocusRef; ctx: FocusCt
         {unsent > 0 ? (
           <span
             className="chip draft small fv-unsent"
-            title="まだ送っていない下書きの数です。送るのは、画面の上の「Submit」です"
+            title="まだ AI には送られていない下書きの数です。送るのは、画面の上の「AI に送る」です"
           >
             未送信 {unsent} 件
           </span>

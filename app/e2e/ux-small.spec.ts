@@ -43,7 +43,7 @@ test.describe('範囲を選ぶ と 要素を選ぶ は、同時に ON になら�
 });
 
 test.describe('P8 最初の 5 分', () => {
-  test('Submit が押せない理由：コメントなし → 未送信あり（押せる）→ 送信後（AI の返信待ち）→ AI の返信後（あなたの番）。title・読み上げの説明で言う', async ({
+  test('AI に送る が押せない理由：コメントなし → 未送信あり（押せる）→ 送信後（AI の返信待ち）→ AI の返信後（あなたの番）。title・読み上げの説明で言う', async ({
     page,
     app,
   }) => {
@@ -86,18 +86,18 @@ test.describe('P8 最初の 5 分', () => {
     // 再読み込み：待ちは続くが、見える文字は出ない
     await page.reload();
     await u.article.locator('.blk').first().waitFor();
-    await expect(page.locator('#top-status')).toContainText('AIの返信待ち');
+    await expect(page.locator('#top-status')).toContainText('AI の返信待ち');
     await expect(hint).toHaveCount(0);
     const copy = page.locator('#top-status').getByRole('button', { name: 'コピー' });
     await expect(copy).toHaveAttribute('title', /Claude Code 以外は「rikai に送りました」と伝えてください/);
     // AI の返信 → 2 回目の送信・待ち：出ない
     await app.nextRound();
     await app.apply({ replies: [{ thread: 't1', body: '返信' }] });
-    await expect(page.locator('#top-status')).not.toContainText('AIの返信待ち');
+    await expect(page.locator('#top-status')).not.toContainText('AI の返信待ち');
     await page.locator('#threads .thread:not(.composer)').first().locator('textarea').fill('続き');
     await page.locator('#threads .thread:not(.composer)').first().getByRole('button', { name: '追加' }).click();
     await submitAll(page);
-    await expect(page.locator('#top-status')).toContainText('AIの返信待ち');
+    await expect(page.locator('#top-status')).toContainText('AI の返信待ち');
     await expect(hint).toHaveCount(0);
   });
 

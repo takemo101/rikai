@@ -302,26 +302,26 @@ export function ZoomView({
       <div className="lb-tools" role="toolbar" aria-label="拡大表示の操作">
         <button
           type="button"
-          aria-label="縮小"
-          title="縮小（−）"
+          aria-label="ズームアウト"
+          title="ズームアウト（−）"
           disabled={atFit}
           onClick={() => zoomTo(pose.scale / ZOOM_STEP)}
         >
           <ZoomOut aria-hidden="true" focusable="false" />
         </button>
-        <span className="lb-pct" title="拡大率（等倍が 100%）">
+        <span className="lb-pct" title="ズーム倍率（等倍が 100%）">
           {pct}%
         </span>
         <button
           type="button"
-          aria-label="拡大"
-          title="拡大（＋）"
+          aria-label="ズームイン"
+          title="ズームイン（＋）"
           disabled={atMax}
           onClick={() => zoomTo(pose.scale * ZOOM_STEP)}
         >
           <ZoomIn aria-hidden="true" focusable="false" />
         </button>
-        <button type="button" aria-label="全体表示" title="全体表示（0）" disabled={atFit} onClick={toFit}>
+        <button type="button" aria-label="全体に合わせる" title="全体に合わせる（0）" disabled={atFit} onClick={toFit}>
           <Maximize2 aria-hidden="true" focusable="false" />
         </button>
         <button type="button" className="close" aria-label="閉じる" title="閉じる（Esc）" onClick={onClose}>
