@@ -3,9 +3,9 @@
 import { act, fireEvent, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
-import { AppToolbar } from '../../src/web/doc/AppToolbar';
-import type { AppFrame } from '../../src/web/doc/frameRegistry';
-import type { FrameState } from '../../src/web/doc/frameState';
+import { AppToolbar } from '../../src/web/htmlapp/AppToolbar';
+import type { AppFrame } from '../../src/web/htmlapp/frameRegistry';
+import type { FrameState } from '../../src/web/htmlapp/frameState';
 import { Toast } from '../../src/web/layout/Toast';
 import { TopBar } from '../../src/web/layout/TopBar';
 import { parseHash } from '../../src/web/lib/route';

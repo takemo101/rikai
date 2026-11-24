@@ -6,7 +6,7 @@ import type { Anchor, Thread } from '../../../src/shared/types';
 import { topicKey } from '../../../src/web/api/queries';
 import { queryClient } from '../../../src/web/api/queryClient';
 import { Article } from '../../../src/web/doc/Article';
-import { registeredFrames } from '../../../src/web/doc/frameRegistry';
+import { registeredFrames } from '../../../src/web/htmlapp/frameRegistry';
 import { buildView } from '../../../src/web/lib/view';
 import { useDoc } from '../../../src/web/store/doc';
 import { useUi } from '../../../src/web/store/ui';

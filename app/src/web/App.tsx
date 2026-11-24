@@ -2,11 +2,11 @@
 import { type CSSProperties, type ReactNode, type RefObject, useEffect, useRef } from 'react';
 import { useServerEvents } from './api/events';
 import { usePage, useTopic, useTopics } from './api/queries';
+import { CompareView } from './compare/CompareView';
 import type { ArticleProps } from './contracts';
 import { Article } from './doc/Article';
-import { CompareView } from './doc/CompareView';
-import { followPageTheme } from './doc/frameRegistry';
 import { fillMermaid } from './doc/render';
+import { followPageTheme } from './htmlapp/frameRegistry';
 import { Interact } from './interact/Interact';
 import { DocBar } from './layout/DocBar';
 import { EndDialog } from './layout/EndDialog';

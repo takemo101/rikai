@@ -19,19 +19,19 @@ import { flushSync } from 'react-dom';
 import type { Thread } from '../../shared/types';
 import { type TopicState, topicKey } from '../api/queries';
 import { queryClient } from '../api/queryClient';
+import { LostDraft } from '../compare/LostDraft';
 import type { ThreadsPanelProps } from '../contracts';
-import { noteMouseDown, zoomOnCardClick } from '../doc/zoomOpen';
+import { ZoomModal } from '../focus/ZoomModal';
+import { noteMouseDown, zoomOnCardClick } from '../focus/zoomOpen';
 import { trunc } from '../lib/dom';
 import type { View } from '../lib/view';
 import { type DocModel, docOrder, locEl, useDoc } from '../store/doc';
 import { type Tab, useUi } from '../store/ui';
 import { Composer } from './Composer';
-import { LostDraft } from './LostDraft';
 import { composerSlot, lastSpeech, quoteOf } from './logic';
 import { type PanelActions, PanelContext, usePanel } from './panelContext';
 import { ThreadCard } from './ThreadCard';
 import { preventFileDropOutside } from './useImageAttach';
-import { ZoomModal } from './ZoomModal';
 
 /** コメントがまだないときの案内：要点は 2 行（文を選ぶ・ブロックにマウスを置く）。ほかの付け方（範囲）は、畳む */
 const EMPTY_HINT = '本文の文を選ぶと「コメント」が出ます。';

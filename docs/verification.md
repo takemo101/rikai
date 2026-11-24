@@ -1363,6 +1363,25 @@
 
 **数字**：上の件数（Vitest 999 件・e2e 373 件を 3 回：373 成功・373 成功・372 成功＋1 失敗）は、親が、全体で確認した（「3 回連続で全件成功」ではない）。`focus.spec.ts:559` の調査の数字（`main` の複製：6 件成功／5 件成功＋1 件失敗・④b：`--workers 1` で 6 回中 6 回成功・`--workers 4` で 6 回中 4 回成功＋2 回失敗）も、親が確認した。行ごとの照合は、担当の報告と、親の別の照合の、両方で確認した。バンドルの差・壊して確かめた件数は、担当の報告による。
 
+### 整理フェーズ ④c：機能フォルダを 3 つ作る（`compare/`・`focus/`・`htmlapp/`）（2026-11-24。RIK-061。SPEC §6・§8。移動だけ）
+
+**対象**：`web/` に、機能フォルダ 3 つを新設して、部品を移した（ファイル名・本体は変えない。再公開・旧ファイルの残骸なし）：`web/compare/`（5 ファイル・585 行）・`web/focus/`（15 ファイル・1,777 行）・`web/htmlapp/`（10 ファイル・962 行）。移動の対応表（旧 → 新）は、SPEC §6 の ④c の行に書いた（旧パスの記述は、過去の節では、履歴として、そのまま）。import は 66 ファイルで書き換えた。**独立レビューは、受けない**（移動だけ）。
+
+**環境**：headless Chrome（実際の Chrome。`RIKAI_CHROME` を環境変数で渡した）・Vitest（jsdom・node）。
+
+**自動テスト**：テストは、`app/test/web/{compare,focus,htmlapp}/` に移した（import のみの変更）：`compare/`（`compare-ui.test.tsx`・`compare.test.ts`）・`focus/`（`focus-ui.test.tsx`・`zoom-ui.test.tsx`・`focusBlock.test.ts`・`focusGeom.test.ts`・`zoom.test.ts`・`zoomSvg.test.ts`）・`htmlapp/`（`apps.test.ts`・`frameBridge.test.ts`・`frameMeta.test.ts`）。`panel/frame-meta.test.tsx` は、パネルの挙動のテストなので、そのまま。**全体は、親が確認した：Vitest 999 件（89 ファイル。件数は変わらない）・lint エラー 0・e2e 373 件を 1 回流して、全件成功**（2.9 分・`workers: 4`・`RIKAI_CHROME` を環境変数で渡した・2026-11-24）。**e2e は 1 回のみ**（移動だけのため、3 回連続は省いた：**「3 回連続で全件成功」とは書かない**）。
+
+- **CSS の分割**（担当の報告）：`app.css` の 3 節を、`htmlapp/htmlapp.css`・`compare/compare.css`・`focus/focus.css` へ切り出した。読み込み順は `main.tsx`：`app.css` → `htmlapp.css` → `compare.css` → `focus.css` → `connectors.css`。**`index.css` は、バイト単位では同一にならなかった**：大きさは同じ 51,260 バイト・同じ 598 ルール・**違うのは順序だけ**（`app.css` の途中の 3 節を、末尾へ移したため）。
+- **見た目が変わらない根拠**（担当の報告）：(1) ルールの相対順が入れ替わる組を、機械的に調べ、同じ要素・同じ特異性・同じプロパティで競合しうる組を挙げた → 実際に挙がった 32 組は、別の部品の要素（`#compare` と `#regbtn` など）で、同じ要素には当たらない。(2) 実際の Chrome で、新旧の `index.css` を、同じ手順で 14 状態（本文・コメント入力・版切り替え・比較・拡大表示・html-app の個別表示・ダーク・幅 820／420）に流して、全要素の computed style が一致（266〜500 要素ごと）。スクリーンショット 14 枚のうち 11 枚は完全に一致・3 枚は 3〜4 ピクセル差（上部バーあたり。アンチエイリアスと見ている）。
+- **バンドル**：`index.js` 551,162 → 551,156 バイト（−6）。
+- **依存の向き**（import を解析。担当の報告）：実行時の循環 0 件（143 ファイル。型も含めた 1 件は、④a の `store` の型の循環）・新しいフォルダの間の直接の依存は、`compare → htmlapp`・`focus → htmlapp` の 2 本だけ（逆向きなし）・`htmlapp/` は、`lib`・`shared`・`store` にだけ依存する・フォルダ単位の推移的な循環は残る（`doc`・`panel`・`interact`・`focus`・`compare` が、間接に行き来する。ファイル単位では 0 件）。
+- **元の場所に残したもの**：`lib/compare.ts`・`lib/frameWidth.ts`（ストアが使う：ストアは、機能フォルダを import しない）・`shared/htmlapp-*`・`server/appframe*`・`server/htmlapp*`・`layout/DocBar`・`connectors.css`・`panel/frame-meta.test.tsx`。
+- **追加の変更**：`biome.json` に `"!src/web/*/*.css"` を足した・`app.css` の切り出し後に残るトースト規則の前に、見出しコメントを 1 行・旧パスを指すコメント 13 か所の文言だけ直した。
+
+**確認していない範囲・残る課題**：実際のマウス・Safari・Firefox・e2e の複数回の連続実行。`focus.spec.ts:559`・`htmlapp-writeback.spec.ts:184` の 2 件は、並列のときだけ落ちる既知の不安定さ（安定化は、未対応）。フォルダ単位の推移的な循環（今回の範囲外）。
+
+**数字**：上の件数（Vitest 999 件・e2e 373 件を 1 回）は、親が確認した。CSS の比較（32 組・14 状態・computed style の一致・スクリーンショット）・バンドルの差・依存の解析は、担当の報告による。
+
 ### 人間の確認待ち
 
 AI は、これらを合格にしない。

@@ -5,11 +5,11 @@ import { useLayoutEffect, useRef } from 'react';
 import type { Ask, Message, Thread } from '../../shared/types';
 import { useMutations } from '../api/mutations';
 import { fillMermaid, mdToFragment } from '../doc/render';
+import { FrameMetaChip } from '../htmlapp/FrameMetaChip';
 import type { View } from '../lib/view';
 import { useUi } from '../store/ui';
 import { AskView } from './AskView';
 import { caretAtEnd } from './caret';
-import { FrameMetaChip } from './FrameMetaChip';
 import { imgUrl } from './logic';
 
 interface Props {

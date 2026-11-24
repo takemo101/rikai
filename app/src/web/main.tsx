@@ -8,6 +8,9 @@ import { applyTheme } from './lib/theme';
 import { getView } from './lib/view';
 import { bindView } from './store/ui';
 import './styles/app.css';
+import './htmlapp/htmlapp.css';
+import './compare/compare.css';
+import './focus/focus.css';
 import './styles/connectors.css';
 
 // 保存した外観は、public/assets/theme-init.js が、<head> で、描く前に付ける（ちらつき〔FOUC〕を避ける）。ここで、もう一度付ける（ストアの初期値と一致させる。害はない）。system は、付けない
