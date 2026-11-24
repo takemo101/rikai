@@ -193,6 +193,42 @@ test.describe('範囲を選ぶ', () => {
     await expect(u.threads.filter({ hasText: '左上の範囲' })).not.toHaveClass(/linked/);
   });
 
+  test('範囲の枠に重なる画像を押す：コメントは選ばず、拡大表示が開く（ドックに、2 件のコメント）。ホバーで光るのは、これまでどおり（0.29.0）', async ({
+    page,
+    app,
+  }) => {
+    const u = ui(page);
+    const img = await openPicDoc(page, app);
+    const ib = await box(img);
+    for (const [x0, y0, x1, y1, text] of [
+      [0.05, 0.05, 0.3, 0.4, '左上の範囲'],
+      [0.6, 0.6, 0.95, 0.95, '右下の範囲'],
+    ] as const) {
+      await u.regbtn.click();
+      await dragBox(
+        page,
+        { x: ib.x + ib.width * x0, y: ib.y + ib.height * y0 },
+        { x: ib.x + ib.width * x1, y: ib.y + ib.height * y1 },
+      );
+      await expect(u.composer).toBeVisible();
+      await fillAndAdd(page, text);
+    }
+    await expect(u.badges.locator('.regionbox')).toHaveCount(2);
+    await page.mouse.move(ib.x + ib.width * 0.15, ib.y + ib.height * 0.2);
+    await expect(u.threads.filter({ hasText: '左上の範囲' })).toHaveClass(/linked/);
+    await page.mouse.click(ib.x + ib.width * 0.15, ib.y + ib.height * 0.2); // 枠の上
+    await expect(u.lightbox).toBeVisible();
+    await expect(u.lightbox.locator('.fv-dock .thread')).toHaveCount(2);
+    await page.keyboard.press('Escape');
+    await expect(u.lightbox).toBeHidden();
+    await page.mouse.click(ib.x + ib.width * 0.45, ib.y + ib.height * 0.5); // 枠の外
+    await expect(u.lightbox).toBeVisible();
+    await page.keyboard.press('Escape');
+    // 画像を含まない文は、これまでどおり、押しても拡大しない
+    await page.locator('#article p', { hasText: '写真の下の段落' }).click();
+    await expect(u.lightbox).toBeHidden();
+  });
+
   test('文・ブロックにまたがる範囲：見た目を写した画像が付く（白紙でない）（F25）', async ({ page, app }) => {
     const u = ui(page);
     await openPicDoc(page, app);
@@ -371,7 +407,10 @@ test.describe('範囲を選ぶ', () => {
     await expect(u.composer.locator('.thumb img')).toHaveCount(1);
   });
 
-  test('添付の画像を押すと、画面の中で大きく出る。Esc・押すと閉じる（F31(2)）', async ({ page, app }) => {
+  test('添付の画像を押すと、同じ拡大表示（ズーム・移動）で大きく出る。見るだけ（ドック・範囲を選ぶ道具なし）。Esc・×・背景で閉じる（F31(2)・C1）', async ({
+    page,
+    app,
+  }) => {
     const u = ui(page);
     const img = await openPicDoc(page, app);
     const ib = await box(img);
@@ -385,15 +424,40 @@ test.describe('範囲を選ぶ', () => {
     expect(tb.height).toBeGreaterThanOrEqual(60);
     await thumb.click();
     await expect(u.lightbox).toBeVisible();
-    const big = await box(u.lightbox.locator('img'));
-    expect(big.height).toBeGreaterThan(tb.height * 1.5);
+    await expect(u.lightbox).toHaveAttribute('role', 'dialog');
+    await expect(u.lightbox).toHaveAttribute('aria-label', '添付の画像（大きく）');
+    const stageImg = u.lightbox.locator('.lb-stage img');
+    await expect(stageImg).toBeVisible();
+    await expect.poll(async () => (await box(stageImg)).height).toBeGreaterThan(tb.height * 1.5);
+    // 本文の画像と同じ、拡大表示の道具：ズームイン・全体に合わせる・100%・×。見るだけ：ドックも、範囲・要素を選ぶ道具も、ない
+    await expect(u.lightbox.getByRole('toolbar', { name: '拡大表示の操作' })).toBeVisible();
+    await expect(u.lightbox.getByRole('button', { name: 'ズームイン' })).toBeVisible();
+    await expect(u.lightbox.getByRole('button', { name: '全体に合わせる' })).toBeVisible();
+    await expect(u.lightbox.locator('.fv-dock')).toHaveCount(0);
+    await expect(u.lightbox.locator('.fv-tools')).toHaveCount(0);
+    await expect(u.lightbox.locator('[data-tool="region"], [data-pick]')).toHaveCount(0);
+    // ズームできる（ズームイン → 倍率が上がる）
+    const pct = u.lightbox.locator('.lb-pct');
+    const before = Number.parseInt((await pct.textContent()) ?? '0', 10);
+    await u.lightbox.getByRole('button', { name: 'ズームイン' }).click();
+    await expect.poll(async () => Number.parseInt((await pct.textContent()) ?? '0', 10)).toBeGreaterThan(before);
+    // 画像の上を押しても、閉じない（旧：押すと閉じる）
+    const sb = await box(stageImg);
+    await page.mouse.click(sb.x + sb.width / 2, sb.y + sb.height / 2);
+    await expect(u.lightbox).toBeVisible();
     const pages = page.context().pages().length;
     await page.keyboard.press('Escape');
     await expect(u.lightbox).toBeHidden();
     await expect(u.composer).toBeVisible(); // Esc で、入力欄までは閉じない
+    // ×
     await thumb.click();
     await expect(u.lightbox).toBeVisible();
-    await u.lightbox.click();
+    await u.lightbox.getByRole('button', { name: '閉じる' }).click();
+    await expect(u.lightbox).toBeHidden();
+    // 背景（画像の外）
+    await thumb.click();
+    await expect(u.lightbox).toBeVisible();
+    await u.lightbox.click({ position: { x: 8, y: 300 } });
     await expect(u.lightbox).toBeHidden();
     expect(page.context().pages().length).toBe(pages); // 別のタブは、開かない
   });

@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-// 画像の添付（F24）：貼り付け・ドラッグ・ファイル選択／形式・大きさ・枚数／アップロードの世代／×で外す／送る。ライトボックス（F31）
+// 画像の添付（F24）：貼り付け・ドラッグ・ファイル選択／形式・大きさ・枚数／アップロードの世代／×で外す／送る。添付の画像の拡大表示（F31）
 import { act, fireEvent, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
@@ -277,8 +277,8 @@ test('アップロード中は、送れない（トースト）', async () => {
   });
 });
 
-// ---- F31：ライトボックス ----
-test('ライトボックス：サムネイル・送った画像を押すと、大きく出る（img の src）。押す／Esc で閉じる。リンクは、開かない', async () => {
+// ---- F31・F37：添付の画像も、同じ拡大表示（ズーム・移動。見るだけ） ----
+test('添付の画像：サムネイル・送った画像を押すと、拡大表示で出る（ステージの img の src）。見るだけ（ドックなし）。×・Esc で閉じる。リンクは、開かない', async () => {
   renderPanel([thread({ id: 't1', messages: [user('', { images: ['c-1.png'], sent: true })] })], attachOk);
   act(() => {
     useUi.getState().startComposer(anchor('文'));
@@ -286,31 +286,33 @@ test('ライトボックス：サムネイル・送った画像を押すと、�
   });
   const lb = q('#lightbox') as HTMLElement;
   expect(lb.hidden).toBe(true);
-  expect(q('img', lb)?.getAttribute('alt')).toBe('添付の画像（大きく）');
 
   const sent = q('.msg .imgs img') as HTMLImageElement;
   const notPrevented = fireEvent.click(sent);
   expect(notPrevented).toBe(false); // <a> の遷移を止める
   expect(lb.hidden).toBe(false);
-  expect((q('img', lb) as HTMLImageElement).src).toBe(sent.src);
-  // F37：ライトボックスの状態は、型つき（添付の画像は zoom: false＝押すと閉じる）
-  expect(useUi.getState().lightbox).toEqual({ kind: 'img', src: sent.src, alt: '添付の画像（大きく）', zoom: false });
-  await userEvent.click(lb);
+  expect((q('.lb-stage img', lb) as HTMLImageElement).src).toBe(sent.src);
+  expect(q('.lb-tools button[aria-label="ズームイン"]', lb)).not.toBeNull(); // 本文の画像と同じ、拡大表示の道具
+  expect(q('.fv-dock', lb)).toBeNull(); // 見るだけ：ドックも、範囲の道具も、ない
+  expect(q('.fv-tools', lb)).toBeNull();
+  // 状態は、型つき（本文の画像と同じ形。`focus` がない＝ステージだけ）
+  expect(useUi.getState().lightbox).toEqual({ kind: 'img', src: sent.src, alt: '添付の画像（大きく）' });
+  await userEvent.click(q('button[aria-label="閉じる"]', lb) as HTMLElement);
   expect(lb.hidden).toBe(true);
   expect(useUi.getState().lightbox).toBeNull();
 
-  await userEvent.click(q('.imgbar .thumb img') as HTMLElement);
+  await userEvent.click(q('.imgbar .thumb img') as HTMLElement); // 入力欄のサムネイルも
   expect(lb.hidden).toBe(false);
-  expect((q('img', lb) as HTMLImageElement).src).toContain('/asset/demo/c-2.png');
+  expect((q('.lb-stage img', lb) as HTMLImageElement).src).toContain('/asset/demo/c-2.png');
   fireEvent.keyDown(document, { key: 'Escape' });
   expect(lb.hidden).toBe(true);
 });
 
-test('ライトボックス：画像以外（本文・ボタン）を押しても、出ない。範囲の枠をつかんでいる間の Esc は、閉じない（元に戻すほうが、受ける）', async () => {
+test('拡大表示：画像以外（本文・ボタン）を押しても、出ない。範囲の枠をつかんでいる間の Esc は、閉じない（元に戻すほうが、受ける）', async () => {
   renderPanel([thread({ id: 't1', messages: [user('文', { images: ['c-1.png'], sent: true })] })]);
   await userEvent.click(q('.msg .body') as HTMLElement);
   expect(useUi.getState().lightbox).toBeNull();
-  act(() => useUi.getState().openLightbox('/asset/demo/c-1.png'));
+  act(() => useUi.getState().openZoom({ kind: 'img', src: '/asset/demo/c-1.png', alt: '添付の画像（大きく）' }));
   act(() => useUi.getState().setRegDrag(true));
   fireEvent.keyDown(document, { key: 'Escape' });
   expect(useUi.getState().lightbox).not.toBeNull();
@@ -321,12 +323,11 @@ test('ライトボックス：画像以外（本文・ボタン）を押して�
   expect(useUi.getState().lightbox).toBeNull();
 });
 
-// 意図した変更（F37）：返信の本文の画像も、押すと拡大（ズーム・移動ができる zoom: true）。以前は、添付の画像だけだった
-test('AI の返信の画像（Markdown の assets/）は、押すと、拡大して開く（zoom: true）。添付の画像（zoom: false）とは、別', () => {
+test('AI の返信の画像（Markdown の assets/）も、押すと、拡大表示で開く（添付の画像と同じ形：ステージだけ）', () => {
   renderPanel([thread({ id: 't1', messages: [ai('![図](assets/fig.png)')] })]);
   const img = q('.msg.ai .body img') as HTMLImageElement;
   expect(img.getAttribute('src')).toBe('/asset/demo/fig.png');
   fireEvent.click(img);
-  expect(useUi.getState().lightbox).toMatchObject({ kind: 'img', zoom: true });
-  expect((useUi.getState().lightbox as { src: string }).src).toContain('/asset/demo/fig.png');
+  expect(useUi.getState().lightbox).toMatchObject({ kind: 'img', src: expect.stringContaining('/asset/demo/fig.png') });
+  expect(useUi.getState().lightbox?.focus).toBeUndefined();
 });

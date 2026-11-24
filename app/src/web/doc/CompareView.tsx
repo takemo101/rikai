@@ -173,7 +173,7 @@ export function CompareView({ view, compare }: { view: View; compare: CompareSta
       <div className="cmptop">
         <p className="cmpnote cmpnote-main">
           <strong>読み取り専用</strong>
-          です。コメントは、最新版の通常表示で付けます。左から右への変更を、強調しています。
+          です。コメントは、最新版の本文で付けます。左から右への変更を、強調しています。
         </p>
         <div className="cmpactions">
           <label className="chk">

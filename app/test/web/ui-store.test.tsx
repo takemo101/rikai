@@ -239,18 +239,40 @@ test('トースト：出すたびに id が変わる。古い id では消えな
   expect(ui().toast).toBeNull();
 });
 
-test('ダイアログ・ライトボックス・範囲の状態', () => {
+test('ダイアログ・拡大表示・範囲の状態', () => {
   ui().openDialog('submit');
   expect(ui().dialog).toBe('submit');
   ui().closeDialog();
   expect(ui().dialog).toBeNull();
-  ui().openLightbox('/asset/x/a.png');
-  expect(ui().lightbox).toEqual({ kind: 'img', src: '/asset/x/a.png', alt: '添付の画像（大きく）', zoom: false }); // F37：型つき
+  ui().openZoom({ kind: 'img', src: '/asset/x/a.png', alt: '添付の画像（大きく）' });
+  expect(ui().lightbox).toEqual({ kind: 'img', src: '/asset/x/a.png', alt: '添付の画像（大きく）' }); // F37：型つき
   ui().closeLightbox();
+  expect(ui().lightbox).toBeNull();
   ui().setRegMode('selecting');
   ui().setRegDrag(true);
   expect(ui().regMode).toBe('selecting');
   expect(ui().regDrag).toBe(true);
+});
+
+test('拡大表示の重ね：ドックつき（focus あり）の上に、ドックなし（添付の画像）を開くと、閉じたら、ドックつきへ戻る。重ねるのは 1 段だけ・ドックなしの上には、重ねない', () => {
+  const focus = { id: 'b0', hash: 'h', src: null, base: true };
+  const base = { kind: 'img', src: '/asset/x/a.png', alt: '図', focus } as const;
+  const att = { kind: 'img', src: '/asset/x/c.png', alt: '添付の画像（大きく）' } as const;
+  ui().openZoom(base);
+  ui().openZoom(att);
+  expect(ui().lightbox).toBe(att);
+  expect(ui().lightboxBack).toBe(base);
+  ui().closeLightbox();
+  expect(ui().lightbox).toBe(base);
+  expect(ui().lightboxBack).toBeNull();
+  ui().closeLightbox();
+  expect(ui().lightbox).toBeNull();
+  // ドックなしの上に、ドックなしを開いても、戻る先は、持たない（閉じたら、すべて閉じる）
+  ui().openZoom(att);
+  ui().openZoom({ ...att, src: '/asset/x/d.png' });
+  expect(ui().lightboxBack).toBeNull();
+  ui().closeLightbox();
+  expect(ui().lightbox).toBeNull();
 });
 
 test('外観：setTheme は、<html data-theme> に反映し（system は外す）、rikai-ui に保存する。ほかの設定は、壊さない', () => {

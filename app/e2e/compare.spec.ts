@@ -100,7 +100,7 @@ test.describe('版を並べて比べる', () => {
     await expect(page.locator('[data-side="left"] .cmptag')).toHaveText('過去の版');
     await expect(page.locator('[data-side="right"] .cmptag')).toHaveText('最新');
     await expect(compare(page)).toContainText('読み取り専用');
-    await expect(compare(page)).toContainText('コメントは、最新版の通常表示で付けます');
+    await expect(compare(page)).toContainText('コメントは、最新版の本文で付けます');
     await expect(page.locator('#article')).toHaveCount(0); // 本文は、比べる画面と入れ替わる
 
     // v2 → v3：食事の段落が変わった（四 → 五）・最後の段落が増えた
@@ -915,7 +915,7 @@ test.describe('窓・外観', () => {
 // ---- 開く前の状態の復元・種類の変更・安全・全面の書き換え ----
 
 test.describe('比べる画面：開く前の状態・差分の見え方', () => {
-  test('入力中のコメント：開くと外れ（文は残る）、閉じると、同じ対象・同じ文で戻る。送ると、元の段落のコメントになる', async ({
+  test('入力中のコメント：開いても、入力欄・文はそのまま（右のコメント欄が隠れるだけ）。閉じると、同じ対象・同じ文で続けられる。送ると、元の段落のコメントになる', async ({
     page,
     app,
   }) => {
@@ -924,7 +924,7 @@ test.describe('比べる画面：開く前の状態・差分の見え方', () =>
     await openComposerOnText(page, '猫は一日に五回、ごはんを食べます');
     await u.composer.locator('textarea').fill('書きかけのコメントです');
     await openCompare(page);
-    await expect(u.composer).toHaveCount(0); // 比べている間は、入力欄の対象は、外れている（右のコメント欄も隠れる）
+    await expect(u.composer).toBeHidden(); // 比べている間は、右のコメント欄ごと、隠れている（入力欄の対象・文は、そのまま持っている）
     await page.keyboard.press('Escape');
     await expect(compare(page)).toHaveCount(0);
     await expect(u.composer).toBeVisible();

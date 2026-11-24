@@ -298,17 +298,26 @@ test('版・ページ：パンくず・版の選択（新しい順・最新に�
     '過去の版 v1 を表示中です。コメントは、最新版にだけ付けられます',
   );
   expect(within(byId('docbar')).getByRole('link', { name: '最新版へ' })).toHaveAttribute('href', '#/demo/root');
-  expect(byId('docbar').querySelector('[data-key="chk-changes"]')).toBeNull(); // v1 は、差分なし
+  expect(byId('docbar').querySelector('[data-mode="overlay"]')).toBeNull(); // v1 は、差分なし：「変更を重ねる」は出ない（「通常」と「並べて比べる」は、ある）
+  expect(byId('docbar').querySelector('[data-mode="normal"]')).toHaveAttribute('aria-pressed', 'true');
+  expect(byId('docbar').querySelector('[data-mode="side"]')).toHaveAttribute('aria-pressed', 'false');
+  // v1 で、押されている「通常」を押しても、「変更を重ねる」の設定（showChanges）は、変わらない（最新版へ戻ると、既定の「変更を重ねる」のまま）
+  expect(useUi.getState().showChanges).toBe(true);
+  fireEvent.click(byId('docbar').querySelector('[data-mode="normal"]') as Element);
+  expect(useUi.getState().showChanges).toBe(true);
 
   fireEvent.change(sel, { target: { value: '2' } });
   expect(location.hash).toBe('#/demo/root'); // 最新版は、版を付けない
   await waitFor(() => expect(byId('article')).toHaveTextContent('本文 root v2'));
-  const chk = byId('docbar').querySelector('[data-key="chk-changes"]') as HTMLInputElement;
-  expect(chk.checked).toBe(true);
-  expect(byId('docbar')).toHaveTextContent('前の版からの変更を表示');
+  const overlay = byId('docbar').querySelector('[data-mode="overlay"]') as HTMLButtonElement;
+  expect(overlay).toHaveTextContent('変更を重ねる');
+  expect(overlay).toHaveAttribute('aria-pressed', 'true'); // 既定は、変更を重ねる（旧：チェックが入っている）
+  expect(byId('docbar').querySelector('[data-mode="normal"]')).toHaveAttribute('aria-pressed', 'false');
   expect(byId('docbar')).not.toHaveTextContent('過去の版');
-  fireEvent.click(chk);
+  fireEvent.click(overlay);
   expect(useUi.getState().showChanges).toBe(false);
+  expect(overlay).toHaveAttribute('aria-pressed', 'false');
+  expect(byId('docbar').querySelector('[data-mode="normal"]')).toHaveAttribute('aria-pressed', 'true');
   fireEvent.change(sel, { target: { value: '1' } });
   expect(location.hash).toBe('#/demo/root/v1');
 });
@@ -746,4 +755,26 @@ test('タブのタイトル（F39）：いま、誰の番か・資料の題。�
     }),
   );
   await waitFor(() => expect(document.title).toBe('(1) あなたの番 | デモの資料 | rikai'));
+});
+
+test('重ねて開いた添付を見ている間に、別のページへ移る：Esc で、前のページの拡大表示（ドックつき）へ戻らない', async () => {
+  location.hash = '#/demo/root';
+  server([summary('demo')], { demo: topicState({ meta: meta({ pages: pages2 }) }) });
+  renderWithClient(<App />);
+  await waitFor(() => expect(byId('article')).toHaveTextContent('本文 root v1'));
+  act(() => {
+    useUi
+      .getState()
+      .openZoom({ kind: 'img', src: '/a.png', alt: '猫', focus: { id: 'b0', hash: 'h', src: null, base: true } });
+    useUi.getState().openZoom({ kind: 'img', src: '/c.png', alt: '添付' });
+  });
+  expect(useUi.getState().lightboxBack).not.toBeNull();
+  act(() => {
+    location.hash = '#/demo/detail'; // ブラウザの「戻る」と同じ
+  });
+  await waitFor(() => expect(byId('article')).toHaveTextContent('本文 detail v1'));
+  expect(useUi.getState().lightboxBack).toBeNull();
+  fireEvent.keyDown(document, { key: 'Escape' });
+  expect(useUi.getState().lightbox).toBeNull();
+  expect(byId('lightbox')).toHaveAttribute('hidden');
 });

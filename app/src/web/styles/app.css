@@ -231,6 +231,13 @@ button.turn-btn:hover { background: var(--hover); }
 .verpick { position: relative; display: inline-flex; align-items: center; }
 .verpick svg.lucide { position: absolute; left: 8px; color: var(--muted); pointer-events: none; }
 .verpick select { padding: 3px 8px 3px 26px; font-size: var(--fs-s); }
+/* 変更の見せ方の切り替え（通常｜変更を重ねる｜並べて比べる）：連なったボタン。押している（aria-pressed）ものは、色つき */
+.modeseg { display: inline-flex; overflow: hidden; border: 1px solid var(--line-strong); border-radius: var(--r); background: var(--card); }
+.modeseg button { display: inline-flex; align-items: center; height: 26px; padding: 0 10px; font-size: var(--fs-s); line-height: 1.4; color: var(--ink-2); background: transparent; border: 0; border-radius: 0; white-space: nowrap; }
+.modeseg button + button { border-left: 1px solid var(--line-strong); }
+.modeseg button:hover:not([aria-pressed="true"]) { background: var(--hover); color: var(--ink); }
+.modeseg button[aria-pressed="true"] { background: var(--accent-soft); color: var(--accent-ink); }
+.modeseg button:focus-visible { outline-offset: -2px; }
 label.chk { font-size: var(--fs-s); color: var(--muted); display: flex; gap: 6px; align-items: center; cursor: pointer; }
 .swatch { display: inline-block; width: 3px; height: 14px; border-radius: 2px; background: var(--change); } /* 凡例の色の見本（件数の札の頭：右端の緑の線と同じ色） */
 #links-toggle[aria-pressed=true] { color: var(--accent-ink); background: var(--accent-soft); }
@@ -311,7 +318,6 @@ label.chk { font-size: var(--fs-s); color: var(--muted); display: flex; gap: 6px
    比べている間は、右のコメントを隠して、本文の幅を広く使う。状態（追加・変更・削除）は、色だけでなく、札の文字でも伝える。狭い窓（760px 未満）・欄が狭いときは、行の左右を、上下に並べる ---- */
 #app.comparing { grid-template-columns: var(--side-w) minmax(0, 1fr); }
 #app.comparing #threads, #app.comparing #panel-resizer { display: none; }
-#btn-compare[aria-pressed="true"] { background: var(--accent-soft); color: var(--accent-ink); border-color: var(--accent-line); }
 /* 対象を失った下書き（パネルの上。文は、選んでコピーできる） */
 .lostdraft { margin: 10px 0; padding: 10px 12px; background: var(--card); border: 1px solid var(--line); border-left: 3px solid var(--warn); border-radius: var(--r-l); }
 .lostdraft-h { font-weight: 600; color: var(--warn); }
@@ -475,13 +481,10 @@ mark.hl.pending { background: var(--accent-soft); outline: 1.5px dashed var(--ac
 .rh-e { top: calc(50% - 5px); right: -6px; cursor: ew-resize; } .rh-se { bottom: -6px; right: -6px; cursor: nwse-resize; } .rh-s { bottom: -6px; left: calc(50% - 5px); cursor: ns-resize; }
 .rh-sw { bottom: -6px; left: -6px; cursor: nesw-resize; } .rh-w { top: calc(50% - 5px); left: -6px; cursor: ew-resize; }
 
-/* ---- 画像のライトボックス・トースト ---- */
+/* ---- 拡大表示（画像・図・html-app の枠。添付の画像も）・トースト ---- */
 #lightbox { position: fixed; inset: 0; z-index: 50; display: flex; align-items: center; justify-content: center; background: var(--scrim-image); cursor: zoom-out; outline: 0; }
 #lightbox[hidden] { display: none; }
-#lightbox > img { max-width: 92vw; max-height: 90vh; background: #fff; border-radius: var(--r); box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4); }
-#lightbox > .close { position: absolute; top: 16px; right: 16px; display: inline-flex; padding: 6px; color: #fff; background: rgba(255, 255, 255, 0.14); border-radius: var(--r); pointer-events: none; }
-#lightbox .close svg.lucide { width: 18px; height: 18px; }
-/* 本文・返信の画像・図の拡大（F37）：ズーム・移動。舞台は、自然な大きさで、窓の中心に置き、transform で、拡大・移動する */
+/* 画像・図の拡大表示（F37）：ズーム・移動。舞台は、自然な大きさで、窓の中心に置き、transform で、拡大・移動する */
 #lightbox .lb-view { position: absolute; inset: 0; overflow: hidden; touch-action: none; user-select: none; }
 #lightbox .lb-stage { position: absolute; left: 50%; top: 50%; transform-origin: center; border-radius: var(--r); box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4); cursor: default; }
 #lightbox .lb-view.zoomed .lb-stage { cursor: grab; }

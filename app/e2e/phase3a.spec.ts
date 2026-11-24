@@ -298,11 +298,11 @@ test.describe('本文の上のバー（#docbar）は、本文の列が十分な�
     await expect(u.docbar.locator('.stats .legend-swatch')).toBeVisible();
     await expect(u.docbar.locator('.stats')).toHaveAttribute('title', /右端の緑の線：前の版から変えたところ/);
     await oneRow(page, '最新版・凡例あり');
-    // 変更を表示しない：凡例は、出ない
-    await u.docbar.locator('[data-key="chk-changes"]').uncheck();
+    // 変更を重ねない（通常）：凡例は、出ない
+    await u.docbar.locator('[data-mode="normal"]').click();
     await expect(u.docbar.locator('.stats .legend-swatch')).toHaveCount(0);
-    await oneRow(page, '変更を表示しない');
-    await u.docbar.locator('[data-key="chk-changes"]').check();
+    await oneRow(page, '通常（変更を重ねない）');
+    await u.docbar.locator('[data-mode="overlay"]').click();
     // 過去の版：警告（短い文・全文は title）・最新版へ。警告は、過去の版のときだけ
     await expect(u.docbar.locator('.pastver')).toHaveCount(0);
     await u.docbar.locator('select').selectOption('2');
@@ -310,9 +310,9 @@ test.describe('本文の上のバー（#docbar）は、本文の列が十分な�
     await expect(u.docbar.locator('.pastver')).toHaveAttribute('title', /コメントは、最新版にだけ付けられます/);
     await expect(u.docbar.getByRole('link', { name: '最新版へ' })).toBeVisible();
     await oneRow(page, '過去の版');
-    // 版の切り替え・並べて比べる・変更を表示の入口は、残る
+    // 変更の見せ方（通常｜変更を重ねる｜並べて比べる）の切り替えは、過去の版でも残る
     await expect(u.docbar.locator('#btn-compare')).toBeVisible();
-    await expect(u.docbar.locator('[data-key="chk-changes"]')).toBeVisible();
+    await expect(u.docbar.locator('[data-mode="overlay"]')).toBeVisible();
     // 子ページ：パンくずが出る（ルートでは出ない）
     await expect(u.docbar.locator('.crumbs')).toHaveCount(0);
   });

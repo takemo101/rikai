@@ -80,7 +80,7 @@ test('開く：本文（#article）は外れ、比べる画面になる。左＝
   expect(select('left').value).toBe('2');
   expect(select('right').value).toBe('3');
   expect(byId('compare')).toHaveTextContent('読み取り専用');
-  expect(byId('compare')).toHaveTextContent('最新版の通常表示で付けます');
+  expect(byId('compare')).toHaveTextContent('最新版の本文で付けます');
   expect(byId('btn-compare')).toHaveAttribute('aria-pressed', 'true');
   await waitFor(() => expect(cellsOf('l').length).toBeGreaterThan(0));
   // 左は v2・右は v3 の本文
@@ -318,13 +318,13 @@ function composing() {
   return useUi.getState().composer;
 }
 
-test('入力中のコメント：比べる画面を開くと、いったん外れ（書きかけの文・画像は残る）、閉じると、同じ対象・同じ文・同じ画像で戻る', async () => {
+test('入力中のコメント：比べる画面を開いても、入力欄の対象・書きかけの文・画像は、そのまま（右のコメント欄が、隠れるだけ）。閉じると、同じ対象・同じ文・同じ画像で、続けられる', async () => {
   server(3);
   await openApp();
   const before = composing();
   expect(before?.anchor.quote).toBe('共通の段落です。');
   await openCompare();
-  expect(useUi.getState().composer).toBeNull();
+  expect(useUi.getState().composer).toEqual(before);
   expect(useUi.getState().drafts.composer).toBe('書きかけのコメント');
   expect(useUi.getState().drafts.imgs.composer).toEqual(['c-0123456789abcdef.png']);
   fireEvent.keyDown(document, { key: 'Escape' });
@@ -417,12 +417,12 @@ test('入力中のコメント：ページを移って閉じたときも、戻�
   });
 });
 
-test('選んでいたスレッドも、閉じると戻る', async () => {
+test('選んでいたスレッドも、開いている間も、閉じたあとも、そのまま（控えて戻すのでなく、持ったまま）', async () => {
   server(3);
   await openApp();
   act(() => useUi.getState().setActive('t9'));
   await openCompare();
-  expect(useUi.getState().active).toBeNull();
+  expect(useUi.getState().active).toBe('t9');
   fireEvent.keyDown(document, { key: 'Escape' });
   await waitFor(() => expect(document.getElementById('compare')).toBeNull());
   expect(useUi.getState().active).toBe('t9');
@@ -467,4 +467,95 @@ test('スクロール位置：戻したあと、2 フレームのあいだに、
   } finally {
     raf.mockRestore();
   }
+});
+
+// ---- 変更の見せ方の切り替え（通常｜変更を重ねる｜並べて比べる）：旧「前の版からの変更を表示」と「並べて比べる」の、1 つの入口 ----
+const seg = (mode: 'normal' | 'overlay' | 'side') =>
+  document.querySelector(`#docbar [data-mode="${mode}"]`) as HTMLElement;
+const pressed = () =>
+  (['normal', 'overlay', 'side'] as const).filter((m) => seg(m)?.getAttribute('aria-pressed') === 'true');
+
+test('変更の見せ方：どれも 1 クリック。通常⇄変更を重ねる⇄並べて比べるを、行き来できる（並べて比べる画面の中からも、同じ切り替えで戻れる）。`ui.showChanges`・`ui.compare` の意味は、そのまま', async () => {
+  server(3);
+  await openApp();
+  expect(byId('docbar').querySelector('[role="group"]')).toHaveAttribute('aria-label', '変更の見せ方');
+  expect(pressed()).toEqual(['overlay']); // 既定：変更を重ねる（最新版 v3 には、前の版がある）
+  // 重ねる → 並べて比べる（1 クリック）：重ねるの印（showChanges）は、そのまま
+  fireEvent.click(seg('side'));
+  await waitFor(() => expect(byId('compare')).toBeInTheDocument());
+  expect(pressed()).toEqual(['side']);
+  expect(useUi.getState().showChanges).toBe(true);
+  // 並べて比べる画面の中から：「通常」（1 クリック）で、戻る。通常になる（重ねるは、止まる）
+  fireEvent.click(seg('normal'));
+  await waitFor(() => expect(document.getElementById('compare')).toBeNull());
+  expect(pressed()).toEqual(['normal']);
+  expect(useUi.getState().compare).toBeNull();
+  expect(useUi.getState().showChanges).toBe(false);
+  // 通常 → 変更を重ねる（1 クリック）
+  fireEvent.click(seg('overlay'));
+  expect(useUi.getState().showChanges).toBe(true);
+  expect(pressed()).toEqual(['overlay']);
+  // 並べて比べる画面の中から：「変更を重ねる」（1 クリック）で、閉じて、重ねる
+  fireEvent.click(seg('side'));
+  await waitFor(() => expect(byId('compare')).toBeInTheDocument());
+  fireEvent.click(seg('overlay'));
+  await waitFor(() => expect(document.getElementById('compare')).toBeNull());
+  expect(pressed()).toEqual(['overlay']);
+  expect(useUi.getState().showChanges).toBe(true);
+  // 押している「並べて比べる」を、もう一度押す：閉じる（開く前の、重ねるへ）。押している「変更を重ねる」を、もう一度押す：止める
+  fireEvent.click(seg('side'));
+  await waitFor(() => expect(byId('compare')).toBeInTheDocument());
+  fireEvent.click(seg('side'));
+  await waitFor(() => expect(document.getElementById('compare')).toBeNull());
+  expect(pressed()).toEqual(['overlay']);
+  fireEvent.click(seg('overlay'));
+  expect(pressed()).toEqual(['normal']);
+  expect(useUi.getState().showChanges).toBe(false);
+});
+
+test('変更の見せ方：v1 を見ているときは、「変更を重ねる」を出さない（前の版がない）。「通常」と「並べて比べる」は、ある', async () => {
+  server(3);
+  await openApp('#/demo/root/v1');
+  expect(seg('overlay')).toBeNull();
+  expect(pressed()).toEqual(['normal']);
+  fireEvent.click(seg('side'));
+  await waitFor(() => expect(byId('compare')).toBeInTheDocument());
+  expect(pressed()).toEqual(['side']);
+  expect(seg('overlay')).toBeNull();
+  fireEvent.click(seg('normal'));
+  await waitFor(() => expect(document.getElementById('compare')).toBeNull());
+  expect(pressed()).toEqual(['normal']);
+});
+
+test('変更の見せ方：「通常」を押して戻ったとき、フォーカスは、押したボタンのまま。Esc で閉じたときは、「並べて比べる」へ', async () => {
+  server(3);
+  await openApp();
+  await openCompare();
+  seg('normal').focus();
+  fireEvent.click(seg('normal'));
+  await waitFor(() => expect(document.getElementById('compare')).toBeNull());
+  expect(document.activeElement).toBe(seg('normal'));
+  await openCompare();
+  fireEvent.keyDown(document, { key: 'Escape' });
+  await waitFor(() => expect(document.getElementById('compare')).toBeNull());
+  expect(document.activeElement).toBe(byId('btn-compare'));
+});
+
+test('入力中のコメント：比べている間に、見ている版が過去の版へ変わったとき（ブラウザの「戻る」）：比べないときと同じ道（moveComposer）で、書きかけは「対象を失った下書き」へ。比べる画面は、開いたまま', async () => {
+  server(3);
+  await openApp();
+  composing();
+  await openCompare();
+  act(() => {
+    location.hash = '#/demo/root/v2';
+  });
+  await waitFor(() => expect(useUi.getState().lostDraft).not.toBeNull());
+  expect(useUi.getState().compare).not.toBeNull(); // 同じページの中の、版の切り替えでは、閉じない
+  expect(useUi.getState().composer).toBeNull();
+  expect(useUi.getState().drafts.composer).toBe('');
+  expect(useUi.getState().lostDraft).toEqual({
+    text: '書きかけのコメント',
+    imgs: ['c-0123456789abcdef.png'],
+    reason: '過去の版にあります',
+  });
 });

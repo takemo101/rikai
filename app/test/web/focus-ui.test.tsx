@@ -122,7 +122,7 @@ const esc = () => fireEvent.keyDown(document, { key: 'Escape' });
 const dockComposerArea = () => q<HTMLTextAreaElement>('#lightbox textarea[data-key="composer"]');
 const panelComposerArea = () => q<HTMLTextAreaElement>('#threads textarea[data-key="composer"]');
 const mermaidSvg = () => q<SVGSVGElement>('#article .mermaid-block svg') as SVGSVGElement;
-/** キーボード（Enter）で開く：コメントの付いた図は、押すと、そのコメントを選ぶので（F37）、入口から開く */
+/** キーボード（Enter）で開く */
 const openMermaid = () =>
   fireEvent.keyDown(q('#article .mermaid-block[data-focus-entry]') as Element, { key: 'Enter' });
 
@@ -181,7 +181,6 @@ test('Esc：本文の範囲選択 → ドラッグ中（任せる）→ 道具 �
     kind: 'img',
     src: '/asset/demo/a.png',
     alt: '図',
-    zoom: true,
     focus: { id: 'b0', hash: 'h', src: null, base: true },
   });
   ui().setFocusTool('region');
@@ -231,7 +230,7 @@ test('キーボード：フォーカスした画像・図で、Enter・Space →
   const [img, mm] = all('#article [data-focus-entry]') as [HTMLElement, HTMLElement];
   img.focus();
   fireEvent.keyDown(img, { key: 'Enter' });
-  expect(ui().lightbox).toMatchObject({ kind: 'img', zoom: true, focus: { base: true } });
+  expect(ui().lightbox).toMatchObject({ kind: 'img', focus: { base: true } });
   expect(document.activeElement).toBe(lb());
   esc();
   expect(lb().hidden).toBe(true);
@@ -259,6 +258,53 @@ test('フォーカスの戻り：開いた要素が、なくなっていても�
   esc();
   expect(lb().hidden).toBe(true);
   expect(document.activeElement).toBe(img);
+});
+
+test('ドックの中の添付の画像を押す：同じ拡大表示（ステージだけ・見るだけ）が、その上に開く。閉じると、ドックつきの拡大表示へ戻る。最後に閉じると、本文の入口へフォーカスが戻る', async () => {
+  await mount();
+  const a = blockAnchor(q('#article .mermaid-block') as HTMLElement);
+  setTopic(
+    topicState({
+      threads: [
+        thread({ id: 'tm', anchor: a, messages: [msg({ id: 'm1', text: '図へ', sent: true, images: ['c-1.png'] })] }),
+      ],
+      meta: meta(),
+    }),
+  );
+  await settle();
+  const entry = q('#article .mermaid-block[data-focus-entry]') as HTMLElement;
+  entry.focus();
+  openMermaid();
+  await settle();
+  const base = ui().lightbox;
+  expect(base?.focus).toBeDefined();
+  fireEvent.click(q('#lightbox .fv-dock .msg .imgs img') as Element);
+  // 上に重なる：ステージだけ（ドック・範囲の道具・ドックつきの見た目は、ない）
+  expect(ui().lightbox).toMatchObject({ kind: 'img', alt: '添付の画像（大きく）' });
+  expect(ui().lightbox?.focus).toBeUndefined();
+  expect(ui().lightboxBack).toBe(base);
+  expect(lb().classList.contains('fv')).toBe(false);
+  expect(q('#lightbox .fv-dock')).toBeNull();
+  expect(q('#lightbox .fv-tools')).toBeNull();
+  expect(q('#lightbox .lb-stage img')?.getAttribute('src')).toContain('/asset/demo/c-1.png');
+  expect(document.activeElement).toBe(lb());
+  // Esc（1 回）：添付だけ閉じて、ドックつきの拡大表示へ戻る
+  esc();
+  expect(ui().lightbox).toBe(base);
+  expect(ui().lightboxBack).toBeNull();
+  expect(lb().classList.contains('fv')).toBe(true);
+  expect(q('#lightbox .fv-dock')).not.toBeNull();
+  expect(lb().hidden).toBe(false);
+  // もう一度：閉じる。フォーカスは、本文の入口へ
+  esc();
+  expect(lb().hidden).toBe(true);
+  expect(document.activeElement).toBe(entry);
+  // 「×」でも、同じ：添付を閉じると、戻る
+  openMermaid();
+  await settle();
+  fireEvent.click(q('#lightbox .fv-dock .msg .imgs img') as Element);
+  fireEvent.click(q('#lightbox button[aria-label="閉じる"]') as Element);
+  expect(lb().classList.contains('fv')).toBe(true);
 });
 
 // ============================================================================

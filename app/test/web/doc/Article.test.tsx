@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 // 本文（命令的な島）：描き直す条件（docSig）・非同期の継ぎ目（renderTok）・DocModel・入力中の強調・選択・scrollTop。
-import { act, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen } from '@testing-library/react';
 import { beforeEach, expect, test, vi } from 'vitest';
 import type { Anchor, Thread } from '../../../src/shared/types';
 import { topicKey } from '../../../src/web/api/queries';
@@ -394,4 +394,36 @@ test('別のページ・版（view.key が変わる）へ移ったら、直前�
   top = 0;
   await settle();
   expect(top).toBe(300);
+});
+
+// 意図した変更（0.29.0）：画像・図を押すと、コメントの有無に関わらず、拡大表示（F37）。コメントを選ぶのは、画像以外の部分（文・画像を含む段落の文字）の押下
+test('コメントの付いた画像を押す：コメントは選ばず、拡大表示を開く（focus つき）。同じ段落の文字・別のブロックを押すと、コメントを選ぶ', async () => {
+  const blk = (id: string): Anchor => ({ ...anchor(''), blockId: id, blockTag: 'P' });
+  const md = '# 題\n\n![図](assets/fig.png) 画像のある段落\n\n文のブロックです。\n';
+  const { art } = mount([thread({ id: 'ti', anchor: blk('b1') }), thread({ id: 'tt', anchor: blk('b2') })], md);
+  await settle();
+  const press = (el: Element) => {
+    fireEvent.mouseDown(el, { clientX: 5, clientY: 5 });
+    fireEvent.click(el, { clientX: 5, clientY: 5 });
+  };
+  const img = art().querySelector('img') as HTMLImageElement;
+  expect(img.closest('[data-tid]')?.getAttribute('data-tid')).toBe('ti'); // 画像の段落に、コメントが付いている
+  press(img);
+  expect(useUi.getState().active).toBeNull();
+  expect(useUi.getState().lightbox).toMatchObject({ kind: 'img', focus: { base: true } });
+  act(() => useUi.getState().closeLightbox());
+  // 画像を含む段落の、文字の部分：そのコメントを選ぶ（拡大しない）
+  press(img.parentElement as Element);
+  expect(useUi.getState().active).toBe('ti');
+  expect(useUi.getState().lightbox).toBeNull();
+  // 別のブロック
+  press(art().querySelectorAll('p')[1] as Element);
+  expect(useUi.getState().active).toBe('tt');
+  expect(useUi.getState().lightbox).toBeNull();
+  // 修飾キー付きは、画像でも、何も起きない（コメントも選ばない）
+  act(() => useUi.getState().setActive(null));
+  fireEvent.mouseDown(img, { clientX: 5, clientY: 5 });
+  fireEvent.click(img, { clientX: 5, clientY: 5, shiftKey: true });
+  expect(useUi.getState().active).toBeNull();
+  expect(useUi.getState().lightbox).toBeNull();
 });

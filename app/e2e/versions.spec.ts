@@ -52,8 +52,8 @@ test.describe('版と差分', () => {
     await reviseToV2(page, app);
     const select = page.locator('#docbar select');
     await expect(select.locator('option')).toHaveText(['v2（最新）', 'v1']);
-    const chk = page.getByLabel('前の版からの変更を表示');
-    await expect(chk).toBeChecked();
+    const overlay = page.locator('#docbar [data-mode="overlay"]');
+    await expect(overlay).toHaveAttribute('aria-pressed', 'true'); // 既定：変更を重ねる
     await expect(u.docbar).toContainText('変更 2・追加 1・削除 1');
     // 0.28.0：凡例は、件数の札の頭の色の見本（説明の文は title）。1 行に収めるため
     await expect(u.docbar.locator('.stats .legend-swatch')).toBeVisible();
@@ -93,11 +93,11 @@ test.describe('版と差分', () => {
     await expect(u.actbar).toBeHidden();
 
     // 切り替え：消える・戻る
-    await chk.uncheck();
+    await page.locator('#docbar [data-mode="normal"]').click();
     await expect(u.article.locator('.blk.changed')).toHaveCount(0);
     await expect(u.article.locator('summary')).toHaveCount(0);
     await expect(u.docbar.locator('.stats .legend-swatch')).toHaveCount(0); // 件数の札は、変更を表示していない間は、出ない（凡例も）
-    await chk.check();
+    await overlay.click();
     await expect(u.article.locator('.blk.changed')).toHaveCount(3);
 
     // AI の返信に「資料を v2 に更新」と、その版へのリンク
@@ -122,7 +122,7 @@ test.describe('版と差分', () => {
     );
     await expect(u.article.locator('p', { hasText: '一日に三回' })).toBeVisible(); // v1 の本文
     await expect(u.article.locator('.blk.changed')).toHaveCount(0); // v1 には差分がない
-    await expect(page.getByLabel('前の版からの変更を表示')).toHaveCount(0);
+    await expect(page.locator('#docbar [data-mode="overlay"]')).toHaveCount(0); // 「変更を重ねる」は、v1 では出ない
     await expect(u.regbtn).toBeHidden(); // 範囲を選ぶボタンは、最新版だけ
     // v1 では、3 つのコメントが、すべて本文の中で見つかる
     await expect(u.bno).toHaveText(['1', '2', '3']);
@@ -187,7 +187,7 @@ test.describe('版と差分', () => {
     await page.locator('#docbar select').selectOption('2');
     await expect(u.docbar).toContainText('過去の版 v2（コメントは最新版で）');
     await expect(u.docbar).toContainText('変更 2・追加 1・削除 1');
-    await expect(page.getByLabel('前の版からの変更を表示')).toBeChecked();
+    await expect(page.locator('#docbar [data-mode="overlay"]')).toHaveAttribute('aria-pressed', 'true'); // 変更を重ねる
     await expect(u.article.locator('.blk.changed')).toHaveCount(3);
     await expect(later).not.toContainText('後の版のコメント');
 

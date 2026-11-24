@@ -183,13 +183,13 @@ test('枠の外を押す・窓の大きさが変わる・Esc：やめる', () =>
   expect(ui().regMode).toBe('selecting');
 });
 
-test('Esc の順：範囲選択 → ドラッグ中（overlay に任せる）→ ライトボックス', () => {
+test('Esc の順：範囲選択 → ドラッグ中（overlay に任せる）→ 拡大表示', () => {
   mountDoc(viewOf(1));
-  ui().openLightbox('/asset/x.png');
+  ui().openZoom({ kind: 'img', src: '/asset/x.png', alt: '添付の画像（大きく）' });
   ui().setRegMode('selecting');
   fireEvent.keyDown(document, { key: 'Escape' });
   expect(ui().regMode).toBe('idle');
-  expect(ui().lightbox).toMatchObject({ kind: 'img', src: '/asset/x.png' }); // 同じ Esc で、ライトボックスまでは、閉じない
+  expect(ui().lightbox).toMatchObject({ kind: 'img', src: '/asset/x.png' }); // 同じ Esc で、拡大表示までは、閉じない
   ui().setRegDrag(true);
   expect(escapeStep()).toBe(true);
   expect(ui().lightbox).toMatchObject({ kind: 'img', src: '/asset/x.png' });
@@ -434,7 +434,7 @@ test('「拡大表示」を押す：そのブロックの画像（図）を、�
   addBlocks();
   hover(q('#im'), 300, 230);
   fireEvent.click(q('#act-zoom'));
-  expect(ui().lightbox).toMatchObject({ kind: 'img', zoom: true });
+  expect(ui().lightbox).toMatchObject({ kind: 'img' });
   expect(ui().composer).toBeNull();
   expect(bar().hasAttribute('hidden')).toBe(true);
   ui().closeLightbox();
