@@ -348,3 +348,21 @@ test('removeFrameMeta：枠から取った情報だけを外す（錨・本文�
   useUi.getState().removeFrameMeta();
   expect(useUi.getState().toast?.msg).toBe('z');
 });
+
+test('moveComposer：最新版へ（新しい版が届いた）なら、入力欄と本文を残して、対象の確かめの印（verify）を付ける。最新版でない版へなら、「対象を失った下書き」へ（トースト）。入力欄がなければ、何もしない', () => {
+  location.hash = '#/demo/root';
+  queryClient.setQueryData(topicKey('demo'), topicState());
+  useUi.getState().moveComposer(false);
+  expect(useUi.getState().lostDraft).toBeNull();
+  useUi.getState().startComposer(frameAnchor('枠から：a'));
+  useUi.getState().setComposerDraft('書きかけ');
+  useUi.getState().moveComposer(true);
+  expect(useUi.getState().composer?.verify).toBe(true);
+  expect(useUi.getState().drafts.composer).toBe('書きかけ');
+  expect(useUi.getState().lostDraft).toBeNull();
+  useUi.getState().moveComposer(false);
+  expect(useUi.getState().composer).toBeNull();
+  expect(useUi.getState().drafts.composer).toBe('');
+  expect(useUi.getState().lostDraft).toMatchObject({ text: '書きかけ', reason: '過去の版にあります' });
+  expect(useUi.getState().toast?.msg).toContain('下書きとして残しています');
+});

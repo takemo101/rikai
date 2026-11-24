@@ -276,3 +276,66 @@ test.describe('子ページ', () => {
     await expect(page.locator('#docbar select')).toHaveValue('2');
   });
 });
+
+test.describe('書きかけのコメントと版の切り替え', () => {
+  test('入力欄に書いている間に、新しい版が届く：対象が新しい版にあれば、入力欄と文は、そのまま続く。そのまま追加できる', async ({
+    page,
+    app,
+  }) => {
+    const u = ui(page);
+    await dragSelect(page, '猫は朝によく鳴きます');
+    await u.actComment.click();
+    await u.composer.locator('textarea').fill('書いている途中の文');
+    await app.apply({ revisions: [{ page: 'root', markdown: DOC_V2 }] });
+    await expect(page.locator('#docbar select')).toHaveValue('2');
+    await expect(u.composer).toBeVisible(); // 黙って閉じない
+    await expect(u.composer.locator('textarea')).toHaveValue('書いている途中の文');
+    await expect(page.locator('[data-lost-draft]')).toHaveCount(0);
+    await u.composer.getByRole('button', { name: 'コメントを追加' }).click();
+    await expect(u.threads).toHaveCount(1);
+  });
+
+  test('新しい版に対象がない：別の対象に付けず、「対象を失った下書き」へ（文は残る・トーストで知らせる）。次に別の段落で開いた入力欄は、空', async ({
+    page,
+    app,
+  }) => {
+    const u = ui(page);
+    await dragSelect(page, '日向でよく丸くなります');
+    await u.actComment.click();
+    await u.composer.locator('textarea').fill('消える文への書きかけ');
+    await app.apply({ revisions: [{ page: 'root', markdown: DOC_V2 }] });
+    await expect(page.locator('#docbar select')).toHaveValue('2');
+    await expect(u.composer).toHaveCount(0);
+    const lost = page.locator('[data-lost-draft]');
+    await expect(lost.locator('.lostdraft-text')).toHaveText('消える文への書きかけ');
+    await openComposerOnTextAgain(page);
+    await expect(u.composer.locator('textarea')).toHaveValue('');
+  });
+
+  test('版の select で過去の版へ切り替える：書きかけが、黙って消えない（「対象を失った下書き」へ・トースト）。最新版へ戻って開いた入力欄には、入らない', async ({
+    page,
+    app,
+  }) => {
+    const u = ui(page);
+    await app.apply({ revisions: [{ page: 'root', markdown: DOC_V2 }] });
+    await expect(page.locator('#docbar select')).toHaveValue('2');
+    await dragSelect(page, '猫は朝によく鳴きます');
+    await u.actComment.click();
+    await u.composer.locator('textarea').fill('版を切り替える前の書きかけ');
+    await page.locator('#docbar select').selectOption('1');
+    await expect(page.locator('#docbar select')).toHaveValue('1');
+    await expect(u.composer).toHaveCount(0);
+    await expect(u.toast).toContainText('下書きとして残しています');
+    await expect(page.locator('[data-lost-draft] .lostdraft-text')).toHaveText('版を切り替える前の書きかけ');
+    await page.locator('#docbar select').selectOption('2');
+    await openComposerOnTextAgain(page);
+    await expect(u.composer.locator('textarea')).toHaveValue('');
+    await expect(page.locator('[data-lost-draft] .lostdraft-text')).toHaveText('版を切り替える前の書きかけ'); // 破棄するまで、残る
+  });
+});
+
+async function openComposerOnTextAgain(page: Page) {
+  await dragSelect(page, 'おやつの時間も決まっています');
+  await ui(page).actComment.click();
+  await expect(ui(page).composer).toBeVisible();
+}

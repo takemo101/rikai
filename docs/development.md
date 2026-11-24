@@ -133,9 +133,9 @@ pnpm run test:e2e   # 実際の Chrome（Playwright。先に pnpm run build。�
 
 ### e2e（実際の Chrome）
 
-`pnpm run test:e2e`（ルートで。Playwright。`app/e2e/` の 22 ファイル 328 件：`shell`・`loop`・`select`・`region`・`panel`・`ask`・`versions`・`formats`・`security`・`links`・`same-line`・`theme`・`zoom`・`events`・`turn`・`htmlapp-bridge`・`notify`・`htmlapp-writeback`・`focus`・`compare`・`frame-meta`・`notify-topics`）。**実際の Chrome**（headless）で、画面を、本物のマウス・キーで操作する。ブラウザは、ダウンロードしない。
+`pnpm run test:e2e`（ルートで。Playwright。`app/e2e/` の 22 ファイル 331 件：`shell`・`loop`・`select`・`region`・`panel`・`ask`・`versions`・`formats`・`security`・`links`・`same-line`・`theme`・`zoom`・`events`・`turn`・`htmlapp-bridge`・`notify`・`htmlapp-writeback`・`focus`・`compare`・`frame-meta`・`notify-topics`）。**実際の Chrome**（headless）で、画面を、本物のマウス・キーで操作する。ブラウザは、ダウンロードしない。
 
-- 環境変数：`RIKAI_CHROME`（Chrome の実行ファイル。なければ、`app/e2e/env.ts` の既定の場所。どちらにもなければ、skip）・`RIKAI_CLI`（試す `rikai.js`。既定は、`skills/rikai/rikai.js`。画面は、その隣の `public/` から配られる。**先に `pnpm run build`**）。
+- 環境変数：**`RIKAI_CHROME`**（Chrome の実行ファイルの、**パス**。**e2e の実行に必要**：e2e は、実際の Chrome を使う。**なければ、一般的な場所**〔macOS の `/Applications/Google Chrome.app`・Linux は `PATH` 上の `google-chrome`・`google-chrome-stable`・`chromium`・`chromium-browser`〕**から探し、どれもなければ、skip**。ブラウザは、ダウンロードしない。**リポジトリに、個人のパス〔自分のホームの下の、特定の Chrome など〕を書かない**：自分の Chrome は、環境変数で渡す）・`RIKAI_CLI`（試す `rikai.js`。既定は、`skills/rikai/rikai.js`。画面は、その隣の `public/` から配られる。**先に `pnpm run build`**）。
 - 1 つのテストにつき、使い捨てのプロジェクトを `os.tmpdir()` に作り、サーバーを起こす。終わりに stop して消す（利用者の `.rikai/` には触れない）。順番に（workers 1）流す。各テストは、127.0.0.1 以外への通信が 0 件であることも確かめる。
 - 画面を変えたら流す（約 2 分）。自動テスト（jsdom）で試せない、選択・範囲・出方を守る。**足したテストは、実装を壊して、落ちることを、確かめる**。
 
