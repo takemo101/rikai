@@ -9,6 +9,7 @@
 // 利用者に見えない文を、コメントの下書きに入れて、AI に読ませないように。取り除かず、`\uXXXX`（BMP の外は `\u{XXXXX}`）にして、利用者が気づけるようにする。
 // 検査の段階（`parsePick`・`parseState`）で、**枠から来た文字列（selector・text・styles の値・state の文字列とキー）に、一度だけ**かける。保存・送信の形の検査（`parseFrameMeta`）も、同じ関数を通す
 // （すでに見える形のものは、そのまま：何度かけても同じ。サーバーは、画面を信用せず、もう一度かける）。長さの上限は、置き換えの前の長さで測り（`shownLength`）、置き換えのあとの `state` が 8KB を超えたら捨てる（置き換えで、上限を迂回できない）。
+import { FRAME_IMAGE_NOTE } from './htmlapp-note';
 import { IMG_OUT_MAX_SIDE } from './image';
 import type { Anchor, FrameMeta, FramePick } from './types';
 
@@ -304,8 +305,6 @@ export function parseSnapshot(data: unknown): { id: string; png: string | null }
 /** 旧い形のコメント（0.25.x まで）の、枠から来たことを示す印：本文の先頭の見出し。**いまは、本文に書かない**（`frameMeta` を持つ）。旧いコメントの札の判定のためだけに、残してある */
 const FROM_FRAME = '【枠から】';
 const FROM_FRAME_IMAGE = '【枠から（画像）】';
-/** 範囲の画像に、枠自身が作った画像が入ったとき：錨のラベルの注記（錨のラベルは、いまも使う。AI にも、錨として届く） */
-export const FRAME_IMAGE_NOTE = '（枠の画像は、枠自身が作ったもの）';
 /** 旧い形：要素を選んだ下書きの、見出しの行の頭 */
 const PICK_HEAD = `${FROM_FRAME}要素を選びました（枠の自己申告。下の JSON）：`;
 /** 要素を選んだ下書きの錨のラベル：`枠から：<tag>`（`tag` は、`shownTag` を通った名前。枠が決めた長い文字は、入れない） */

@@ -6,9 +6,10 @@
 import { Crosshair, Expand, Moon, Sun } from 'lucide-react';
 import { useSyncExternalStore } from 'react';
 import { createRoot } from 'react-dom/client';
+import { FRAME_WIDTHS, type FrameWidth } from '../lib/frameWidth';
 import type { ResolvedTheme } from '../lib/theme';
 import { useUi } from '../store/ui';
-import { type AppFrame, FRAME_WIDTHS, type FrameWidth, frameScale, frameScrolls } from './appBridge';
+import { type AppFrame, frameScale, frameScrolls } from './appBridge';
 
 // 幅：名前・px。aria-label は「枠の幅：名前（px）」。title は、本文より広いとき、縮小率を足す（枠の中のレイアウトは、選んだ幅で計算して、本文の幅に収まるよう縮小して見せる）
 const WIDTH_UI: Record<FrameWidth, { text: string; name: string; px?: number }> = {

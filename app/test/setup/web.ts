@@ -8,6 +8,13 @@ if (typeof document !== 'undefined') {
   const { cleanup } = await import('@testing-library/react');
   afterEach(() => cleanup());
 
+  // 画面のストアは、上の層を import しない：見ている版を返す関数を、アプリの起動（main.tsx）と同じく、ここで結ぶ
+  const [{ bindView }, { getView }] = await Promise.all([
+    import('../../src/web/store/ui'),
+    import('../../src/web/lib/view'),
+  ]);
+  bindView(getView);
+
   // jsdom に無いもの。jsdom は、レイアウトをしないので、何も通知・移動しない（測定・スクロールは、実際のブラウザで確かめる）
   if (typeof globalThis.ResizeObserver === 'undefined') {
     globalThis.ResizeObserver = class {

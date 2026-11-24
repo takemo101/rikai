@@ -4,9 +4,10 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { progressOf } from '../shared/progress'; // 画面と同じ数え方（理解の進み具合）
 import type { Ask, Message, Round, Thread } from '../shared/types';
+import { normAnchor } from './anchor';
 import { normAsk } from './ask';
 import { isSupported, SLUG_RE, type Store, schemaOf, topicTitle } from './store';
-import { HttpError, normAnchor, now, out, readJSON, sleep, writeJSON } from './util';
+import { HttpError, now, out, readJSON, sleep, writeJSON } from './util';
 
 /** peek の結果。status は、feedback（届いている）・closed（終了）・none（まだ）。round のレコードの status（pending / handled）とは別の語 */
 export type PeekResult =

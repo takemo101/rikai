@@ -25,10 +25,11 @@ import type {
   Thread,
   ThreadsFile,
 } from '../shared/types';
+import { normAnchor } from './anchor';
 import { normAnswer } from './ask';
 import { decodeImage, IMG_NAME_RE } from './image';
 import { isSupported, type Store } from './store';
-import { HttpError, normAnchor, now, str, writeJSON } from './util';
+import { HttpError, now, str, writeJSON } from './util';
 
 /** 全トピックが閉じたときの動き。既定は何もしない。サーバーのプロセス（rikai serve）が、終了の処理を入れる。テストでも差し替える */
 export interface ActionHooks {
@@ -54,6 +55,24 @@ function setResolved(t: Thread, want: boolean): void {
   const known = t.resolveSent ? t.resolved : !t.resolved;
   t.resolved = want;
   t.resolveSent = want === known;
+}
+
+/** AI に渡す、メッセージの要約。値のあるものだけ（null・undefined は省く）を、型の付いたまま写す。添付の画像は、AI が読めるよう、ファイルの絶対パスで渡す */
+function compactMessage(m: Message, assetsDir: string): RoundMessage {
+  const { text, frameMeta, ask, answer, to, page, revision, images } = m;
+  return {
+    id: m.id,
+    author: m.author,
+    kind: m.kind,
+    ...(text != null ? { text } : {}),
+    ...(frameMeta != null ? { frameMeta } : {}),
+    ...(ask != null ? { ask } : {}),
+    ...(answer != null ? { answer } : {}),
+    ...(to != null ? { to } : {}),
+    ...(page != null ? { page } : {}),
+    ...(revision != null ? { revision } : {}),
+    ...(images?.length ? { images: images.map((n) => path.join(assetsDir, n)) } : {}),
+  };
 }
 
 export function createActions(store: Store, hooks: ActionHooks = {}) {
@@ -206,16 +225,7 @@ export function createActions(store: Store, hooks: ActionHooks = {}) {
     },
     submit(b: SubmitBody): { round: number } {
       return mutate(b.topic, (meta, th) => {
-        const compact = (m: Message): RoundMessage => {
-          const o: RoundMessage = { id: m.id, author: m.author, kind: m.kind };
-          const src = m as unknown as Record<string, unknown>;
-          const dst = o as unknown as Record<string, unknown>;
-          for (const k of ['text', 'frameMeta', 'ask', 'answer', 'to', 'page', 'revision'])
-            if (src[k] != null) dst[k] = src[k];
-          // 添付の画像は、AI が読めるよう、ファイルの絶対パスで渡す
-          if (m.images?.length) o.images = m.images.map((n) => path.join(tdir(meta.slug), 'assets', n));
-          return o;
-        };
+        const compact = (m: Message): RoundMessage => compactMessage(m, path.join(tdir(meta.slug), 'assets'));
         const items: RoundItem[] = [];
         const files: Record<string, RoundPage> = {};
         for (const t of th.threads) {

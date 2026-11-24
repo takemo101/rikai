@@ -1,8 +1,9 @@
 // 版を並べて比べる画面（F44）の、動く枠（html-app）の集まり：比較用ツールバーが、左右のすべての枠に、同じ幅・外観を適用し、いまの状態（そろっているか）を読む。
 // 島（`render/compare.ts`）が描き終えたら公開する（`publishCompareFrames`）。枠の登録・解放そのものは、橋（`appBridge.ts`）。ここは、**登録簿の写し**だけ：画面を閉じる・描き直すと、空にする。
 import { useSyncExternalStore } from 'react';
+import type { FrameWidth } from '../lib/frameWidth';
 import type { ResolvedTheme } from '../lib/theme';
-import type { AppFrame, FrameWidth } from './appBridge';
+import type { AppFrame } from './appBridge';
 
 /** 左右の枠の、まとめた状態。`width`・`mode`：すべての枠が同じならその値・そろっていなければ null。`avail`：本文の幅（枠の置き場の幅の、小さいほう。測れていなければ 0） */
 export interface CompareFramesState {

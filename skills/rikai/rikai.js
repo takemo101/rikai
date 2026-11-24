@@ -86,6 +86,8 @@ function writeJSON(p, v2, mode) {
   import_node_fs.default.renameSync(tmp, p);
 }
 var str = (v2, max = 2e4) => String(v2 == null ? "" : v2).slice(0, max);
+
+// src/server/anchor.ts
 function normRect(r) {
   if (!r || typeof r !== "object") return null;
   const o = r;
@@ -2098,6 +2100,22 @@ function setResolved(t, want) {
   t.resolved = want;
   t.resolveSent = want === known;
 }
+function compactMessage(m, assetsDir) {
+  const { text, frameMeta, ask, answer, to, page, revision, images } = m;
+  return {
+    id: m.id,
+    author: m.author,
+    kind: m.kind,
+    ...text != null ? { text } : {},
+    ...frameMeta != null ? { frameMeta } : {},
+    ...ask != null ? { ask } : {},
+    ...answer != null ? { answer } : {},
+    ...to != null ? { to } : {},
+    ...page != null ? { page } : {},
+    ...revision != null ? { revision } : {},
+    ...images?.length ? { images: images.map((n) => import_node_path3.default.join(assetsDir, n)) } : {}
+  };
+}
 function createActions(store, hooks = {}) {
   const { tdir, pageFile, mutate, nextId: nextId2 } = store;
   function normImages(slug, list) {
@@ -2243,15 +2261,7 @@ function createActions(store, hooks = {}) {
     },
     submit(b) {
       return mutate(b.topic, (meta3, th) => {
-        const compact = (m) => {
-          const o = { id: m.id, author: m.author, kind: m.kind };
-          const src = m;
-          const dst = o;
-          for (const k of ["text", "frameMeta", "ask", "answer", "to", "page", "revision"])
-            if (src[k] != null) dst[k] = src[k];
-          if (m.images?.length) o.images = m.images.map((n) => import_node_path3.default.join(tdir(meta3.slug), "assets", n));
-          return o;
-        };
+        const compact = (m) => compactMessage(m, import_node_path3.default.join(tdir(meta3.slug), "assets"));
         const items = [];
         const files = {};
         for (const t of th.threads) {
