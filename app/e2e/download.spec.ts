@@ -252,6 +252,9 @@ test.describe('保存のボタンを足した上のバー（#top）：1 行・�
         clipped,
         titleW: Math.round(title.getBoundingClientRect().width),
         saveW: Math.round(document.getElementById('btn-save-md')?.getBoundingClientRect().width ?? 0),
+        saveH: Math.round(document.getElementById('btn-save-md')?.getBoundingClientRect().height ?? 0),
+        bellW: Math.round(document.getElementById('btn-notify')?.getBoundingClientRect().width ?? 0),
+        bellH: Math.round(document.getElementById('btn-notify')?.getBoundingClientRect().height ?? 0),
       };
     });
 
@@ -278,10 +281,13 @@ test.describe('保存のボタンを足した上のバー（#top）：1 行・�
       expect(m.over, `${where}：右端`).toBeLessThanOrEqual(0.5);
       expect(m.overlaps, `${where}：重なり`).toEqual([]);
       expect(m.clipped, `${where}：名前が切れたボタン`).toEqual([]);
-      // 560px 以下は、アイコンだけ（名前は、aria-label・title：上の `save` が、名前で引けている）。それより広い窓では、名前が見えて、縮まない
-      if (vw > 560) expect(m.saveW, `${where}：保存のボタンの幅（縮まない）`).toBeGreaterThanOrEqual(130);
-      else expect(m.saveW, `${where}：アイコンだけ`).toBeLessThanOrEqual(30);
-      await expect(save(page)).toHaveAttribute('title', /Markdown を、dl-g-v1\.md として保存します/);
+      // どの幅でも、アイコンだけ：ベル・外観と同じ 26px 角（縮まない）・文字なし。名前は aria-label（上の `save` が、名前で引けている）と title
+      expect(m.saveW, `${where}：ベルと同じ幅`).toBe(m.bellW);
+      expect(m.saveH, `${where}：ベルと同じ高さ`).toBe(m.bellH);
+      expect(m.saveW, `${where}：26px`).toBe(26);
+      await expect(save(page)).toHaveText('');
+      await expect(save(page)).toHaveAttribute('aria-label', 'Markdown を保存');
+      await expect(save(page)).toHaveAttribute('title', /^Markdown を保存：.*dl-g-v1\.md として保存します/);
       for (const id of ['#btn-submit', '#btn-end', '#btn-theme', '#btn-save-md'])
         await expect(page.locator(id)).toBeInViewport({ ratio: 1 });
     }
