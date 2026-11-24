@@ -1,6 +1,7 @@
 // 拡大表示（F43）の座標の計算：ステージの座標 ↔ 元の画像の座標（ズーム・移動・フィット・窓の大きさ）。画面で選んだ範囲が、画像・図の同じ場所に、なること。
 import { expect, test } from 'vitest';
-import { boxAt, boxToRatio, dragSelection, ratioToBox, stageBox } from '../../../src/web/interact/focusGeom';
+import { dragSelection, stageBox } from '../../../src/web/interact/focusGeom';
+import { boxAt, fromRatio, ratioOf } from '../../../src/web/lib/geom';
 import { clampPan, fitPose, fitScale, zoomAt } from '../../../src/web/lib/zoom';
 
 const NAT = { w: 1600, h: 600 }; // 元の画像の大きさ（画素）
@@ -97,8 +98,8 @@ test('範囲は、画像の外へは出ない（縁に収める）。画面で 8
   expect(stageBox({ scale: Number.NaN, x: 0, y: 0 }, NAT, VIEW)).toBeNull();
   expect(stageBox({ scale: 1, x: 0, y: 0 }, { w: 0, h: 10 }, VIEW)).toBeNull();
   expect(stageBox({ scale: 1, x: 0, y: 0 }, NAT, { w: Number.POSITIVE_INFINITY, h: 10 })).toBeNull();
-  expect(ratioToBox({ x: Number.NaN, y: 0, w: 1, h: 1 }, box)).toBeNull();
-  expect(boxToRatio(box, boxAt(0, 0, 0, 0))).toBeNull();
+  expect(fromRatio({ x: Number.NaN, y: 0, w: 1, h: 1 }, box)).toBeNull();
+  expect(ratioOf(box, boxAt(0, 0, 0, 0))).toBeNull();
 });
 
 test('枠の重ね：保存した比率 → ステージの箱 → 比率（往復で同じ）。ズーム・移動に追従する', () => {
@@ -110,10 +111,10 @@ test('枠の重ね：保存した比率 → ステージの箱 → 比率（往�
   ]) {
     const base = stageBox(pose, NAT, VIEW);
     if (!base) throw new Error('base');
-    const b = ratioToBox(rect, base);
+    const b = fromRatio(rect, base);
     expect(b?.width).toBeCloseTo(rect.w * NAT.w * pose.scale);
     expect(b?.left).toBeCloseTo(base.left + rect.x * base.width);
-    const back = boxToRatio(b ?? boxAt(0, 0, 0, 0), base);
+    const back = ratioOf(b ?? boxAt(0, 0, 0, 0), base);
     expect(back?.x).toBeCloseTo(rect.x);
     expect(back?.h).toBeCloseTo(rect.h);
   }
@@ -122,11 +123,11 @@ test('枠の重ね：保存した比率 → ステージの箱 → 比率（往�
 test('html-app：拡大表示の枠の相対位置を、本文の枠の箱へ写し（同じ割合）、本文の基準に対する比率にする。縮小表示（枠の見た目の箱）でも、同じ', () => {
   const focusFrame = boxAt(40, 70, 960, 600); // 拡大表示の枠の見た目（縮小後）
   const sel = boxAt(40 + 480, 70 + 150, 96, 60); // 選んだ範囲：枠の (50%, 25%)・幅 10%・高さ 10%
-  const frac = boxToRatio(sel, focusFrame);
+  const frac = ratioOf(sel, focusFrame);
   expect(frac).toEqual({ x: 0.5, y: 0.25, w: 0.1, h: 0.1 });
   const home = boxAt(300, 500, 600, 300); // 本文の枠の見た目
-  const virtual = ratioToBox(frac ?? { x: 0, y: 0, w: 0, h: 0 }, home);
+  const virtual = fromRatio(frac ?? { x: 0, y: 0, w: 0, h: 0 }, home);
   expect(virtual).toMatchObject({ left: 600, top: 575, width: 60, height: 30 });
   // 本文の基準が、本文の枠そのものなら、同じ割合に戻る
-  expect(boxToRatio(virtual ?? home, home)).toEqual(frac);
+  expect(ratioOf(virtual ?? home, home)).toEqual(frac);
 });

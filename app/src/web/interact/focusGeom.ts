@@ -6,25 +6,9 @@
 //   - 中身：画像・図。自然な大きさ（nat）が原点の単位。範囲は、**中身の大きさに対する比率** `{x,y,w,h}`（左上が原点。F25 と同じ形）。
 // ズーム・移動・窓の大きさが、どう変わっても、比率は、中身の同じ場所を指す（画像の画素・図の座標に、そのまま対応する）。
 import type { Rect } from '../../shared/types';
-import type { Pose, Size } from '../lib/zoom';
-import { type Box, dragTooSmall, MIN_RATIO, r4 } from './geometry';
-
-export interface Pt {
-  x: number;
-  y: number;
-}
-
-const finite = (...v: number[]): boolean => v.every((n) => Number.isFinite(n));
-
-/** 左上と大きさから、箱を作る */
-export const boxAt = (left: number, top: number, width: number, height: number): Box => ({
-  left,
-  top,
-  width,
-  height,
-  right: left + width,
-  bottom: top + height,
-});
+import { type Box, boxAt, clampToBox, finite, type Pt, ratioOf, roundRect, type Size } from '../lib/geom';
+import type { Pose } from '../lib/zoom';
+import { dragTooSmall, MIN_RATIO } from './geometry';
 
 /**
  * 中身（自然な大きさ nat）を、姿勢（pose）で、窓（view）に置いたときの箱（窓の座標）。
@@ -37,12 +21,6 @@ export function stageBox(pose: Pose, nat: Size, view: Size): Box | null {
   const h = nat.h * pose.scale;
   return boxAt(view.w / 2 + pose.x - w / 2, view.h / 2 + pose.y - h / 2, w, h);
 }
-
-/** 箱の外へ出ない点（箱の縁に寄せる） */
-export const clampToBox = (p: Pt, box: Box): Pt => ({
-  x: Math.min(Math.max(p.x, box.left), box.right),
-  y: Math.min(Math.max(p.y, box.top), box.bottom),
-});
 
 /** 2 点のドラッグが、選んだ範囲：箱（中身）の中に収めた箱と、中身に対する比率 */
 export interface DragSelection {
@@ -57,8 +35,7 @@ export interface DragSelection {
  * 画面で 8px 未満（`dragTooSmall`）・比率が 0.05% 未満・箱が不正・点が不正なら、null
  */
 export function dragSelection(a: Pt, b: Pt, box: Box): DragSelection | null {
-  if (!finite(a.x, a.y, b.x, b.y, box.left, box.top, box.width, box.height) || box.width <= 0 || box.height <= 0)
-    return null;
+  if (!finite(a.x, a.y, b.x, b.y)) return null;
   const p = clampToBox(a, box);
   const q = clampToBox(b, box);
   const left = Math.min(p.x, q.x);
@@ -66,37 +43,10 @@ export function dragSelection(a: Pt, b: Pt, box: Box): DragSelection | null {
   const width = Math.abs(q.x - p.x);
   const height = Math.abs(q.y - p.y);
   if (dragTooSmall({ x: left, y: top, w: width, h: height })) return null;
-  const rect = {
-    x: r4((left - box.left) / box.width),
-    y: r4((top - box.top) / box.height),
-    w: r4(width / box.width),
-    h: r4(height / box.height),
-  };
+  const sel = boxAt(left, top, width, height);
+  const ratio = ratioOf(sel, box);
+  if (!ratio) return null;
+  const rect = roundRect(ratio);
   if (rect.w < MIN_RATIO || rect.h < MIN_RATIO) return null;
-  return { box: boxAt(left, top, width, height), rect };
-}
-
-/** 比率の範囲（rect）を、箱（base：中身の箱）の座標にする（ステージに重ねる枠の位置）。base が不正なら null */
-export function ratioToBox(rect: Rect, base: Box): Box | null {
-  if (!finite(rect.x, rect.y, rect.w, rect.h, base.left, base.top, base.width, base.height)) return null;
-  if (base.width <= 0 || base.height <= 0) return null;
-  return boxAt(
-    base.left + rect.x * base.width,
-    base.top + rect.y * base.height,
-    rect.w * base.width,
-    rect.h * base.height,
-  );
-}
-
-/** 箱（inner）が、箱（frame）の大きさに対して、どこにあるか（比率。丸めない）。frame が不正なら null */
-export function boxToRatio(inner: Box, frame: Box): Rect | null {
-  if (!finite(inner.left, inner.top, inner.width, inner.height, frame.left, frame.top, frame.width, frame.height))
-    return null;
-  if (frame.width <= 0 || frame.height <= 0) return null;
-  return {
-    x: (inner.left - frame.left) / frame.width,
-    y: (inner.top - frame.top) / frame.height,
-    w: inner.width / frame.width,
-    h: inner.height / frame.height,
-  };
+  return { box: sel, rect };
 }

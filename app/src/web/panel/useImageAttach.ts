@@ -3,21 +3,13 @@
 // 終わりが遅れたアップロード：入力欄の世代（`imgGen`）と、トピックを確かめ、別の入力欄に付かないようにする。
 import type { ClipboardEvent as ReactClipboardEvent, DragEvent as ReactDragEvent } from 'react';
 import { useCallback, useMemo } from 'react';
+import { IMG_MAX_N } from '../../shared/image';
 import { useMutations } from '../api/mutations';
+import { checkImage, readBase64 } from '../lib/image';
 import { parseHash } from '../lib/route';
 import { toast, useUi } from '../store/ui';
-import { checkImage, IMG_MAX_N } from './logic';
 
 const EMPTY: readonly string[] = [];
-
-function readBase64(file: Blob): Promise<string> {
-  const { promise, resolve, reject } = Promise.withResolvers<string>();
-  const r = new FileReader();
-  r.onload = () => resolve(String(r.result).split(',')[1] ?? '');
-  r.onerror = () => reject(r.error);
-  r.readAsDataURL(file);
-  return promise;
-}
 
 /** 付けた画像の名前（その入力欄の分） */
 export const useDraftImgs = (key: string): readonly string[] => useUi((s) => s.drafts.imgs[key] ?? EMPTY);

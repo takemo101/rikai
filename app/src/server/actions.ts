@@ -14,6 +14,7 @@ import type {
   SubmitBody,
 } from '../shared/api';
 import { parseFrameMeta } from '../shared/htmlapp-bridge';
+import { IMG_MAX_N } from '../shared/image';
 import type {
   FrameMeta,
   Message,
@@ -25,7 +26,7 @@ import type {
   ThreadsFile,
 } from '../shared/types';
 import { normAnswer } from './ask';
-import { decodeImage, IMG_NAME_RE, MAX_IMAGES } from './image';
+import { decodeImage, IMG_NAME_RE } from './image';
 import { isSupported, type Store } from './store';
 import { HttpError, normAnchor, now, str, writeJSON } from './util';
 
@@ -61,7 +62,7 @@ export function createActions(store: Store, hooks: ActionHooks = {}) {
   // 添付の画像の名前の一覧を検査する（形式・枚数・assets/ にあること）。名前は、サーバーが決めたもの（attach の返り値）だけを受ける
   function normImages(slug: string, list: unknown): string[] {
     if (list == null) return [];
-    if (!Array.isArray(list) || list.length > MAX_IMAGES) throw new HttpError(400, `画像は ${MAX_IMAGES} 枚までです`);
+    if (!Array.isArray(list) || list.length > IMG_MAX_N) throw new HttpError(400, `画像は ${IMG_MAX_N} 枚までです`);
     const names: unknown[] = [...new Set<unknown>(list)];
     for (const n of names) {
       if (typeof n !== 'string' || !IMG_NAME_RE.test(n)) throw new HttpError(400, '画像の名前が不正です');

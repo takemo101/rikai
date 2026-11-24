@@ -7,7 +7,7 @@
 // 同じ id を、同じ文書に 2 つ置くと、`url(#…)` が、元を指す（元が、再描画で消えると、矢印・グラデーションが消える）ので、接頭辞を付ける。
 // Mermaid の図は、`<style>` の中で、ルートの id（`#mmd5 …`）で、スタイルを絞っている：選択子も、書き換える。
 
-import type { Size } from './zoom';
+import type { Size } from './geom';
 
 /** 複製の id の接頭辞 */
 export const ZOOM_ID_PREFIX = 'zoom-';

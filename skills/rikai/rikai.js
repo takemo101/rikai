@@ -1879,6 +1879,12 @@ var upgradeWebSocket = defineWebSocketHelper(async (c, events, options) => {
 var import_node_fs4 = __toESM(require("node:fs"), 1);
 var import_node_path3 = __toESM(require("node:path"), 1);
 
+// src/shared/image.ts
+var IMG_MAX_MB = 5;
+var IMG_MAX_BYTES = IMG_MAX_MB * 1024 * 1024;
+var IMG_MAX_N = 4;
+var IMG_OUT_MAX_SIDE = 2400;
+
 // src/shared/htmlapp-bridge.ts
 var STATE_MAX_BYTES = 8192;
 var STATE_MAX_DEPTH = 8;
@@ -2046,14 +2052,12 @@ function parseFrameMeta(data) {
     return { ok: false, reason: `frameMeta \u304C\u5927\u304D\u3059\u304E\u307E\u3059\uFF08${FRAME_META_MAX_BYTES / 1024}KB \u307E\u3067\uFF09`, tooBig: true };
   return { ok: true, meta: meta3 };
 }
-var SNAPSHOT_MAX_SIDE = 2400;
+var SNAPSHOT_MAX_SIDE = IMG_OUT_MAX_SIDE;
 var FROM_FRAME = "\u3010\u67A0\u304B\u3089\u3011";
 var PICK_HEAD = `${FROM_FRAME}\u8981\u7D20\u3092\u9078\u3073\u307E\u3057\u305F\uFF08\u67A0\u306E\u81EA\u5DF1\u7533\u544A\u3002\u4E0B\u306E JSON\uFF09\uFF1A`;
 
 // src/server/image.ts
 var import_node_crypto = __toESM(require("node:crypto"), 1);
-var IMG_MAX = 5 * 1024 * 1024;
-var MAX_IMAGES = 4;
 var IMG_NAME_RE = /^c-[0-9a-f]{16}\.(png|jpg|gif|webp)$/;
 function sniffExt(buf) {
   if (buf.length >= 8 && buf.subarray(0, 8).equals(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10])))
@@ -2070,7 +2074,7 @@ function decodeImage(data) {
     throw new HttpError(400, "\u753B\u50CF\u306E\u30C7\u30FC\u30BF\u304C\u4E0D\u6B63\u3067\u3059");
   const buf = Buffer.from(data, "base64");
   if (!buf.length) throw new HttpError(400, "\u753B\u50CF\u306E\u30C7\u30FC\u30BF\u304C\u4E0D\u6B63\u3067\u3059");
-  if (buf.length > IMG_MAX) throw new HttpError(400, `\u753B\u50CF\u304C\u5927\u304D\u3059\u304E\u307E\u3059\uFF08${IMG_MAX / 1024 / 1024}MB \u307E\u3067\uFF09`);
+  if (buf.length > IMG_MAX_BYTES) throw new HttpError(400, `\u753B\u50CF\u304C\u5927\u304D\u3059\u304E\u307E\u3059\uFF08${IMG_MAX_MB}MB \u307E\u3067\uFF09`);
   const ext = sniffExt(buf);
   if (!ext) throw new HttpError(400, "\u753B\u50CF\u306F\u3001png\u30FBjpeg\u30FBgif\u30FBwebp \u3060\u3051\u4ED8\u3051\u3089\u308C\u307E\u3059");
   const name = `c-${import_node_crypto.default.createHash("sha256").update(buf).digest("hex").slice(0, 16)}.${ext}`;
@@ -2098,7 +2102,7 @@ function createActions(store, hooks = {}) {
   const { tdir, pageFile, mutate, nextId: nextId2 } = store;
   function normImages(slug, list) {
     if (list == null) return [];
-    if (!Array.isArray(list) || list.length > MAX_IMAGES) throw new HttpError(400, `\u753B\u50CF\u306F ${MAX_IMAGES} \u679A\u307E\u3067\u3067\u3059`);
+    if (!Array.isArray(list) || list.length > IMG_MAX_N) throw new HttpError(400, `\u753B\u50CF\u306F ${IMG_MAX_N} \u679A\u307E\u3067\u3067\u3059`);
     const names = [...new Set(list)];
     for (const n of names) {
       if (typeof n !== "string" || !IMG_NAME_RE.test(n)) throw new HttpError(400, "\u753B\u50CF\u306E\u540D\u524D\u304C\u4E0D\u6B63\u3067\u3059");
@@ -26188,7 +26192,7 @@ function createChangeFeed(store, opts = {}) {
 var MAX_EVENTS = 20;
 var PING_MS = 15e3;
 var MAX_BODY = 2 * 1024 * 1024;
-var MAX_ATTACH_BODY = Math.ceil(IMG_MAX / 3) * 4 + 4096;
+var MAX_ATTACH_BODY = Math.ceil(IMG_MAX_BYTES / 3) * 4 + 4096;
 var MIME = {
   ".html": "text/html; charset=utf-8",
   ".js": "text/javascript; charset=utf-8",

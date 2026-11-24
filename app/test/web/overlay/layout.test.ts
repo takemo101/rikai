@@ -1,5 +1,6 @@
 // 番号の層の位置の計算（純粋な関数）：番号の順・同じ高さの組・上の組に重ならない・範囲の枠・枠のドラッグ。
 import { expect, test } from 'vitest';
+import { type Edges, fromEdges } from '../../../src/web/lib/geom';
 import {
   BADGE_MAX,
   type BadgeGroup,
@@ -15,14 +16,7 @@ import {
   stackGroups,
   stackWidth,
 } from '../../../src/web/overlay/layout';
-import {
-  adjustEdges,
-  type Edges,
-  HANDLES,
-  MIN_REGION,
-  parseHandle,
-  toViewportRect,
-} from '../../../src/web/overlay/regionAdjust';
+import { adjustEdges, HANDLES, MIN_REGION, parseHandle } from '../../../src/web/overlay/regionAdjust';
 
 const item = (tid: string, top: number, n: number | '新' = 1, over: Partial<BadgeItem> = {}): BadgeItem => ({
   top,
@@ -167,7 +161,7 @@ test('ハンドルの名前：8 つ。知らない名前・なしは、本体（
   expect(HANDLES).toEqual(['nw', 'n', 'ne', 'e', 'se', 's', 'sw', 'w']);
   expect(parseHandle('se')).toBe('se');
   for (const v of [undefined, '', 'move', 'x', 'NW']) expect(parseHandle(v)).toBe('move');
-  expect(toViewportRect({ left: 10, top: 20, right: 40, bottom: 80 })).toEqual({
+  expect(fromEdges({ left: 10, top: 20, right: 40, bottom: 80 })).toEqual({
     left: 10,
     top: 20,
     width: 30,

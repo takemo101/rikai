@@ -1,14 +1,12 @@
 // @vitest-environment jsdom
-// パネルの純粋な判定：折りたたみ（F29）・答えずに進んだ質問（F30）・札・解決済みの 1 行（F33）・入力欄の位置（F22）・回答の下書き・画像の検査（F24）
+// パネルの純粋な判定：折りたたみ（F29）・答えずに進んだ質問（F30）・札・解決済みの 1 行（F33）・入力欄の位置（F22）・回答の下書き・添付の画像の URL（F24）
 import { expect, test } from 'vitest';
 import { answerOf, askStale } from '../../../src/shared/fresh';
 import type { Ask, Message } from '../../../src/shared/types';
 import {
   askDraftValid,
-  checkImage,
   composerSlot,
   foldMessages,
-  IMG_MAX_N,
   imgUrl,
   lastSpeech,
   pickOption,
@@ -263,25 +261,6 @@ test('lastSpeech：最後の発言（回答は除く）。AI は「AI：」・�
   expect(lastSpeech(T([me('あ'.repeat(100))]))).toBe(`あなた：${'あ'.repeat(47)}…`);
   // 画像もなく、記号だけの発言は、空
   expect(lastSpeech(T([say({ author: 'user', text: '***', sent: true })]))).toBe('');
-});
-
-// ---- F24：画像の検査 ----
-test('checkImage：形式（png・jpeg・gif・webp）・大きさ（5MB）・枚数（4 枚）', () => {
-  const png = { type: 'image/png', size: 1000 };
-  expect(checkImage(png, 0)).toBeNull();
-  for (const type of ['image/jpeg', 'image/gif', 'image/webp']) expect(checkImage({ type, size: 1 }, 0)).toBeNull();
-  expect(checkImage({ type: 'image/svg+xml', size: 1 }, 0)).toMatchObject({ reason: 'type' });
-  expect(checkImage({ type: 'text/plain', size: 1 }, 0)).toMatchObject({ reason: 'type' });
-  expect(checkImage({ type: '', size: 1 }, 0)).toMatchObject({ reason: 'type' });
-  expect(checkImage({ type: 'image/png', size: 5 * 1024 * 1024 }, 0)).toBeNull();
-  expect(checkImage({ type: 'image/png', size: 5 * 1024 * 1024 + 1 }, 0)).toMatchObject({
-    reason: 'size',
-    message: '画像が大きすぎます（5MB まで）',
-  });
-  expect(checkImage(png, IMG_MAX_N - 1)).toBeNull();
-  expect(checkImage(png, IMG_MAX_N)).toMatchObject({ reason: 'count', message: '画像は 4 枚までです' });
-  // 形式が先（形式が違うものは、枚数が上限でも、形式のエラー）
-  expect(checkImage({ type: 'text/plain', size: 1 }, IMG_MAX_N)).toMatchObject({ reason: 'type' });
 });
 
 test('imgUrl：トピックと名前を、URL エンコードして、assets の配信の道へ', () => {

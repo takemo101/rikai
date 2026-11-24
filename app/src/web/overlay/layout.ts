@@ -1,5 +1,6 @@
 // 番号の層の、位置の計算（測定を含まない部分）。純粋な関数だけ：jsdom で試せる。
 import type { Rect } from '../../shared/types';
+import { type Box, clamp, finite } from '../lib/geom';
 
 /** 番号の丸：文・ブロック・範囲の、すべて、同じ見た目。入力中の対象は、「新」（濃いアクセント） */
 export interface BadgeItem {
@@ -100,13 +101,6 @@ export const badgeLeft = (article: Pos, scroller: Pos, scrollLeft: number): numb
 export const badgeTopIn = (top: number, scroller: Pos, scrollTop: number): number =>
   Math.round(top - scroller.top + scrollTop) + BADGE_DROP;
 
-export interface Box {
-  left: number;
-  top: number;
-  width: number;
-  height: number;
-}
-
 /** html-app の範囲の枠を、基準の箱の周りに収める限度（基準の箱の幅・高さの何倍まで、外へ出してよいか） */
 export const APP_REGION_MARGIN = 1;
 
@@ -118,11 +112,13 @@ export const APP_REGION_MARGIN = 1;
 export function clampRegionRect(rect: Rect): Rect | null {
   const lo = -APP_REGION_MARGIN;
   const hi = 1 + APP_REGION_MARGIN;
-  const clamp = (v: number): number => Math.min(hi, Math.max(lo, v));
-  const [x0, y0, x1, y1] = [clamp(rect.x), clamp(rect.y), clamp(rect.x + rect.w), clamp(rect.y + rect.h)];
-  return x1 > x0 && y1 > y0 && [x0, y0, x1, y1].every(Number.isFinite)
-    ? { x: x0, y: y0, w: x1 - x0, h: y1 - y0 }
-    : null;
+  const [x0, y0, x1, y1] = [
+    clamp(rect.x, lo, hi),
+    clamp(rect.y, lo, hi),
+    clamp(rect.x + rect.w, lo, hi),
+    clamp(rect.y + rect.h, lo, hi),
+  ];
+  return x1 > x0 && y1 > y0 && finite(x0, y0, x1, y1) ? { x: x0, y: y0, w: x1 - x0, h: y1 - y0 } : null;
 }
 
 /** 範囲の上端（ビューポート）：基準の要素 `m` の高さに対する比率 */

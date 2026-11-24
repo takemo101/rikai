@@ -7,11 +7,11 @@
 import { useEffect, useRef, useState } from 'react';
 import type { ConnectorsProps } from '../contracts';
 import { frameOf } from '../doc/render/blocks';
+import { type Box, bottom, fromEdges, type Pt, right } from '../lib/geom';
 import { type DocModel, type ThreadLoc, useDoc } from '../store/doc';
 import { useUi } from '../store/ui';
 import {
   BELOW,
-  type Box,
   clipBox,
   type DocEnd,
   endOfLastLine,
@@ -20,7 +20,6 @@ import {
   type Link,
   lastLineBottom,
   linkBetween,
-  type Pt,
   rightMiddle,
   sameFrame,
   sharedLeadX,
@@ -29,7 +28,6 @@ import {
 /** 入力中の対象の印（`#badges` の `.regionbox.pending`・`data-tid` と同じ） */
 const PENDING = 'pending';
 
-const boxOf = (r: DOMRect | Box): Box => ({ left: r.left, top: r.top, right: r.right, bottom: r.bottom });
 const visible = (r: DOMRect): boolean => r.width > 0 || r.height > 0;
 
 /** 本文側の端点の、対象の箱からの距離（px）：版で変えたブロックの右端の緑の線（約 3px）・入力中の枠のハンドル（`.rh-e`。外へ 6px）に、点が重ならないように */
@@ -66,18 +64,18 @@ function textPoint(marks: readonly HTMLElement[], stop: Element): End | null {
     if (!m.isConnected) continue;
     for (const r of m.getClientRects())
       if (visible(r)) {
-        rects.push(boxOf(r));
+        rects.push(r);
         lastMark = m;
       }
   }
   const p = endOfLastLine(rects);
-  const bottom = lastLineBottom(rects);
-  if (!p || bottom === null || !lastMark || hiddenByScroll(lastMark, p, stop)) return null;
+  const lineBottom = lastLineBottom(rects);
+  if (!p || lineBottom === null || !lastMark || hiddenByScroll(lastMark, p, stop)) return null;
   // 行間：行の高さ（`line-height`）と、強調の矩形の高さの差。`pre` の行は、本文の行より、背が低い
-  const last = rects.filter((r) => r.bottom === bottom).at(-1);
+  const last = rects.filter((r) => bottom(r) === lineBottom).at(-1);
   const lh = Number.parseFloat(getComputedStyle(lastMark).lineHeight);
-  const gap = Number.isFinite(lh) && last ? Math.max(0, lh - (last.bottom - last.top)) : 4;
-  return { p, bottom, gap };
+  const gap = Number.isFinite(lh) && last ? Math.max(0, lh - last.height) : 4;
+  return { p, bottom: lineBottom, gap };
 }
 
 /** 本文側の端点。ブロックは、画像・図なら、その要素（`frameOf`）の右端の外 */
@@ -89,7 +87,7 @@ function docPoint(loc: ThreadLoc | undefined, regions: Map<string, Box>, tid: st
       if (!loc.el.isConnected) return null;
       const r = frameOf(loc.el).getBoundingClientRect();
       if (!visible(r)) return null;
-      const p = rightMiddle(boxOf(r));
+      const p = rightMiddle(r);
       return centered({ x: p.x + GAP.block, y: p.y });
     }
     case 'region': {
@@ -112,7 +110,7 @@ function pendingPoint(model: DocModel, regions: Map<string, Box>, stop: Element)
   if (!el?.isConnected) return null;
   if (el.tagName === 'MARK') return textPoint([el as HTMLElement], stop);
   const r = el.getBoundingClientRect();
-  return visible(r) ? centered(shiftX(rightMiddle(boxOf(r)), GAP.block)) : null;
+  return visible(r) ? centered(shiftX(rightMiddle(r), GAP.block)) : null;
 }
 
 /** カード側の端点：見出しの番号の丸の高さの、カードの左端（丸がなければ、見出し・カードの上） */
@@ -131,8 +129,8 @@ function measure(
   sel: { active: string | null; linked: string | null },
   cards: HTMLElement[],
 ): Frame {
-  const docBox = boxOf(scroller.getBoundingClientRect());
-  const panelRect = boxOf(panel.getBoundingClientRect());
+  const docBox = scroller.getBoundingClientRect();
+  const panelRect = panel.getBoundingClientRect();
   const clip = clipBox(docBox, panelRect);
   const links: Link[] = [];
   if (!model) return { clip, leadX: null, links };
@@ -140,13 +138,18 @@ function measure(
   // 固定の見出し（`.panel-top`）の下に隠れたカードは、見えない：パネルの見える範囲は、その下から
   const head = panel.querySelector('.panel-top');
   const panelBox = head
-    ? { ...panelRect, top: Math.max(panelRect.top, head.getBoundingClientRect().bottom) }
+    ? fromEdges({
+        left: panelRect.left,
+        top: Math.max(panelRect.top, head.getBoundingClientRect().bottom),
+        right: right(panelRect),
+        bottom: bottom(panelRect),
+      })
     : panelRect;
 
   const regions = new Map<string, Box>();
   for (const e of scroller.querySelectorAll<HTMLElement>('#badges .regionbox')) {
     const r = e.getBoundingClientRect();
-    if (e.dataset.tid && visible(r)) regions.set(e.dataset.tid, boxOf(r));
+    if (e.dataset.tid && visible(r)) regions.set(e.dataset.tid, r);
   }
 
   // 1 回目：カードごとの、本文側・カード側の端点
@@ -286,17 +289,12 @@ export function Connectors({ view, scrollRef }: ConnectorsProps) {
     <svg id="links" className={focus ? 'focus' : undefined} aria-hidden="true">
       <defs>
         <clipPath id="links-clip">
-          <rect x={clip.left} y={clip.top} width={clip.right - clip.left} height={clip.bottom - clip.top} />
+          <rect x={clip.left} y={clip.top} width={clip.width} height={clip.height} />
         </clipPath>
         {/* 引き出し線のある線の、S 字の部分だけ（x が、共通の x から右）：引き出しの部分は、別の線（.cn-lead）で、薄い点線に描く */}
         {frame.leadX !== null ? (
           <clipPath id="links-s">
-            <rect
-              x={frame.leadX}
-              y={clip.top}
-              width={Math.max(0, clip.right - frame.leadX)}
-              height={clip.bottom - clip.top}
-            />
+            <rect x={frame.leadX} y={clip.top} width={Math.max(0, right(clip) - frame.leadX)} height={clip.height} />
           </clipPath>
         ) : null}
       </defs>

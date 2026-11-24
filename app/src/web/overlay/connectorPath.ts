@@ -1,18 +1,6 @@
 // 関連の線（F35）の、純粋な幾何：端点の箱への寄せ（クランプ）・同じ側の外の判定・線のパス・クリップの箱。DOM・React に触れない（測定は Connectors.tsx）。
 // 座標は、すべて、画面（viewport）の座標。
-
-export interface Pt {
-  x: number;
-  y: number;
-}
-
-/** 画面の座標の箱（`getBoundingClientRect` の left・top・right・bottom） */
-export interface Box {
-  left: number;
-  top: number;
-  right: number;
-  bottom: number;
-}
+import { type Box, bottom, clampToBox, fromEdges, type Pt, right } from '../lib/geom';
 
 /** 箱の、縦の外：-1 は上・1 は下・0 は中 */
 export type Side = -1 | 0 | 1;
@@ -42,22 +30,19 @@ export interface Frame {
 /** 小数 1 桁（パスの文字列を、短く・同じ形なら同じ文字列に） */
 const r1 = (n: number): number => Math.round(n * 10) / 10;
 
-const clamp = (v: number, lo: number, hi: number): number => Math.min(Math.max(v, lo), hi);
-
 export function sideOf(y: number, box: Box): Side {
   if (y < box.top) return -1;
-  if (y > box.bottom) return 1;
+  if (y > bottom(box)) return 1;
   return 0;
 }
 
 /** 箱の右端の縦の中央 */
-export const rightMiddle = (b: Box): Pt => ({ x: b.right, y: (b.top + b.bottom) / 2 });
+export const rightMiddle = (b: Box): Pt => ({ x: right(b), y: (b.top + bottom(b)) / 2 });
 
 /** 点を、箱の中へ寄せる。動かしたか（edge）を添える */
 export function clampTo(p: Pt, box: Box): { pt: Pt; edge: boolean } {
-  const x = clamp(p.x, box.left, Math.max(box.left, box.right));
-  const y = clamp(p.y, box.top, Math.max(box.top, box.bottom));
-  return { pt: { x, y }, edge: x !== p.x || y !== p.y };
+  const pt = clampToBox(p, box);
+  return { pt, edge: pt.x !== p.x || pt.y !== p.y };
 }
 
 /** 縁へ寄せた端を、見える範囲の縁の、内側に止める距離（px）。縁そのものに止めると、線が、縁に沿って、水平に走る */
@@ -69,17 +54,17 @@ export const STUB = 10;
 function lastLineOf(rects: readonly Box[]): { right: number; y: number; bottom: number } | null {
   let last: Box | null = null;
   for (const r of rects)
-    if (!last || r.bottom > last.bottom || (r.bottom === last.bottom && r.top > last.top)) last = r;
+    if (!last || bottom(r) > bottom(last) || (bottom(r) === bottom(last) && r.top > last.top)) last = r;
   if (!last) return null;
-  const y = (last.top + last.bottom) / 2;
-  let right = last.right;
-  let bottom = last.bottom;
+  const y = (last.top + bottom(last)) / 2;
+  let rightMost = right(last);
+  let lowest = bottom(last);
   for (const r of rects)
-    if (r.top <= y && y <= r.bottom) {
-      right = Math.max(right, r.right);
-      bottom = Math.max(bottom, r.bottom);
+    if (r.top <= y && y <= bottom(r)) {
+      rightMost = Math.max(rightMost, right(r));
+      lowest = Math.max(lowest, bottom(r));
     }
-  return { right, y, bottom };
+  return { right: rightMost, y, bottom: lowest };
 }
 
 /**
@@ -129,14 +114,14 @@ export function linkBetween(
 
 /** 範囲の上（-1）・下（1）の外へ出た対象：範囲の右端の近く、縁の内側 */
 const stubEnd = (box: Box, side: Side): Pt => ({
-  x: Math.max(box.left, box.right - STUB),
-  y: side < 0 ? Math.min(box.top + EDGE_INSET, box.bottom) : Math.max(box.bottom - EDGE_INSET, box.top),
+  x: Math.max(box.left, right(box) - STUB),
+  y: insetY(box, side),
 });
 
-const insetEnd = (x: number, box: Box, side: Side): Pt => ({
-  x,
-  y: side < 0 ? Math.min(box.top + EDGE_INSET, box.bottom) : Math.max(box.bottom - EDGE_INSET, box.top),
-});
+const insetEnd = (x: number, box: Box, side: Side): Pt => ({ x, y: insetY(box, side) });
+
+const insetY = (box: Box, side: Side): number =>
+  side < 0 ? Math.min(box.top + EDGE_INSET, bottom(box)) : Math.max(bottom(box) - EDGE_INSET, box.top);
 
 /**
  * 2 点を結ぶ、なめらかな曲線（cubic bezier）：両端は、水平に出入りし、中ほどで縦へ移る（S 字）。
@@ -226,12 +211,12 @@ export function sharedLeadX(maxEndX: number, articleRight: number, cardX: number
  * 縦は、2 つの重なり（どちらも、上のバーの下の、同じ段）。
  */
 export function clipBox(doc: Box, panel: Box): Box {
-  return {
+  return fromEdges({
     left: Math.min(doc.left, panel.left),
-    right: Math.max(doc.right, panel.right),
+    right: Math.max(right(doc), right(panel)),
     top: Math.max(doc.top, panel.top),
-    bottom: Math.min(doc.bottom, panel.bottom),
-  };
+    bottom: Math.min(bottom(doc), bottom(panel)),
+  });
 }
 
 /** 2 つのフレームが、描くものとして同じか（同じなら、React の state を、入れ替えない） */
@@ -239,7 +224,7 @@ export function sameFrame(a: Frame | null, b: Frame): boolean {
   if (!a) return false;
   if (a.links.length !== b.links.length || a.leadX !== b.leadX) return false;
   const [c, d] = [a.clip, b.clip];
-  if (c.left !== d.left || c.top !== d.top || c.right !== d.right || c.bottom !== d.bottom) return false;
+  if (c.left !== d.left || c.top !== d.top || c.width !== d.width || c.height !== d.height) return false;
   for (let i = 0; i < a.links.length; i++) {
     const [x, y] = [a.links[i], b.links[i]];
     if (!x || !y || x.tid !== y.tid || x.d !== y.d || x.edge !== y.edge || x.lead !== y.lead) return false;

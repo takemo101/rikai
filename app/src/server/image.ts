@@ -2,10 +2,9 @@
 // 画像は、利用者が貼り付けた・選んだもので、非信頼のデータ。形式は、中身の先頭のバイトで決め（申告・拡張子は、信用しない）、
 // 名前は、中身から、サーバーが決める（クライアントの名前を、パスに使わない）。SVG は、スクリプトを持てるので、受けない。
 import crypto from 'node:crypto';
+import { IMG_MAX_BYTES, IMG_MAX_MB } from '../shared/image';
 import { HttpError } from './util';
 
-export const IMG_MAX = 5 * 1024 * 1024; // 1 枚の上限（バイト）
-export const MAX_IMAGES = 4; // 1 つのコメント・返信に付けられる枚数
 export const IMG_NAME_RE = /^c-[0-9a-f]{16}\.(png|jpg|gif|webp)$/;
 
 function sniffExt(buf: Buffer): 'png' | 'jpg' | 'gif' | 'webp' | null {
@@ -25,7 +24,7 @@ export function decodeImage(data: unknown): { buf: Buffer; name: string } {
     throw new HttpError(400, '画像のデータが不正です');
   const buf = Buffer.from(data, 'base64');
   if (!buf.length) throw new HttpError(400, '画像のデータが不正です');
-  if (buf.length > IMG_MAX) throw new HttpError(400, `画像が大きすぎます（${IMG_MAX / 1024 / 1024}MB まで）`);
+  if (buf.length > IMG_MAX_BYTES) throw new HttpError(400, `画像が大きすぎます（${IMG_MAX_MB}MB まで）`);
   const ext = sniffExt(buf);
   if (!ext) throw new HttpError(400, '画像は、png・jpeg・gif・webp だけ付けられます');
   const name = `c-${crypto.createHash('sha256').update(buf).digest('hex').slice(0, 16)}.${ext}`;

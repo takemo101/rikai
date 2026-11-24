@@ -3,23 +3,19 @@
 // 範囲の画像：1 つの画像・図の中に収まるなら、元の解像度から切り出す（`cropMedia`）。そうでなければ、表示されている本文を複製して画像にする（`rasterRegion`）。
 // 画像にできなくても、位置だけで、コメントできる（トーストで知らせる）。
 
+import { IMG_MAX_BYTES, IMG_MAX_N, IMG_OUT_MAX_SIDE } from '../../shared/image';
 import type { Anchor, Rect } from '../../shared/types';
 import { requestFrameSnapshot } from '../doc/appBridge';
 import { blockAnchor, frameOf } from '../doc/render/blocks';
 import { $, $$, trunc } from '../lib/dom';
+import type { Box, Size } from '../lib/geom';
+import { checkImage, readBase64 } from '../lib/image';
 import { RANGE_TOO_SMALL } from '../lib/messages';
 import { getView } from '../lib/view';
-import type { Size } from '../lib/zoom';
 import { toast, useUi } from '../store/ui';
 import { openComposer } from './compose';
-import { isInsideFrame, overlaps, pickBase, rasterTooBig, ratioRect, type ViewportRect } from './geometry';
+import { isInsideFrame, overlaps, pickBase, rasterTooBig, ratioRect } from './geometry';
 import { regionLabel } from './selection';
-
-const IMG_TYPES = ['image/png', 'image/jpeg', 'image/gif', 'image/webp'];
-const IMG_MAX_MB = 5;
-const IMG_MAX_N = 4;
-/** 出力の、長い辺の上限 */
-const OUT_MAX = 2400;
 
 /** 利用者に見せる失敗（原因が分かるもの） */
 export class UserError extends Error {
@@ -38,7 +34,7 @@ export interface RegionDeps {
   /** 画像（base64）を、いまのトピックの assets/ に保存する。失敗（トーストを出した）なら null */
   attach: (slug: string, data: string) => Promise<{ name: string } | null>;
   /** `hooks.onFrameImages`：html-app の枠が、自分の見た目の画像を作って、範囲の画像に入った（F42） */
-  raster?: (vr: ViewportRect, article: HTMLElement, hooks?: RasterHooks) => Promise<File | null>;
+  raster?: (vr: Box, article: HTMLElement, hooks?: RasterHooks) => Promise<File | null>;
   crop?: (media: Element, rect: Rect, size?: Size) => Promise<File | null>;
 }
 
@@ -53,7 +49,7 @@ export const textOfBlock = (blk: Element): string => {
  * 範囲（ビューポートの矩形）を選び終えた。入力欄を開き、範囲の画像を、作って付ける（非同期）。
  * 本文に重なる所がない・小さすぎる・最新版でない、ときは、トーストを出して、何もしない。
  */
-export function finishRegion(vr: ViewportRect, deps: RegionDeps): void {
+export function finishRegion(vr: Box, deps: RegionDeps): void {
   const article = $('#article');
   if (!article) return;
   const hits = $$('[data-bid]', article)
@@ -129,21 +125,14 @@ export function commentOnRegion(
 
 /** 切り出した画像を、入力欄（composerId）に付ける。付ける直前に、まだ同じ入力欄・同じトピックかを確かめる */
 async function attachRegionImage(file: File, composerId: number, deps: RegionDeps): Promise<void> {
-  if (!IMG_TYPES.includes(file.type)) {
-    toast('画像は、png・jpeg・gif・webp だけ付けられます', true);
-    return;
-  }
-  if (file.size > IMG_MAX_MB * 1024 * 1024) {
-    toast(`画像が大きすぎます（${IMG_MAX_MB}MB まで）`, true);
+  const imgs = () => useUi.getState().drafts.imgs.composer ?? [];
+  const bad = checkImage(file, imgs().length);
+  if (bad) {
+    toast(bad.message, true);
     return;
   }
   const slug = getView()?.slug;
   if (!slug) return;
-  const imgs = () => useUi.getState().drafts.imgs.composer ?? [];
-  if (imgs().length >= IMG_MAX_N) {
-    toast(`画像は ${IMG_MAX_N} 枚までです`, true);
-    return;
-  }
   const gen = useUi.getState().imgGen.composer ?? 0;
   const r = await deps.attach(slug, await readBase64(file));
   const s = useUi.getState();
@@ -151,15 +140,6 @@ async function attachRegionImage(file: File, composerId: number, deps: RegionDep
   if (!r || getView()?.slug !== slug || (s.imgGen.composer ?? 0) !== gen || s.composer?.id !== composerId) return;
   if (imgs().length >= IMG_MAX_N || !s.addDraftImg('composer', r.name)) return;
   s.setComposerRegionImg(composerId, r.name); // 対象を選び直したとき、この画像だけを外すため
-}
-
-function readBase64(file: Blob): Promise<string> {
-  const { promise, resolve, reject } = Promise.withResolvers<string>();
-  const r = new FileReader();
-  r.onload = () => resolve(String(r.result).split(',')[1] ?? '');
-  r.onerror = () => reject(r.error ?? new Error('画像を読めません'));
-  r.readAsDataURL(file);
-  return promise;
 }
 
 export function loadImage(src: string, failure: string): Promise<HTMLImageElement> {
@@ -199,7 +179,7 @@ export async function canvasFile(cv: HTMLCanvasElement): Promise<File | null> {
   const toBlob = (type: string, q?: number) => new Promise<Blob | null>((resolve) => cv.toBlob(resolve, type, q));
   let blob = await toBlob('image/png');
   let name = 'region.png';
-  if (blob && blob.size > IMG_MAX_MB * 1024 * 1024 * 0.98) {
+  if (blob && blob.size > IMG_MAX_BYTES * 0.98) {
     blob = await toBlob('image/jpeg', 0.88);
     name = 'region.jpg';
   }
@@ -215,7 +195,7 @@ export async function cropMedia(media: Element, rect: Rect, size?: Size): Promis
   const isImg = media instanceof HTMLImageElement;
   // 図・ベクターの画像の、画像にする大きさの基準：表示の大きさ（本文）。個別表示（F43）では、ズームで変わらないよう、自然な大きさ（`size`）を渡す
   const b = size ? { width: size.w, height: size.h } : media.getBoundingClientRect();
-  const vectorScale = Math.min(2, OUT_MAX / Math.max(b.width, b.height));
+  const vectorScale = Math.min(2, IMG_OUT_MAX_SIDE / Math.max(b.width, b.height));
   const vector = isImg && /^data:image\/svg|\.svg(?:[?#]|$)/i.test(media.currentSrc || media.src);
   let src: CanvasImageSource;
   let sw: number;
@@ -252,7 +232,7 @@ export async function cropMedia(media: Element, rect: Rect, size?: Size): Promis
   const sy = Math.round(rect.y * sh);
   const cw = Math.max(1, Math.min(sw - sx, Math.round(rect.w * sw)));
   const ch = Math.max(1, Math.min(sh - sy, Math.round(rect.h * sh)));
-  const k = Math.min(1, OUT_MAX / Math.max(cw, ch)); // 出力の縮小
+  const k = Math.min(1, IMG_OUT_MAX_SIDE / Math.max(cw, ch)); // 出力の縮小
   const { cv, ctx } = canvas2d(Math.round(cw * k), Math.round(ch * k), isImg ? '#fff' : paperOf(media));
   const f = fit ?? { x: 0, y: 0, w: sw, h: sh };
   ctx.drawImage(src, (f.x - sx) * k, (f.y - sy) * k, f.w * k, f.h * k); // 全体を、ずらして描く（はみ出す所は、切れる）。k が 1 なら、切り出しと同じ
@@ -266,10 +246,10 @@ export async function cropMedia(media: Element, rect: Rect, size?: Size): Promis
  * **html-app の枠（iframe）は、別オリジンの隔離した文書で、複製の中では読み込まれず、空になる**（地の色だけが写って、真っ黒・真っ白になる）。複製からは外し、
  * 画面で見えているとおりの位置・大きさに、「実行できる枠（画像にできません）」の箱を重ねる（`framePlaceholder`）
  */
-export async function rasterRegion(vr: ViewportRect, art: HTMLElement, hooks: RasterHooks = {}): Promise<File | null> {
+export async function rasterRegion(vr: Box, art: HTMLElement, hooks: RasterHooks = {}): Promise<File | null> {
   const W = Math.max(1, Math.round(vr.width));
   const H = Math.max(1, Math.round(vr.height));
-  const k = Math.min(2, OUT_MAX / Math.max(W, H));
+  const k = Math.min(2, IMG_OUT_MAX_SIDE / Math.max(W, H));
   const paper = paperOf(art);
   const root = document.createElement('div');
   root.setAttribute('xmlns', 'http://www.w3.org/1999/xhtml');
@@ -385,7 +365,7 @@ export interface FramePlaceholder {
 export function framePlaceholder(
   iframe: HTMLIFrameElement,
   art: HTMLElement,
-  vr: ViewportRect,
+  vr: Box,
   paper: string,
 ): FramePlaceholder | null {
   const r = iframe.getBoundingClientRect();

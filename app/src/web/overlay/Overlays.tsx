@@ -7,17 +7,12 @@ import { useEffect, useLayoutEffect, useRef } from 'react';
 import { flushSync } from 'react-dom';
 import type { OverlaysProps } from '../contracts';
 import { $ } from '../lib/dom';
+import { type Box, fromEdges } from '../lib/geom';
+import { isImeKey } from '../lib/keys';
 import { useDoc } from '../store/doc';
 import { useUi } from '../store/ui';
 import { forgetShown, markLinked, placeBadges } from './place';
-import {
-  adjustEdges,
-  dispatchAdjust,
-  type HandleMode,
-  parseHandle,
-  toViewportRect,
-  type ViewportRect,
-} from './regionAdjust';
+import { adjustEdges, dispatchAdjust, type HandleMode, parseHandle } from './regionAdjust';
 
 interface Drag {
   box: HTMLElement;
@@ -25,7 +20,7 @@ interface Drag {
   x0: number;
   y0: number;
   r0: DOMRect;
-  vr: ViewportRect | null;
+  vr: Box | null;
 }
 
 export function Overlays({ view, scrollRef }: OverlaysProps) {
@@ -176,7 +171,7 @@ export function Overlays({ view, scrollRef }: OverlaysProps) {
       if (!article) return;
       const a = article.getBoundingClientRect(); // 本文の外へは、出さない
       const edges = adjustEdges(d.mode, d.r0, e.clientX - d.x0, e.clientY - d.y0, a);
-      d.vr = toViewportRect(edges);
+      d.vr = fromEdges(edges);
       const dr = scroller.getBoundingClientRect();
       Object.assign(d.box.style, {
         left: `${edges.left - dr.left + scroller.scrollLeft}px`,
@@ -198,7 +193,7 @@ export function Overlays({ view, scrollRef }: OverlaysProps) {
     const onCancel = (): void => endDrag(false);
     // 範囲の枠をつかんでいる間の Esc：動かすのをやめる（元に戻す）。ほかの Esc の処理（ライトボックスを閉じる）には、渡さない
     const onKey = (e: KeyboardEvent): void => {
-      if (e.key !== 'Escape' || e.isComposing || e.keyCode === 229 || !drag.current) return; // 変換中の Esc は、変換の取り消し
+      if (e.key !== 'Escape' || isImeKey(e) || !drag.current) return; // 変換中の Esc は、変換の取り消し
       endDrag(false);
       e.stopImmediatePropagation();
     };

@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'vitest';
-import { decodeImage, IMG_MAX, IMG_NAME_RE } from '../../src/server/image';
+import { decodeImage, IMG_NAME_RE } from '../../src/server/image';
+import { IMG_MAX_BYTES } from '../../src/shared/image';
 import { httpError } from './helpers';
 
 const b64 = (bytes: number[]) => Buffer.from(bytes).toString('base64');
@@ -27,6 +28,6 @@ test('画像：不正な文字・空・知らない形式（SVG を含む）・�
     httpError(400, /png・jpeg・gif・webp/),
   );
   assert.throws(() => decodeImage(b64([1, 2, 3, 4, 5, 6, 7, 8])), httpError(400, /png・jpeg・gif・webp/));
-  const big = Buffer.alloc(IMG_MAX + 1, 0x41).toString('base64');
+  const big = Buffer.alloc(IMG_MAX_BYTES + 1, 0x41).toString('base64');
   assert.throws(() => decodeImage(big), httpError(400, /大きすぎます（5MB まで）/));
 });

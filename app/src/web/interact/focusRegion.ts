@@ -4,15 +4,15 @@
 //     図（SVG）は、自然な大きさの最大 2 倍（ズームで、画像の大きさが変わらない）。
 //   - html-app の枠：枠の画像（`snapshot-req`。F42）を、選んだ範囲で切る。撮れなければ（時間切れ・不合格・枠が消えた）、0.22.1 の「枠の箱」。
 //     比率は、本文の枠（ブロック）の側の幾何に写して決める（本文で、同じ相対位置を、ドラッグしたのと同じ：範囲の枠が、本文でも、同じ場所に重なる）。
+import { IMG_OUT_MAX_SIDE } from '../../shared/image';
 import type { Rect } from '../../shared/types';
 import type { AppFrame } from '../doc/appBridge';
 import { type BlockEl, blockAnchor, frameOf, mediaOf } from '../doc/render/blocks';
 import { trunc } from '../lib/dom';
+import { type Box, fromRatio, ratioOf, type Size } from '../lib/geom';
 import { RANGE_UNMEASURABLE } from '../lib/messages';
-import type { Size } from '../lib/zoom';
 import { toast } from '../store/ui';
-import { boxToRatio, ratioToBox } from './focusGeom';
-import { type Box, ratioRect } from './geometry';
+import { ratioRect } from './geometry';
 import {
   canvas2d,
   canvasFile,
@@ -25,9 +25,6 @@ import {
   textOfBlock,
 } from './region';
 import { regionLabel } from './selection';
-
-/** 出力の、長い辺の上限（region.ts と同じ） */
-const OUT_MAX = 2400;
 
 /**
  * 画像・図の上で、範囲を選んだ。`media`：ステージの画像・図（複製）・`rect`：その大きさに対する比率・`size`：図の自然な大きさ（画像は、元の解像度を、そのまま使う）。
@@ -71,7 +68,7 @@ function drawPlaceholder(ctx: CanvasRenderingContext2D, w: number, h: number, k:
 export async function frameShotFile(png: string | null, frame: Box, sel: Box, paper: string): Promise<File | null> {
   const W = Math.max(1, Math.round(sel.width));
   const H = Math.max(1, Math.round(sel.height));
-  const k = Math.min(2, OUT_MAX / Math.max(W, H));
+  const k = Math.min(2, IMG_OUT_MAX_SIDE / Math.max(W, H));
   const { cv, ctx } = canvas2d(Math.round(W * k), Math.round(H * k), paper);
   if (png) {
     const im = await loadImage(png, '枠の画像を読めません');
@@ -90,9 +87,9 @@ export function finishFocusApp(
 ): void {
   const { block, iframe, sel, frame } = args;
   const fr = iframe.getBoundingClientRect();
-  const frac = boxToRatio(sel, fr);
+  const frac = ratioOf(sel, fr);
   const home = block.querySelector('iframe.appframe')?.getBoundingClientRect();
-  const virtual = frac && home ? ratioToBox(frac, home) : null;
+  const virtual = frac && home ? fromRatio(frac, home) : null;
   const base = frameOf(block).getBoundingClientRect();
   const rect = virtual ? ratioRect(virtual, base) : null;
   if (!rect) {

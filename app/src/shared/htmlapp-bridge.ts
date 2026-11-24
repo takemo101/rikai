@@ -9,6 +9,7 @@
 // 利用者に見えない文を、コメントの下書きに入れて、AI に読ませないように。取り除かず、`\uXXXX`（BMP の外は `\u{XXXXX}`）にして、利用者が気づけるようにする。
 // 検査の段階（`parsePick`・`parseState`）で、**枠から来た文字列（selector・text・styles の値・state の文字列とキー）に、一度だけ**かける。保存・送信の形の検査（`parseFrameMeta`）も、同じ関数を通す
 // （すでに見える形のものは、そのまま：何度かけても同じ。サーバーは、画面を信用せず、もう一度かける）。長さの上限は、置き換えの前の長さで測り（`shownLength`）、置き換えのあとの `state` が 8KB を超えたら捨てる（置き換えで、上限を迂回できない）。
+import { IMG_OUT_MAX_SIDE } from './image';
 import type { Anchor, FrameMeta, FramePick } from './types';
 
 export const STATE_MAX_BYTES = 8192;
@@ -274,7 +275,7 @@ export const parseEsc = (data: unknown): boolean =>
 
 /** 枠の画像（`snapshot`）の、data URL の長さの上限（約 1.5MB）と、1 辺の上限（px） */
 export const SNAPSHOT_MAX_CHARS = 1_600_000;
-export const SNAPSHOT_MAX_SIDE = 2400;
+export const SNAPSHOT_MAX_SIDE = IMG_OUT_MAX_SIDE;
 const PNG_URL = /^data:image\/png;base64,[A-Za-z0-9+/]+={0,2}$/;
 const REQ_ID = /^s[0-9]{1,9}$/;
 

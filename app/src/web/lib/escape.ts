@@ -7,13 +7,14 @@
 // 入力欄の書きかけ（`drafts.composer`）は、閉じても、消えない：右のパネルに残り、パネルの Submit で送る（F43）。
 import { cancelAllPicks } from '../doc/appBridge';
 import { useUi } from '../store/ui';
+import { isImeKey } from './keys';
 
 const handled = new WeakSet<Event>();
 
 /** Esc を処理する。何かを閉じた・止めた（または、ドラッグ中で、任せた）ときは true。同じ押下（`e`）を、2 度は処理しない（2 度目は、false） */
 export function escapeStep(e?: Event): boolean {
   // 日本語などの変換中（IME）の Esc は、変換の取り消し：閉じない・道具を止めない（`keyCode 229` は、変換中の印）
-  if (e instanceof KeyboardEvent && (e.isComposing || e.keyCode === 229)) return false;
+  if (e instanceof KeyboardEvent && isImeKey(e)) return false;
   if (e) {
     if (handled.has(e)) return false;
     handled.add(e);

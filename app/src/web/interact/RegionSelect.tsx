@@ -6,9 +6,10 @@ import { type PointerEvent, useCallback, useLayoutEffect, useRef, useState } fro
 import { createPortal } from 'react-dom';
 import { cancelAllPicks } from '../doc/appBridge';
 import { $ } from '../lib/dom';
+import type { Box } from '../lib/geom';
 import { RANGE_TOO_SMALL } from '../lib/messages';
 import { toast, useUi } from '../store/ui';
-import { type Box, type DragRect, dragRect, dragTooSmall, toViewport, type ViewportRect } from './geometry';
+import { type DragRect, dragRect, dragTooSmall, toViewport } from './geometry';
 
 interface Props {
   /** `#docscroll`（まだなければ null） */
@@ -16,7 +17,7 @@ interface Props {
   /** 範囲を選べる版か（最新版で、トピックが開いているとき）。ボタンは、そのときだけ出す */
   enabled: boolean;
   /** ドラッグで選び終えた範囲（ビューポートの矩形） */
-  onFinish: (vr: ViewportRect) => void;
+  onFinish: (vr: Box) => void;
 }
 
 interface Frame {

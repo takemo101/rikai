@@ -5,11 +5,11 @@
 import type { Rect } from '../../shared/types';
 import { frameOf } from '../doc/render/blocks';
 import { h } from '../lib/dom';
+import type { Box } from '../lib/geom';
 import type { BlockEl, DocModel } from '../store/doc';
 import {
   BADGE_OUTSET,
   type BadgeItem,
-  type Box,
   badgeLeft,
   badgeTopIn,
   clampRegionRect,

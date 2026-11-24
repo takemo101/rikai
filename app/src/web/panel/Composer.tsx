@@ -4,15 +4,17 @@ import { Plus } from 'lucide-react';
 import { useEffect, useRef } from 'react';
 import { useMutations } from '../api/mutations';
 import { effectiveFrameMeta } from '../lib/frameMeta';
+import { isModEnter } from '../lib/keys';
 import type { View } from '../lib/view';
 import type { BlockEl } from '../store/doc';
-import { type ComposerState, useUi } from '../store/ui';
+import { type ComposerState, toast, useUi } from '../store/ui';
 import { caretAtEnd } from './caret';
 import { FrameMetaChip } from './FrameMetaChip';
 import { AttachButton, ImageBar } from './ImageBar';
 import { usePanel } from './panelContext';
 import { Quote } from './Quote';
 import { useDraftImgs, useImageAttach } from './useImageAttach';
+import { useSendGuard } from './useSendGuard';
 
 interface Props {
   view: View;
@@ -33,7 +35,7 @@ export function Composer({ view, composer, pending, dock = false }: Props) {
   const { handlers } = useImageAttach('composer', slug);
   const card = useRef<HTMLDivElement>(null);
   const area = useRef<HTMLTextAreaElement>(null);
-  const busy = useRef(false);
+  const guard = useSendGuard();
   // 枠から取った情報（F45）：本文には書かず、情報の行に出す・メッセージの `frameMeta` として送る。札も、これの有無で決める（本文の見出しの行には、頼らない）
   const meta = effectiveFrameMeta(composer.frameMeta, composer.regionImg, imgs);
   const fromFrame = !!meta;
@@ -47,24 +49,16 @@ export function Composer({ view, composer, pending, dock = false }: Props) {
     card.current?.scrollIntoView({ block: 'center', behavior: 'smooth' });
   }, [composer.id]);
 
-  const submit = async (): Promise<void> => {
-    if (busy.current) return;
-    const text = draft.trim();
-    const ui = useUi.getState();
-    if (ui.uploading) {
-      ui.showToast('画像のアップロード中です。終わってから、追加してください', true);
-      return;
-    }
-    if (!text && !imgs.length) {
-      // 枠から取った情報だけでは、送れない（本文は、利用者の言葉）：知らせて、入力欄へ戻す
-      if (meta) {
-        ui.showToast('コメントの本文を書いてください（枠から取った情報だけでは追加できません）', true);
+  // 枠から取った情報だけでは、送れない（本文は、利用者の言葉）：知らせて、入力欄へ戻す
+  const onEmpty = meta
+    ? () => {
+        toast('コメントの本文を書いてください（枠から取った情報だけでは追加できません）', true);
         area.current?.focus();
       }
-      return;
-    }
-    busy.current = true;
-    try {
+    : undefined;
+
+  const submit = (): Promise<void> =>
+    guard({ draft, imgCount: imgs.length, onEmpty }, async (text) => {
       const composerId = composer.id;
       await comment(
         {
@@ -88,10 +82,7 @@ export function Composer({ view, composer, pending, dock = false }: Props) {
           },
         },
       );
-    } finally {
-      busy.current = false;
-    }
-  };
+    });
 
   return (
     <div className="thread composer" ref={card} {...(fromFrame ? { 'data-from-frame': '' } : {})}>
@@ -118,7 +109,7 @@ export function Composer({ view, composer, pending, dock = false }: Props) {
         value={draft}
         onChange={(e) => useUi.getState().setComposerDraft(e.target.value)}
         onKeyDown={(e) => {
-          if ((e.metaKey || e.ctrlKey) && e.key === 'Enter' && !e.nativeEvent.isComposing && e.keyCode !== 229) {
+          if (isModEnter(e.nativeEvent)) {
             e.preventDefault();
             void submit();
           }
