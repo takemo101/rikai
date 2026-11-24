@@ -74,6 +74,7 @@ docs/
   status.md            実装の状態（行ごとの状態・確認した範囲。SPEC §6）
   features/            機能の要件の本文（機能グループ別の 12 文書。F-ID の見出し）：ai-commands・doc-format・comments・region-element・zoom・versions・threads・topics-pages・turn-notify・appearance・html-app・ui-cleanup
   decisions/           決定の記録（SPEC §8）：README.md（ADR の一覧と足し方）・user-decisions.md（利用者の決定）・`NNNN-<題>.md`（AI の設計の判断。ADR）
+  images/              README のスクリーンショット（PNG 9 枚。作り物のトピック「注文 API の設計」で撮った。個人の情報・URL・合言葉は写さない。画面を変えたら、撮り直す）
 ```
 
 利用者のデータ（`<project>/.rikai/`）は、リポジトリの外（それぞれのプロジェクトの中）にあり、既定で git に入らない。`.mikan/`（Issue の作業状態）も、Git 対象外（`.git/info/exclude`）のローカルの状態で、文書のリンク対象にしない。
