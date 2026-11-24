@@ -189,6 +189,7 @@ button.turn-btn:hover { background: var(--hover); }
 #top-status > .chip .chip-t { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 #top-status > .hint { text-overflow: ellipsis; white-space: nowrap; }
 .spacer { flex: 1; }
+#btn-save-md { flex: none; } /* 「Markdown を保存」（上のバー）：名前は、切らない・縮めない（先に縮むのは、題・状態の札） */
 
 /* ---- 左の一覧 ---- */
 #side { background: var(--surface); border-right: 1px solid var(--line); overflow: auto; padding: 8px 0 24px; }
@@ -515,6 +516,8 @@ dialog p { margin: 0 0 12px; color: var(--ink-2); }
 #app.panel-tight .thread textarea { min-height: 96px; }
 
 @media (max-width: 560px) {
+  #btn-save-md .save-t { display: none; } /* 「Markdown を保存」：アイコンだけ（名前は aria-label・title） */
+  #btn-save-md { width: 26px; height: 26px; padding: 0; } /* ほかのアイコンのボタン（ベル・外観）と、同じ大きさ */
   .turn-t { display: none; } /* さらに狭い窓：印は、アイコンだけ（名前は title・aria-label） */
 }
 
@@ -529,6 +532,9 @@ dialog p { margin: 0 0 12px; color: var(--ink-2); }
   #docscroll { padding: 20px 12px 120px 8px; }
   .md { font-size: 14px; }
   .md h1 { font-size: 20px; }
+}
+@media (max-width: 560px) {
+  #top { gap: 6px; padding: 0 6px; } /* 保存のボタンが増えた分、上のバーの余白を詰める（420px で、状態の札が「AI に送る」に重ならない） */
 }
 
 /* 「枠から」の札（F42）：html-app の枠の中のコードが作った情報が入ったコメント。アクセントの枠線で、AI・あなたの文章と、見分ける */

@@ -10,3 +10,5 @@ export const RANGE_UNMEASURABLE = '範囲が小さすぎるか、本文の枠の
 export const COPY_FAILED = 'コピーできませんでした。文を選んで、コピーしてください';
 /** 画像のアップロード中は、コメント・返信を追加できない */
 export const UPLOADING_NOW = '画像のアップロード中です。終わってから、追加してください';
+/** Markdown を、ファイルとして保存できない（ブラウザが、ファイルを作れなかった） */
+export const SAVE_FAILED = '保存できませんでした。もう一度、「Markdown を保存」を押してください';

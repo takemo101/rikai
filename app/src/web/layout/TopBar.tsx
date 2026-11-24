@@ -1,4 +1,4 @@
-// 上のバー（`#top`）：左の一覧の開閉・題・状態の札（接続・あなたの番・AI の返信待ち…）・「AI に送る」（未送信の数つき）・終了。
+// 上のバー（`#top`）：左の一覧の開閉・題・「Markdown を保存」・状態の札（接続・あなたの番・AI の返信待ち…）・「AI に送る」（未送信の数つき）・終了。
 // 進み具合（解決 N/M・回答 K/L）は、ここには出さない（左のトピック行だけ）。未送信の数も、札ではなく、「AI に送る」のボタンが持つ。
 import { Copy, LogOut, Monitor, Moon, PanelLeft, Send, Sun, TriangleAlert } from 'lucide-react';
 import { useEffect, useState } from 'react';
@@ -10,18 +10,21 @@ import type { View } from '../lib/view';
 import { toast, useUi } from '../store/ui';
 import { sideAutoHidden, usePanelGeometry } from './geometry';
 import { NotifyBell } from './NotifyBell';
+import { SaveMarkdown, type SaveSource } from './SaveMarkdown';
 import type { ServerStatus } from './status';
 import { TurnPill, useTurn } from './TurnPill';
 
 export interface TopBarProps {
   view: View | null;
   status: ServerStatus;
+  /** 「Markdown を保存」が使う、いま見ているページ・版の本文（なければ、ボタンを出さない） */
+  save?: SaveSource;
 }
 
 /** Claude Code 以外のエージェントへの案内。見える文字で出すのは、初めての待ちだけ（以後は、コピーのボタンの title・説明に） */
 const OTHER_AGENT_HINT = 'Claude Code 以外は「rikai に送りました」と伝えてください';
 
-export function TopBar({ view, status }: TopBarProps) {
+export function TopBar({ view, status, save }: TopBarProps) {
   const { sideShown, drawer, autoHidden } = usePanelGeometry();
   const sideVisible = autoHidden ? drawer : sideShown;
   const theme = useUi((s) => s.ui.theme);
@@ -68,6 +71,7 @@ export function TopBar({ view, status }: TopBarProps) {
       <div className="brand">rikai</div>
       <div id="top-title">{topic ? topic.meta.title : ''}</div>
       <div className="spacer" />
+      {view && save ? <SaveMarkdown view={view} source={save} /> : null}
       <NotifyBell />
       <button
         id="btn-theme"
