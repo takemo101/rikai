@@ -222,6 +222,9 @@ button.turn-btn:hover { background: var(--hover); }
 
 /* ---- 中央：本文の上のバー ---- */
 #doc { display: flex; flex-direction: column; min-width: 0; min-height: 0; position: relative; }
+#closedbar { display: flex; align-items: center; gap: 6px; padding: 6px 12px; border-bottom: 1px solid var(--line); background: var(--surface); color: var(--ink-2); font-size: var(--fs-s); line-height: 1.4; } /* 終了したトピックの帯：#top・#docbar の「1 行」を、押し出さない別の行。狭ければ折り返す */
+#closedbar svg.lucide { flex: none; width: 14px; height: 14px; color: var(--muted); }
+#closedbar > span { min-width: 0; overflow-wrap: anywhere; }
 #docbar { display: flex; align-items: center; gap: 4px 6px; padding: 4px 12px; min-height: 40px; border-bottom: 1px solid var(--line); background: var(--paper); flex-wrap: wrap; } /* 折り返しは、本文の列の幅で決まる：足りなければ折り返し（2 行以上）、十分なら 1 行（窓の幅でなく、右のコメントを広げた後の、本文の列。隠れない） */
 #docbar[hidden] { display: none; } /* 中身がないとき（版が 1 つの、子でないページ）：高さ 0 */
 #docbar > * { flex-shrink: 0; }
@@ -374,7 +377,7 @@ mark.hl.pending { background: var(--accent-soft); outline: 1.5px dashed var(--ac
 #actbar button { display: inline-flex; align-items: center; gap: 5px; background: transparent; color: var(--tip-ink); border: 0; padding: 4px 10px; font-size: var(--fs-s); }
 #actbar button:hover { background: var(--tip-hover); }
 #actbar button + button { border-left: 1px solid rgba(255, 255, 255, 0.16); } /* 「拡大」「コメント」の仕切り（「コメント」が右端：バーの右端を、そろえる） */
-#actbar[hidden], #regsel[hidden], #toast[hidden], #ended[hidden], #regbtn[hidden] { display: none; }
+#actbar[hidden], #regsel[hidden], #toast[hidden], #regbtn[hidden] { display: none; }
 /* 範囲を選ぶボタン：本文の右下に浮かぶ（スクロールしても、同じ場所）。選んでいる間は、アクセントの色 */
 #regbtn { position: absolute; right: 20px; bottom: 20px; z-index: 12; display: flex; align-items: center; justify-content: center; gap: 6px; min-width: 112px; padding: 6px 12px; font-size: var(--fs); background: var(--card); color: var(--ink-2); border: 1px solid var(--line-strong); border-radius: var(--r); box-shadow: var(--shadow-pop); } /* 幅は、「やめる」でも、変わらない（押している間に、ボタンが縮まないように） */
 #regbtn:hover { border-color: var(--accent); color: var(--accent-ink); }
@@ -507,14 +510,6 @@ dialog p { margin: 0 0 12px; color: var(--ink-2); }
 .note-label { display: block; font-size: var(--fs-s); color: var(--muted); }
 .note-label textarea { margin-top: 4px; color: var(--ink); }
 .dlg-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px; }
-#ended { position: fixed; inset: 0; background: var(--paper); z-index: 100; display: flex; align-items: center; justify-content: center; }
-.ended-box { text-align: center; max-width: 420px; padding: 0 20px; }
-#ended .ended-ver { position: absolute; left: 16px; bottom: 16px; font-size: 11px; color: var(--muted); user-select: text; }
-.ended-box > svg.lucide { width: 40px; height: 40px; stroke-width: 1.5; color: var(--ok); margin-bottom: 8px; }
-.ended-box h2 { margin: 0 0 8px; font-size: 18px; font-weight: 600; }
-.ended-box p { margin: 0 0 8px; color: var(--muted); }
-.ended-list { list-style: none; padding: 0; }
-.ended-list a { color: var(--accent-ink); font-size: 15px; }
 
 /* ---- 右のパネルが、280px 以下のとき（狭い窓：220〜280px。1100px 以下の細い既定の 280px を含む）：余白・切り替えの文字・ボタンの行を、詰める ---- */
 #app.panel-tight #threads { --tpad: 10px; }

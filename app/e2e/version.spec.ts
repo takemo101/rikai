@@ -1,4 +1,4 @@
-// バージョンの表示（0.1.2）：左の一覧の下端に「v0.1.2」（title は「rikai v0.1.2」）・上のバーのロゴの title・終了の画面の左下。
+// バージョンの表示（0.1.2）：左の一覧の下端に「v0.1.2」（title は「rikai v0.1.2」）・上のバーのロゴの title・終了したトピック（閲覧専用）の左の一覧。
 // 左の一覧は、1100px 以下では、自動で隠れる（☰ のドロワー）：そこでも、確かめられる。上のバー（#top）・本文の上のバー・横スクロールを、増やさない。実際の Chrome。
 import fs from 'node:fs';
 import path from 'node:path';
@@ -109,19 +109,16 @@ test.describe('バージョンの表示', () => {
     await expect(u.side.locator('.side-ver')).toBeVisible();
   });
 
-  test('終了の画面は、左の一覧を覆う：版は、画面の左下に出る（広い窓・420px）', async ({ page }) => {
+  test('終了したトピック（閲覧専用）でも、版は、左の一覧の下端と、ロゴの title に出る（旧：全面の終了画面の左下。0.1.4 で、全面の画面は、なくなった）', async ({
+    page,
+  }) => {
     const u = ui(page);
     await u.end.click();
     await u.enddlg.getByRole('button', { name: '終了する' }).click();
-    await expect(u.ended).toBeVisible();
-    for (const w of [1360, 420]) {
-      await page.setViewportSize({ width: w, height: 800 });
-      const ver = u.ended.locator('.ended-ver');
-      await expect(ver).toHaveText(`v${VERSION}`);
-      const v = await box(ver);
-      expect(v.x).toBeLessThan(40);
-      expect(v.y + v.height).toBeLessThanOrEqual(800);
-      expect(v.y).toBeGreaterThan(700);
-    }
+    await expect(u.closedbar).toBeVisible();
+    await expect(page.locator('#ended')).toHaveCount(0);
+    await expect(u.side.locator('.side-ver')).toHaveText(`v${VERSION}`);
+    await expect(u.side.locator('.side-ver')).toBeVisible();
+    await expect(page.locator('#top .brand')).toHaveAttribute('title', `rikai v${VERSION}`);
   });
 });

@@ -12,7 +12,7 @@ type Store = ReturnType<typeof store>;
 
 beforeEach(() => {
   localStorage.clear();
-  view = { key: 'demo/root/2', version: 2, latest: 2, isLatest: true };
+  view = { key: 'demo/root/2', version: 2, latest: 2, isLatest: true, readOnly: false };
 });
 
 /** 操作を 1 回行って、購読者が呼ばれた回数と、呼ばれたときの状態を返す */
@@ -109,12 +109,23 @@ test('A 入力欄・下書き：1 操作 = 1 回の set（トーストを伴わ�
 
 test('A 入力欄・下書き：最新版でなければ開かず、トーストだけ（見ている版は、作成時に渡した getView から）', () => {
   const s = store();
-  view = { key: 'demo/root/1', version: 1, latest: 2, isLatest: false };
+  view = { key: 'demo/root/1', version: 1, latest: 2, isLatest: false, readOnly: false };
   expect(s.getState().startComposer(anchor)).toBe(false);
   expect(s.getState().composer).toBeNull();
   expect(s.getState().toast?.err).toBe(true);
   view = null; // 見ている版がない
   expect(s.getState().startComposer(anchor)).toBe(false);
+});
+
+test('A 入力欄・下書き：終了したトピック（閲覧専用）では、最新版でも開かず、トーストだけ', () => {
+  const s = store();
+  view = { key: 'demo/root/2', version: 2, latest: 2, isLatest: true, readOnly: true };
+  expect(s.getState().startComposer(anchor)).toBe(false);
+  expect(s.getState().composer).toBeNull();
+  expect(s.getState().toast).toMatchObject({ err: true });
+  expect(s.getState().toast?.msg).toContain('終了しています');
+  view = { key: 'demo/root/2', version: 2, latest: 2, isLatest: true, readOnly: false };
+  expect(s.getState().startComposer(anchor)).toBe(true); // 開き直せば、また開ける
 });
 
 test('A 入力欄・下書き：版が変わったとき、最新版へなら確かめの印・過去の版へなら、書きかけを「対象を失った下書き」へ', () => {
@@ -201,11 +212,11 @@ test('C 比較：閉じたとき、見ている版が同じ（key が同じ）�
   expect(s.getState().takeScrollRestore()).toBeNull();
 
   s.getState().openCompare(300);
-  view = { key: 'demo/root/3', version: 3, latest: 3, isLatest: true }; // 新しい版が届いて、最新版が替わった
+  view = { key: 'demo/root/3', version: 3, latest: 3, isLatest: true, readOnly: false }; // 新しい版が届いて、最新版が替わった
   s.getState().closeCompare();
   expect(s.getState().takeScrollRestore()).toBeNull();
 
-  view = { key: 'demo/root/2', version: 2, latest: 2, isLatest: true };
+  view = { key: 'demo/root/2', version: 2, latest: 2, isLatest: true, readOnly: false };
   s.getState().openCompare(50);
   s.getState().closeCompare(false); // ページ・トピックを移ったとき
   expect(s.getState().takeScrollRestore()).toBeNull();
@@ -213,11 +224,11 @@ test('C 比較：閉じたとき、見ている版が同じ（key が同じ）�
 
 test('C 比較：版が 1 つのページ・版のないときは開かない。存在しない版は受けない。入力欄・選択は、そのまま持つ', () => {
   const s = store();
-  view = { key: 'demo/root/1', version: 1, latest: 1, isLatest: true };
+  view = { key: 'demo/root/1', version: 1, latest: 1, isLatest: true, readOnly: false };
   expect(s.getState().openCompare()).toBe(false);
   view = null;
   expect(s.getState().openCompare()).toBe(false);
-  view = { key: 'demo/root/3', version: 3, latest: 3, isLatest: true };
+  view = { key: 'demo/root/3', version: 3, latest: 3, isLatest: true, readOnly: false };
   s.getState().startComposer(anchor);
   s.getState().setActive('t1');
   expect(s.getState().openCompare()).toBe(true);
@@ -245,6 +256,6 @@ test('bindView：結ばないまま、見ている版が要る操作（入力欄
   });
   expect(() => fresh.useUi.getState().closeCompare()).toThrow(unbound);
   // 結べば、使える（結んだ関数の返す版で動く）
-  fresh.bindView(() => ({ key: 'demo/root/1', version: 1, latest: 1, isLatest: true }));
+  fresh.bindView(() => ({ key: 'demo/root/1', version: 1, latest: 1, isLatest: true, readOnly: false }));
   expect(fresh.useUi.getState().startComposer(anchor)).toBe(true);
 });

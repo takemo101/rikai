@@ -136,13 +136,15 @@ function AppTools({ built, ctx }: { built: Built; ctx: FocusCtx }) {
     <>
       {/* biome-ignore lint/a11y/useSemanticElements: ツールバーの中の、ボタンの組（fieldset は、枠線・余白の、既定の見た目を持つ） */}
       <div className="fv-apptools" role="group" aria-label="枠の表示（幅・外観）と、要素の選択">
-        <AppToolbar frame={frame} />
+        <AppToolbar frame={frame} canPick={ctx.canComment} />
       </div>
-      <RangeTool
-        enabled={ctx.canComment}
-        reason="最新版にだけ、コメントを付けられます"
-        onStart={() => frame.cancelPick()}
-      />
+      {ctx.view?.readOnly ? null : (
+        <RangeTool
+          enabled={ctx.canComment}
+          reason="最新版にだけ、コメントを付けられます"
+          onStart={() => frame.cancelPick()}
+        />
+      )}
       <WidthNote built={built} ctx={ctx} />
     </>
   );

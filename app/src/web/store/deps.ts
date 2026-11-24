@@ -10,6 +10,8 @@ export interface ViewRef {
   latest: number;
   /** 最新版を見ているか。コメントは、最新版にだけ付けられる */
   isLatest: boolean;
+  /** 終了したトピックか（閲覧専用：コメントの入力欄は、開けない） */
+  readOnly: boolean;
 }
 
 export interface UiDeps {

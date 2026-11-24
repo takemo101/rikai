@@ -6,11 +6,12 @@ import { CompareView } from './compare/CompareView';
 import type { ArticleProps } from './contracts';
 import { Article } from './doc/Article';
 import { fillDiagrams } from './doc/render';
+import { cancelAllPicks } from './htmlapp/framePick';
 import { followPageTheme } from './htmlapp/frameRegistry';
 import { Interact } from './interact/Interact';
+import { ClosedBar } from './layout/ClosedBar';
 import { DocBar } from './layout/DocBar';
 import { EndDialog } from './layout/EndDialog';
-import { EndedScreen } from './layout/EndedScreen';
 import { PANEL_DEFAULT_NARROW, usePanelGeometry } from './layout/geometry';
 import { NOTICE, Notice } from './layout/Notice';
 import { Resizer } from './layout/Resizer';
@@ -54,6 +55,7 @@ export function App() {
   useFollowAppFrames();
 
   useNavigationEffects(route, view, scrollRef);
+  useReadOnlyEffects(view?.readOnly ?? false);
   useRedrawDiagrams();
   useDocumentTitle(view);
   useBrowserNotify();
@@ -135,6 +137,7 @@ export function App() {
         <TopBar view={view} status={status} save={{ markdown: pageQ.data, failed: pageQ.isError }} />
         <SideNav topics={topics ?? []} currentSlug={target && !unsupported ? target.slug : null} view={view} />
         <main id="doc">
+          <ClosedBar view={view} />
           <DocBar view={view} />
           <div id="docscroll" ref={scrollRef}>
             {body}
@@ -150,7 +153,6 @@ export function App() {
       <Toast />
       <SubmitDialog slug={view?.slug ?? null} unsent={view?.topic.unsent ?? 0} />
       <EndDialog slug={view?.slug ?? null} />
-      <EndedScreen view={view} topics={topics ?? []} />
     </>
   );
 }
@@ -205,6 +207,21 @@ function useNavigationEffects(
     prevView.current = { key, slug: v.slug, page: v.page };
     if (p && p.key !== key && p.slug === v.slug && p.page === v.page) useUi.getState().moveComposer(isLatest);
   }, [key]);
+}
+
+/**
+ * 終了したトピック（閲覧専用：F54）になったら、書く途中のものを止める：開きかけの入力欄の対象・範囲を選んでいる状態・要素を選んでいる枠・拡大表示の範囲の道具。
+ * （入口は、画面から出す。ここは、「終了」を押した瞬間に、途中だったものが残らないように。書きかけの文〔`drafts`〕は、消さない：開き直せば、また書ける）
+ */
+function useReadOnlyEffects(readOnly: boolean): void {
+  useEffect(() => {
+    if (!readOnly) return;
+    const ui = useUi.getState();
+    ui.dropComposerTarget();
+    ui.setRegMode('idle');
+    ui.setFocusTool('idle');
+    cancelAllPicks();
+  }, [readOnly]);
 }
 
 /** 最新版を見ているとき、資料が更新されたら、知らせる（ページが同じで、最新版の番号が増えたとき） */

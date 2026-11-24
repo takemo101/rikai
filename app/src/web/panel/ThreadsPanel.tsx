@@ -182,7 +182,9 @@ const Threads = memo(function Threads({ view, panelRef }: { view: View; panelRef
   }, [soloId, solo, closeSolo]);
 
   const pending = model?.pending ?? null;
-  const composerNode = composer ? <Composer key="composer" view={view} composer={composer} pending={pending} /> : null;
+  // 終了したトピック（閲覧専用：F54）には、入力欄を出さない（開きかけだったものも）
+  const composerNode =
+    composer && !view.readOnly ? <Composer key="composer" view={view} composer={composer} pending={pending} /> : null;
   const num = (t: Thread): number | undefined => model?.nums.get(t.id);
 
   const top: ReactNode[] = [
@@ -219,16 +221,22 @@ const Threads = memo(function Threads({ view, panelRef }: { view: View; panelRef
     if (composerNode) body.push(composerNode);
     body.push(<ThreadCard key={solo.id} view={view} thread={solo} full model={model} seen={seen} editing={editing} />);
   } else {
-    if (!list.length && !composer)
+    if (!list.length && !composerNode)
       body.push(
-        <div className="empty" key="empty">
-          <p>{EMPTY_HINT}</p>
-          <p>{EMPTY_HINT_BLOCK}</p>
-          <details className="empty-more">
-            <summary>ほかの付け方</summary>
-            <p>{EMPTY_HINT_MORE}</p>
-          </details>
-        </div>,
+        view.readOnly ? (
+          <div className="empty" key="empty">
+            <p>このページには、コメントがありません。</p>
+          </div>
+        ) : (
+          <div className="empty" key="empty">
+            <p>{EMPTY_HINT}</p>
+            <p>{EMPTY_HINT_BLOCK}</p>
+            <details className="empty-more">
+              <summary>ほかの付け方</summary>
+              <p>{EMPTY_HINT_MORE}</p>
+            </details>
+          </div>
+        ),
       );
     if (list.length) {
       const tabs: [Tab, string, number][] = [
@@ -257,7 +265,7 @@ const Threads = memo(function Threads({ view, panelRef }: { view: View; panelRef
     const showLive = tab !== 'done';
     const showDone = tab !== 'live';
     // 入力欄は、対象の位置の順に、スレッドの間へ入れる（いつも一番上、にしない）。進行中を出さない切り替えのときは、一番上
-    const slot = composerSlot(live, !!composer, pending, (tid) => locEl(model?.locs.get(tid)));
+    const slot = composerSlot(live, !!composerNode, pending, (tid) => locEl(model?.locs.get(tid)));
     if (showLive) {
       live.forEach((t, i) => {
         if (i === slot && composerNode) body.push(composerNode);

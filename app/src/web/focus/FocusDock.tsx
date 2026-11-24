@@ -7,6 +7,7 @@ import { blockAnchor, blockLabel } from '../doc/render/blocks';
 import { frameMetaOf } from '../htmlapp/frameMeta';
 import type { AppFrame } from '../htmlapp/frameRegistry';
 import { openComposer } from '../interact/compose';
+import { READ_ONLY_REASON } from '../lib/messages';
 import { Composer } from '../panel/Composer';
 import { type PanelActions, PanelContext } from '../panel/panelContext';
 import { ThreadCard } from '../panel/ThreadCard';
@@ -78,7 +79,7 @@ export function FocusDock({ focus, ctx, frame }: { focus: FocusRef; ctx: FocusCt
       <div className="fv-dock-h">
         <span className="fv-dock-t">コメント</span>
         {block ? <span className="fv-dock-target">{blockLabel(block)}</span> : null}
-        {unsent > 0 ? (
+        {unsent > 0 && !view.readOnly ? (
           <span
             className="chip draft small fv-unsent"
             title="まだ AI には送られていない下書きの数です。送るのは、画面の上の「AI に送る」です"
@@ -90,7 +91,9 @@ export function FocusDock({ focus, ctx, frame }: { focus: FocusRef; ctx: FocusCt
       <PanelContext.Provider value={actions}>
         {/* biome-ignore lint/a11y/noStaticElementInteractions: カードにマウスを置く・カードの中にフォーカスがあると、ステージの枠を光らせる（見た目の補助） */}
         <div className="fv-dock-body" onMouseOver={linkCard} onFocus={linkCard}>
-          {!canComment ? (
+          {view.readOnly ? (
+            <p className="hint fv-note">{READ_ONLY_REASON}。ここでは、読めます。</p>
+          ) : !canComment ? (
             <p className="hint fv-note">最新版（v{view.latest}）にだけ、コメントを付けられます。ここでは、読めます。</p>
           ) : composer ? (
             <>

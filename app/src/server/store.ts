@@ -28,6 +28,13 @@ export const isSupported = (m: SchemaHolder): boolean => {
   return Number.isInteger(v) && (v as number) >= 1 && (v as number) <= SCHEMA;
 };
 
+/** すべての（読める）トピックが閉じているか。読めない形のトピックは、閉じられないので、数えない（数えると、サーバーが終わらない）。`end` と、サーバーの終わりの待ちが、同じ数え方 */
+export const allTopicsClosed = (store: Pick<Store, 'listTopics'>): boolean =>
+  store
+    .listTopics()
+    .filter(isSupported)
+    .every((t) => t.closed);
+
 export const topicTitle = (m: { title?: unknown; slug?: unknown }): string =>
   typeof m.title === 'string' ? m.title : String(m.slug);
 

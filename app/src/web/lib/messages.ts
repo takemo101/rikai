@@ -12,3 +12,6 @@ export const COPY_FAILED = 'コピーできませんでした。文を選んで�
 export const UPLOADING_NOW = '画像のアップロード中です。終わってから、追加してください';
 /** Markdown を、ファイルとして保存できない（ブラウザが、ファイルを作れなかった） */
 export const SAVE_FAILED = '保存できませんでした。もう一度、「Markdown を保存」を押してください';
+
+/** 終了したトピックは、閲覧専用（F54）：上の帯の文言・コメントの入口を開こうとしたときのトースト（同じ文） */
+export const READ_ONLY_REASON = 'このトピックはレビューを終了しています（閲覧専用・コメントできません）';

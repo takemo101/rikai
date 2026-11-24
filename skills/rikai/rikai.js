@@ -263,6 +263,7 @@ var isSupported = (m) => {
   const v2 = schemaOf(m);
   return Number.isInteger(v2) && v2 >= 1 && v2 <= SCHEMA;
 };
+var allTopicsClosed = (store) => store.listTopics().filter(isSupported).every((t) => t.closed);
 var topicTitle = (m) => typeof m.title === "string" ? m.title : String(m.slug);
 function countUnsent(th) {
   let n = 0;
@@ -2084,6 +2085,13 @@ function decodeImage(data) {
 }
 
 // src/server/actions.ts
+function assertOpen(meta3) {
+  if (meta3.closed)
+    throw new HttpError(
+      409,
+      "\u3053\u306E\u30C8\u30D4\u30C3\u30AF\u306F\u30EC\u30D3\u30E5\u30FC\u3092\u7D42\u4E86\u3057\u3066\u3044\u307E\u3059\uFF08\u95B2\u89A7\u5C02\u7528\uFF09\u3002\u66F8\u304D\u8FBC\u3080\u306B\u306F\u3001rikai open \u3067\u958B\u304D\u76F4\u3057\u3066\u304F\u3060\u3055\u3044"
+    );
+}
 function findThread(th, id) {
   const t = th.threads.find((x2) => x2.id === id);
   if (!t) throw new HttpError(404, `\u30B9\u30EC\u30C3\u30C9\u304C\u3042\u308A\u307E\u305B\u3093: ${id}`);
@@ -2139,6 +2147,7 @@ function createActions(store, hooks = {}) {
     attach(b) {
       const { buf, name } = decodeImage(b.data);
       return mutate(b.topic, (meta3) => {
+        assertOpen(meta3);
         const file2 = import_node_path3.default.join(tdir(meta3.slug), "assets", name);
         if (!import_node_fs4.default.existsSync(file2)) {
           import_node_fs4.default.mkdirSync(import_node_path3.default.dirname(file2), { recursive: true });
@@ -2151,6 +2160,7 @@ function createActions(store, hooks = {}) {
     },
     comment(b) {
       return mutate(b.topic, (meta3, th) => {
+        assertOpen(meta3);
         const pg = meta3.pages[b.page];
         if (!pg) throw new HttpError(400, "\u30DA\u30FC\u30B8\u304C\u3042\u308A\u307E\u305B\u3093");
         if (Number(b.version) !== pg.versions) throw new HttpError(400, "\u6700\u65B0\u7248\u306B\u3060\u3051\u30B3\u30E1\u30F3\u30C8\u3067\u304D\u307E\u3059");
@@ -2186,6 +2196,7 @@ function createActions(store, hooks = {}) {
     },
     reply(b) {
       return mutate(b.topic, (meta3, th) => {
+        assertOpen(meta3);
         const t = findThread(th, b.thread);
         const text = str(b.text).trim();
         const images = normImages(meta3.slug, b.images);
@@ -2204,7 +2215,8 @@ function createActions(store, hooks = {}) {
       });
     },
     answer(b) {
-      return mutate(b.topic, (_meta, th) => {
+      return mutate(b.topic, (meta3, th) => {
+        assertOpen(meta3);
         const t = findThread(th, b.thread);
         const q2 = t.messages.find((m) => m.id === b.msg && m.author === "ai" && m.ask);
         if (!q2?.ask) throw new HttpError(404, "\u8CEA\u554F\u304C\u3042\u308A\u307E\u305B\u3093");
@@ -2233,7 +2245,8 @@ function createActions(store, hooks = {}) {
       });
     },
     edit(b) {
-      return mutate(b.topic, (_meta, th) => {
+      return mutate(b.topic, (meta3, th) => {
+        assertOpen(meta3);
         const t = findThread(th, b.thread);
         const m = findUnsentUserMsg(t, b.msg);
         if (m.kind === "answer") throw new HttpError(400, "\u56DE\u7B54\u306F\u9078\u3073\u76F4\u3057\u3066\u304F\u3060\u3055\u3044");
@@ -2244,7 +2257,8 @@ function createActions(store, hooks = {}) {
       });
     },
     delete(b) {
-      return mutate(b.topic, (_meta, th) => {
+      return mutate(b.topic, (meta3, th) => {
+        assertOpen(meta3);
         const t = findThread(th, b.thread);
         const m = findUnsentUserMsg(t, b.msg);
         t.messages.splice(t.messages.indexOf(m), 1);
@@ -2253,7 +2267,8 @@ function createActions(store, hooks = {}) {
       });
     },
     resolve(b) {
-      return mutate(b.topic, (_meta, th) => {
+      return mutate(b.topic, (meta3, th) => {
+        assertOpen(meta3);
         const t = findThread(th, b.thread);
         setResolved(t, !!b.resolved);
         return {};
@@ -2261,6 +2276,7 @@ function createActions(store, hooks = {}) {
     },
     submit(b) {
       return mutate(b.topic, (meta3, th) => {
+        assertOpen(meta3);
         const compact = (m) => compactMessage(m, import_node_path3.default.join(tdir(meta3.slug), "assets"));
         const items = [];
         const files = {};
@@ -2318,8 +2334,7 @@ function createActions(store, hooks = {}) {
         meta3.closed = true;
         return {};
       });
-      if (store.listTopics().filter(isSupported).every((t) => t.closed))
-        hooks.allClosed?.();
+      if (allTopicsClosed(store)) hooks.allClosed?.();
       return r;
     }
   };
@@ -26525,7 +26540,37 @@ function createApp(opts) {
 }
 
 // src/server/serve.ts
-function startServer(store, hooks = {}, publicDir = import_node_path7.default.join(__dirname, "public"), feed = createChangeFeed(store)) {
+var IDLE_EXIT_MS = 10 * 60 * 1e3;
+function createIdleWatch({ ms, allClosed, busy, onIdle }) {
+  let timer = null;
+  let last = Date.now();
+  const arm = (wait) => {
+    timer = setTimeout(fire, wait);
+    timer.unref();
+  };
+  function fire() {
+    timer = null;
+    const left = last + ms - Date.now();
+    if (left > 0) {
+      arm(left);
+      return;
+    }
+    if (!allClosed()) return;
+    if (busy()) arm(ms);
+    else onIdle();
+  }
+  return {
+    touch() {
+      last = Date.now();
+      if (!timer) arm(ms);
+    },
+    stop() {
+      if (timer) clearTimeout(timer);
+      timer = null;
+    }
+  };
+}
+function startServer(store, hooks = {}, publicDir = import_node_path7.default.join(__dirname, "public"), feed = createChangeFeed(store), onRequest) {
   store.ensureBase();
   const token = import_node_crypto3.default.randomBytes(24).toString("hex");
   const server = import_node_http3.default.createServer();
@@ -26535,6 +26580,7 @@ function startServer(store, hooks = {}, publicDir = import_node_path7.default.jo
     const app = createApp({ store, token, port, publicDir, actions: createActions(store, hooks), feed });
     const listener = getRequestListener((req, env) => app.fetch(req, env));
     server.on("request", (incoming, outgoing) => {
+      onRequest?.();
       try {
         const u = new URL(incoming.url ?? "/", "http://localhost");
         incoming.url = `http://127.0.0.1:${port}${u.pathname}${u.search}`;
@@ -26560,7 +26606,7 @@ function shutdown(store) {
 // src/cli/args.ts
 var import_node_child_process = __toESM(require("node:child_process"), 1);
 var import_node_path8 = __toESM(require("node:path"), 1);
-var BOOLEAN_FLAGS = /* @__PURE__ */ new Set(["no-open", "help", "version"]);
+var BOOLEAN_FLAGS = /* @__PURE__ */ new Set(["no-open", "view", "help", "version"]);
 var SHORT_FLAGS = { "-h": "help", "-v": "version" };
 function parseArgs(argv) {
   const pos = [];
@@ -26590,7 +26636,7 @@ function projectRoot(flags) {
 }
 
 // src/shared/version.ts
-var VERSION = "0.1.3";
+var VERSION = "0.1.4";
 
 // src/cli/help.ts
 var ROOT_OPT = {
@@ -26600,6 +26646,11 @@ var ROOT_OPT = {
 var TITLE_OPT = { flag: "--title <\u984C\u540D>", text: "\u30C8\u30D4\u30C3\u30AF\u306E\u984C\u540D\uFF08\u65E2\u5B9A: topic \u306E\u540D\u524D\uFF09", only: "new" };
 var SOURCE_OPT = { flag: "--source <\u5BFE\u8C61>", text: "\u8CC7\u6599\u306E\u5BFE\u8C61\u306E\u8AAC\u660E\uFF08\u65E2\u5B9A: \u306A\u3057\uFF09", only: "new" };
 var NO_OPEN_OPT = { flag: "--no-open", text: "\u30D6\u30E9\u30A6\u30B6\u3092\u81EA\u52D5\u3067\u958B\u304B\u306A\u3044\uFF08URL \u3060\u3051\u51FA\u3059\uFF09", only: "open" };
+var VIEW_OPT = {
+  flag: "--view",
+  text: "\u7D42\u4E86\u3057\u305F\u30C8\u30D4\u30C3\u30AF\u3092\u3001\u958B\u304D\u76F4\u3055\u305A\u306B\u3001\u95B2\u89A7\u5C02\u7528\u3067\u898B\u308B\uFF08\u7D42\u4E86\u306E\u307E\u307E\u3002\u30B3\u30E1\u30F3\u30C8\u306F\u3067\u304D\u306A\u3044\uFF09",
+  only: "open"
+};
 var TIMEOUT_OPT = {
   flag: "--timeout <\u79D2>",
   text: "\u5F85\u3064\u6700\u9577\u306E\u79D2\u6570\uFF08\u65E2\u5B9A: 43200 \uFF1D 12 \u6642\u9593\uFF09",
@@ -26643,12 +26694,13 @@ var COMMANDS = [
     group: "make",
     synopsis: "open <topic>",
     summary: "\u30D6\u30E9\u30A6\u30B6\u3067\u8CC7\u6599\u3092\u958B\u304F\uFF08\u30D3\u30E5\u30FC\u30A2\u3092\u8D77\u52D5\u3057\u3066\u3001URL \u3092\u51FA\u3059\uFF09",
-    usage: "open <topic> [--no-open] [--root <dir>]",
+    usage: "open <topic> [--view] [--no-open] [--root <dir>]",
     detail: [
       "\u30D3\u30E5\u30FC\u30A2\uFF08127.0.0.1 \u3060\u3051\u3067\u5F85\u3061\u53D7\u3051\u308B\u5C0F\u3055\u306A\u30B5\u30FC\u30D0\u30FC\uFF09\u304C\u52D5\u3044\u3066\u3044\u306A\u3051\u308C\u3070\u8D77\u52D5\u3057\u3001\u30D6\u30E9\u30A6\u30B6\u3067\u3001\u30C8\u30D4\u30C3\u30AF\u3092\u958B\u304F\u3002",
-      "\u7D42\u4E86\u3057\u305F\u30C8\u30D4\u30C3\u30AF\u3082\u3001\u958B\u304D\u76F4\u305B\u308B\u3002\u74B0\u5883\u5909\u6570 NO_OPEN \u3092\u8A2D\u5B9A\u3057\u3066\u3082\u3001\u30D6\u30E9\u30A6\u30B6\u306F\u958B\u304B\u306A\u3044\u3002"
+      "\u7D42\u4E86\u3057\u305F\u30C8\u30D4\u30C3\u30AF\u306F\u3001\u305D\u306E\u307E\u307E `open` \u3059\u308B\u3068\u3001\u958B\u304D\u76F4\u3059\uFF08\u30B3\u30E1\u30F3\u30C8\u3092\u3001\u307E\u305F\u66F8\u3051\u308B\uFF09\u3002\u958B\u304D\u76F4\u3055\u305A\u306B\u3001\u4E2D\u8EAB\u3060\u3051\u898B\u308B\u306B\u306F\u3001`--view`\uFF08\u7D42\u4E86\u306E\u307E\u307E\u3001\u95B2\u89A7\u5C02\u7528\u3067\u958B\u304F\uFF09\u3002\u958B\u3044\u3066\u3044\u308B\u30C8\u30D4\u30C3\u30AF\u306B\u4ED8\u3051\u3066\u3082\u3001\u3075\u3064\u3046\u306B\u958B\u304F\u3060\u3051\u3002",
+      "\u74B0\u5883\u5909\u6570 NO_OPEN \u3092\u8A2D\u5B9A\u3057\u3066\u3082\u3001\u30D6\u30E9\u30A6\u30B6\u306F\u958B\u304B\u306A\u3044\u3002"
     ],
-    options: [NO_OPEN_OPT, ROOT_OPT],
+    options: [VIEW_OPT, NO_OPEN_OPT, ROOT_OPT],
     output: [
       '{"ok": true, "url", "root", "dir"}',
       "  url \u2026 \u753B\u9762\u306E URL\u3002`?t=` \u306E\u5F8C\u308D\u306F\u5408\u8A00\u8449\u306A\u306E\u3067\u3001\u4EBA\u306B\u898B\u305B\u306A\u3044",
@@ -26656,7 +26708,8 @@ var COMMANDS = [
     ],
     examples: [
       { note: "\u30D6\u30E9\u30A6\u30B6\u3067\u958B\u304F", cmd: ["rikai open auth-flow"] },
-      { note: "URL \u3060\u3051\u51FA\u3059\uFF08\u30D6\u30E9\u30A6\u30B6\u306F\u958B\u304B\u306A\u3044\uFF09", cmd: ["rikai open auth-flow --no-open"] }
+      { note: "URL \u3060\u3051\u51FA\u3059\uFF08\u30D6\u30E9\u30A6\u30B6\u306F\u958B\u304B\u306A\u3044\uFF09", cmd: ["rikai open auth-flow --no-open"] },
+      { note: "\u7D42\u4E86\u3057\u305F\u30C8\u30D4\u30C3\u30AF\u3092\u3001\u958B\u304D\u76F4\u3055\u305A\u306B\u898B\u308B\uFF08\u95B2\u89A7\u5C02\u7528\uFF09", cmd: ["rikai open auth-flow --view"] }
     ],
     see: "poll\u30FBstop"
   },
@@ -26777,7 +26830,9 @@ var COMMANDS = [
     synopsis: "serve",
     summary: "\u30D3\u30E5\u30FC\u30A2\u306E\u30B5\u30FC\u30D0\u30FC\u672C\u4F53\uFF08\u5185\u90E8\u7528\uFF09",
     usage: "serve [--root <dir>]",
-    detail: ["`open` \u304C\u3001\u81EA\u52D5\u3067\u8D77\u52D5\u3059\u308B\u3002\u76F4\u63A5\u306F\u4F7F\u308F\u306A\u3044\uFF08\u3059\u3079\u3066\u306E\u30C8\u30D4\u30C3\u30AF\u304C\u7D42\u4E86\u3059\u308B\u3068\u3001\u81EA\u5206\u3067\u7D42\u308F\u308B\uFF09\u3002"],
+    detail: [
+      "`open` \u304C\u3001\u81EA\u52D5\u3067\u8D77\u52D5\u3059\u308B\u3002\u76F4\u63A5\u306F\u4F7F\u308F\u306A\u3044\uFF08\u3059\u3079\u3066\u306E\u30C8\u30D4\u30C3\u30AF\u304C\u7D42\u4E86\u3057\u3066\u300110 \u5206\u9593\u3001\u753B\u9762\u304B\u3089\u306E\u30EA\u30AF\u30A8\u30B9\u30C8\u304C\u306A\u3044\u3068\u3001\u81EA\u5206\u3067\u7D42\u308F\u308B\uFF09\u3002"
+    ],
     options: [ROOT_OPT],
     output: ["\u4F55\u3082\u51FA\u3055\u306A\u3044\uFF08\u8D77\u52D5\u3057\u305F\u60C5\u5831\u306F\u3001.rikai/.server.json \u306B\u66F8\u304F\uFF09"],
     examples: []
@@ -26819,10 +26874,9 @@ function topHelp(color) {
   lines.push(p.bold("\u30AA\u30D7\u30B7\u30E7\u30F3"));
   lines.push(
     ...table(
-      [ROOT_OPT, TITLE_OPT, SOURCE_OPT, NO_OPEN_OPT, TIMEOUT_OPT, HELP_OPT, VERSION_OPT].map((o) => [
-        o.flag,
-        o.only ? `${o.only}: ${o.text}` : o.text
-      ]),
+      [ROOT_OPT, TITLE_OPT, SOURCE_OPT, NO_OPEN_OPT, VIEW_OPT, TIMEOUT_OPT, HELP_OPT, VERSION_OPT].map(
+        (o) => [o.flag, o.only ? `${o.only}: ${o.text}` : o.text]
+      ),
       (s) => s
     )
   );
@@ -26908,9 +26962,21 @@ async function readStdin(input2 = process.stdin) {
 
 // src/cli/main.ts
 var SELF = process.argv[1];
+function idleExitMs() {
+  const n = Number(process.env.RIKAI_IDLE_MS);
+  return Number.isInteger(n) && n > 0 ? n : IDLE_EXIT_MS;
+}
 function cmdServe(store) {
-  const hooks = { allClosed: () => setTimeout(() => shutdown(store), 800) };
-  startServer(store, hooks).then(({ port, token }) => {
+  const feed = createChangeFeed(store);
+  const idle = createIdleWatch({
+    ms: idleExitMs(),
+    allClosed: () => allTopicsClosed(store),
+    busy: () => feed.size > 0,
+    onIdle: () => shutdown(store)
+  });
+  const hooks = { allClosed: () => idle.touch() };
+  idle.touch();
+  startServer(store, hooks, void 0, feed, () => idle.touch()).then(({ port, token }) => {
     writeJSON(store.serverFile(), { pid: process.pid, port, token, root: store.root, startedAt: now() }, 384);
   });
   process.on("SIGTERM", () => shutdown(store));
@@ -26969,12 +27035,13 @@ function openBrowser(url2) {
   }
 }
 async function cmdOpen(store, slug, flags) {
-  store.loadMeta(slug);
+  const view = !!flags.view && store.loadMeta(slug).closed;
   const info = await ensureServer(store);
-  store.mutate(slug, (m) => {
-    m.closed = false;
-    return {};
-  });
+  if (!view)
+    store.mutate(slug, (m) => {
+      m.closed = false;
+      return {};
+    });
   const url2 = `http://127.0.0.1:${info.port}/?t=${info.token}#/${slug}/root`;
   if (!flags["no-open"]) openBrowser(url2);
   out({ ok: true, url: url2, root: store.root, dir: store.tdir(slug) });

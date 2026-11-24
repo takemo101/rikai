@@ -8,9 +8,10 @@ import http from 'node:http';
 import path from 'node:path';
 import type { ActionHooks } from '../server/actions';
 import { createAgent } from '../server/agent';
-import { shutdown, startServer } from '../server/serve';
-import { createStore, type Store } from '../server/store';
+import { createIdleWatch, IDLE_EXIT_MS, shutdown, startServer } from '../server/serve';
+import { allTopicsClosed, createStore, type Store } from '../server/store';
 import { HttpError, now, out, readJSON, sleep, writeJSON } from '../server/util';
+import { createChangeFeed } from '../server/watch';
 import { type Flags, parseArgs, projectRoot } from './args';
 import { infoReply } from './help';
 import { readStdin } from './stdin';
@@ -27,11 +28,25 @@ const SELF = process.argv[1] as string;
 
 // ---------------------------------------------------------------- 起動まわり
 
+/** サーバーが終わるまでの待ち（ミリ秒）。環境変数 RIKAI_IDLE_MS で、試験のために短くできる（正の整数だけ。それ以外は、既定の 10 分） */
+function idleExitMs(): number {
+  const n = Number(process.env.RIKAI_IDLE_MS);
+  return Number.isInteger(n) && n > 0 ? n : IDLE_EXIT_MS;
+}
+
 function cmdServe(store: Store): void {
-  // 全トピックが閉じたら、サーバーを終える
-  const hooks: ActionHooks = { allClosed: () => setTimeout(() => shutdown(store), 800) };
+  // 終了したトピックも、閲覧できる（F54）：すべて閉じても、すぐには終わらない。すべて閉じて、かつ待ちの間、リクエストがないとき（開いているタブがない）に、終わる
+  const feed = createChangeFeed(store);
+  const idle = createIdleWatch({
+    ms: idleExitMs(),
+    allClosed: () => allTopicsClosed(store),
+    busy: () => feed.size > 0,
+    onIdle: () => shutdown(store),
+  });
+  const hooks: ActionHooks = { allClosed: () => idle.touch() };
+  idle.touch(); // 起動した直後から数える（閉じたトピックを見るために起動した〔open --view〕まま、誰も来ないとき）
   // 合言葉を含むので、自分だけが読める権限（0600）で置く
-  startServer(store, hooks).then(({ port, token }) => {
+  startServer(store, hooks, undefined, feed, () => idle.touch()).then(({ port, token }) => {
     writeJSON(store.serverFile(), { pid: process.pid, port, token, root: store.root, startedAt: now() }, 0o600);
   });
   process.on('SIGTERM', () => shutdown(store));
@@ -98,12 +113,13 @@ function openBrowser(url: string): void {
 }
 
 async function cmdOpen(store: Store, slug: string, flags: Flags): Promise<void> {
-  store.loadMeta(slug);
+  const view = !!flags.view && store.loadMeta(slug).closed; // --view：終了したトピックを、開き直さず（`closed` を変えず）、閲覧専用で見る
   const info = await ensureServer(store);
-  store.mutate(slug, (m) => {
-    m.closed = false;
-    return {};
-  });
+  if (!view)
+    store.mutate(slug, (m) => {
+      m.closed = false;
+      return {};
+    });
   const url = `http://127.0.0.1:${info.port}/?t=${info.token}#/${slug}/root`;
   if (!flags['no-open']) openBrowser(url);
   out({ ok: true, url, root: store.root, dir: store.tdir(slug) });

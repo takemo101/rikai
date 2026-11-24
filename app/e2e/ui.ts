@@ -20,7 +20,7 @@ export const ui = (page: Page) => ({
   toast: page.locator('#toast'),
   submitdlg: page.locator('#submitdlg'),
   enddlg: page.locator('#enddlg'),
-  ended: page.locator('#ended'),
+  closedbar: page.locator('#closedbar'),
   lightbox: page.locator('#lightbox'),
   threads: page.locator('#threads .thread:not(.composer)'),
   composer: page.locator('#threads .thread.composer'),

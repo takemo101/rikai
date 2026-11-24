@@ -69,6 +69,7 @@ export function Article({ view, markdown, prevMarkdown }: ArticleProps) {
     view.slug,
     view.page,
     view.version,
+    view.readOnly, // 終了した（開き直した）ら、枠の入口（「この枠にコメント」「要素を選ぶ」）を、出し直す
     showChanges,
     threads.map((t) => [t.id, t.resolved, t.version, t.anchor && (t.anchor.quote || t.anchor.blockHash)]),
   ]);

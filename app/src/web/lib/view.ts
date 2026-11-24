@@ -15,6 +15,8 @@ export interface View {
   latest: number;
   /** 最新版を見ているか。コメントは、最新版にだけ付けられる */
   isLatest: boolean;
+  /** 終了したトピックか（閲覧専用：F54）。書く入口は、すべて出さない・断る */
+  readOnly: boolean;
   /** `<slug>/<page>/<version>`。本文・差分の「どの版か」の印（DocModel.key と同じ） */
   key: string;
   topic: TopicState;
@@ -34,6 +36,7 @@ export function buildView(route: Route | null, topic: TopicState | undefined): V
     version,
     latest,
     isLatest: version === latest,
+    readOnly: !!topic.meta.closed,
     key: `${route.slug}/${page}/${version}`,
     topic,
     pages,

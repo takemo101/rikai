@@ -100,8 +100,6 @@ test('旧 index.html の ID が、そろっている（旧 CSS・旧の確認手
     'submitdlg-ok',
     'enddlg',
     'enddlg-ok',
-    'ended',
-    'ended-box',
   ]) {
     expect(byId(id), `#${id}`).not.toBeNull();
   }
@@ -124,7 +122,7 @@ test('トピックなし：案内・「AI に送る」は押せない・終了�
   expect(byId('btn-submit')).not.toHaveTextContent('Submit');
   expect(byId('btn-submit')).not.toHaveTextContent('（'); // 0 件のときは、数を出さない
   expect(byId('top-title')).toHaveTextContent('');
-  expect(byId('ended')).toHaveAttribute('hidden');
+  expect(document.getElementById('ended')).toBeNull();
   fireEvent.click(byId('btn-end'));
   expect((byId('enddlg') as HTMLDialogElement).open).toBe(true);
 });
@@ -205,35 +203,91 @@ test('AI の返信待ち：札・ヒント・コピー（クリップボード�
   await waitFor(() => expect(useUi.getState().toast?.msg).toBe('コピーしました'));
 });
 
-test('終了したトピック：全面の表示（ほかに開いているトピックがあれば、リンク）', async () => {
+// 意図した変更（0.1.4・F54）：旧「終了したトピックは、全面の終了画面（#ended）で覆う」は、やめた。終了したトピックも、ふつうの画面で閲覧できる（書く入口は、すべてない）
+test('終了したトピック：全面の画面で覆わず、本文・コメントを読める。上に帯。書く入口は、すべてない', async () => {
   location.hash = '#/demo/root';
-  server(
-    [
-      summary('demo', { closed: true }),
-      summary('other', { title: '別の題' }),
-      summary('done', { closed: true }),
-      { slug: 'x', title: '読めない', unsupported: true },
-    ],
-    { demo: topicState({ meta: meta({ closed: true }) }) },
-  );
+  const ask = msg({
+    id: 'q1',
+    author: 'ai',
+    kind: 'reply',
+    sent: true,
+    text: 'AI の質問です',
+    ask: { type: 'yes_no', question: 'はいですか？' },
+  });
+  const th = thread({
+    id: 't1',
+    messages: [msg({ id: 'm1', text: '未送信のコメント', sent: false }), ask],
+  });
+  const resolved = thread({ id: 't2', resolved: true, messages: [msg({ id: 'm2', text: '解決済み', sent: true })] });
+  server([summary('demo', { closed: true }), summary('other', { title: '別の題' })], {
+    demo: topicState({ meta: meta({ closed: true }), threads: [th, resolved], unsent: 1 }),
+  });
   renderWithClient(<App />);
-  await waitFor(() => expect(byId('ended')).not.toHaveAttribute('hidden'));
-  const box = byId('ended-box');
-  expect(within(box).getByRole('heading')).toHaveTextContent('このトピックのレビューを終了しました');
-  expect(within(box).getByText('ほかに、開いているトピックがあります。')).toBeInTheDocument();
-  const links = within(box).getAllByRole('link');
-  expect(links).toHaveLength(1);
-  expect(links[0]).toHaveTextContent('別の題');
-  expect(links[0]).toHaveAttribute('href', '#/other/root');
+  await waitFor(() =>
+    expect(byId('closedbar')).toHaveTextContent(
+      'このトピックはレビューを終了しています（閲覧専用・コメントできません）',
+    ),
+  );
+  expect(document.getElementById('ended')).toBeNull(); // 全面の終了画面は、ない
+  await waitFor(() => expect(byId('article')).toHaveTextContent('本文 root v1'));
+  expect(byId('doc')).toContainElement(byId('closedbar'));
+  // 読める：コメント・質問・解決済みの 1 行・タブ
+  const panel = byId('threads');
+  await within(panel).findByText('未送信のコメント');
+  expect(within(panel).getByText('はいですか？')).toBeInTheDocument();
+  expect(within(panel).getAllByRole('tab')).toHaveLength(3);
+  fireEvent.click(within(panel).getByRole('tab', { name: /すべて/ })); // 読む操作は、動く：解決済みの 1 行を開ける
+  fireEvent.click(await within(panel).findByTitle('押すと、このコメントが開きます'));
+  await within(panel).findByText('一覧の 1 行に戻す');
+  // 書く入口は、ない：入力欄・返信・追加・解決・再開・編集・削除・回答の保存・範囲を選ぶ・コメント・終了
+  expect(panel.querySelector('textarea')).toBeNull();
+  for (const name of ['追加', '解決', '再開する', '編集', '削除', '回答を保存', '答える'])
+    expect(within(panel).queryByRole('button', { name })).toBeNull();
+  for (const b of within(panel).getAllByRole('button', { name: /はい|いいえ/ })) expect(b).toBeDisabled(); // 回答の選び肢は、押せない
+  expect(byId('btn-end')).toBeNull();
+  expect(byId('regbtn')).toHaveAttribute('hidden');
+  expect(document.getElementById('act-comment')).toBeNull();
+  // 「AI に送る」：未送信があっても押せない。理由は、これまでと同じ文
+  expect(byId('btn-submit')).toBeDisabled();
+  expect(byId('btn-submit')).toHaveTextContent('AI に送る');
+  expect(byId('btn-submit')).not.toHaveTextContent('（1）');
+  expect(byId('submit-why')).toHaveTextContent('このトピックは、終了しています');
+  // 左の一覧：終了の印（開いているものと見分けられる）・開ける
+  const li = (t: string) => within(byId('side')).getByText(t).closest('li') as HTMLElement;
+  expect(li('題 demo')).toHaveTextContent('終了');
+  expect(li('別の題')).not.toHaveTextContent('終了');
+  expect(within(li('題 demo')).getByRole('link')).toHaveAttribute('href', '#/demo/root');
+  // タブのタイトル：終了の状態の語は付けない（これまでと同じ）
+  await waitFor(() => expect(document.title).toBe('デモの資料 | rikai'));
 });
 
-test('終了したトピック：ほかになければ「このタブは閉じて構いません」', async () => {
+test('終了したトピック：入力欄を開く操作は、トーストで断る（開きかけの入力欄は、終了で外れる）', async () => {
   location.hash = '#/demo/root';
-  server([summary('demo', { closed: true })], { demo: topicState({ meta: meta({ closed: true }) }) });
+  const state = topicState({ threads: [] });
+  server([summary('demo')], { demo: state });
   renderWithClient(<App />);
-  await waitFor(() => expect(byId('ended')).not.toHaveAttribute('hidden'));
-  expect(byId('ended-box')).toHaveTextContent('このタブは閉じて構いません。続きはもう一度 /rikai で開けます。');
-  expect(byId('ended-box').querySelector('code')).toHaveTextContent('/rikai');
+  await waitFor(() => expect(byId('article')).toHaveTextContent('本文 root v1'));
+  act(() => {
+    useUi.getState().startComposer(anchor);
+  });
+  await waitFor(() => expect(byId('threads').querySelector('textarea[data-key="composer"]')).not.toBeNull());
+  // 終了した（取り直したトピックが closed）：入力欄は消え、開こうとしてもトーストで断る
+  act(() => {
+    queryClient.setQueryData(topicKey('demo'), topicState({ rev: 2, meta: meta({ closed: true, rev: 2 }) }));
+  });
+  await waitFor(() => expect(byId('closedbar')).toBeInTheDocument());
+  expect(byId('threads').querySelector('textarea')).toBeNull();
+  expect(useUi.getState().composer).toBeNull();
+  act(() => {
+    expect(useUi.getState().startComposer(anchor)).toBe(false);
+  });
+  expect(useUi.getState().toast?.msg).toContain('終了しています');
+  // 開き直す：帯が消え、終了ボタンが戻る
+  act(() => {
+    queryClient.setQueryData(topicKey('demo'), topicState({ rev: 3, meta: meta({ closed: false, rev: 3 }) }));
+  });
+  await waitFor(() => expect(document.getElementById('closedbar')).toBeNull());
+  expect(byId('btn-end')).toBeInTheDocument();
 });
 
 test('接続できない：上のバーに「サーバーに接続できません」。前の表示は残す', async () => {

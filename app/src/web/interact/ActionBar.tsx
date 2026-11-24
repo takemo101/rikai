@@ -39,15 +39,18 @@ interface Ctl {
 interface Props {
   /** `#docscroll`（まだなければ null） */
   scroller: HTMLElement | null;
-  /** 最新版を見ているか（コメントの入口は、最新版にだけ） */
+  /** コメントの入口を出せるか（最新版で、トピックが開いている） */
   latest: boolean;
+  /** 終了したトピック（閲覧専用：F54）：「コメント」は、どこにも出さない。画像・図の「拡大表示」だけ、ブロックに置くと出る */
+  readOnly?: boolean;
 }
 
-export function ActionBar({ scroller, latest }: Props) {
+export function ActionBar({ scroller, latest, readOnly = false }: Props) {
   const [bar, setBar] = useState<Bar | null>(null);
   const barEl = useRef<HTMLDivElement>(null);
   const ctl = useRef<Ctl>({ mode: null, anchor: null, blk: null, hideTimer: 0 });
   const latestRef = useRef(latest);
+  const readOnlyRef = useRef(readOnly);
   const layout = useUi((s) => s.ui);
 
   const hide = useCallback((): void => {
@@ -79,8 +82,9 @@ export function ActionBar({ scroller, latest }: Props) {
   // biome-ignore lint/correctness/useExhaustiveDependencies: latest・layout は、「変わったこと」だけが必要
   useEffect(() => {
     latestRef.current = latest;
+    readOnlyRef.current = readOnly;
     hide();
-  }, [latest, layout, hide]);
+  }, [latest, readOnly, layout, hide]);
   // 入力欄を開いた・範囲を選び始めた：隠す
   useEffect(
     () =>
@@ -131,7 +135,14 @@ export function ActionBar({ scroller, latest }: Props) {
       const art = $('#article');
       const ui = useUi.getState();
       // 入力欄を開いている間は、ブロックのバーを出さない（入力欄・選んだ範囲の上に、重ならないように）
-      if (!art || !latestRef.current || ui.regMode !== 'idle' || c.mode === 'sel' || ui.composer) return;
+      if (
+        !art ||
+        !(latestRef.current || readOnlyRef.current) ||
+        ui.regMode !== 'idle' ||
+        c.mode === 'sel' ||
+        ui.composer
+      )
+        return;
       const artBox = art.getBoundingClientRect();
       if (
         c.blk &&
@@ -156,6 +167,11 @@ export function ActionBar({ scroller, latest }: Props) {
         return;
       }
       if (!blk) {
+        scheduleHide();
+        return;
+      }
+      // 終了したトピック：画像・図（拡大できるもの）にだけ、「拡大表示」を出す（コメントの入口は、ない）
+      if (readOnlyRef.current && !zoomTargetOfBlock(blk)) {
         scheduleHide();
         return;
       }
@@ -229,10 +245,12 @@ export function ActionBar({ scroller, latest }: Props) {
           拡大表示
         </button>
       ) : null}
-      <button id="act-comment" type="button" title="この文・ブロックに、コメントします" onClick={onComment}>
-        <MessageSquarePlus aria-hidden="true" focusable="false" />
-        コメント
-      </button>
+      {readOnly ? null : (
+        <button id="act-comment" type="button" title="この文・ブロックに、コメントします" onClick={onComment}>
+          <MessageSquarePlus aria-hidden="true" focusable="false" />
+          コメント
+        </button>
+      )}
     </div>
   );
 }
