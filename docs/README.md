@@ -18,7 +18,7 @@ rikai の補助文書の入口。製品要件・受け入れ条件・対象外�
 | [参考にした設計原則](references.md) | どのツール・原則を参考にし、何を選ばなかったか。調べた外部の機能と確認の状況 | 製品要件・原則の全文 |
 | [リファクタリングの観点](refactoring.md) | 動作を変えずに見直すときの観点と進め方 | 製品要件・実施権限・スコア化 |
 | [検証手順と記録](verification.md) | 条件をどう観測し、何をいつ確認したか、何が人間の確認待ちか | 新しい合格条件・未実施の成功 |
-| [スキル本体](../skills/rikai/SKILL.md) | エージェントが `/rikai` で読む手順（資料の作り方・待ち方・返信の方針・`apply` の入力） | コマンドの実装 |
+| [スキル本体](../skills/rikai/SKILL.md) | エージェントが `/rikai` で読む手順（資料の作り方・待ち方・返信の方針・`apply` の入力）。必要な場面で読む補助は `skills/rikai/references/`（`html-app.md`・`doc-format.md`・`poll-output.md`・`viewer.md`） | コマンドの実装 |
 
 文書間で矛盾を見つけたら、派生文書を根拠に製品要件を変更しない。SPEC の該当節と利用者の判断を確認し、必要な修正を、関係する文書へ反映する。
 
@@ -53,7 +53,8 @@ app/                   開発用のワークスペース（TypeScript）。依�
   test/                自動テスト（Vitest）。server/・shared/・web/（jsdom）・build.test.ts・setup/
   e2e/                 e2e（Playwright。実際の Chrome。`pnpm run test:e2e`）。*.spec.ts・fixtures.ts・env.ts
 skills/rikai/
-  SKILL.md             エージェント向けの手順（/rikai）
+  SKILL.md             エージェント向けの手順（/rikai）。本体（毎回読む）
+  references/          SKILL.md の補助（必要な場面で読む：html-app.md・doc-format.md・poll-output.md・viewer.md）
   rikai.js             ビルドしたバンドル（コマンドの入口と、サーバー。依存を含めて 1 ファイル。`app/src/` から生成。コミットする）
   rikai-htmlapp-worker.js  ビルドした worker（html-app の取り出し。rikai.js の横に置く）
   THIRD-PARTY-LICENSES.txt  サーバー・CLI のバンドルに入った依存のライセンス（ビルドで生成）

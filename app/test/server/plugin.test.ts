@@ -76,8 +76,27 @@ test('スキルは skills/<名前>/SKILL.md にあり、名前がディレクト
     'Agent Skills にない項目（omp が、スキルごと読み込まなくなる）',
   );
   // バンドルの rikai.js・その横の worker・画面（public）が、スキルと同じ場所にある
-  for (const f of ['rikai.js', 'rikai-htmlapp-worker.js', 'THIRD-PARTY-LICENSES.txt', 'public'])
+  for (const f of ['rikai.js', 'rikai-htmlapp-worker.js', 'THIRD-PARTY-LICENSES.txt', 'public', 'references'])
     assert.ok(fs.existsSync(path.join(dir, f)), `${f} が、スキルと同じ場所にない（SKILL.md の手順が動かない）`);
+});
+
+test('SKILL.md が「読め」と案内する補助ファイル（references/）が、実際にあり、案内されていない補助ファイルもない', () => {
+  // 補助ファイルは、AI が読みに行くことで効く。パスの食い違い（改名・削除・案内の書き忘れ）で、指示が消えるのを防ぐ
+  const dir = path.join(root, 'skills', 'rikai');
+  const skill = fs.readFileSync(path.join(dir, 'SKILL.md'), 'utf8');
+  const mentioned = [...new Set([...skill.matchAll(/`(references\/[\w.-]+\.md)`/g)].map((m) => m[1] as string))];
+  assert.ok(mentioned.length > 0, 'SKILL.md に、補助ファイルへの案内（`references/…md`）がない');
+  for (const rel of mentioned) {
+    const file = path.join(dir, rel);
+    assert.ok(fs.existsSync(file), `SKILL.md が案内する ${rel} がない`);
+    assert.ok(fs.readFileSync(file, 'utf8').trim().length > 0, `${rel} が空`);
+  }
+  const actual = fs.readdirSync(path.join(dir, 'references')).map((f) => `references/${f}`);
+  assert.deepEqual(
+    actual.filter((f) => !mentioned.includes(f)),
+    [],
+    'SKILL.md が案内していない補助ファイル（AI は読みに行かない）',
+  );
 });
 
 test('ルートの plugin.json（Agent Plugins：codex・omp・agy）は、schema の形で、package.json と名前・版が同じ', () => {

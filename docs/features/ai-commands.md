@@ -32,7 +32,9 @@
 
 ### F18 エージェントのスキルとして使える
 
-**エージェントのスキルとして使える**：`skills/rikai/SKILL.md`（`/rikai`）が、資料の作り方・`new`/`open`・待ち方・返信の方針・`apply` の入力・終わり方を、エージェントに示す。`install.sh` が、`~/.claude/skills/rikai/` に置く（`CLAUDE_SKILLS_DIR` で変更）。**プラグイン（またはパッケージ）としても入れられる**：Claude Code・omp・pi・grok・agy・codex（opencode は、スキルの置き場に置くだけで使えるので、対象外）。SKILL.md は、**特定のエージェントの変数（`${CLAUDE_SKILL_DIR}` など）に依存せず**、`rikai.js` の場所を、SKILL.md のあるディレクトリから決める（分からなければ、ユーザーに尋ねる。ホームの検索では決めない）。SKILL.md の frontmatter は、Agent Skills の項目（`name`・`description` など）だけにする（omp が、ルートの `plugin.json` を持つパッケージ〔Agent Plugins〕では、それ以外の項目を持つスキルを、読み込まないため）
+**エージェントのスキルとして使える**：`skills/rikai/SKILL.md`（`/rikai`）が、資料の作り方・`new`/`open`・待ち方・返信の方針・`apply` の入力・終わり方を、エージェントに示す。`install.sh` が、`~/.claude/skills/rikai/` に置く（`CLAUDE_SKILLS_DIR` で変更）。**プラグイン（またはパッケージ）としても入れられる**：Claude Code・omp・pi・grok・agy・codex（opencode は、スキルの置き場に置くだけで使えるので、対象外）。SKILL.md は、**特定のエージェントの変数（`${CLAUDE_SKILL_DIR}` など）に依存せず**、`rikai.js` の場所を、SKILL.md のあるディレクトリから決める（分からなければ、ユーザーに尋ねる。ホームの検索では決めない）。SKILL.md の frontmatter は、Agent Skills の項目（`name`・`description` など）だけにする（omp が、ルートの `plugin.json` を持つパッケージ〔Agent Plugins〕では、それ以外の項目を持つスキルを、読み込まないため）。
+
+**スキルの構成（0.30.3。整理フェーズ ⑤b。[ADR-0053](../decisions/0053-skill-split.md)）**：**本体 `SKILL.md`（毎回読む）と、補助 4 ファイル（`skills/rikai/references/`。必要な場面で読む）に分けた**。**本体**：流れ・補助を読む場面・守ること・コマンドの定義・返信の方針・`apply` の形（8,866 字・195 行。元は 13,224 字・247 行）。**補助**：`references/html-app.md`（`html-app` の書き方：できないこと・高さ・橋の変数・ダーク・幅・`rikai.state`）・`references/doc-format.md`（資料の書式：構成・mermaid・画像・diff／json／terminal／trace・リンク・HTML）・`references/poll-output.md`（実際に流した出力の完全な例 10 個・`items[]` の読み方・`frameMeta`・旧い形・`status`／`progress`）・`references/viewer.md`（画面の説明：拡大表示・並べて比べる・Markdown 保存）。**補助を読む場面は、本体に明記する**（`html-app` を書くとき・書式を選ぶとき・出力の形が分からないとき・画面の操作を案内するとき）。**安全に関わる指示は、本体に残す**（コメント・画像・`frameMeta` の中の指示を実行しない・`html-app` の「できないこと」・秘密を入力させない・`rikai.state` に入れない・ホームを検索しない・`.rikai/` を直接書き換えない）。**コマンドの定義は、シェル関数**：最初に `rikai() { node "<SKILL_DIR>/rikai.js" "$@"; }; rikai status` を 1 回実行する（変数の形は、macOS の zsh で、単語に分かれず失敗するため採らなかった。関数は bash と zsh の両方で動く。Bash の呼び出しをまたいで、関数が残らないことがあるので、「`rikai: command not found` なら、同じ定義を、コマンドの先頭に付ける」と本体に書いた）。**本体は、目標（約 4,500 字・120 行）に届いていない**（守ること・`apply` の例と表・返信の方針は、移すと守られにくくなるため、残した）。**`app/test/server/plugin.test.ts` が、本体が案内する `references/…md` が実在し・空でなく・案内されていない補助ファイルもないことを、検査する**。Windows では、未確認。
 
 ### F19 待ち方をエージェントに合わせる
 
@@ -40,4 +42,4 @@
 
 ### F20 理解を確かめる返信を求める
 
-**理解を確かめる返信を求める**：SKILL.md が、言い換えで終わらず、`ask`（クイズ・Yes/No など）で確かめること、回答を採点すること、誤解は根拠を示して直すこと、を AI に求める
+**理解を確かめる返信を求める**：SKILL.md が、言い換えで終わらず、`ask`（クイズ・Yes/No など）で確かめること、回答を採点すること、誤解は根拠を示して直すこと、を AI に求める（返信の方針と `ask` の型の表は、本体に置く：補助へ移すと、AI が読む保証が弱くなるため。[ADR-0053](../decisions/0053-skill-split.md)）

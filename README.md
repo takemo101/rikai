@@ -85,7 +85,7 @@ rikai status [topic]               未処理のバッチなどを見る
 rikai stop                         サーバーを止める
 ```
 
-詳細は `skills/rikai/SKILL.md` を見てください。
+詳細は `skills/rikai/SKILL.md`（本体）と、必要な場面で読む補助 `skills/rikai/references/`（`html-app.md`・`doc-format.md`・`poll-output.md`・`viewer.md`）を見てください。
 
 ## 保存の形
 
