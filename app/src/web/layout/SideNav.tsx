@@ -11,6 +11,7 @@ import {
   TriangleAlert,
 } from 'lucide-react';
 import { progressOf } from '../../shared/progress';
+import { VERSION } from '../../shared/version';
 import type { TopicSummary } from '../api/queries';
 import { hrefOf } from '../lib/route';
 import { type Turn, turnLabel, turnOfSummary, turnOfTopic } from '../lib/turn';
@@ -85,6 +86,10 @@ export function SideNav({ topics, currentSlug, view }: SideNavProps) {
         })}
       </ul>
       {view ? <PageTree view={view} /> : null}
+      {/* 版：一覧の下端に、小さく（上のバーは混ませない）。コピーできる文字。ドロワー・空・終了のあとの一覧でも、ここで見える */}
+      <div className="side-ver" title={`rikai v${VERSION}`}>
+        {`v${VERSION}`}
+      </div>
     </aside>
   );
 }

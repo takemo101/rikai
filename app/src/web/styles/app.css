@@ -196,7 +196,9 @@ button.turn-btn:hover { background: var(--hover); }
 #top > button.iconbtn, #btn-side { flex: none; } /* 上のバーのアイコンのボタン（☰・保存・ベル・外観）：26px のまま（先に縮むのは、題・状態の札）。旧：状態の札が長いと、4 つとも、一緒に 20px 以下まで縮んだ */
 
 /* ---- 左の一覧 ---- */
-#side { background: var(--surface); border-right: 1px solid var(--line); overflow: auto; padding: 8px 0 24px; }
+#side { display: flex; flex-direction: column; background: var(--surface); border-right: 1px solid var(--line); overflow: auto; padding: 8px 0 24px; }
+/* 版（`rikai v0.1.2` の `v0.1.2`）：一覧の下端に、小さく。一覧が短いときは、下に寄せる（`margin-top: auto`）。コピーできる文字（`user-select: text`） */
+.side-ver { margin-top: auto; padding: 16px 16px 0; font-size: 11px; color: var(--muted); font-variant-numeric: tabular-nums; user-select: text; }
 .side-h { font-size: var(--fs-s); font-weight: 500; color: var(--muted); padding: 10px 16px 4px; }
 #side ul { list-style: none; margin: 0; padding: 0; }
 #side .topics li { display: flex; align-items: center; gap: 6px; margin: 1px 8px; padding: 0 8px; border-radius: var(--r); }
@@ -507,6 +509,7 @@ dialog p { margin: 0 0 12px; color: var(--ink-2); }
 .dlg-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px; }
 #ended { position: fixed; inset: 0; background: var(--paper); z-index: 100; display: flex; align-items: center; justify-content: center; }
 .ended-box { text-align: center; max-width: 420px; padding: 0 20px; }
+#ended .ended-ver { position: absolute; left: 16px; bottom: 16px; font-size: 11px; color: var(--muted); user-select: text; }
 .ended-box > svg.lucide { width: 40px; height: 40px; stroke-width: 1.5; color: var(--ok); margin-bottom: 8px; }
 .ended-box h2 { margin: 0 0 8px; font-size: 18px; font-weight: 600; }
 .ended-box p { margin: 0 0 8px; color: var(--muted); }

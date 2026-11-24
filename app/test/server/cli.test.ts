@@ -4,7 +4,9 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { test } from 'vitest';
+import { COMMAND_NAMES, infoReply, topHelp } from '../../src/cli/help';
 import { addComment, cliResult, makeTopic, removeProject, runCli, singleAsk, submit, tempProject } from './helpers';
 
 interface ServerInfo {
@@ -77,19 +79,146 @@ test('rikai serve は、すべてのトピックが閉じたら、自分で終�
 
 // ---- 追加：移植で足した検査（CLI の入口：引数・出力・終了コード。サーバーを起こさない部分） ----
 
-test('引数なし・知らないコマンドは、使い方を出して、終了コード 0', () => {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'rikai-help-'));
+// ---- ヘルプ・バージョン：ストアを作らない（プロジェクトに、何も書かない）・終了コード・標準出力と標準エラー ----
+
+const here = path.dirname(fileURLToPath(import.meta.url));
+const repoRoot = path.resolve(here, '..', '..', '..');
+const pkgVersion = (JSON.parse(fs.readFileSync(path.join(repoRoot, 'package.json'), 'utf8')) as { version: string })
+  .version;
+const ESC = '\u001b';
+
+/** 空のディレクトリで、cliResult を流し、終わったら、`.rikai` が、できていないことを確かめる */
+function inEmptyProject<T>(fn: (root: string) => T): T {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'rikai-info-'));
   try {
-    for (const args of [[], ['nothing']]) {
-      const r = cliResult(root, args);
-      assert.equal(r.status, 0);
-      assert.match(r.stdout, /^rikai <command>\n {2}new <topic>/);
-      assert.match(r.stdout, /共通: --root <dir>/);
-    }
-    assert.equal(fs.existsSync(path.join(root, '.rikai')), false, '使い方を出すだけで、.rikai は作らない');
+    const r = fn(root);
+    assert.deepEqual(
+      fs.readdirSync(root),
+      [],
+      'ヘルプ・バージョン・未知のコマンドで、プロジェクトに、何も作らない（.rikai も）',
+    );
+    return r;
   } finally {
     fs.rmSync(root, { recursive: true, force: true });
   }
+}
+
+test('--version・-v・version は、「rikai <package.json の version>」の 1 行だけを出して、終了コード 0。プロジェクトに何も作らない', () => {
+  assert.match(pkgVersion, /^\d+\.\d+\.\d+/);
+  inEmptyProject((root) => {
+    for (const args of [['--version'], ['-v'], ['version'], ['version', '--root', root], ['--version', 'poll']]) {
+      const r = cliResult(root, args);
+      assert.equal(r.status, 0, args.join(' '));
+      assert.equal(r.stdout, `rikai ${pkgVersion}\n`, args.join(' '));
+      assert.equal(r.stderr, '');
+    }
+  });
+});
+
+test('--help・-h・help・引数なしは、全体のヘルプを標準出力に出して、終了コード 0。パイプでは、色（ANSI）がなく、プロジェクトに何も作らない', () => {
+  inEmptyProject((root) => {
+    const outputs = [['--help'], ['-h'], ['help'], [], ['help', 'help']].map((args) => {
+      const r = cliResult(root, args);
+      assert.equal(r.status, 0, args.join(' '));
+      assert.equal(r.stderr, '');
+      assert.ok(!r.stdout.includes(ESC), 'パイプ（端末でない）では、色を付けない');
+      return r.stdout;
+    });
+    for (const o of outputs) assert.equal(o, outputs[0]);
+    const text = outputs[0] as string;
+    assert.match(
+      text,
+      /^rikai — 資料にコメントして AI と理解を深めるツール\n\n使い方: rikai <コマンド> \[オプション\]\n/,
+    );
+    for (const name of COMMAND_NAMES.filter((n) => n !== 'serve')) assert.match(text, new RegExp(`^  ${name}\\b`, 'm'));
+    for (const flag of ['--root', '--title', '--source', '--no-open', '--timeout', '--help', '--version'])
+      assert.ok(text.includes(flag), `${flag} が、オプションの一覧にない`);
+    assert.ok(text.includes('43200'), '--timeout の既定（43200 秒＝12 時間）');
+    assert.match(text, /rikai <コマンド> --help/);
+    assert.match(text, /https:\/\/github\.com\/takemo101\/rikai/);
+    assert.doesNotMatch(text, /Submit/, '画面の名前は「AI に送る」');
+  });
+});
+
+test('コマンドごとのヘルプ：`<コマンド> --help`・`-h`・`help <コマンド>` が同じで、使い方・オプション・出力・例がある', () => {
+  inEmptyProject((root) => {
+    for (const name of COMMAND_NAMES) {
+      const a = cliResult(root, [name, '--help']);
+      assert.equal(a.status, 0, name);
+      assert.equal(a.stderr, '');
+      assert.equal(cliResult(root, [name, '-h']).stdout, a.stdout);
+      assert.equal(cliResult(root, ['help', name]).stdout, a.stdout);
+      assert.equal(cliResult(root, ['--help', name]).stdout, a.stdout);
+      assert.match(a.stdout, new RegExp(`^rikai ${name} — `), name);
+      assert.match(a.stdout, new RegExp(`^使い方: rikai ${name}\\b`, 'm'), name);
+      for (const h of ['オプション', '出力']) assert.match(a.stdout, new RegExp(`^${h}$`, 'm'), `${name}: ${h}`);
+      if (name !== 'serve') assert.match(a.stdout, /^例$/m, name);
+    }
+    // 入力は、標準入力を読むコマンドだけ（待たずに、ヘルプが出る：標準入力は空のまま）
+    for (const name of ['new', 'apply']) assert.match(cliResult(root, [name, '--help']).stdout, /^入力$/m, name);
+    // 実際の挙動と同じ数値・名前
+    const poll = cliResult(root, ['poll', '--help']).stdout;
+    assert.match(poll, /--timeout <秒>.*43200 ＝ 12 時間/);
+    for (const s of ['feedback', 'closed', 'timeout']) assert.ok(poll.includes(s), `poll の出力の status: ${s}`);
+    assert.match(cliResult(root, ['pull', '--help']).stdout, /"none"/);
+    assert.match(cliResult(root, ['open', '--help']).stdout, /--no-open/);
+  });
+});
+
+test('未知のコマンドは、「未知のコマンド: xxx」とヘルプを標準エラーに出して、終了コード 1（標準出力は空。--help を付けても、help の対象でも同じ）', () => {
+  inEmptyProject((root) => {
+    for (const args of [
+      ['nothing'],
+      ['nothing', '--help'],
+      ['help', 'nothing'],
+      ['--version', 'nothing'],
+      ['submit'],
+    ]) {
+      const r = cliResult(root, args);
+      assert.equal(r.status, 1, args.join(' '));
+      assert.equal(r.stdout, '', args.join(' '));
+      assert.match(
+        r.stderr,
+        new RegExp(`^未知のコマンド: ${args.find((a) => !a.startsWith('-') && a !== 'help')}\\n\\nrikai — `),
+        args.join(' '),
+      );
+      assert.match(r.stderr, /使い方: rikai <コマンド> \[オプション\]/);
+      assert.ok(!r.stderr.includes(ESC));
+    }
+  });
+});
+
+test('ヘルプの一覧は、main.ts が実際に振り分けるコマンドと、読むオプションに、一致する（足し忘れ・消し忘れで、食い違わない）', () => {
+  const read = (...p: string[]) => fs.readFileSync(path.join(repoRoot, 'app', 'src', ...p), 'utf8');
+  const main = read('cli', 'main.ts');
+  const dispatched = [...main.matchAll(/^ {6}case '(\w+)':/gm)].map((m) => m[1]).sort();
+  assert.deepEqual([...COMMAND_NAMES].sort(), dispatched, 'help.ts の COMMANDS と、main.ts の switch の case');
+  // コードが読む --オプション（flags.名前・flags['名前']）：すべて、ヘルプの一覧に載っている
+  const flagsRead = new Set<string>();
+  for (const f of [main, read('cli', 'args.ts'), read('server', 'agent.ts')])
+    for (const m of f.matchAll(/flags(?:\.(\w+)|\['([\w-]+)'\])/g)) flagsRead.add((m[1] ?? m[2]) as string);
+  assert.ok(
+    ['root', 'title', 'source', 'no-open', 'timeout'].every((k) => flagsRead.has(k)),
+    [...flagsRead].join(),
+  );
+  const top = topHelp(false);
+  for (const k of flagsRead) assert.ok(top.includes(`--${k}`), `--${k} を、コードは読むが、ヘルプにない`);
+});
+
+test('色（ANSI）は、端末への出力のときだけ（topHelp・infoReply の style）。見出しは太字・コマンド名は色。外すと、完全なプレーンテキスト', () => {
+  const plain = topHelp(false);
+  const colored = topHelp(true);
+  assert.ok(!plain.includes(ESC));
+  assert.ok(colored.includes(`${ESC}[1m使い方:`));
+  assert.ok(colored.includes(`${ESC}[36mnew <topic>`));
+  assert.equal(colored.replace(new RegExp(`${ESC}\\[[0-9;]*m`, 'g'), ''), plain, '色の違いだけ：文字は、同じ');
+  assert.ok(infoReply([], { help: true }, { stdout: true, stderr: false })?.stdout?.includes(ESC));
+  assert.ok(
+    !infoReply(['x'], {}, { stdout: true, stderr: false })?.stderr?.includes(ESC),
+    'エラーは、標準エラーが端末のときだけ',
+  );
+  assert.ok(infoReply(['x'], {}, { stdout: false, stderr: true })?.stderr?.includes(ESC));
+  assert.equal(infoReply(['poll', 'demo'], {}, { stdout: true, stderr: true }), null, 'コマンドは、そのまま実行する');
 });
 
 test('失敗は、{ ok: false, errors } を標準出力に出して、終了コード 1（行ごとの誤りに分ける）', () => {

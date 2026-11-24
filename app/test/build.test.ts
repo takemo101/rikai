@@ -33,6 +33,35 @@ test('コミットしたバンドルは、ソースから作り直したもの�
   }
 });
 
+test('配布した rikai.js の --version は、package.json の version と同じ（ビルドで埋め込む。実行時にファイルを読まない：rikai.js だけを、別の場所へ置いても同じ）', () => {
+  const pkg = JSON.parse(fs.readFileSync(path.join(skillDir, '..', '..', 'package.json'), 'utf8')) as {
+    version: string;
+  };
+  const alone = fs.mkdtempSync(path.join(os.tmpdir(), 'rikai-version-'));
+  try {
+    fs.copyFileSync(path.join(skillDir, 'rikai.js'), path.join(alone, 'rikai.js')); // package.json も public/ も、隣にない
+    for (const flag of ['--version', '-v', 'version'])
+      assert.equal(
+        execFileSync(process.execPath, [path.join(alone, 'rikai.js'), flag], { cwd: alone, encoding: 'utf8' }),
+        `rikai ${pkg.version}\n`,
+      );
+  } finally {
+    fs.rmSync(alone, { recursive: true, force: true });
+  }
+});
+
+test('画面（skills/rikai/public/）にも、同じ version が埋め込まれている（左の一覧の下端の「v…」・上のバーのロゴの title）', () => {
+  const pkg = JSON.parse(fs.readFileSync(path.join(skillDir, '..', '..', 'package.json'), 'utf8')) as {
+    version: string;
+  };
+  const dir = path.join(skillDir, 'public', 'assets');
+  const quoted = new RegExp(`["'\`]${pkg.version.replaceAll('.', '\\.')}["'\`]`); // 圧縮で、引用符が変わる（" ' `）
+  const hit = fs
+    .readdirSync(dir)
+    .some((f) => f.endsWith('.js') && quoted.test(fs.readFileSync(path.join(dir, f), 'utf8')));
+  assert.ok(hit, `画面のバンドルに、${pkg.version} がない（\`pnpm run build:web\` で作り直す）`);
+});
+
 test('バンドルに入った依存の、ライセンスが添えてある', () => {
   const text = fs.readFileSync(path.join(skillDir, 'THIRD-PARTY-LICENSES.txt'), 'utf8');
   for (const name of ['hono', '@hono/node-server', 'zod', 'marked'])

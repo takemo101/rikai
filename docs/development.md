@@ -148,8 +148,8 @@ pnpm run test:e2e   # 実際の Chrome（Playwright。先に pnpm run build。�
 
 ### コマンドを足す
 
-1. `app/src/cli/main.ts` の `main()` の `switch` に `case` を足す。引数の解釈は `app/src/cli/args.ts` の `parseArgs`（値を取るオプションは、そのまま〔`--名前 値`〕。値を取らないものだけ、`no-open`・`force` の並びに足す）。中身が検査や書き込みなら、`app/src/server/` に置く。
-2. `HELP` に 1 行足す。
+1. `app/src/cli/main.ts` の `main()` の `switch` に `case` を足す。引数の解釈は `app/src/cli/args.ts` の `parseArgs`（値を取るオプションは、そのまま〔`--名前 値`〕。値を取らないものだけ、`BOOLEAN_FLAGS`〔`no-open`・`help`・`version`〕に足す。`--force` は、誰も読んでいないので、なくした）。中身が検査や書き込みなら、`app/src/server/` に置く。
+2. `app/src/cli/help.ts` の定数（`COMMANDS` ほか）に、コマンドの説明・オプション・例を足す（全体のヘルプと各コマンドのヘルプは、同じデータから描かれる。`cli.test.ts` が、`main.ts` の `case`・読む `flags` との一致を検査する）。
 3. 規則・検査は、コマンドの関数に置く（`main()` に書かない）。失敗は `HttpError` を投げる（`main()` が `{ok:false,errors}` と終了コード 1 にする）。
 4. `SKILL.md` の手順・`README.md` のコマンド表・`docs/development.md` の表を直す。
 

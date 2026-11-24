@@ -200,8 +200,10 @@ rikai stop; rm -rf /tmp/rikai-try
 | `rikai apply <topic>` | 標準入力の JSON で、返信・新版・子ページ・質問を反映する |
 | `rikai status [topic]` | 未処理のバッチなどを見る |
 | `rikai stop` | サーバーを止める |
+| `rikai --version`（`-v`・`version`） | 版（`rikai x.y.z`）を 1 行で出す |
+| `rikai --help`（`-h`・`help`） | コマンドの一覧・オプション・例を出す。`rikai <コマンド> --help` で、コマンドごとの使い方・入力・出力・例（画面の左の一覧の下端にも、版が出ます） |
 
-共通の引数は `--root <dir>`（プロジェクトのルート。省略時は git のルート、なければカレントディレクトリ）です。
+共通の引数は `--root <dir>`（プロジェクトのルート。省略時は git のルート、なければカレントディレクトリ）です。知らないコマンドは、「未知のコマンド: xxx」とヘルプを標準エラーに出して、終了コード 1 で終わります。
 
 詳細は `skills/rikai/SKILL.md`（本体）と、必要な場面で読む補助 `skills/rikai/references/`（`html-app.md`・`doc-format.md`・`poll-output.md`・`viewer.md`・`drawio.md`）を見てください。
 

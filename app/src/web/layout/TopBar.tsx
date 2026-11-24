@@ -2,6 +2,7 @@
 // 進み具合（解決 N/M・回答 K/L）は、ここには出さない（左のトピック行だけ）。未送信の数も、札ではなく、「AI に送る」のボタンが持つ。
 import { Copy, LogOut, Monitor, Moon, PanelLeft, Send, Sun, TriangleAlert } from 'lucide-react';
 import { useEffect, useState } from 'react';
+import { VERSION } from '../../shared/version';
 import { trunc } from '../lib/dom';
 import { loadSendHintSeen, saveSendHintSeen } from '../lib/storage';
 import { nextTheme, THEME_LABEL, useResolvedTheme } from '../lib/theme';
@@ -68,7 +69,9 @@ export function TopBar({ view, status, save }: TopBarProps) {
       >
         <PanelLeft aria-hidden="true" focusable="false" />
       </button>
-      <div className="brand">rikai</div>
+      <div className="brand" title={`rikai v${VERSION}`}>
+        rikai
+      </div>
       <div id="top-title">{topic ? topic.meta.title : ''}</div>
       <div className="spacer" />
       {view && save ? <SaveMarkdown view={view} source={save} /> : null}

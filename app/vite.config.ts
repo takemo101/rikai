@@ -9,6 +9,7 @@ import { fileURLToPath } from 'node:url';
 import react from '@vitejs/plugin-react';
 import { defineConfig, type ProxyOptions } from 'vite';
 import { licensesPlugin } from './scripts/licenses-plugin';
+import { versionDefine } from './scripts/version';
 
 const root = path.join(path.dirname(fileURLToPath(import.meta.url)), 'src', 'web');
 
@@ -34,6 +35,7 @@ export default defineConfig(({ command }) => {
   return {
     root,
     base: '/',
+    define: versionDefine, // 画面の「v…」：ビルドのときに、ルートの package.json の version を埋め込む（実行時に、ファイルや API で探さない）
     plugins: [react(), licensesPlugin()],
     build: {
       outDir: '../../../skills/rikai/public',
