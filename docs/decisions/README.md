@@ -65,3 +65,4 @@
 | [0048](0048-phase4b-appbridge-split.md) | 2026-11-24 | 整理フェーズ ④b：appBridge の分割 | [F40](../features/html-app.md#f40-html-app-の枠と画面をつなぐ橋) |
 | [0049](0049-phase4c-folders.md) | 2026-11-24 | 整理フェーズ ④c：フォルダ化 | [F44](../features/versions.md#f44-版を並べて比べる)・[F43](../features/zoom.md#f43-個別表示でコメントする)・[F28](../features/html-app.md#f28-資料に実行できる枠-html-app-を書ける) |
 | [0050](0050-save-markdown.md) | 2026-11-24 | Markdown を保存の仕様と設計 | [F50](../features/versions.md#f50-markdown-を保存) |
+| [0051](0051-save-markdown-icon-only.md) | 2026-11-24 | 「Markdown を保存」を、常にアイコンだけにした | [F50](../features/versions.md#f50-markdown-を保存) |

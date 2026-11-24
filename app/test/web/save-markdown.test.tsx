@@ -88,6 +88,11 @@ test('最新版・過去の版・子ページ：いま見ているページ・�
   location.hash = '#/demo/root'; // 最新 v3。既定は、変更を重ねる
   renderWithClient(<App />);
   await waitFor(() => expect(saveBtn()).toBeEnabled());
+  // アイコンだけ（上のバーのほかのアイコンのボタンと同じ `iconbtn`）。名前は aria-label（title は、長い説明で、名前の代わりにしない）
+  expect(saveBtn()).toHaveAttribute('aria-label', 'Markdown を保存');
+  expect(saveBtn()).toHaveClass('iconbtn');
+  expect(saveBtn().textContent).toBe('');
+  expect(saveBtn().getAttribute('title')).toMatch(/^Markdown を保存：/);
   expect(useUi.getState().showChanges).toBe(true);
   await waitFor(() => expect(byId('article').querySelector('.changed, .added, .diffbox')).not.toBeNull()); // 本文には、差分の装飾が重なっている
   fireEvent.click(saveBtn());
