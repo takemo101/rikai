@@ -286,8 +286,8 @@ label.chk { font-size: var(--fs-s); color: var(--muted); display: flex; gap: 6px
   .htmlapp .apptools button.tbtn[data-frame-mode] { font-size: 0; gap: 0; padding: 0 6px; }
   .htmlapp .apptools button.tbtn[data-width] { padding: 0 4px; }
 }
-:is(.htmlapp, .fv-app) .appframe { display: block; width: 100%; margin-inline: auto; border: 0; box-shadow: 0 0 0 1px var(--line); border-radius: var(--r); } /* 枠の線は、box-shadow（border は、border-box の枠の見える高さを削り、中身が、2px 隠れて、スクロールバーが出る）。枠の中は、別の文書（AI が書いたもの）。橋が、画面の外観（?mode=）と配色の土台を渡す。幅の切り替え（375/768/1280/1920px）は、style.width（appBridge.ts） */
-:is(.htmlapp, .fv-app) .appframe[data-mode="light"] { background: #fff; color-scheme: light; } /* 枠の地：ライトは白（従来どおり）・ダークは黒。中の文書が、地を描かない従来の資料でも、文字が読める（data-mode は、appBridge.ts が付ける：画面の外観に従う枠は画面の外観・従来の枠は、利用者が選ぶまでライト） */
+:is(.htmlapp, .fv-app) .appframe { display: block; width: 100%; margin-inline: auto; border: 0; box-shadow: 0 0 0 1px var(--line); border-radius: var(--r); } /* 枠の線は、box-shadow（border は、border-box の枠の見える高さを削り、中身が、2px 隠れて、スクロールバーが出る）。枠の中は、別の文書（AI が書いたもの）。橋が、画面の外観（?mode=）と配色の土台を渡す。幅の切り替え（375/768/1280/1920px）は、style.width（frameBridge.ts） */
+:is(.htmlapp, .fv-app) .appframe[data-mode="light"] { background: #fff; color-scheme: light; } /* 枠の地：ライトは白（従来どおり）・ダークは黒。中の文書が、地を描かない従来の資料でも、文字が読める（data-mode は、frameBridge.ts が付ける：画面の外観に従う枠は画面の外観・従来の枠は、利用者が選ぶまでライト） */
 :is(.htmlapp, .fv-app) .appframe[data-mode="dark"] { background: #09090b; color-scheme: dark; }
 /* 選んだ幅が、本文より広いとき：枠は、その幅のまま（中のレイアウトは、その幅で計算される）、左上を基点に縮小して、本文の幅に収める。`.appscale` が、縮小後の大きさを持ち、はみ出す分を切る
    （transform は、スクロールできる範囲を、縮小前の幅にしてしまうので、箱で受ける。枠の線・輪は、少し外まで残す） */

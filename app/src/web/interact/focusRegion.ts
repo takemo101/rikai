@@ -6,7 +6,7 @@
 //     比率は、本文の枠（ブロック）の側の幾何に写して決める（本文で、同じ相対位置を、ドラッグしたのと同じ：範囲の枠が、本文でも、同じ場所に重なる）。
 import { IMG_OUT_MAX_SIDE } from '../../shared/image';
 import type { Rect } from '../../shared/types';
-import type { AppFrame } from '../doc/appBridge';
+import type { AppFrame } from '../doc/frameRegistry';
 import { type BlockEl, blockAnchor, frameOf, mediaOf } from '../doc/render/blocks';
 import { trunc } from '../lib/dom';
 import { type Box, fromRatio, ratioOf, type Size } from '../lib/geom';

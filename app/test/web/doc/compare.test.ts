@@ -2,7 +2,8 @@
 // 版を並べて比べる画面の島（F44）：ブロックごとの行（追加・変更・削除・同じ・空白）・札の文字・読み取り専用（入口を出さない）・枠（html-app）の登録と解放・左右の独立。
 import { act } from '@testing-library/react';
 import { afterEach, expect, test, vi } from 'vitest';
-import { initialFrameState, registeredFrames, releaseApps } from '../../../src/web/doc/appBridge';
+import { registeredFrames, releaseApps } from '../../../src/web/doc/frameRegistry';
+import { initialFrameState } from '../../../src/web/doc/frameState';
 import { type CompareInput, renderCompare } from '../../../src/web/doc/render/compare';
 import { buildView } from '../../../src/web/lib/view';
 import { meta, topicState } from '../helpers';

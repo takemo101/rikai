@@ -7,7 +7,7 @@ import type { Meta } from '../../src/shared/types';
 import { App } from '../../src/web/App';
 import { type TopicState, topicKey } from '../../src/web/api/queries';
 import { queryClient } from '../../src/web/api/queryClient';
-import { registeredFrames } from '../../src/web/doc/appBridge';
+import { registeredFrames } from '../../src/web/doc/frameRegistry';
 import { useUi } from '../../src/web/store/ui';
 import {
   installDialog,

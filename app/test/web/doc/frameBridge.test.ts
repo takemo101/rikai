@@ -4,20 +4,16 @@
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 import type { PickInfo } from '../../../src/shared/htmlapp-bridge';
 import { MAX_HEIGHT } from '../../../src/shared/htmlapp-resize';
+import { APPLY_LIMIT, registerFrame } from '../../../src/web/doc/frameBridge';
 import {
-  APPLY_LIMIT,
   type AppFrame,
   followPageTheme,
-  frameScale,
-  frameScrolls,
-  initialFrameState,
   latestStateOf,
-  MIN_SCALE,
   registeredFrames,
-  registerFrame,
   releaseApps,
   requestFrameSnapshot,
-} from '../../../src/web/doc/appBridge';
+} from '../../../src/web/doc/frameRegistry';
+import { frameScale, frameScrolls, initialFrameState, MIN_SCALE } from '../../../src/web/doc/frameState';
 
 const added = vi.spyOn(window, 'addEventListener');
 const removed = vi.spyOn(window, 'removeEventListener');

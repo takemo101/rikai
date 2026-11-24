@@ -2,14 +2,15 @@
 // デザインの比較・UI のレビューのため：同じ枠を、幅と外観を変えて、見比べられる。**文字のボタン**（幅は数字・外観は現在の状態の文字・要素を選ぶ／拡大表示はアイコン＋短い文字）：アイコンだけだと、押す前に意味が分からないため。
 // 1 回押せば変わる（メニューを開かない）。`aria-label`・`aria-pressed`・`data-*` は、アイコンのころと同じ（見える文字を、名前に含める）。
 // 「要素を選ぶ」ボタン（F42）：押すと、枠が選択モードに入り、枠の中で押した要素の情報が、下書きのコメントになる（自動では、送らない）。選んでいる間は、見出しに、説明（`aria-live`）を出す。
-// 本文は、命令的な島（`render/apps.ts`）なので、ここは、枠ごとに、小さな React の根を作って載せる（`mountToolbar`）。状態は、橋（`appBridge.ts`）が持つ。
+// 本文は、命令的な島（`render/apps.ts`）なので、ここは、枠ごとに、小さな React の根を作って載せる（`mountToolbar`）。状態は、橋（`frameBridge.ts`）が持つ。
 import { Crosshair, Expand, Moon, Sun } from 'lucide-react';
 import { useSyncExternalStore } from 'react';
 import { createRoot } from 'react-dom/client';
 import { FRAME_WIDTHS, type FrameWidth } from '../lib/frameWidth';
 import type { ResolvedTheme } from '../lib/theme';
 import { useUi } from '../store/ui';
-import { type AppFrame, frameScale, frameScrolls } from './appBridge';
+import type { AppFrame } from './frameRegistry';
+import { frameScale, frameScrolls } from './frameState';
 
 // 幅：名前・px。aria-label は「枠の幅：名前（px）」。title は、本文より広いとき、縮小率を足す（枠の中のレイアウトは、選んだ幅で計算して、本文の幅に収まるよう縮小して見せる）
 const WIDTH_UI: Record<FrameWidth, { text: string; name: string; px?: number }> = {

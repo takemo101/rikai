@@ -3,7 +3,7 @@
 import type { Anchor, Thread } from '../../../shared/types';
 import type { View } from '../../lib/view';
 import { type DocModel, nextEpoch } from '../../store/doc';
-import { releaseApps } from '../appBridge';
+import { releaseApps } from '../frameRegistry';
 import { type AppsContext, fillApps } from './apps';
 import { markBlocks } from './blocks';
 import { addDiff } from './diff';

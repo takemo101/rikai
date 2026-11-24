@@ -3,7 +3,8 @@
 // 見出しの行のツールバー（幅・枠のライト/ダーク。アイコンだけ）・高さ（height=N は固定・なし／auto は自動の高さ）。
 import { act, fireEvent } from '@testing-library/react';
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
-import { initialFrameState, releaseApps } from '../../../src/web/doc/appBridge';
+import { releaseApps } from '../../../src/web/doc/frameRegistry';
+import { initialFrameState } from '../../../src/web/doc/frameState';
 import { fillApps } from '../../../src/web/doc/render/apps';
 import { markBlocks } from '../../../src/web/doc/render/blocks';
 import { mdToFragment } from '../../../src/web/doc/render/markdown';

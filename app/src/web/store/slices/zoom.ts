@@ -3,7 +3,7 @@ import type { StateCreator } from 'zustand';
 import type { UiStore } from '../createUi';
 
 export type RegMode = 'idle' | 'selecting';
-/** 個別表示（F43）のステージの道具。`region`：画像・図・枠の上で、範囲をドラッグで選んでいる（Esc で中止）。要素を選ぶ道具（html-app）は、橋が持つ（`appBridge.ts`） */
+/** 個別表示（F43）のステージの道具。`region`：画像・図・枠の上で、範囲をドラッグで選んでいる（Esc で中止）。要素を選ぶ道具（html-app）は、橋が持つ（`frameBridge.ts`） */
 export type FocusTool = 'idle' | 'region';
 
 /**
