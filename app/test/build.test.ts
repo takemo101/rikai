@@ -1,4 +1,4 @@
-// 配布物（skills/rikai/ に、コミットしたバンドル）が、ソースから、いま作り直したものと同じであること（SPEC §8：成果物が古くなっていない）
+// 配布物（skills/rikai/ に、コミットしたバンドル）が、ソースから、いま作り直したものと同じであること（SPEC §8 の判断：docs/decisions/0008-distribute-built-artifacts.md。成果物が古くなっていない）
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';

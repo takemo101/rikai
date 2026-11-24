@@ -1,13 +1,16 @@
 # ドキュメント案内
 
-rikai の補助文書の入口。製品要件・受け入れ条件・対象外の唯一の正本は、ルートの [SPEC.md](../SPEC.md)。`docs/` は、仕様を別管理する場所ではなく、構成の理解・開発手順・検証・書き方のために使う。
+rikai の補助文書の入口。製品要件・受け入れ条件・対象外の唯一の正本は、ルートの [SPEC.md](../SPEC.md)（索引）と、その機能一覧から入る [機能の文書](features/)。`docs/` は、仕様を別管理する場所ではなく、構成の理解・開発手順・検証・書き方のために使う（機能の文書・状態・決定の記録は、SPEC.md の一部として `docs/` に置く）。
 
 ## 文書の役割
 
 | 文書 | 答えること | 管理しないこと |
 |---|---|---|
 | [README](../README.md) | どんなツールか、いま何ができるか、どう使うか | 詳細な要件・検証の記録 |
-| [SPEC](../SPEC.md) | 何を満たすか・何を対象にしないか、実装の状態、未決事項、利用者の判断 | 検証の成功証拠 |
+| [SPEC](../SPEC.md) | 何を満たすか・何を対象にしないか（位置づけ・用語・機能の一覧・非機能要件 N1〜N7・対象外・未決事項）。索引 | 機能の要件の本文・検証の成功証拠 |
+| [機能の文書](features/)（`docs/features/<group>.md`。12 個） | 機能グループ別の要件の本文（`### F43 …` の F-ID の見出し。受け入れ条件）。入口は SPEC.md §3 の一覧 | 実装の状態・検証の成功証拠 |
+| [実装の状態](status.md) | 行ごとの状態（確認済み・未確認）と、確認した範囲・未確認の範囲（SPEC §6） | 新しい要件 |
+| [決定の記録](decisions/README.md)（`docs/decisions/`） | 利用者の決定（日付つきの表：[user-decisions.md](decisions/user-decisions.md)＝SPEC §8）と、AI の設計の判断（ADR：`NNNN-<題>.md`。理由・採らなかった案） | 要件の本文・検証の記録 |
 | [開発規約](../AGENTS.md) | どう調査・変更・検証・文書更新するか、守る不変条件 | 製品仕様の複製・作業履歴 |
 | [開発手順](development.md) | 実行・検証・インストール・ライブラリの更新・mikan の Issue 進行・GitButler・PR を、どう進めるか | 追加の実施権限・Issue 状態の複製 |
 | [構成説明](architecture.md) | ファイルの責務・状態の所有・時間と並行・失敗・信頼の境界はどう関係するか。既知の負債 | 確定 API・検証の結果 |
@@ -21,17 +24,18 @@ rikai の補助文書の入口。製品要件・受け入れ条件・対象外�
 
 ## 読む順序
 
-- **ツールを知る**：README → SPEC の位置づけ・機能要件・対象外 → [SKILL.md](../skills/rikai/SKILL.md)。
-- **作業を始める**：SPEC の対象節と §6・§7 → [開発規約](../AGENTS.md)・[開発手順](development.md) → [構成説明](architecture.md)の該当箇所 → [コーディング指針](coding-guidelines.md) → 実際のソース。
+- **ツールを知る**：README → SPEC の位置づけ・機能の一覧・対象外 → 関係する[機能の文書](features/) → [SKILL.md](../skills/rikai/SKILL.md)。
+- **作業を始める**：SPEC.md の関係する節と、機能の文書（F-ID の見出し）・[実装の状態](status.md)・SPEC §7（未決事項） → [開発規約](../AGENTS.md)・[開発手順](development.md) → [構成説明](architecture.md)の該当箇所 → [コーディング指針](coding-guidelines.md) → 実際のソース。
 - **設計を判断する**：[参考にした設計原則](references.md) → [構成説明](architecture.md)。見直すときは、[リファクタリングの観点](refactoring.md)。
-- **動作を確かめる**：SPEC の受け入れ条件と §6 → [検証手順と記録](verification.md)。設計の説明だけで、動作確認を済ませない。
-- **結果を判断する**：検証記録 → SPEC の状態。自動の観測（いまは手作業の観測）と、人間の確認を区別する。
+- **動作を確かめる**：機能の文書の受け入れ条件と [実装の状態](status.md) → [検証手順と記録](verification.md)。設計の説明だけで、動作確認を済ませない。
+- **結果を判断する**：検証記録 → [実装の状態](status.md)。自動の観測（いまは手作業の観測）と、人間の確認を区別する。
+- **なぜそうしたかを知る**：[利用者の決定](decisions/user-decisions.md) → その範囲の設計の判断（[ADR](decisions/README.md)）。
 
 ## 配置
 
 ```text
 README.md              概要・使い方
-SPEC.md                製品要件・状態・対象外・未決事項・利用者の判断
+SPEC.md                製品要件の索引（位置づけ・用語・機能の一覧・非機能要件・対象外・未決事項）
 AGENTS.md              開発規約・不変条件
 LICENSE                MIT
 install.sh             skills/rikai/ を ~/.claude/skills/rikai/ へ複製する（CLAUDE_SKILLS_DIR で変更）
@@ -66,13 +70,16 @@ docs/
   references.md        参考にしたツール・設計原則・外部の機能の確認状況
   refactoring.md       リファクタリングの観点と進め方
   verification.md      検証の手順・記録・人間の確認待ち
+  status.md            実装の状態（行ごとの状態・確認した範囲。SPEC §6）
+  features/            機能の要件の本文（機能グループ別の 12 文書。F-ID の見出し）：ai-commands・doc-format・comments・region-element・zoom・versions・threads・topics-pages・turn-notify・appearance・html-app・ui-cleanup
+  decisions/           決定の記録（SPEC §8）：README.md（ADR の一覧と足し方）・user-decisions.md（利用者の決定）・`NNNN-<題>.md`（AI の設計の判断。ADR）
 ```
 
 利用者のデータ（`<project>/.rikai/`）は、リポジトリの外（それぞれのプロジェクトの中）にあり、既定で git に入らない。`.mikan/`（Issue の作業状態）も、Git 対象外（`.git/info/exclude`）のローカルの状態で、文書のリンク対象にしない。
 
 ## 更新時の扱い
 
-- 製品の意味・範囲を変えるときは、SPEC を正本とする。補助文書に同じ値を別管理せず、必要な節へ参照する。実装が進んだら、SPEC §6 の「状態」を、同じ変更で更新する。
+- 製品の意味・範囲を変えるときは、SPEC.md と機能の文書を正本とする。補助文書に同じ値を別管理せず、必要な節へ参照する。実装が進んだら、[実装の状態](status.md)（SPEC §6）の「状態」列を、同じ変更で更新する（SPEC.md の機能一覧の「状態」も合わせる）。**新しい追記の場所は、[AGENTS.md](../AGENTS.md#新しい追記の場所)**。
 - 構成説明は、選択した境界と理由。検証記録は、実際の操作と観測。**説明・予定・結果を混ぜない。**
 - 文書を追加・移動・削除したら、この索引と参照元を、同じ変更で更新する。見出しを変えたら、その見出しを参照するリンクも確認する。
 - 未実施・失敗・限定的な成功を残す。後の修正や再試行は、別の記録として結び付け、過去の証拠を、全面的な成功へ書き換えない。
