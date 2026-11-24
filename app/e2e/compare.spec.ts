@@ -1142,3 +1142,107 @@ test('外への通信が出ない・合言葉が URL に残らない（比較を
   expect(app.external).toEqual([]);
   expect(page.url()).not.toContain('t=');
 });
+
+// ---- 版の見出し（.cmphead）：スクロールしたとき、スクロールの容器（#docscroll）の上端＝上のバー（#docbar）のすぐ下に、隙間なく止まる ----
+// 0.30.2 の修正：`position: sticky; top: 0` は、容器の上の余白（padding-top：32px・狭い窓 20px）の下に止まり、見出しの上に、本文の行が見えていた（0.25.0 から）
+const LONG = (v: number) =>
+  lines(
+    '# 長い資料',
+    '',
+    ...Array.from({ length: 40 }, (_, i) =>
+      lines(
+        `## 節 ${i + 1}`,
+        '',
+        `- 項目 ${i + 1}-a：説明の文です。版 ${v}`,
+        `- 項目 ${i + 1}-b：押す領域の説明です。`,
+        '',
+      ),
+    ),
+  );
+
+/** スクロールして、止まっている見出しと、上のバー・容器・見出しの直上の点にある要素を測る */
+async function stuckHead(page: Page, scrollTop: number) {
+  await page.evaluate((t) => {
+    (document.getElementById('docscroll') as HTMLElement).scrollTop = t;
+  }, scrollTop);
+  await page.waitForTimeout(150);
+  return page.evaluate(() => {
+    const top = (s: string) => (document.querySelector(s) as HTMLElement).getBoundingClientRect();
+    const head = top('#compare .cmphead');
+    const probe = (dy: number) => document.elementFromPoint(head.left + 60, head.top + dy);
+    const above = probe(-2);
+    const inside = probe(2);
+    return {
+      head: head.top,
+      docbarBottom: top('#docbar').bottom,
+      scrollTop: top('#docscroll').top,
+      docbarH: top('#docbar').height,
+      // 見出しの直上：上のバーか、見出し自身（本文の行が、見えない）。直下：見出し自身
+      aboveOk: !!above && (!!above.closest('#docbar') || !!above.closest('.cmphead')),
+      aboveTag: above ? `${above.tagName}.${(above as HTMLElement).className}` : null,
+      insideOk: !!inside?.closest('.cmphead'),
+    };
+  });
+}
+
+test.describe('比べる画面の版の見出しの位置（0.30.2）', () => {
+  for (const [w, mode] of [
+    [1360, 'latest'],
+    [1360, 'past'],
+    [1100, 'latest'],
+    [900, 'past'],
+    [760, 'latest'],
+    [760, 'past'],
+  ] as const) {
+    test(`幅 ${w}px・${mode === 'past' ? '過去の版を見ている（上のバーに警告）' : '最新版'}：スクロールしても、見出しは、上のバーのすぐ下に隙間なく止まる`, async ({
+      page,
+      app,
+    }) => {
+      await page.setViewportSize({ width: w, height: 900 });
+      await app.switchTopic(page, DOC_ID, '比較', LONG(1));
+      await app.apply({ revisions: [{ page: 'root', markdown: LONG(2) }] }, { topic: DOC_ID });
+      await expect(page.locator('#docbar select')).toHaveValue('2');
+      if (mode === 'past') await page.locator('#docbar select').selectOption('1');
+      await openCompare(page);
+      await expect(page.locator('#compare .cmphead')).toHaveCSS('position', 'sticky');
+      for (const t of [700, 2500]) {
+        const m = await stuckHead(page, t);
+        expect(m.head, `scrollTop ${t}`).toBeCloseTo(m.docbarBottom, 0); // 上のバーの下端と、見出しの上端が、一致
+        expect(m.head).toBeCloseTo(m.scrollTop, 0); // 容器の上端
+        expect(m.aboveOk, `見出しの直上が本文の行（${m.aboveTag}）`).toBe(true);
+        expect(m.insideOk).toBe(true);
+      }
+    });
+  }
+
+  test('上のバーが折り返して高くなる（長い子ページの名前・狭い窓）：見出しは、そのバーの下に、止まる', async ({
+    page,
+    app,
+  }) => {
+    await page.setViewportSize({ width: 760, height: 900 });
+    await app.switchTopic(page, DOC_ID, '比較', LONG(1));
+    const title = '長い名前の子ページ：パンくずが、折り返して、上のバーが高くなるかを確かめる';
+    await app.apply({ pages: [{ id: 'sub', title, parent: 'root', markdown: LONG(1) }] }, { topic: DOC_ID });
+    await page.evaluate(() => {
+      location.hash = '#/cmp/sub';
+    });
+    await expect(page.locator('#docbar .crumbs')).toContainText('長い名前の子ページ');
+    await app.apply({ revisions: [{ page: 'sub', markdown: LONG(2) }] }, { topic: DOC_ID });
+    await expect(page.locator('#docbar select')).toHaveValue('2');
+    await openCompare(page);
+    const m = await stuckHead(page, 900);
+    expect(m.docbarH, '前提：上のバーが折り返して、高くなっている').toBeGreaterThan(48);
+    expect(m.head).toBeCloseTo(m.docbarBottom, 0);
+    expect(m.head).toBeCloseTo(m.scrollTop, 0);
+    expect(m.aboveOk, `見出しの直上が本文の行（${m.aboveTag}）`).toBe(true);
+  });
+
+  test('1 カラムの狭い窓（〜759px）：見出しは、固定せず、流れる（sticky でない）', async ({ page, app }) => {
+    await page.setViewportSize({ width: 700, height: 900 });
+    await app.switchTopic(page, DOC_ID, '比較', LONG(1));
+    await app.apply({ revisions: [{ page: 'root', markdown: LONG(2) }] }, { topic: DOC_ID });
+    await expect(page.locator('#docbar select')).toHaveValue('2');
+    await openCompare(page);
+    await expect(page.locator('#compare .cmphead')).toHaveCSS('position', 'static');
+  });
+});

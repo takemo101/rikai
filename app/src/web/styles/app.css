@@ -244,7 +244,7 @@ label.chk { font-size: var(--fs-s); color: var(--muted); display: flex; gap: 6px
 #links-toggle[aria-pressed=true] { color: var(--accent-ink); background: var(--accent-soft); }
 
 /* ---- 中央：本文（白い紙の上。カードの枠・影はなし） ---- */
-#docscroll { flex: 1; overflow: auto; padding: 32px 40px 120px 36px; position: relative; background: var(--paper); }
+#docscroll { --doc-pad-t: 32px; flex: 1; overflow: auto; padding: var(--doc-pad-t) 40px 120px 36px; position: relative; background: var(--paper); } /* --doc-pad-t：上の余白。`position: sticky; top: 0` は、この余白の下に止まる（容器の上端ではない）ので、固定する要素は、`top: calc(var(--doc-pad-t) * -1)`（compare.css の .cmphead） */
 /* 左の 40px は、番号の丸の置き場（#badges）。丸は重ねて 1 行に収める（重なり 2px）：左の余白 36px ＋ 記事の左 34px で、1 桁なら 4 つ・2 桁なら 3 つ。広い窓では、5 つ。収まらない分は、減らして、「+N」にまとめる（丸の幅の計算は layout.ts の foldBadges） */
 #article { max-width: var(--article-w); margin: 0 auto; padding: 0 0 0 40px; }
 
@@ -527,7 +527,7 @@ dialog p { margin: 0 0 12px; color: var(--ink-2); }
   .turn-go { display: none; } /* 狭い窓：印は、状態の名前だけ（左の一覧は、アイコンだけ。名前は title・aria-label） */
   #top-title:not(:empty)::before { display: none; }
   #docbar { padding: 4px 10px; }
-  #docscroll { padding: 20px 12px 120px 8px; }
+  #docscroll { --doc-pad-t: 20px; padding: var(--doc-pad-t) 12px 120px 8px; }
   .md { font-size: 14px; }
   .md h1 { font-size: 20px; }
 }

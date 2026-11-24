@@ -14,7 +14,7 @@
 #compare .cmpnote-main { color: var(--ink-2); }
 #compare .cmpactions { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; }
 #compare .cmphead, #compare .cmprow { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); column-gap: 20px; }
-#compare .cmphead { position: sticky; top: 0; z-index: 5; padding: 8px 0; background: var(--paper); border-bottom: 1px solid var(--line); }
+#compare .cmphead { position: sticky; top: calc(var(--doc-pad-t) * -1); z-index: 5; padding: 8px 0; background: var(--paper); border-bottom: 1px solid var(--line); } /* 止まる位置：容器（#docscroll）の上端。sticky は、容器の上の余白の下に止まるので、その分を引く（上のバー #docbar は、容器の外：高さが変わっても、追従する） */
 #compare .cmpcol { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
 #compare .cmpcol-row { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; }
 #compare .cmplabel { display: inline-flex; align-items: center; gap: 6px; font-size: var(--fs-s); color: var(--muted); }

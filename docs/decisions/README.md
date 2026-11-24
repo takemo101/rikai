@@ -66,3 +66,4 @@
 | [0049](0049-phase4c-folders.md) | 2026-11-24 | 整理フェーズ ④c：フォルダ化 | [F44](../features/versions.md#f44-版を並べて比べる)・[F43](../features/zoom.md#f43-個別表示でコメントする)・[F28](../features/html-app.md#f28-資料に実行できる枠-html-app-を書ける) |
 | [0050](0050-save-markdown.md) | 2026-11-24 | Markdown を保存の仕様と設計 | [F50](../features/versions.md#f50-markdown-を保存) |
 | [0051](0051-save-markdown-icon-only.md) | 2026-11-24 | 「Markdown を保存」を、常にアイコンだけにした | [F50](../features/versions.md#f50-markdown-を保存) |
+| [0052](0052-compare-sticky-head-offset.md) | 2026-11-24 | 並べて比べる画面の版の見出しの固定位置を、容器の余白の分だけ負にして、変数で共有した | [F44](../features/versions.md#f44-版を並べて比べる) |
