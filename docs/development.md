@@ -57,7 +57,7 @@
 リポジトリのまま動かせる。**`--root` で、一時のプロジェクトを指す**（実際のプロジェクトの `.rikai/` を、触らない）。
 
 ```bash
-RK="node $PWD/skills/rikai/rikai.js --root /tmp/rk-dev"   # skills/rikai/rikai.js は、ビルドしたバンドル。app/src/ を変えたあとは、先に pnpm run build
+RK="node $PWD/skills/rikai/rikai.js --root /tmp/rk-dev"   # skills/rikai/rikai.js は、ビルドしたバンドル。app/src/ を変えたあとは、先に pnpm run build。※ zsh では、`$RK` が単語に分かれず失敗する：zsh なら、関数 `rk() { node "$PWD/skills/rikai/rikai.js" --root /tmp/rk-dev "$@"; }` にして、`rk …` と呼ぶ（SKILL.md のコマンドの定義と同じ理由）
 mkdir -p /tmp/rk-dev
 
 $RK new demo --title "試し" <<'MD'
@@ -111,7 +111,7 @@ pnpm run test:e2e   # 実際の Chrome（Playwright。先に pnpm run build。�
 | `shared/anchor.test.ts` | `findQuote`・`locateBlock`・`similarity`（コメントの探し直し） |
 | `shared/diff.test.ts` | `diffText`（元に戻せること・変更箇所・大きな入力）・`matchBlocks`（同じ・変更・追加・削除・種類の違い・区間の制約・空・重複） |
 | `server/progress.test.ts` | `progressOf`（空・解決・質問・送信済みと未送信の回答・別の質問への回答・AI 起点のスレッド）と、実際の操作の流れでの数 |
-| `server/plugin.test.ts` | プラグインの宣言と配置の食い違い：スキルの場所・名前（ディレクトリ名と一致）・SKILL.md の frontmatter の項目（omp が、余計な項目のあるスキルを読み込まない）・`plugin.json` の項目と、`package.json` との名前・版の一致・各カタログの指す場所・pi の `skills`。各エージェントの検証コマンドは、含めない（手元の CLI に依存するため。上の表） |
+| `server/plugin.test.ts` | プラグインの宣言と配置の食い違い：スキルの場所・名前（ディレクトリ名と一致）・SKILL.md の frontmatter の項目（omp が、余計な項目のあるスキルを読み込まない）・`plugin.json` の項目と、`package.json` との名前・版の一致・各カタログの指す場所・pi の `skills`。**SKILL.md が案内する補助ファイル（`references/…md`）が、実在し・空でなく・案内されていない補助ファイルもないこと**（整理フェーズ ⑤b）。各エージェントの検証コマンドは、含めない（手元の CLI に依存するため。上の表） |
 | `server/server.test.ts`・`app.test.ts`・`serve.test.ts`・`cli.test.ts` | 合言葉・`Host`・`Origin`・Cookie・CSP・配信のパス（`app.request()`、または実際に待ち受けて）・`rikai open` の `.server.json` の権限（0600）・`rikai serve` が、すべてのトピックが閉じたら自分で終わること（バンドルした CLI を子プロセスで動かす。`serve` が終了の処理を取りつける経路） |
 | `server/attach.test.ts`・`region.test.ts`・`htmlapp.test.ts`・`image.test.ts` | 添付の画像（保存・検査）・範囲（`region`）・`html-app` の取り出しと `/appframe` の応答 |
 | `build.test.ts` | コミットした配布物（`skills/rikai/` のバンドル・worker・ライセンス表と、画面〔`skills/rikai/public/` 全体〕）が、ソースから作り直したものと同じこと（古いと落ちる。`pnpm run build`。画面は、別プロセス・本番の環境で `vite build` して比べる） |

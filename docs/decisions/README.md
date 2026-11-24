@@ -67,3 +67,4 @@
 | [0050](0050-save-markdown.md) | 2026-11-24 | Markdown を保存の仕様と設計 | [F50](../features/versions.md#f50-markdown-を保存) |
 | [0051](0051-save-markdown-icon-only.md) | 2026-11-24 | 「Markdown を保存」を、常にアイコンだけにした | [F50](../features/versions.md#f50-markdown-を保存) |
 | [0052](0052-compare-sticky-head-offset.md) | 2026-11-24 | 並べて比べる画面の版の見出しの固定位置を、容器の余白の分だけ負にして、変数で共有した | [F44](../features/versions.md#f44-版を並べて比べる) |
+| [0053](0053-skill-split.md) | 2026-11-24 | 整理フェーズ ⑤b：SKILL.md を、本体と補助ファイルに分けた | [F18](../features/ai-commands.md#f18-エージェントのスキルとして使える)・[F20](../features/ai-commands.md#f20-理解を確かめる返信を求める) |

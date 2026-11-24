@@ -1,6 +1,6 @@
 {
   "name": "rikai",
-  "version": "0.30.2",
+  "version": "0.30.3",
   "private": true,
   "description": "資料にコメントして「AI に送る」を押すと、AI が返信と資料の修正（版）で答える。理解できるまで回すスキル",
   "keywords": [
