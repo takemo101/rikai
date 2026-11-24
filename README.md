@@ -125,7 +125,9 @@ cd rikai
 bash install.sh      # ~/.claude/skills/rikai/ にコピーされる
 ```
 
-`~/.claude/skills/` を読むエージェント（Claude Code、opencode ほか）で使えます。ほかのエージェントは、`skills/rikai/` を、そのエージェントのスキルの置き場（opencode：`~/.config/opencode/skills/` または `.agents/skills/`、pi：`~/.pi/agent/skills/`、grok：`~/.grok/skills/`、agy：`~/.gemini/config/skills/`）にコピーします。アンインストールは、置いたディレクトリを消します。
+`~/.claude/skills/` を読むエージェント（Claude Code、opencode）で使えます。ほかのエージェントは、`skills/rikai/` を、そのエージェントのスキルの置き場（pi：`~/.pi/agent/skills/`、grok：`~/.grok/skills/`、agy：`~/.gemini/config/skills/`）にコピーします。アンインストールは、置いたディレクトリを消します。
+
+**opencode**：`bash install.sh` で `~/.claude/skills/rikai/` に置けば、そのまま読まれます。opencode 専用の場所（`~/.config/opencode/skills/rikai/`、プロジェクトなら `.opencode/skills/rikai/`）にコピーしてもかまいません。Claude Code と同じく、「AI に送る」を押すと、待っていた AI が自動で再開します（`rikai poll` がバックグラウンドで終わるため）。opencode v2.4.1 の画面（TUI）と `opencode run` で、`.opencode/skills/rikai/` に置いて確かめました（ほかの置き場は、opencode のドキュメントによるもので、実際には確かめていません）。opencode 用のプラグイン（npm）は、ありません。スキルだけで動きます。
 
 ### プラグインとして入れる
 
@@ -195,7 +197,7 @@ rikai stop; rm -rf /tmp/rikai-try
 |---|---|
 | `rikai new <topic> --title <題名> [--source <対象>]` | 標準入力の Markdown から、新しいトピックを作る |
 | `rikai open <topic> [--no-open]` | ビューアを起動して URL を出す |
-| `rikai poll <topic> [--timeout 秒]` | 「AI に送る」が押されるまで待ち、コメントのバッチを出す（Claude Code 向け） |
+| `rikai poll <topic> [--timeout 秒]` | 「AI に送る」が押されるまで待ち、コメントのバッチを出す（Claude Code・opencode 向け） |
 | `rikai pull <topic>` | 待たずに、未処理のバッチがあれば出す |
 | `rikai apply <topic>` | 標準入力の JSON で、返信・新版・子ページ・質問を反映する |
 | `rikai status [topic]` | 未処理のバッチなどを見る |

@@ -1486,13 +1486,30 @@
 **環境**：macOS（bash・zsh）・headless Chrome（実際の Chrome。`RIKAI_CHROME` を環境変数で渡した）・Vitest。
 
 - **実際の出力**（担当の報告）：`--help` を、パイプ・TTY（`script`）で出した：TTY で ANSI 24 個・`NO_COLOR=1` で 0・パイプで 0。コマンド別ヘルプ 8 種を、実際に出して、挙動と一致することを確かめた。空の `/tmp` で実行しても、`.rikai/` はできない。
-- **自動テスト**：新規：`app/test/server/args.test.ts`・`app/e2e/version.spec.ts`・`cli.test.ts` に追加。`cli.test.ts` は、`help.ts` の一覧と `main.ts` の `case`、コードが読む `flags` とヘルプのオプション一覧の一致を検査する（ドリフト防止）。**件数**：担当の報告は Vitest 1085 件。**全体は、親が確認中**（確認できたら、書き換える）。
+- **自動テスト**：新規：`app/test/server/args.test.ts`・`app/e2e/version.spec.ts`・`cli.test.ts` に追加。`cli.test.ts` は、`help.ts` の一覧と `main.ts` の `case`、コードが読む `flags` とヘルプのオプション一覧の一致を検査する（ドリフト防止）。**件数**：担当の報告は Vitest 1085 件（履歴）。**全体は、親が確認した：Vitest 1085 件（99 ファイル）・lint エラー 0・build 成功・e2e 415 件を 1 回流して、全件成功**（3.1 分・`workers: 4`・`RIKAI_CHROME` を環境変数で渡した・2026-11-24）。**e2e は 1 回のみ**（「3 回連続で全件成功」とは書かない）。ビルドした `skills/rikai/rikai.js --version` が `rikai 0.1.2`（`package.json` と一致）：親が確認した。
 - **画面**（担当の報告）：窓幅 1360・1101・1100・901・900・560・420・360 で、ページ・`#top`・`#side` のはみ出し 0・`#top` の高さ 44px・一覧が長いときの重なりなし。終了画面（1360・420）。実 Chrome のスクリーンショット（1360・1100 のドロワー・420 のドロワー）。
 - **壊して、落ちることを確かめた**（担当の報告）：埋め込みを外す（CLI は `ReferenceError`・画面は `version.spec.ts` が全滅）・`--help` の前にストアを作る（4 件）・未知のコマンドの終了コードを 0 に（1 件）・`help`・`version` を値を取るフラグに戻す（2 ファイル）。
 
-**確認していない範囲・残る課題**：実際のマウス・他のブラウザ・Windows の端末。
+**確認していない範囲・残る課題**：実際のマウス・他のブラウザ・Windows の端末・e2e の複数回の連続実行。
 
-**数字**：件数・実測・壊して確かめた件数は、担当の報告による。**全体（Vitest・e2e）は、親が確認中**。
+**数字**：Vitest 1085 件（99 ファイル）・lint エラー 0・build 成功・e2e 415 件（1 回）・ビルドした `rikai.js --version` の一致は、親が確認した。そのほかの実測・壊して確かめた件数は、担当の報告による（担当の件数〔Vitest 1085 件〕は、履歴）。
+
+
+### opencode 対応（0.1.3）（2026-11-24。[ADR-0057](decisions/0057-opencode-support.md)）
+
+**対象**：`skills/rikai/SKILL.md` の「2. 返信を待つ」（Claude Code・opencode の場合）・README のスキルの置き場の節。**独立レビューは、受けない**。
+
+**環境**：実際の opencode v2.4.1（`opencode run`・画面〔TUI。tmux で操作〕）・親が実行。
+
+- **スキルの認識**（親が実行）：スキルを `.opencode/skills/rikai/` に置くと、opencode が rikai のスキルを認識し、description も返した（`opencode run`）。**実際に確かめた置き場は `.opencode/skills/` だけ**（`~/.config/opencode/skills/`・`~/.claude/skills/`・`.claude/skills/` は、opencode のドキュメントによる）。
+- **待ち受け**（親が実行）：opencode の bash ツールが、長いコマンドを、自動でバックグラウンドへ移す（`Command moved to the background (shell ID …)`）ことと、バックグラウンドの `poll` が終わると、エージェントが自動で再開することを、確かめた。`opencode run`（非対話）と TUI の両方で、作り物のトピックに `rikai new`・`open --no-open`・`poll` → コメント 1 件と「AI に送る」を API で送る → 「Shell finished」で再開 → 資料を読む → 返信して `rikai apply`（v2 ができた）まで通った。
+- **見つかった問題と直し**：プロンプトで `poll` を明示しないと、opencode のモデルが、SKILL の「それ以外のエージェント（待機できない）」の手順（ユーザーに「送った」と言ってもらい、`pull`）を選んで、ターンを終えることがあった（2 回）。SKILL.md の見出しを「Claude Code・opencode の場合」にし、`run_in_background` の有無を分けた。
+- **SKILL.md を直したあとの再確認：済み**（親が実行・2026-11-24・1 回）：直した `skills/rikai/`（0.1.3）を `.opencode/skills/rikai/` に置き、**`poll` に言及しないプロンプト**（「資料を作って開き、ユーザーのレビューを待って。コメントが届いたら全スレッドに返信して apply して」）で `opencode run` を流した。opencode が、自分で `rikai poll` を実行し、「待つ間にバックグラウンドへ移された」と出て、コメント 1 件と「AI に送る」を API で送ると、再開して、返信・`rikai apply`（v2 ができた）まで通った。**1 回だけの小さな標本**。
+- **件数**：**親が確認した：Vitest 1085 件・lint エラー 0・build 成功・`rikai --version` が `rikai 0.1.3`**。e2e は、流していない（`SKILL.md`・README・version だけの変更）。
+
+**確認していない範囲・残る課題**：opencode の他のバージョン・`~/.config/opencode/skills/` と `~/.claude/skills/` からの読み込み・opencode の別のモデルでの `poll` の選び方（モデルが `pull` の手順を選ぶことがある。再確認は、1 回だけ）・Windows。
+
+**数字**：件数は、親が確認した。opencode での確認は、親の報告による。
 
 ### 人間の確認待ち
 
