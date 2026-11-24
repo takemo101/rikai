@@ -7,10 +7,10 @@ import { releaseApps } from '../../htmlapp/frameRegistry';
 import type { View } from '../../lib/view';
 import { type DocModel, nextEpoch } from '../../store/doc';
 import { markBlocks } from './blocks';
+import { fillDiagrams } from './diagrams';
 import { addDiff } from './diff';
 import { applyHighlights, markPending } from './highlights';
 import { mdToFragment } from './markdown';
-import { fillMermaid } from './mermaid';
 
 export interface RenderInput {
   view: View;
@@ -49,7 +49,7 @@ export async function renderDoc(
   releaseApps(art); // いまの枠（描き直しで消える）を、橋から外す
   art.replaceChildren(frag);
   fillApps(art, { view, onComment: input.onComment, onPick: input.onPick, onFocus: input.onFocus });
-  await fillMermaid(art);
+  await fillDiagrams(art);
   if (!isCurrent()) return null;
   markFocusEntries(art); // 画像・図を、キーボードで開ける入口に（F43）
   const layout = applyHighlights(art, input.threads, view.version);

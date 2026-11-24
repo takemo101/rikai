@@ -5,7 +5,7 @@ import { usePage, useTopic, useTopics } from './api/queries';
 import { CompareView } from './compare/CompareView';
 import type { ArticleProps } from './contracts';
 import { Article } from './doc/Article';
-import { fillMermaid } from './doc/render';
+import { fillDiagrams } from './doc/render';
 import { followPageTheme } from './htmlapp/frameRegistry';
 import { Interact } from './interact/Interact';
 import { DocBar } from './layout/DocBar';
@@ -288,7 +288,7 @@ function useRedrawDiagrams(): void {
       first.current = false;
       return;
     }
-    void fillMermaid(document);
+    void fillDiagrams(document);
   }, [theme]);
 }
 

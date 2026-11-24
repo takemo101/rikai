@@ -2,11 +2,11 @@
 // AI が書いた Markdown・HTML は、必ず DOMPurify（`PURIFY`）を通す。html-app の iframe は、無害化の**あとで**足す（apps.ts）。
 //
 // ## 使い方（資料の本文と、AI の返信は、同じ関数 `mdToFragment(md, slug[, withApps])`）
-//   import { fillMermaid, mdToFragment } from '../doc/render';           // `doc/render/index.ts`
+//   import { fillDiagrams, mdToFragment } from '../doc/render';          // `doc/render/index.ts`
 //   const frag = mdToFragment(m.text, { slug, kind: 'reply' });          // 無害化した DocumentFragment
 //   body.replaceChildren(frag);
-//   void fillMermaid(body);                                              // 図（`.mermaid-block`）を描く。待たなくてよい
-// - 形式（diff・json・terminal・trace）・リンク（http(s)・mailto・`page:`）・画像（`assets/` だけ。外部はブロック表示）・Mermaid の置き場は、`doc`・`reply` どちらも同じ。
+//   void fillDiagrams(body);                                             // 図（`.mermaid-block`・`.drawio-block`）を描く。待たなくてよい
+// - 形式（diff・json・terminal・trace）・リンク（http(s)・mailto・`page:`）・画像（`assets/` だけ。外部はブロック表示）・Mermaid・draw.io（```drawio。`<mxGraphModel>` の XML）の置き場は、`doc`・`reply` どちらも同じ。
 // - `kind: 'doc'`：資料の本文。```html-app を、枠の置き場（`.htmlapp`）にする（番号は、フェンスの順。サーバーが同じ番号の枠を配る）。
 // - `kind: 'reply'`：返信。```html-app は、ふつうのコードブロック。**ブロックの番号づけ（`markBlocks`）は、しない**（本文だけ。呼ぶ側の仕事）。
 // - `fillApps`（枠に iframe を入れる）も、本文だけ。返信では呼ばない。
@@ -57,6 +57,7 @@ const marked = new Marked({
     code({ text, lang }) {
       const kind = (lang || '').trim().split(/\s+/)[0]?.toLowerCase() ?? '';
       if (kind === 'mermaid') return `<div class="mermaid-block" data-mermaid="${encSrc(text)}"></div>`;
+      if (kind === 'drawio') return `<div class="drawio-block" data-drawio="${encSrc(text)}"></div>`;
       if (kind === 'html-app') {
         if (!appCtx) return false;
         const n = appCtx.n++;

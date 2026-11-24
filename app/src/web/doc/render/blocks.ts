@@ -17,6 +17,15 @@ export function safeDecode(s: string): string {
 
 export type { BlockEl };
 
+/** 図のブロック（Mermaid・draw.io）の選択子。図の扱い（ラベル・差分・文字の数え方・範囲・拡大表示の入口）は、どちらも同じ */
+export const DIAGRAM_SEL = '.mermaid-block, .drawio-block';
+
+/** 図のブロックか（Mermaid・draw.io） */
+export const isDiagram = (el: Element): boolean => el.matches(DIAGRAM_SEL);
+
+/** 図のソース（URI エンコードのまま：ハッシュが、保存済みのものと合うように）。図でなければ undefined */
+const diagramSource = (el: BlockEl): string | undefined => el.dataset.mermaid ?? el.dataset.drawio;
+
 const isBlockEl = (el: Element): el is BlockEl => el instanceof HTMLElement || el instanceof SVGElement;
 
 /**
@@ -40,7 +49,8 @@ export function blockEls(root: ParentNode): BlockEl[] {
  * **実行できる枠は、ソース**（置き場の見出しの文字は、番号で決まるので、使わない：枠を足す・消すと、コメントが別の枠に付く）
  */
 export function blockText(el: BlockEl): string {
-  if (el.dataset.mermaid) return el.dataset.mermaid;
+  const src = diagramSource(el);
+  if (src) return src;
   if (el.classList.contains('htmlapp')) return `html-app ${safeDecode(el.dataset.src || '')}`;
   return (el.textContent || '').replace(/\s+/g, ' ').trim();
 }
@@ -88,7 +98,8 @@ export function textIndex(root: Node): TextIndex {
   const w = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
     acceptNode(n) {
       const p = n.parentElement;
-      if (!p || p.closest('.mermaid-block, .htmlapp, .diffbox, style, script')) return NodeFilter.FILTER_REJECT;
+      if (!p || p.closest('.mermaid-block, .drawio-block, .htmlapp, .diffbox, style, script'))
+        return NodeFilter.FILTER_REJECT;
       return NodeFilter.FILTER_ACCEPT;
     },
   });
@@ -121,7 +132,7 @@ export const elOf = (n: Node): Element | null => (n.nodeType === 1 ? (n as Eleme
 
 /** ブロックの名前（カードの見出し・AI に届く label） */
 export function blockLabel(el: BlockEl): string {
-  if (el.classList.contains('mermaid-block')) return '図';
+  if (isDiagram(el)) return '図';
   if (el.classList.contains('htmlapp')) return '実行できる枠';
   if (el.dataset.fmt) return labelOf(el.dataset.fmt);
   const img = el instanceof HTMLImageElement ? el : el.querySelector('img'); // ブロックそのものが `<img>` のこともある
@@ -158,7 +169,7 @@ export const tagLabel = (tag: string): string =>
 
 /** 差分に使う、ブロックの文字（表は、セルを「 | 」で、行を改行でつなぐ。図は、ソース） */
 export function plainText(el: BlockEl): string {
-  if (el.classList.contains('mermaid-block')) return safeDecode(el.dataset.mermaid || '');
+  if (isDiagram(el)) return safeDecode(diagramSource(el) || '');
   if (el.classList.contains('htmlapp')) return safeDecode(el.dataset.src || '');
   if (el instanceof HTMLTableElement)
     return [...el.rows].map((r) => [...r.cells].map((c) => (c.textContent ?? '').trim()).join(' | ')).join('\n');
