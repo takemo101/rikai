@@ -79,13 +79,16 @@ rikai() { node "<SKILL_DIR>/rikai.js" "$@"; }; rikai status
 
 ## 2. 返信を待つ
 
-### Claude Code の場合
+### Claude Code・opencode の場合
 
 「AI に送る」を待つコマンドを **バックグラウンドで**起動し、そのターンを終える（待ち続けない）。
 
 ```bash
-rikai poll <topic>      # Bash の run_in_background: true で実行する
+rikai poll <topic>
 ```
+
+- **Claude Code**：Bash の `run_in_background: true` で実行する。
+- **opencode**：そのまま実行する（`run_in_background` はない）。待つ間に、opencode が、自動でバックグラウンドへ移す（`Command moved to the background` と出る）ので、そのターンを終える。
 
 ユーザーが「AI に送る」を押した瞬間にこのコマンドが終わり、出力でターンが再開する。出力は `status` の値で、次のどれか。
 

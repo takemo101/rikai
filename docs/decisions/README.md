@@ -71,3 +71,4 @@
 | [0054](0054-card-lighten.md) | 2026-11-24 | 右パネルのカードの軽量化（P5）：返信欄を畳む・札を外す・字と押す領域 | [F51](../features/threads.md#f51-右パネルのカードを軽くする)・[F45](../features/html-app.md#f45-枠から取った情報を情報の行にする) |
 | [0055](0055-drawio-block.md) | 2026-11-24 | draw.io の図（`drawio` コードブロック）：公式ビューアを使わず、自前で XML → SVG に描く | [F52](../features/doc-format.md#f52-資料に-drawio-の図を埋め込める)・[F37](../features/zoom.md#f37-本文の画像と図を拡大表示できる)・[F43](../features/zoom.md#f43-個別表示でコメントする) |
 | [0056](0056-version-and-help.md) | 2026-11-24 | バージョン表示と `--help`：版はビルド時に埋め込み、ヘルプは 1 か所のデータから描く | [F53](../features/ai-commands.md#f53-バージョンとヘルプを見られる) |
+| [0057](0057-opencode-support.md) | 2026-11-24 | opencode 対応：プラグインは作らず、スキルだけにした。待ち受けは、SKILL.md で `run_in_background` の有無を分けた | [F18](../features/ai-commands.md#f18-エージェントのスキルとして使える)・[F19](../features/ai-commands.md#f19-待ち方をエージェントに合わせる) |
