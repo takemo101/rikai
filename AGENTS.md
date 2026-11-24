@@ -2,10 +2,23 @@
 
 ## 文書の役割
 
-- [SPEC.md](SPEC.md) が、製品要件・受け入れ条件・対象外・未決事項の唯一の正本。作業前に、依頼に関係する節を読む。**実装の状態は、SPEC §6 の「状態」列**。
+- [SPEC.md](SPEC.md) は、製品要件の**索引**で、製品要件・受け入れ条件・対象外・未決事項の唯一の正本の入口（位置づけ・用語・機能の一覧・非機能要件 N1〜N7・対象外・未決事項）。**機能の要件の本文は、[docs/features/](docs/features/)**（機能グループ別の文書。`### F43 …` のように、F-ID の見出し）。作業前に、依頼に関係する機能の文書と、SPEC.md の関係する節を読む。**実装の状態は、[docs/status.md](docs/status.md)（SPEC §6）の表の「状態」列**。
 - [README.md](README.md) は、利用者向けの概要と使い方。本書は作業規約であり、製品仕様・作業状況の複製ではない。
-- 要件を別の設計書へ移さず、SPEC の該当節を参照する。仕様に影響する判断は、利用者の判断を反映して、SPEC を更新する（§8 に日付つきで残す）。
+- 要件を別の設計書へ移さず、SPEC.md か機能の文書の該当節を参照する。仕様に影響する判断は、利用者の判断を反映して、要件を更新する（利用者の決定は [docs/decisions/user-decisions.md](docs/decisions/user-decisions.md)〔SPEC §8〕に日付つきで、AI の設計の判断は [ADR](docs/decisions/README.md) に残す）。
 - 別の引き継ぎ書は維持しない。過去の案・参考資料を、現在の仕様や検証済みの事実として扱わない。
+
+## 新しい追記の場所
+
+書くものごとに、**書く場所は 1 か所**。同じことを、複数の場所に書かない（ほかの場所からは、リンクする）。
+
+| 書くもの | 書く場所 |
+|---|---|
+| 新しい機能の要件・要件の変更 | 属するグループの `docs/features/<group>.md` に、`### F<次の番号> <題>` の見出しで足す（いまの最後は F50。**F-ID は付け替えず、再利用しない**：コード・テストの参照が 400 件超ある）。複数のグループにまたがる機能は、1 か所に置き、ほかの文書からリンクする。SPEC.md の機能一覧（§3）に、**1 行**足す |
+| 非機能要件・用語・対象外・未決事項 | SPEC.md の該当の節（N 番号は §4・用語は §2・対象外は §5・未決事項は §7）。未決が決まったら、その行は [docs/decisions/user-decisions.md](docs/decisions/user-decisions.md) へ移す |
+| 実装の状態（確認済み・未確認・確認した範囲） | [docs/status.md](docs/status.md) の表の「状態」列に書く（**書くのはここ**。SPEC.md の機能一覧の「状態」は、その列の語を写したものなので、同じ変更で合わせる） |
+| 利用者の決定（依頼・指摘・選択） | [docs/decisions/user-decisions.md](docs/decisions/user-decisions.md) の表の末尾に、日付つきの行で |
+| AI の設計の判断（理由・採らなかった案） | 新しい ADR（`docs/decisions/NNNN-<題>.md`。1 判断 1 ファイル。手順は [docs/decisions/README.md](docs/decisions/README.md#adr-の足し方)） |
+| 実際の操作と観測（検証の記録） | [docs/verification.md](docs/verification.md)（追記専用。過去の記録と、その見出しは、書き換えない） |
 
 補助文書の入口は [docs/README.md](docs/README.md)。目的に応じて読む。
 

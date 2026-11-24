@@ -6,12 +6,12 @@
 
 | 対象 | 正本・役割 |
 |---|---|
-| 製品要件・受け入れ条件・実装の状態・未決事項 | [SPEC.md](../SPEC.md) が唯一の正本 |
+| 製品要件・受け入れ条件・実装の状態・未決事項 | [SPEC.md](../SPEC.md)（索引）・[機能の文書](features/)・[実装の状態](status.md) が唯一の正本 |
 | 作業規約・操作権限・不変条件 | [AGENTS.md](../AGENTS.md)。本書は、その派生手順であり、追加の実施許可ではない |
 | Issue の現在の状態・Report | mikan（[下記](#mikan-の-issue-進行)）。文書に Status の写しを維持しない |
 | 構成・観測方法・証拠 | [構成説明](architecture.md)、[検証手順と記録](verification.md) |
 
-1. 依頼の対象と、SPEC の該当節（機能要件・状態・未決事項）を読む。
+1. 依頼の対象と、SPEC の該当節（機能の文書の F-ID の見出し・[実装の状態](status.md)・未決事項）を読む。
 2. AGENTS と本書を読み、変更範囲・許可された操作・確認方法を特定する。既存の利用者の変更を保持する。
 3. [構成説明](architecture.md) の該当箇所と、実際のソースを読む。
 
@@ -144,7 +144,7 @@ pnpm run test:e2e   # 実際の Chrome（Playwright。先に pnpm run build。�
 1. 守る振る舞い（SPEC の該当 ID）を確かめる方法があるか見る。なければ、先に決める（上の表）。
 2. 変更して、上の方法で確かめる。
 3. SKILL.md に影響するか確かめる（`apply` の入力・`ask` の型・コマンド・待ち方）。影響すれば、同じ変更で直し、**直した例の入力を、実際に `apply` に流す**。
-4. SPEC（要件・§6 の状態）・構成説明・検証記録・README に影響するなら、同じ変更で更新する（[AGENTS.md](../AGENTS.md#文書とツールの保守)）。
+4. SPEC（要件。状態は [status.md](status.md)〔SPEC §6〕）・構成説明・検証記録・README に影響するなら、同じ変更で更新する（[AGENTS.md](../AGENTS.md#文書とツールの保守)）。
 
 ### コマンドを足す
 
@@ -157,7 +157,7 @@ pnpm run test:e2e   # 実際の Chrome（Playwright。先に pnpm run build。�
 
 1. `app/src/server/ask.ts`：`ASK_TYPES`・`normAsk`（AI の入力の検査）・`normAnswer`（人間の回答の検査）。型は `app/src/shared/types.ts`（`Ask`・`AskAnswer`）。
 2. `app/src/web/panel/AskView.tsx`・`panel/logic.ts`：`askDraftValid`・ask の入力の描画・下書き。
-3. `SKILL.md` の `ask` の表と、SPEC F10 を直す。
+3. `SKILL.md` の `ask` の表と、SPEC F10（[threads.md](features/threads.md#f10-ai-が質問を付けられ人間が答えられる)）を直す。
 
 ## データの形を変えるとき
 
