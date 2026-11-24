@@ -4,8 +4,8 @@
 // 描き直しのたびに、いまの枠を、橋から外す（`releaseApps`）。
 import { type BlockSig, diffText, matchBlocks } from '../../shared/diff';
 import { blockEls, markBlocks, plainText, sigTag, tagLabel } from '../doc/render/blocks';
+import { fillDiagrams } from '../doc/render/diagrams';
 import { mdToFragment } from '../doc/render/markdown';
-import { fillMermaid } from '../doc/render/mermaid';
 import { fillApps } from '../htmlapp/apps';
 import { type AppFrame, framesIn, releaseApps } from '../htmlapp/frameRegistry';
 import { alignRows, groupSame, type Row, type RowStatus, type RowSummary, summarize } from '../lib/compare';
@@ -169,7 +169,7 @@ export async function renderCompare(
       compare: { ...input.frames, label: c.classList.contains('cmpl') ? '左' : '右', onEsc: input.onEsc },
     });
   }
-  await fillMermaid(el);
+  await fillDiagrams(el);
   if (!isCurrent()) return null;
   return { summary: summarize(rows), limited: matches?.limited ?? false, frames: framesIn(el) };
 }

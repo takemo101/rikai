@@ -1,7 +1,7 @@
 // 文の選択 → コメントの対象（アンカー）。範囲の名前（`regionLabel`）。
 // 本文の文字の数え方は、位置づけ（`doc/render/highlights.ts` の `applyHighlights`）と同じ：`textIndex` が、`.diffbox`・Mermaid・html-app の中の文字を除く。
 import type { Anchor } from '../../shared/types';
-import { blockAnchor, boundaryOffset, elOf, textIndex } from '../doc/render/blocks';
+import { blockAnchor, boundaryOffset, DIAGRAM_SEL, elOf, isDiagram, textIndex } from '../doc/render/blocks';
 import { trunc } from '../lib/dom';
 
 /** 引用の長さの上限（これを超える選択は、先頭からここまで） */
@@ -22,7 +22,7 @@ export function anchorFromSelection(article: HTMLElement, sel: Selection | null)
   const b = elOf(r.endContainer);
   if (!a || !b) return null;
   if (a.closest('.diffbox')) return null;
-  const mb = a.closest<HTMLElement>('.mermaid-block') ?? b.closest<HTMLElement>('.mermaid-block');
+  const mb = a.closest<HTMLElement>(DIAGRAM_SEL) ?? b.closest<HTMLElement>(DIAGRAM_SEL);
   if (mb) return blockAnchor(mb);
   const idx = textIndex(article);
   let s = boundaryOffset(idx, r.startContainer, r.startOffset);
@@ -48,5 +48,5 @@ export function anchorFromSelection(article: HTMLElement, sel: Selection | null)
 /** 範囲の名前（カードの見出し・AI に届く label）。画像の alt・図（Mermaid）・インラインの svg の文字 */
 export function regionLabel(blk: Element, media: Element): string {
   if (media instanceof HTMLImageElement) return `画像${media.alt ? `: ${media.alt}` : ''}`;
-  return blk.classList.contains('mermaid-block') ? '図' : trunc(blk.textContent, 40) || '図';
+  return isDiagram(blk) ? '図' : trunc(blk.textContent, 40) || '図';
 }

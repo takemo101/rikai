@@ -69,3 +69,4 @@
 | [0052](0052-compare-sticky-head-offset.md) | 2026-11-24 | 並べて比べる画面の版の見出しの固定位置を、容器の余白の分だけ負にして、変数で共有した | [F44](../features/versions.md#f44-版を並べて比べる) |
 | [0053](0053-skill-split.md) | 2026-11-24 | 整理フェーズ ⑤b：SKILL.md を、本体と補助ファイルに分けた | [F18](../features/ai-commands.md#f18-エージェントのスキルとして使える)・[F20](../features/ai-commands.md#f20-理解を確かめる返信を求める) |
 | [0054](0054-card-lighten.md) | 2026-11-24 | 右パネルのカードの軽量化（P5）：返信欄を畳む・札を外す・字と押す領域 | [F51](../features/threads.md#f51-右パネルのカードを軽くする)・[F45](../features/html-app.md#f45-枠から取った情報を情報の行にする) |
+| [0055](0055-drawio-block.md) | 2026-11-24 | draw.io の図（`drawio` コードブロック）：公式ビューアを使わず、自前で XML → SVG に描く | [F52](../features/doc-format.md#f52-資料に-drawio-の図を埋め込める)・[F37](../features/zoom.md#f37-本文の画像と図を拡大表示できる)・[F43](../features/zoom.md#f43-個別表示でコメントする) |

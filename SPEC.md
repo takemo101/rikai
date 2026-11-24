@@ -71,6 +71,7 @@
 | F9 | [返信は Markdown](docs/features/doc-format.md#f9-返信は-markdown) | 確認済み |
 | F17 | [画像は assets のものだけ](docs/features/doc-format.md#f17-画像は-assets-のものだけ) | 確認済み |
 | F26 | [コードブロックの種類で形式を書ける](docs/features/doc-format.md#f26-コードブロックの種類で形式を書ける) | 確認済み（一部） |
+| F52 | [資料に draw.io の図を埋め込める](docs/features/doc-format.md#f52-資料に-drawio-の図を埋め込める) | 実装済み・確認済み（e2e は 1 回・独立レビューなし・利用者が見本で承認） |
 
 ### コメントする
 

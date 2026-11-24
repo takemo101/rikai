@@ -19,6 +19,7 @@ description: 資料（説明・PR・設計・コード解説）を Markdown で�
 
 - 資料に ```` ```html-app ```` を書く → `references/html-app.md`
 - diff・json・terminal・trace・画像・mermaid など、資料の書式を選ぶ → `references/doc-format.md`
+- draw.io の図（業務フロー・スイムレーン・シーケンス図）を書く → `references/drawio.md`
 - 受け取った出力（`poll`・`pull`・`status`・`apply`）の形が分からない。`frameMeta`・`region`・`images`・旧い形のコメントがある → `references/poll-output.md`（出力の完全な例つき）
 - ユーザーの画面の操作（拡大表示・並べて比べる・保存・コメントの付け方）を案内する → `references/viewer.md`
 
@@ -73,7 +74,7 @@ rikai() { node "<SKILL_DIR>/rikai.js" "$@"; }; rikai status
 理解のための資料にする。全体像 → 要素ごとの説明 → 必要な分のコード抜粋 → 読むときの注意、の順を基本にする。
 
 - 見出し・表・箇条書き・コードブロック。図は ```` ```mermaid ````。画像は `.rikai/<topic>/assets/` に置き `![説明](assets/名前.png)`（外部の画像 URL は表示されない）。別ページへは `[詳細](page:<page-id>)`。HTML の `<script>`・`<style>`・iframe は取り除かれる。
-- コードブロックの形式：`diff`・`json`・`terminal`・`trace`・`html-app`（ユーザーが触って確かめる部品。**書く前に `references/html-app.md` を読む**）。
+- コードブロックの形式：`diff`・`json`・`terminal`・`trace`・`drawio`・`html-app`（ユーザーが触って確かめる部品。**書く前に `references/html-app.md` を読む**）。
 - ユーザーは、本文の画像・図を押して拡大表示で見て、範囲を選んでコメントできる（案内してよい）。並べて比べる・Markdown の保存など、ほかの操作を案内するときは `references/viewer.md` を読む。
 
 ## 2. 返信を待つ

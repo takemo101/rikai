@@ -54,6 +54,9 @@
   --hl-fmt-live: light-dark(rgba(250, 204, 21, 0.5), rgba(251, 191, 36, 0.22));
   --hl-bar: light-dark(#eab308, #ca8a04);
   --done: light-dark(#a1a1aa, #71717a); /* 解決済みの下線・枠（装飾） */
+  /* draw.io の図の標準の色（`fillColor` なしの図形の地・線・文字）。指定された色は、そのまま使う（doc/render/drawioSvg.ts）。ダークは、暗い地・明るい線・文字 */
+  --dx-ink: light-dark(#000, #e4e4e7);
+  --dx-fill: light-dark(#fff, #18181b);
   --off-bg: light-dark(#e4e4e7, #27272a); /* 無効の主ボタンの面・文字（3:1 以上） */
   --off-ink: light-dark(#71717a, #8b8b94);
   --done-fill: light-dark(#63636b, #52525b); /* 解決済みの番号の丸の塗り（白い文字が載る：AA） */
@@ -265,8 +268,9 @@ label.chk { font-size: var(--fs-s); color: var(--muted); display: flex; gap: 6px
 .md a { color: var(--accent-ink); }
 .md a.pagelink { background: var(--accent-soft); text-decoration: none; padding: 0 5px; border-radius: var(--r-s); }
 .img-blocked { color: var(--muted); font-size: var(--fs-s); border: 1px dashed var(--line-strong); padding: 2px 6px; border-radius: var(--r-s); }
-.mermaid-block { margin: 1em 0; text-align: center; overflow: auto; }
-.mermaid-block svg { max-width: 100%; height: auto; }
+.mermaid-block, .drawio-block { margin: 1em 0; text-align: center; overflow: auto; }
+.mermaid-block svg, .drawio-block svg { max-width: 100%; height: auto; }
+.dx-note { color: var(--muted); font-size: var(--fs-s); text-align: left; }
 .mm-err { color: var(--warn); font-size: var(--fs-s); text-align: left; }
 
 /* ---- 本文：前の版との差分 ---- */

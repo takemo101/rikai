@@ -2,6 +2,7 @@
 // 入口のバーの「拡大」は、マウスを置いたときだけ出るので、キーボードでは届かなかった（F37 の持ち越し）。
 // 印は、描き終えたあとに付ける（`renderDoc`）。Mermaid は、図を描き直す（外観の変更）と、SVG が置き換わるので、**ブロック（`.mermaid-block`）**に付ける。
 // 付けるのは、属性だけ（`tabindex`・`role`・`aria-label`・`data-focus-entry`）。本文の文字・ブロックの内容（ハッシュ・位置づけ）は、変わらない。
+import { DIAGRAM_SEL } from '../doc/render/blocks';
 import { zoomableAt } from './zoomOpen';
 
 /** 入口の印（フォーカスできる要素に付ける） */
@@ -18,7 +19,7 @@ export function markFocusEntries(art: HTMLElement): void {
   for (const m of art.querySelectorAll('img, svg')) {
     const el = zoomableAt(m, art);
     if (!el || el !== m) continue; // 入れ子の svg・リンクの中・枠の中は、外側の図・対象外
-    const entry = el.closest('.mermaid-block') ?? el;
+    const entry = el.closest(DIAGRAM_SEL) ?? el;
     if (!art.contains(entry) || entry.hasAttribute(FOCUS_ENTRY)) continue;
     entry.setAttribute(FOCUS_ENTRY, '');
     entry.setAttribute('tabindex', '0');

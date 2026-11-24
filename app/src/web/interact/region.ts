@@ -5,7 +5,7 @@
 
 import { IMG_MAX_BYTES, IMG_MAX_N, IMG_OUT_MAX_SIDE } from '../../shared/image';
 import type { Anchor, Rect } from '../../shared/types';
-import { blockAnchor, frameOf } from '../doc/render/blocks';
+import { blockAnchor, frameOf, isDiagram } from '../doc/render/blocks';
 import { requestFrameSnapshot } from '../htmlapp/frameRegistry';
 import { $, $$, trunc } from '../lib/dom';
 import type { Box, Size } from '../lib/geom';
@@ -72,7 +72,7 @@ export function finishRegion(vr: Box, deps: RegionDeps): void {
   // 範囲が、1 つの画像・図の中に収まるなら、元の解像度から切り出す。そうでなければ、表示されている本文を、画像にする
   const ready = media !== null && (!(media instanceof HTMLImageElement) || media.naturalWidth > 0);
   const inside = media !== null && isInsideFrame(vr, fr, ready);
-  const text = blk.classList.contains('mermaid-block') ? '図' : textOfBlock(blk);
+  const text = isDiagram(blk) ? '図' : textOfBlock(blk);
   // 画像・図の外へ出る範囲は、画像の一部ではない
   const label =
     inside && media ? `${regionLabel(blk, media)}の一部` : `範囲：${trunc(text, 30) || blk.tagName.toLowerCase()}`;
