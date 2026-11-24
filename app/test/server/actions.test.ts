@@ -261,3 +261,75 @@ test('送信済みの回答は、選び直しも取り消しもできない（�
     httpError(400, /送信済みの回答/),
   );
 });
+
+test('Submit：AI に渡すメッセージの形（キーの順・空文字と 0 は残す・null は省く・余分なキーは落とす・画像は絶対パス）', () => {
+  const id = addComment(p);
+  const file = path.join(p.store.tdir('demo'), 'threads.json');
+  const th = JSON.parse(fs.readFileSync(file, 'utf8'));
+  const base = { author: 'ai', kind: 'reply', at: '2026-01-01T00:00:00Z', sent: true, round: 0, junk: 'x' };
+  th.threads[0].messages = [
+    // 履歴（送信済み）：全項目あり。値は、型の都合のない作り物（保存された JSON を、そのまま読む形）
+    {
+      ...base,
+      id: 'h1',
+      revision: 3,
+      page: 'child',
+      to: 'u0',
+      answer: { text: 'はい' },
+      ask: { type: 'text', question: '質問' },
+      frameMeta: { state: '{"a":1}' },
+      text: '本文',
+      images: ['a.png', 'b.png'],
+    },
+    // 新規（未送信）：空文字と 0 は残す。null・省略・空の画像は省く
+    {
+      id: 'n1',
+      author: 'user',
+      kind: 'followup',
+      at: '2026-01-01T00:00:00Z',
+      junk: 'x',
+      images: [],
+      text: '',
+      revision: 0,
+      to: '',
+      page: null,
+      ask: null,
+      answer: null,
+      frameMeta: null,
+    },
+  ];
+  fs.writeFileSync(file, JSON.stringify(th));
+  submitRound(p);
+  const round: Round = JSON.parse(fs.readFileSync(path.join(p.dir, '.rikai', 'demo', 'rounds', '001.json'), 'utf8'));
+  const item = round.items.find((i) => i.thread === id) as RoundItem;
+  const a = path.join(p.store.tdir('demo'), 'assets');
+
+  assert.deepEqual(Object.keys(item.history[0]), [
+    'id',
+    'author',
+    'kind',
+    'text',
+    'frameMeta',
+    'ask',
+    'answer',
+    'to',
+    'page',
+    'revision',
+    'images',
+  ]);
+  assert.deepEqual(item.history[0], {
+    id: 'h1',
+    author: 'ai',
+    kind: 'reply',
+    text: '本文',
+    frameMeta: { state: '{"a":1}' },
+    ask: { type: 'text', question: '質問' },
+    answer: { text: 'はい' },
+    to: 'u0',
+    page: 'child',
+    revision: 3,
+    images: [path.join(a, 'a.png'), path.join(a, 'b.png')],
+  });
+  assert.deepEqual(Object.keys(item.new[0]), ['id', 'author', 'kind', 'text', 'to', 'revision']);
+  assert.deepEqual(item.new[0], { id: 'n1', author: 'user', kind: 'followup', text: '', to: '', revision: 0 });
+});

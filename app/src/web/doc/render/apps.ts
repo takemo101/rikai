@@ -2,10 +2,11 @@
 import type { PickInfo } from '../../../shared/htmlapp-bridge';
 import { followsTheme } from '../../../shared/htmlapp-theme';
 import { $$, h } from '../../lib/dom';
+import type { FrameWidth } from '../../lib/frameWidth';
 import { type ResolvedTheme, resolvedTheme } from '../../lib/theme';
 import type { View } from '../../lib/view';
 import { mountToolbar } from '../AppToolbar';
-import { compareFrameState, type FrameWidth, initialFrameState, registerFrame } from '../appBridge';
+import { compareFrameState, initialFrameState, registerFrame } from '../appBridge';
 
 /** 自動の高さの枠の、最初の高さ（px）。中身の知らせ（appBridge.ts）が届くまで */
 const AUTO_INITIAL_HEIGHT = 200;

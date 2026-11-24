@@ -1319,6 +1319,30 @@
 
 **数字**：上の件数（Vitest 985・e2e 373 件を 3 回：373 成功・372 成功＋1 失敗・373 成功）は、親が、全体で確認した（「3 回連続で全件成功」ではない）。独立レビューが流した件数（Vitest 984・e2e 372/373）と、壊して確かめた件数は、それぞれ、独立レビューと担当の報告による。
 
+### 整理フェーズ ④a：小さな境界の移動・`store/ui.ts` のスライス化・循環と層の逆転の解消（2026-11-24。RIK-059。SPEC §6・§8。見える動きは変えない）
+
+**対象**：整理分析の指摘（`api/queries.ts ↔ lib/view.ts ↔ store/ui.ts` の循環・`store/ui.ts` が 599 行で 5 つの関心事を持つこと・層の逆転）を、**振る舞いを変えずに**直す。
+
+**独立レビュー（1 回。実際の Chrome・実際に動かした）**：**Blocker・Major・P2 なし**（見える動き・状態の移り方・`set` の回数・データの形は、`main`〔0.29.0〕と同じ）。P3 5 件。**確認した**：新旧ともビルド成功・作業ツリーの `index.js`／`rikai.js` は、ビルドの出力とバイト単位で同じ・`tsc` 0・`biome` 0・Vitest 89 ファイル・997 件・e2e 373/373（1 回）・**差分テスト**：旧の `useUi` と新の `useUi` を、同じ乱数の操作列で動かした（20 通り・合計 7,382 手・59 操作すべてを含む・版の切り替えも、途中に挟む）→ 戻り値・購読者の呼ばれる回数・呼ばれるたびの状態・項目ごとの参照の変化・最後の状態・`localStorage`・`data-theme` が、すべて一致（横断する 13 の場面の回数も同じ：`openCompare` 1・`closeCompare` 1・`startComposer`〔前の `frameMeta` あり〕2・`closeComposer` 2・`leaveTopic` 2・`loseComposerDraft` 4・`focusThread` 2・`openZoom` 1・`closeLightbox` 1・`removeFrameMeta` 2・`moveComposer(false)` 4）。状態の項目と操作の名前の集合も同じ（違うのは、状態のオブジェクトのキーの並び順だけ。並びに頼るコードは見つからない）・**循環**：旧 128 ファイルで実行時の循環 1 件 → 新 139 ファイルで 0 件（型だけの循環が 1 件〔スライス ↔ `createUi`〕）・`store/` は `lib/{compare,storage,theme,frameWidth}` と `shared/` だけを import・ビルドした `index.js` で `bindView` は `createRoot` より前に呼ばれている・`composerSeq`／`toastSeq` は、以前と同じくリセットされない・`initialUi()` は全スライスを戻す・**移動したコード**：`normRect`・`normAnchor`・`parseResize`（9 行）は、`diff` で 1 文字も変わらない・上下限の値と `FRAME_IMAGE_NOTE` の文字列も同じ・N1・N3・F28・F42・F45 の検査本体は、差分に含まれない・`compactMessage` は、`null`・`undefined`・`''`・`0`・`[]`・余分なキーを含むメッセージで submit して、round ファイル・`pull`・`poll` の出力が、時刻を除いて、新旧で同じ・**実 Chrome で、旧新を同じ 24 段で比較**（書く → 添付 → 添付の拡大 → 追加 → 過去の版へ〔対象を失った下書き・トースト〕→ 戻る → 比べる → 左を v1 → 閉じて同じ文で追加 → ドックつき拡大 → ドックの上に添付 → Esc で戻る → テーマ 2 回 → 通知 → 別のトピックへ移って戻る → リロード → テーマ）：各段の観測〔ハッシュ・DOM の文字・入力欄・拡大表示・比べる画面・トースト・ベル・`rikai-ui` の保存の形とリロード後の読み込み〕は、全段で一致・スクリーンショットは 24 枚中 17 枚が一致・7 枚は 2〜5 ピクセル違い（旧を 2 回動かしても、同じ場所で、同じ程度の差が出たので、描画の揺らぎ）・`bindView` に関するエラーなし・壊して確かめた：`openCompare` を 2 回の `set` に分ける・`unlinkThread` を何もしない・`initialUi` から zoom を抜く・`test/setup/web.ts` の `bindView` を外す：すべて落ちた。
+
+**指摘（P3 5 件）と、対応**：(1) `compactMessage` のデータの形を見るテストがない → **単体を足した**（キーの順・`''` と `0` は残す・`null`／`undefined` は省く・余分なキーは落とす。壊して確認）。(2) `bindView` の結び忘れで throw するテストがない → **足した**。(3) 以前から 2 回の `set` だった操作の回数が、固定されていない（`closeComposer` を 1 回にしても通る）→ **固定しない**（実装の偶然を固定することになるため。見たいのは「1 回のものを 2 回にしない」方向で、`slices.test.ts` が見ている）。(4) **文書のずれ**（`docs/architecture.md` の `store/` の行：既読〔`seen`〕と `showChanges` は select・要素選択はストアにない〔`appBridge` が持つ〕／`docs/coding-guidelines.md`：`openCompare` が消すのは、光り〔`linkedTid`〕だけで、選択は残る／`util.ts` は、いまは何も import していない）→ **直した**。(5) `shared/htmlapp-bridge.ts` の import の位置（コメントの段落の間）→ **直した**（検査の本体は不変）。**この修正の、再レビューは、受けていない**。
+
+**環境**：headless Chrome（実際の Chrome。`RIKAI_CHROME` を環境変数で渡した）・Vitest（jsdom・node）。
+
+**自動テスト**：新規：`test/web/store/slices.test.ts` 12 件（`createUi` に偽の `getView` を渡して、操作ごとの購読者の呼ばれる回数を数える）・`test/shared/htmlapp-resize.test.ts`（`parseResize` のテストの移動）・`appBridge.test.ts`（移動の分を抜いて、import を変えただけ）。**レビューの指摘（P3）で足した単体**：`test/server/actions.test.ts`（`compactMessage` の形：キーの順・空文字と 0 は残る・`null` と空の画像は省く・余分なキーは落とす。**壊して確認**：`text != null` → `text ?`・`frameMeta` と `ask` の順の入れ替え・`revision != null` → truthy）・`test/web/store/slices.test.ts`（`bindView` を結ばないと、`startComposer`・`openCompare`・`setCompareVersion`・`closeCompare` が throw する。`return null` に変えると落ちる）。**全体は、親が確認した（P3 の対応のあと）：Vitest 999 件（89 ファイル）・lint エラー 0・build 成功。e2e は、P3 の対応（テストの追加と import の位置だけの変更）の前に、373 件を `workers: 4`・2.8〜2.9 分で、3 回連続で全件成功した（ビルドのあと・`RIKAI_CHROME` を環境変数で渡した・2026-11-24）：P3 の対応のあとは、再実行していない**。（履歴：P3 の対応の前の単体は、997 件〔89 ファイル〕。担当の報告：単体 997 件・e2e 373 件中 372 件〔`htmlapp-writeback.spec.ts:184` が 1 回落ち、単独で新旧 24 回成功〕。）
+
+- **小さな境界**：`parseResize`（と `MIN_HEIGHT`／`MAX_HEIGHT`）を `shared/htmlapp-resize.ts` へ・`normAnchor`／`normRect` を `server/util.ts` から `server/anchor.ts` へ（本体は不変。`util.ts` は 35 行）・`submit` の `compact` を `compactMessage(m, assetsDir)` に出して、型で守った（`as unknown as Record` をやめた）。
+- **スライス化**：`store/ui.ts` 599 行 → 36 行。新規：`slices/{settings,zoom,composer,select,compare}.ts`（99・85・282・116・102 行）・`createUi.ts`（34 行）・`deps.ts`。`useUi`・`UiState`・`UiStore`・`initialUi` の名前・型・振る舞いは、不変（import する 45 ファイルは、変更なし）。`UiActions`（未使用）を削除。`getView` は、作成時に注入し、`bindView` で後から結ぶ（結んでいないと、使った時点で throw する）。
+- **循環・層の逆転**：実行時の import の循環は 0 件（変更前 128 ファイル・変更後 139 ファイルを、全 import の解析で確認：担当の報告）。型だけの import を含めると、スライス ↔ `createUi.ts` の型の循環が 1 件残る（実行時には、何も起きない）。`FRAME_IMAGE_NOTE`・`FrameWidth`／`FRAME_WIDTHS` を、下の層へ移した。`store/` の import は、`lib/{compare,storage,theme,frameWidth}` と `shared/` だけ。
+- **横断の操作**：`openCompare` は、D の `cancelRegSelect()` と B の `unlinkThread()` を、自分の 1 回の `set` に合成する（1 操作 = 1 回の `set`）。**既に複数回の `set` の操作は、そのまま**（`closeComposer`〔2 回〕・`leaveTopic`〔2 回〕・`loseComposerDraft`・`focusThread`〔2 回〕・`startComposer`・`removeFrameMeta` のトースト併用）：観測できる動作が変わるので、別に判断する。
+- **旧新の比較（実際の Chrome。担当の報告）**：`main` のビルドと新を、同じ手順で比べた（コメントを書く・追加・下書きを残す・送る・新しい版が届く・過去の版へ切り替える・並べて比べる・拡大表示・トピックを移って戻る）。**各ステップの状態の記録は、完全に一致**。スクリーンショット 15 枚のうち 10 枚は、完全に一致・**5 枚は、上部バー付近の 5〜7 ピクセルだけ違う**（担当は、アニメーションの描画差と見ている：**確定していない**）。
+- **バンドル**：`index.js` 550,590 → 551,167 バイト（+577。gzip で +227）・`rikai.js` 1,031,546 → 1,031,799（+253）・`index.css` と worker は同一。
+- **壊して、落ちることを確かめた（担当の報告）**：各スライスで、1 操作を 2 回の `set` に分ける：E `toggleSide`・D `closeLightbox`・A `beginUpload`・B `setTab`・C `openCompare`：すべて落ちた。**既存のテストには、この回数を見るものがなかった**。
+
+**確認していない範囲**：Safari・Firefox・実際のマウス操作・開発サーバー（Vite）の HMR・実際の OS の通知・狭い窓と `html-app` の枠を含む旧新の比較（e2e が成功したことだけで、旧新は並べていない）・SSE が切れたとき・つながり直したとき・スクリーンショットの差の原因（描画の揺らぎと見ているだけ）。
+
+**数字**：上の件数（Vitest 999 件〔P3 の対応のあと〕・lint エラー 0・build 成功。e2e 373 件の 3 回連続の全件成功は、P3 の対応の前）は、親が、全体で確認した（e2e は、P3 の対応のあとは、再実行していない）。レビューが数えた数字（Vitest 997 件・7,382 手・20 通り・24 段・24 枚中 17 枚）・バンドルの差・壊して確かめた件数は、それぞれ、独立レビューと担当の報告による。
+
 ### 人間の確認待ち
 
 AI は、これらを合格にしない。

@@ -23,19 +23,14 @@ import {
   SNAPSHOT_MAX_SIDE,
   snapshotId,
 } from '../../shared/htmlapp-bridge';
+import { parseResize } from '../../shared/htmlapp-resize';
+import type { FrameWidth } from '../lib/frameWidth';
 import { isImeKey } from '../lib/keys';
 import type { ResolvedTheme } from '../lib/theme';
 
-/** 枠の高さの上下限（px）。枠が知らせた値は、この範囲に収める */
-export const MIN_HEIGHT = 120;
-export const MAX_HEIGHT = 2400;
 /** 1 つの枠の高さを、反映する回数の上限（1 秒あたり）。超えた分は、最後の値だけ、あとで反映する（連打で、画面が詰まらない） */
 export const APPLY_LIMIT = 6;
 export const APPLY_WINDOW_MS = 1000;
-
-/** 枠の幅の切り替え：`auto` は、本文の幅いっぱい（縮小なし）。数は px（枠の中のレイアウトの幅。本文より広いときは、縮小して、本文の幅に収める） */
-export type FrameWidth = 'auto' | 375 | 768 | 1280 | 1920;
-export const FRAME_WIDTHS: readonly FrameWidth[] = [375, 768, 1280, 1920, 'auto'];
 
 /** 枠の表示の状態。`forced`：枠だけ、画面の外観とは別にしている。`avail`：本文の幅（枠の置き場の幅。px。測れる前は 0） */
 export interface FrameState {
@@ -158,16 +153,6 @@ export function compareFrameState(
   follows: boolean,
 ): FrameState {
   return { width, mode: mode ?? (follows ? page : 'light'), forced: mode !== null, avail: 0, picking: false };
-}
-
-/** 枠が知らせた高さの検査：`{ __rikai: 1, type: 'resize', height }`（余分なキーは、無視）。数（有限・正）だけ。整数に丸めて、上下限に収める。それ以外は null */
-export function parseResize(data: unknown): number | null {
-  if (typeof data !== 'object' || data === null) return null;
-  const d = data as Record<string, unknown>;
-  if (d.__rikai !== 1 || d.type !== 'resize') return null;
-  const h = d.height;
-  if (typeof h !== 'number' || !Number.isFinite(h) || h <= 0) return null;
-  return Math.min(MAX_HEIGHT, Math.max(MIN_HEIGHT, Math.round(h)));
 }
 
 /** 1 つの枠の、`state` を受ける頻度の上限（1 秒あたり。橋は、1 秒に 4 回まで）。超えた分は、捨てる */

@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { afterEach, beforeEach, test } from 'vitest';
-import { normAnchor, normRect } from '../../src/server/util';
+import { normAnchor, normRect } from '../../src/server/anchor';
 import type { Anchor, RoundAnchor } from '../../src/shared/types';
 import {
   addComment,

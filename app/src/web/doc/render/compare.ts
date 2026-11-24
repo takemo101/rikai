@@ -5,10 +5,11 @@
 import { type BlockSig, diffText, matchBlocks } from '../../../shared/diff';
 import { alignRows, groupSame, type Row, type RowStatus, type RowSummary, summarize } from '../../lib/compare';
 import { h } from '../../lib/dom';
+import type { FrameWidth } from '../../lib/frameWidth';
 import type { ResolvedTheme } from '../../lib/theme';
 import type { View } from '../../lib/view';
 import type { BlockEl } from '../../store/doc';
-import { type AppFrame, type FrameWidth, framesIn, releaseApps } from '../appBridge';
+import { type AppFrame, framesIn, releaseApps } from '../appBridge';
 import { fillApps } from './apps';
 import { blockEls, markBlocks, plainText, sigTag, tagLabel } from './blocks';
 import { mdToFragment } from './markdown';
