@@ -3,7 +3,7 @@
 // 描き直しても、入力欄のフォーカス・選択範囲・パネルのスクロールは、そのまま：カードは、キーで、同じ DOM を使い回す。
 // 入力欄が、並びの中で動いても、React が、フォーカスと選択範囲を、戻す。スクロールの位置は、ここ（useKeepScroll）が、戻す。
 
-import { ArrowLeft, ChevronRight, Spline } from 'lucide-react';
+import { ArrowLeft, ChevronRight } from 'lucide-react';
 import {
   memo,
   type ReactNode,
@@ -28,6 +28,7 @@ import type { View } from '../lib/view';
 import { type DocModel, docOrder, locEl, useDoc } from '../store/doc';
 import { type Tab, useUi } from '../store/ui';
 import { Composer } from './Composer';
+import { LinksToggle } from './LinksToggle';
 import { composerSlot, lastSpeech, quoteOf } from './logic';
 import { type PanelActions, PanelContext, usePanel } from './panelContext';
 import { ThreadCard } from './ThreadCard';
@@ -166,7 +167,6 @@ const Threads = memo(function Threads({ view, panelRef }: { view: View; panelRef
   const setTab = useUi((s) => s.setTab);
   const closeSolo = useUi((s) => s.closeSolo);
   const editing = useUi((s) => s.editing);
-  const links = useUi((s) => s.ui.links);
   // 見たものの一覧は、ここで読む（購読しない）：見たことになっても、パネルは、描き直さない。描き直すときの値を、カードに渡す
   const seen = useUi.getState().seen;
 
@@ -190,17 +190,7 @@ const Threads = memo(function Threads({ view, panelRef }: { view: View; panelRef
   const top: ReactNode[] = [
     <div className="side-h panel-h" key="h">
       コメント
-      <button
-        id="links-toggle"
-        type="button"
-        className="iconbtn"
-        title={`関連の線（いま：${links ? 'オン' : 'オフ'}）：コメントと、本文の対象を、線で結ぶ。押すと、${links ? '隠します' : '出します'}`}
-        aria-label="関連の線"
-        aria-pressed={links}
-        onClick={() => useUi.getState().toggleLinks()}
-      >
-        <Spline aria-hidden="true" focusable="false" />
-      </button>
+      <LinksToggle id="links-toggle" />
     </div>,
   ];
   top.push(<LostDraft key="lost" />);

@@ -9,6 +9,7 @@ import type { AppFrame } from '../htmlapp/frameRegistry';
 import { openComposer } from '../interact/compose';
 import { READ_ONLY_REASON } from '../lib/messages';
 import { Composer } from '../panel/Composer';
+import { LinksToggle } from '../panel/LinksToggle';
 import { type PanelActions, PanelContext } from '../panel/panelContext';
 import { ThreadCard } from '../panel/ThreadCard';
 import { useDoc } from '../store/doc';
@@ -87,6 +88,7 @@ export function FocusDock({ focus, ctx, frame }: { focus: FocusRef; ctx: FocusCt
             未送信 {unsent} 件
           </span>
         ) : null}
+        <LinksToggle className="fv-links-toggle" />
       </div>
       <PanelContext.Provider value={actions}>
         {/* biome-ignore lint/a11y/noStaticElementInteractions: カードにマウスを置く・カードの中にフォーカスがあると、ステージの枠を光らせる（見た目の補助） */}

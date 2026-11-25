@@ -3,6 +3,7 @@
 //   **見るだけ**：ドックも、「範囲を選ぶ」「要素を選ぶ」の道具も、出さない（本文のブロックではないので、対象がない）。
 // - 本文（`#article`）の画像・図・html-app の枠（F43）：左にステージ（ズーム・移動／枠を大きく）・右にコメントのドック（`FocusDock.tsx`）。
 //   ステージで、範囲・要素を選んで、ドックの入力欄でコメントを書ける（拡大表示を開いたまま。下書きは、本文のパネルと同じ）。
+// 関連の線（F55）：ステージの範囲の枠と、ドックのカードを結ぶ（`FocusLinks.tsx`。本文の `Connectors` と同じ部品）。
 // 閉じる：Esc（`lib/escape.ts`：道具の中止が先）・背景（画像・図の外）を押す・「×」。ドラッグの終わりでは、閉じない。画像・図の上を押しても、閉じない。
 // ドックの中の添付の画像を開いたときは、ドックつきの拡大表示の上に重なる（`lightboxBack`）：閉じると、ドックつきの拡大表示へ戻る。
 // モーダル：開いている間、窓の後ろ（`#app` の、ほかの要素）は `inert`（キーボード・マウス・読み上げの、どれも届かない）。Tab は、窓の中を回る（外へ出ない）。
@@ -15,6 +16,7 @@ import { useDoc } from '../store/doc';
 import { ATTACHED_ALT, type FocusRef, type LightboxTarget, toast, useUi } from '../store/ui';
 import { FocusApp } from './FocusApp';
 import { FocusDock } from './FocusDock';
+import { FocusLinks } from './FocusLinks';
 import { entryElementOf, resolveFocusBlock } from './focusBlock';
 import { useFocusCtx } from './useFocusCtx';
 import { ZoomView } from './ZoomView';
@@ -163,6 +165,7 @@ function FocusLayout({ target, onClose }: { target: FocusTarget; onClose: () => 
         )}
       </div>
       <FocusDock focus={target.focus} ctx={ctx} frame={appFrame} />
+      <FocusLinks focus={target.focus} ctx={ctx} />
     </>
   );
 }

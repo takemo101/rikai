@@ -15,6 +15,7 @@ import type { RegionDeps } from '../interact/region';
 import { boxAt, fromRatio, type Size } from '../lib/geom';
 import { type FocusRef, type LightboxTarget, useUi } from '../store/ui';
 import { DragOverlay } from './DragOverlay';
+import { hoverBox } from './FocusLinks';
 import { RangeTool } from './FocusTools';
 import { type DragSelection, stageBox } from './focusGeom';
 import { finishFocusMedia } from './focusRegion';
@@ -276,6 +277,7 @@ export function ZoomView({
                   data-tid={m.tid}
                   style={{ left: b.left, top: b.top, width: b.width, height: b.height }}
                   onClick={m.tid === 'pending' ? undefined : () => selectThread(m.tid)}
+                  {...hoverBox(m.tid)}
                 >
                   <span className="fv-no">{m.n}</span>
                 </div>

@@ -69,6 +69,18 @@ test('applyLinked：指定のものだけを光らせ、前のものは外す。
   expect(linked()).toEqual([]);
 });
 
+test('applyLinked：拡大表示の線（svg.fv-links）は、触らない（クラスは、React が持つ。外すと、描き直しで戻らない）', () => {
+  document.body.insertAdjacentHTML(
+    'beforeend',
+    '<svg class="fv-links"><g class="cn-g linked" id="fg" data-tid="t7"></g></svg>',
+  );
+  applyLinked(document, 't1', null);
+  expect(document.getElementById('fg')?.classList.contains('linked')).toBe(true);
+  applyLinked(document, null, null);
+  expect(document.getElementById('fg')?.classList.contains('linked')).toBe(true);
+  expect(linked()).toEqual(['fg']);
+});
+
 test('本文にマウスを置く：印・番号・カードが光り、カードを見える所へ。出ると消える（中の移動では消えない）', () => {
   fireEvent.mouseOver($1('#m1'));
   expect(ui().linkedTid).toBe('t1');
