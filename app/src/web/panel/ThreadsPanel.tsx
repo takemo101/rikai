@@ -30,8 +30,8 @@ import { type Tab, useUi } from '../store/ui';
 import { Composer } from './Composer';
 import { LinksToggle } from './LinksToggle';
 import { composerSlot, lastSpeech, quoteOf } from './logic';
+import { MarksToggle } from './MarksToggle';
 import { type PanelActions, PanelContext, usePanel } from './panelContext';
-import { RegionBoxesToggle } from './RegionBoxesToggle';
 import { ThreadCard } from './ThreadCard';
 import { preventFileDropOutside } from './useImageAttach';
 
@@ -192,7 +192,7 @@ const Threads = memo(function Threads({ view, panelRef }: { view: View; panelRef
     <div className="side-h panel-h" key="h">
       コメント
       <span className="panel-h-tools">
-        <RegionBoxesToggle id="regions-toggle" />
+        <MarksToggle id="marks-toggle" />
         <LinksToggle id="links-toggle" />
       </span>
     </div>,

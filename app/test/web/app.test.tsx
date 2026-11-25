@@ -487,7 +487,7 @@ test('左の一覧の開閉・右の幅は、保存した設定から。#app に
       panelW: 500,
       panelUser: true,
       links: true,
-      regionBoxes: true,
+      marks: true,
       theme: 'system',
       notify: false,
     },
@@ -508,6 +508,22 @@ test('左の一覧の開閉・右の幅は、保存した設定から。#app に
     window.dispatchEvent(new Event('resize'));
   });
   expect(byId('app').style.getPropertyValue('--panel-w')).toBe('300px'); // 700 − 0（1100px 以下は、左の一覧が隠れる）− 400（狭い窓の、本文の最小）。狭い窓（〜900px）は、本文を広く残す（RIK-040）。0.28.0：隠す境界が 788px 未満から 1100px 以下に上がり、900px では 500px（保存した幅のまま）になるため、700px で上限を見る
+});
+
+// コメントの印を隠す（ui.marks）：<body> に hide-marks が付き、CSS が、DOM に残る印（文の強調・ブロックの外枠・線）を隠す。リロードで、保存した状態から、すぐ付く
+test('コメントの印：隠している間は、body に hide-marks。出すと外れる。保存した「隠す」から始めても、付く', async () => {
+  server([]);
+  localStorage.setItem(UI_KEY, JSON.stringify({ marks: false }));
+  useUi.setState({ ui: { ...useUi.getState().ui, marks: false } });
+  const r = renderWithClient(<App />);
+  await screen.findByText('トピックがありません。/rikai で資料を作ってください。');
+  expect(document.body).toHaveClass('hide-marks');
+  act(() => useUi.getState().toggleMarks());
+  expect(document.body).not.toHaveClass('hide-marks');
+  act(() => useUi.getState().toggleMarks());
+  expect(document.body).toHaveClass('hide-marks');
+  r.unmount();
+  expect(document.body).not.toHaveClass('hide-marks'); // 後始末
 });
 
 test('トースト：出る・エラーは 6 秒・通常は 2.8 秒で消える', async () => {

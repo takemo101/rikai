@@ -68,7 +68,7 @@
 @media (max-width: 900px) {
   #lightbox .fv-appbar .fv-tools button[data-pick], #lightbox .fv-appbar .fv-tools button[data-tool="region"], #lightbox .fv-appbar .fv-tools button[data-frame-mode] { font-size: 0; gap: 0; }
 }
-#lightbox .fv-appstage { flex: 1 1 0; min-height: 0; overflow: auto; padding: 12px 20px 24px; }
+#lightbox .fv-appstage { position: relative; flex: 1 1 0; min-height: 0; overflow: auto; padding: 12px 20px 24px; } /* position: relative：番号の丸（.fv-chip）の、置き場 */
 #lightbox .fv-app { max-width: 100%; }
 /* ステージに重ねる、既存の範囲コメントの枠・番号（F35・F23 の見た目）。押すと、ドックの、そのスレッドが選ばれる */
 .fv-regions, .fv-layer { position: absolute; inset: 0; pointer-events: none; }
@@ -77,10 +77,12 @@
 .fv-box.resolved { border: 1px solid var(--done); background: transparent; }
 .fv-box.linked, .fv-box.active { border: 2px solid var(--accent); background: var(--accent-a12); }
 .fv-box.pending, .fv-box.pending.linked { border: 1.5px dashed var(--accent); background: var(--accent-a8); pointer-events: none; }
-.fv-box .fv-no { position: absolute; left: -2px; top: -22px; display: inline-block; min-width: 18px; padding: 0 5px; font-size: 11px; font-weight: 600; line-height: 18px; text-align: center; border-radius: 999px; background: var(--fill); color: #fff; pointer-events: none; }
-.fv-box.resolved .fv-no { background: var(--done-fill); }
-.fv-box.pending .fv-no { background: var(--accent-deep); }
+.fv-box .fv-no, .fv-chip { position: absolute; left: -2px; top: -22px; display: inline-block; min-width: 18px; padding: 0 5px; font-size: 11px; font-weight: 600; line-height: 18px; text-align: center; border-radius: 999px; background: var(--fill); color: #fff; pointer-events: none; }
+.fv-box.resolved .fv-no, .fv-chip.resolved { background: var(--done-fill); }
+.fv-box.pending .fv-no, .fv-chip.pending { background: var(--accent-deep); }
 .fv-box.top .fv-no { top: 2px; left: 2px; }
+/* html-app の枠の丸（.fv-chip）：枠（.fv-box）の外（ステージの中）に置き、位置は FocusApp.tsx が決める（画像・図の `.fv-no` と、同じ見た目・同じ大きさ・同じ規則：左上の外側。上に余地がなければ内側）。枠の置き場の切り取り・縮小に、巻き込まれない */
+.fv-chip { z-index: 2; }
 /* 拡大表示の関連の線（F55：.fv-links。見た目は、本文の線と同じ：connectors.css）。ステージの範囲の枠・ドックの上に重ねる（押せない）が、道具（.fv-tools・.lb-tools：z-index 5）の下 */
 #lightbox > .fv-links { z-index: 4; }
 body:has(#lightbox:not([hidden])) #links { visibility: hidden; } /* 窓の後ろ（inert）の、本文の線は、拡大表示の線と、まぎれるので、隠す */

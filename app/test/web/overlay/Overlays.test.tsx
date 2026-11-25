@@ -303,27 +303,25 @@ test('入力中：対象が範囲なら、アクセントの破線の枠（.regi
   expect(layer().querySelector('.pending')).toBeNull();
 });
 
-// 範囲の枠を隠す（`ui.regionBoxes`）：html-app の中の操作を、枠が邪魔しない。DOM に置かない（押せない・見えない）。番号の丸は、そのまま。入力中の枠だけは、押せない形で出す
-// 設定の変化は、次のフレームに置き直す（`schedule`）
+// コメントの印を隠す（`ui.marks`）：html-app の中の操作を、印が邪魔しない。DOM に置く印（範囲の枠・番号の丸）は、置かない（押せない・見えない）。文の強調・ブロックの外枠・線は、CSS（`body.hide-marks`。e2e で確かめる）。
+// 入力中の枠・「新」だけは、押せない形で出す。設定の変化は、次のフレームに置き直す（`schedule`）
 const nextFrame = () => act(() => new Promise<void>((r) => requestAnimationFrame(() => r())));
-test('範囲の枠を隠す：保存済みの .regionbox は、DOM に置かない（番号の丸は、残り、高さも同じ）。出すと、元に戻る', async () => {
+test('コメントの印を隠す：保存済みの .regionbox・番号の丸（.bno）は、DOM に置かない。出すと、元に戻る（同じ内容）', async () => {
   const w = world();
   const { layer } = mount(w);
-  const before = layer().querySelector<HTMLElement>('.regionbox')?.outerHTML;
-  const badgeTops = [...layer().querySelectorAll<HTMLElement>('.bbadge')].map((b) => b.style.top);
-  expect(before).toBeDefined();
-  act(() => useUi.getState().toggleRegionBoxes());
+  const before = layer().innerHTML;
+  expect(layer().querySelector('.regionbox')).not.toBeNull();
+  act(() => useUi.getState().toggleMarks());
   await nextFrame();
-  expect(useUi.getState().ui.regionBoxes).toBe(false);
+  expect(useUi.getState().ui.marks).toBe(false);
   expect(layer().querySelectorAll('.regionbox')).toHaveLength(0);
-  expect([...layer().querySelectorAll('.bno')].map((b) => b.textContent)).toEqual(['1', '2', '3']); // 番号は、そのまま（カードを選べる）
-  expect([...layer().querySelectorAll<HTMLElement>('.bbadge')].map((b) => b.style.top)).toEqual(badgeTops);
-  act(() => useUi.getState().toggleRegionBoxes());
+  expect(layer().querySelectorAll('.bno, .bno-more, .bbadge')).toHaveLength(0);
+  act(() => useUi.getState().toggleMarks());
   await nextFrame();
-  expect(layer().querySelector<HTMLElement>('.regionbox')?.outerHTML).toBe(before);
+  expect(layer().innerHTML).toBe(before);
 });
 
-test('範囲の枠を隠す：入力中の枠（pending）だけは、対象を示す（.still：つかめない・ハンドルなし）。出すと、つかめる枠（ハンドルつき）に戻る', async () => {
+test('コメントの印を隠す：入力中の枠（pending）と「新」だけは、対象を示す（.still：つかめない・ハンドルなし）。出すと、つかめる枠（ハンドルつき）に戻る', async () => {
   const w = world();
   const pendingRect: Rect = { x: 0.1, y: 0.1, w: 0.5, h: 0.5 };
   const anchor = {
@@ -337,7 +335,7 @@ test('範囲の枠を隠す：入力中の枠（pending）だけは、対象を�
     label: '',
     rect: pendingRect,
   };
-  act(() => useUi.getState().toggleRegionBoxes());
+  act(() => useUi.getState().toggleMarks());
   const { layer } = mount(w, modelOf(w, { pending: w.blocks[2] as HTMLElement }));
   act(() => useUi.setState({ composer: { id: 1, anchor } }));
   const boxes = layer().querySelectorAll<HTMLElement>('.regionbox');
@@ -345,8 +343,8 @@ test('範囲の枠を隠す：入力中の枠（pending）だけは、対象を�
   const pb = boxes[0] as HTMLElement;
   expect(pb.className).toBe('regionbox pending still');
   expect(pb.querySelectorAll('.rh')).toHaveLength(0);
-  expect(layer().querySelector('.bno.pending')?.textContent).toBe('新');
-  act(() => useUi.getState().toggleRegionBoxes());
+  expect([...layer().querySelectorAll('.bno')].map((b) => b.textContent)).toEqual(['新']); // 保存済みの番号は、置かない
+  act(() => useUi.getState().toggleMarks());
   await nextFrame();
   const shown = layer().querySelector<HTMLElement>('.regionbox.pending');
   expect(shown?.classList.contains('still')).toBe(false);

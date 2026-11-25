@@ -42,7 +42,7 @@ test('ui：既定・保存・読み戻し・壊れていたら既定', () => {
     panelW: 380,
     panelUser: false,
     links: true,
-    regionBoxes: true,
+    marks: true,
     theme: 'system',
     notify: false,
   });
@@ -51,7 +51,7 @@ test('ui：既定・保存・読み戻し・壊れていたら既定', () => {
     panelW: 450,
     panelUser: true,
     links: true,
-    regionBoxes: false,
+    marks: false,
     theme: 'system',
     notify: false,
   });
@@ -60,7 +60,7 @@ test('ui：既定・保存・読み戻し・壊れていたら既定', () => {
     panelW: 450,
     panelUser: true,
     links: true,
-    regionBoxes: false, // 範囲の枠を隠す設定は、保存して、読み戻せる（リロード後も、隠したまま）
+    marks: false, // コメントの印を隠す設定は、保存して、読み戻せる（リロード後も、隠したまま）
     theme: 'system',
     notify: false,
   });
@@ -74,16 +74,29 @@ test('ui：既定・保存・読み戻し・壊れていたら既定', () => {
     panelW: 420,
     panelUser: false,
     links: true,
-    regionBoxes: true,
+    marks: true,
     theme: 'system',
     notify: false,
   });
-  // 範囲の枠（regionBoxes）：真偽値だけ。古い保存（なし）・壊れた値は、表示（既定）。ほかの設定は、読める
-  expect(DEFAULT_UI.regionBoxes).toBe(true);
+  // コメントの印（marks）：真偽値だけ。古い保存（なし）・壊れた値は、表示（既定）。ほかの設定は、読める
+  expect(DEFAULT_UI.marks).toBe(true);
   for (const bad of ['false', 0, null, {}, []]) {
-    localStorage.setItem(UI_KEY, JSON.stringify({ regionBoxes: bad, panelW: 410 }));
-    expect(loadUi()).toMatchObject({ regionBoxes: true, panelW: 410 });
+    localStorage.setItem(UI_KEY, JSON.stringify({ marks: bad, panelW: 410 }));
+    expect(loadUi()).toMatchObject({ marks: true, panelW: 410 });
   }
+  // 旧い名前（0.1.6：regionBoxes。範囲の枠だけを隠す設定）も読む。新しい名前があれば、そちらが先。壊れた旧い値は、表示
+  localStorage.setItem(UI_KEY, JSON.stringify({ regionBoxes: false, panelW: 410 }));
+  expect(loadUi()).toMatchObject({ marks: false, panelW: 410 });
+  localStorage.setItem(UI_KEY, JSON.stringify({ regionBoxes: true }));
+  expect(loadUi().marks).toBe(true);
+  localStorage.setItem(UI_KEY, JSON.stringify({ marks: true, regionBoxes: false }));
+  expect(loadUi().marks).toBe(true);
+  localStorage.setItem(UI_KEY, JSON.stringify({ marks: false, regionBoxes: true }));
+  expect(loadUi().marks).toBe(false);
+  localStorage.setItem(UI_KEY, JSON.stringify({ regionBoxes: 'false' }));
+  expect(loadUi().marks).toBe(true);
+  saveUi({ ...DEFAULT_UI, marks: false }); // 保存は、新しい名前だけ
+  expect(Object.keys(JSON.parse(localStorage.getItem(UI_KEY) ?? '{}'))).not.toContain('regionBoxes');
 });
 
 // 右の幅を、利用者が決めた印（`panelUser`）：幅の値（380）でなく、印で、「既定のまま」と「わざと 380」を見分ける
@@ -115,7 +128,7 @@ test('ui：外観のモード（theme）は、light・dark・system だけ。壊
       panelW: 450,
       panelUser: false,
       links: false,
-      regionBoxes: true,
+      marks: true,
       theme: t,
       notify: false,
     });
@@ -124,7 +137,7 @@ test('ui：外観のモード（theme）は、light・dark・system だけ。壊
       panelW: 450,
       panelUser: false,
       links: false,
-      regionBoxes: true,
+      marks: true,
       theme: t,
       notify: false,
     });
@@ -136,7 +149,7 @@ test('ui：外観のモード（theme）は、light・dark・system だけ。壊
     panelW: 420,
     panelUser: false,
     links: false,
-    regionBoxes: true,
+    marks: true,
     theme: 'system',
     notify: false,
   });
@@ -155,7 +168,7 @@ test('ui：通知（notify）は、真偽値だけ。既定・古い保存・壊
     panelW: 450,
     panelUser: false,
     links: false,
-    regionBoxes: true,
+    marks: true,
     theme: 'dark',
     notify: true,
   });
@@ -164,7 +177,7 @@ test('ui：通知（notify）は、真偽値だけ。既定・古い保存・壊
     panelW: 450,
     panelUser: false,
     links: false,
-    regionBoxes: true,
+    marks: true,
     theme: 'dark',
     notify: true,
   });

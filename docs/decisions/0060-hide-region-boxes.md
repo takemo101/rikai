@@ -1,8 +1,10 @@
 # ADR-0060 範囲の枠を、一括で隠せるようにした。html-app の見出しの注意文は、見える文字をやめ、`title`・`aria-label` に残した
 
+> **→ 0.1.7 で一部変更**：隠す対象は、範囲の枠だけから、コメントの印すべてに広がり、状態名は `ui.regionBoxes` から `ui.marks`、ボタン名は「コメントの印を隠す」に変わった。経緯と理由は [ADR-0061](0061-hide-all-marks.md)。以下は、0.1.6 の時点の記録（html-app の見出しの注意文の扱い・不具合の測定は、そのまま有効）。
+
 - 日付：2026-11-25
 - 種別：AI の設計の判断（0.1.6）
-- 関連の機能：[F56](../features/region-element.md#f56-範囲の枠を隠せる)・[F31](../features/region-element.md#f31-範囲の枠の調整と添付画像の拡大)・[F28](../features/html-app.md#f28-資料に実行できる枠-html-app-を書ける)・[F43](../features/zoom.md#f43-個別表示でコメントする)・[F55](../features/zoom.md#f55-拡大表示でも関連の線で結ぶ)
+- 関連の機能：[F56](../features/region-element.md#f56-コメントの印を隠せる)・[F31](../features/region-element.md#f31-範囲の枠の調整と添付画像の拡大)・[F28](../features/html-app.md#f28-資料に実行できる枠-html-app-を書ける)・[F43](../features/zoom.md#f43-個別表示でコメントする)・[F55](../features/zoom.md#f55-拡大表示でも関連の線で結ぶ)
 - 決定の元：[利用者の決定](user-decisions.md)（2026-11-25 (A)「html-app の場合、コメント枠がついていると、そもそもクリックなどの操作の邪魔になることがあるので、これ非表示にするモードがあってもいいですね」(B)「この表示は必要ないです」〔html-app の枠の見出しの上の「実行できる枠 1（隔離されています。パスワードなどの秘密は、入力しないでください）」〕）。
 - 一覧：[ADR の一覧](README.md)
 

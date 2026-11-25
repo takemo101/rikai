@@ -185,6 +185,18 @@ interface AppMark extends RegionMark {
   frac: { x: number; y: number; w: number; h: number };
 }
 
+/** 番号の丸（`.fv-chip`）：ステージ（`.fv-appstage`）の中身の座標（スクロールを足したもの）。枠の外に出るので、枠の置き場の切り取り（縮小・横スクロール）の外に置く */
+interface Chip {
+  tid: string;
+  n: number | '新';
+  resolved: boolean;
+  left: number;
+  top: number;
+}
+
+/** 画像・図（`ZoomView`）と同じ規則：丸は、枠の左上の外側（左 −2px・上 −22px）。上に、丸が入る余地（24px）がないときだけ、枠の内側（左 2px・上 2px）。大きさは同じ（CSS：`.fv-no`・`.fv-chip`） */
+const CHIP_ROOM = 24;
+
 /**
  * 枠の置き場（`.appscale`）の中の層：既存の範囲コメントの枠（枠の見た目の大きさに対する割合の位置：縮小・横スクロール・幅の切り替えに、追従する）と、範囲を選ぶ層。
  * 範囲の比率は、本文の（`frameOf` が指す）基準に対するもの：本文の枠の見た目の箱に、同じ相対位置を写して、換算する
@@ -194,7 +206,9 @@ function AppOverlay({ built, ctx, deps }: { built: Built; ctx: FocusCtx; deps: R
   const activeTid = useUi((s) => s.active);
   const linkedTid = useUi((s) => s.linkedTid);
   const [marks, setMarks] = useState<AppMark[]>([]);
+  const [chips, setChips] = useState<Chip[]>([]);
   const [layer, setLayer] = useState<Layer | null>(null);
+  const stage = built.scale.closest<HTMLElement>('.fv-appstage');
 
   // 本文の範囲 → 個別表示の枠の割合。本文を描き直したとき・窓の大きさが変わったときに、取り直す
   const { block, regions } = ctx;
@@ -213,6 +227,7 @@ function AppOverlay({ built, ctx, deps }: { built: Built; ctx: FocusCtx; deps: R
       const base = block ? frameOf(block).getBoundingClientRect() : null;
       if (!block || !home || !base) {
         setMarks([]);
+        setChips([]);
         return;
       }
       const next: AppMark[] = [];
@@ -224,6 +239,33 @@ function AppOverlay({ built, ctx, deps }: { built: Built; ctx: FocusCtx; deps: R
         if (shown) next.push({ ...m, frac: shown });
       }
       setMarks(next);
+      // 番号の丸：枠の左上の外側（画面の座標 → ステージの中身の座標）。枠が、枠の置き場の見える範囲の外なら、出さない
+      const st = stage?.getBoundingClientRect();
+      const view = built.scale.parentElement?.getBoundingClientRect() ?? ir;
+      const cs: Chip[] = [];
+      if (stage && st)
+        for (const m of next) {
+          const [x, y] = [ir.left + m.frac.x * ir.width, ir.top + m.frac.y * ir.height];
+          if (
+            x > view.right ||
+            y > view.bottom ||
+            x + m.frac.w * ir.width < view.left ||
+            y + m.frac.h * ir.height < view.top
+          )
+            continue;
+          const inside = y - st.top < CHIP_ROOM;
+          cs.push({
+            tid: m.tid,
+            n: m.n,
+            resolved: m.resolved,
+            // 画像・図の `.fv-no`（枠の余白の箱〔縁 1.5px の内側〕に対して、左 −2px・上 −22px／内側は 2px・2px）と、枠の外側の角から測って、同じ位置
+            left: x - st.left + stage.scrollLeft + (inside ? 3.5 : -0.5),
+            top: y - st.top + stage.scrollTop + (inside ? 3.5 : -20.5),
+          });
+        }
+      setChips((cur) =>
+        cur.length === cs.length && cur.every((c, i) => JSON.stringify(c) === JSON.stringify(cs[i])) ? cur : cs,
+      );
     };
     // 本文の枠の見出し（ツールバーは、描いたあと、遅れて載る）・大きさが変わると、基準（`frameOf`）の位置が変わる：変わるたびに、取り直す（まとめて、次のフレームで）
     let raf = 0;
@@ -247,13 +289,17 @@ function AppOverlay({ built, ctx, deps }: { built: Built; ctx: FocusCtx; deps: R
     mo.observe(built.scale, { attributes: true, attributeFilter: ['style', 'class'] });
     ro.observe(built.scale);
     ro.observe(built.iframe);
+    // ステージ（と、枠の置き場の横スクロール）のスクロール：丸は、ステージの中身の座標なので、取り直す（scroll は、バブルしない：capture）
+    stage?.addEventListener('scroll', schedule, { passive: true, capture: true });
+    if (stage) ro.observe(stage);
     return () => {
       window.removeEventListener('resize', schedule);
+      stage?.removeEventListener('scroll', schedule, { capture: true });
       mo.disconnect();
       ro.disconnect();
       if (raf) cancelAnimationFrame(raf);
     };
-  }, [block, regions, built]);
+  }, [block, regions, built, stage]);
 
   const getBox = useCallback((): Box | null => {
     const r = built.iframe.getBoundingClientRect();
@@ -275,7 +321,6 @@ function AppOverlay({ built, ctx, deps }: { built: Built; ctx: FocusCtx; deps: R
           {marks.map((m) => {
             const cls = [
               'fv-box',
-              'top',
               m.tid === 'pending' && 'pending',
               m.resolved && 'resolved',
               activeTid === m.tid && 'active',
@@ -298,13 +343,27 @@ function AppOverlay({ built, ctx, deps }: { built: Built; ctx: FocusCtx; deps: R
                 }}
                 onClick={m.tid === 'pending' ? undefined : () => selectThread(m.tid)}
                 {...hoverBox(m.tid)}
-              >
-                <span className="fv-no">{m.n}</span>
-              </div>
+              />
             );
           })}
         </div>
       ) : null}
+      {stage && chips.length
+        ? createPortal(
+            <div aria-hidden="true">
+              {chips.map((c) => (
+                <span
+                  key={c.tid}
+                  className={`fv-chip${c.tid === 'pending' ? ' pending' : ''}${c.resolved ? ' resolved' : ''}`}
+                  style={{ left: c.left, top: c.top }}
+                >
+                  {c.n}
+                </span>
+              ))}
+            </div>,
+            stage,
+          )
+        : null}
       {tool === 'region' && ctx.canComment ? <DragOverlay getBox={getBox} onSelect={onSelect} /> : null}
     </div>
   );

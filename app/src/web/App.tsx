@@ -1,5 +1,5 @@
 // 画面の全体（シェル・ルーティング・更新）。本文・番号の層・右のパネル・入口の部品を、決まった DOM の場所に置く（contracts.ts）。
-import { type CSSProperties, type ReactNode, type RefObject, useEffect, useRef } from 'react';
+import { type CSSProperties, type ReactNode, type RefObject, useEffect, useLayoutEffect, useRef } from 'react';
 import { useServerEvents } from './api/events';
 import { usePage, useTopic, useTopics } from './api/queries';
 import { CompareView } from './compare/CompareView';
@@ -53,6 +53,7 @@ export function App() {
   const { w, sideShown, drawer, autoHidden, narrow } = usePanelGeometry();
   useLayoutReset({ drawer, autoHidden, narrow });
   useFollowAppFrames();
+  useHideMarks();
 
   useNavigationEffects(route, view, scrollRef);
   useReadOnlyEffects(view?.readOnly ?? false);
@@ -293,6 +294,19 @@ function useDocumentTitle(view: View | null): void {
   useEffect(() => {
     document.title = docTitle(turn, title);
   }, [turn, title]);
+}
+
+/**
+ * コメントの印を隠している間（`ui.marks` が false）は、`<body class="hide-marks">`。**DOM に残る印**（文の強調 `mark.hl`・ブロックの外枠 `.blk-thread`・関連の線）は、CSS が隠す（`styles/app.css`・`focus/focus.css`）：
+ * 印の種類を足しても、CSS の 1 か所で隠せる。DOM を置かない印（範囲の枠・番号の丸）は、`overlay/place.ts`・`focus/useFocusCtx.ts`。入力中の対象の印（pending）だけは、隠さない。
+ * 描く前に付ける（`useLayoutEffect`：リロードで、一瞬、印が見えない）
+ */
+function useHideMarks(): void {
+  const marks = useUi((s) => s.ui.marks);
+  useLayoutEffect(() => {
+    document.body.classList.toggle('hide-marks', !marks);
+    return () => document.body.classList.remove('hide-marks');
+  }, [marks]);
 }
 
 /** 外観が変わったら（ボタン・OS の外観の変化）、描いてある Mermaid の図を、その外観で描き直す（本文・AI の返信の、どちらも）。最初の描画は、各部品が、その外観で描く */

@@ -1,4 +1,4 @@
-// このブラウザの localStorage に覚えるもの：`rikai-seen`（見た AI のメッセージの ID）・`rikai-ui`（左の一覧の開閉・右の幅と、利用者が決めた印・関連の線の表示・範囲の枠の表示・外観のモード）・`rikai-send-hint`（送信後の案内を、見せたか）。
+// このブラウザの localStorage に覚えるもの：`rikai-seen`（見た AI のメッセージの ID）・`rikai-ui`（左の一覧の開閉・右の幅と、利用者が決めた印・関連の線の表示・コメントの印の表示・外観のモード）・`rikai-send-hint`（送信後の案内を、見せたか）。
 // サーバーには送らない（資料・コメントとは別）。壊れていたら既定のまま・保存できなくても使える。
 import { DEFAULT_THEME, parseTheme, type ThemeMode } from './theme';
 
@@ -16,8 +16,8 @@ export interface UiPrefs {
   panelUser: boolean;
   /** コメントと本文の対象を結ぶ線（関連の線）を出すか */
   links: boolean;
-  /** 範囲の枠（本文の `.regionbox`・拡大表示の `.fv-box`）を出すか。false の間は、DOM に置かない（html-app の中の操作を、枠が邪魔しない）。入力中の枠だけは、押せない形で出す */
-  regionBoxes: boolean;
+  /** コメントの印（文の強調・ブロックの外枠・範囲の枠・番号の丸・関連の線。本文・拡大表示）を出すか。false の間は、入力中の対象の印（pending）以外を、出さない（html-app の中の操作を、印が邪魔しない）。旧い名前 `regionBoxes`（0.1.6）も読む */
+  marks: boolean;
   /** 外観のモード（ライト・ダーク・システム） */
   theme: ThemeMode;
   /** ブラウザの通知（F41）を、使うか。既定はオフ。許可（Notification.permission）が granted でなければ、オンでも、オフとして扱う */
@@ -30,7 +30,7 @@ export const DEFAULT_UI: UiPrefs = {
   panelW: PANEL_DEFAULT,
   panelUser: false,
   links: true,
-  regionBoxes: true,
+  marks: true,
   theme: DEFAULT_THEME,
   notify: false,
 };
@@ -76,7 +76,9 @@ export function loadUi(): UiPrefs {
       const o = v as Record<string, unknown>;
       if (typeof o.sideOpen === 'boolean') ui.sideOpen = o.sideOpen;
       if (typeof o.links === 'boolean') ui.links = o.links;
-      if (typeof o.regionBoxes === 'boolean') ui.regionBoxes = o.regionBoxes;
+      // 旧い名前（0.1.6：`regionBoxes`。範囲の枠だけを隠す設定だった）も読む。新しい名前があれば、そちら
+      if (typeof o.marks === 'boolean') ui.marks = o.marks;
+      else if (typeof o.regionBoxes === 'boolean') ui.marks = o.regionBoxes;
       if (typeof o.notify === 'boolean') ui.notify = o.notify;
       ui.theme = parseTheme(o.theme);
       if (typeof o.panelW === 'number' || typeof o.panelW === 'string') {

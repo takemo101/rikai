@@ -26,9 +26,10 @@ const ASK = { type: 'yes_no', question: '猫は夜行性ですか' } as const;
 const SLUG = 'cv';
 const READ_ONLY = 'このトピックはレビューを終了しています（閲覧専用・コメントできません）';
 
-/** 書く入口の名前（見えていて、押せるボタンの名前に、これが入ってはいけない）。タブ・状態の切り替えの名前（「解決済み」）は、読む操作なので、別に除く */
+/** 書く入口の名前（見えていて、押せるボタンの名前に、これが入ってはいけない）。タブ・状態の切り替えの名前（「解決済み」）は、読む操作なので、別に除く。
+ *  「コメントの印を隠す」（0.1.7。印の表示の切り替え）も、読む操作：「コメント」を含むが、何も書かない（閲覧専用でも、使えるのが正しい：hide-marks.spec.ts） */
 const WRITE_NAME =
-  /コメント|追加|解決|再開|返信|編集|削除|回答を保存|取り消す|答える|範囲を選ぶ|要素を選ぶ|画像を付ける|添付|AI に送る|終了|はい|いいえ/;
+  /(?!コメントの印を隠す)(?:コメント|追加|解決|再開|返信|編集|削除|回答を保存|取り消す|答える|範囲を選ぶ|要素を選ぶ|画像を付ける|添付|AI に送る|終了|はい|いいえ)/;
 
 async function seed(page: Page, app: RikaiApp): Promise<{ tid: string }> {
   await page.setViewportSize({ width: 1360, height: 900 });
@@ -193,7 +194,7 @@ test.describe('終了したトピックの閲覧（F54）', () => {
     await expect(u.lightbox).toBeVisible();
     await expect(u.lightbox.locator('.fv-dock')).toContainText(READ_ONLY);
     await expect(u.lightbox.locator('.fv-dock')).toContainText('ここでは、読めます');
-    await expect(u.lightbox.getByRole('button', { name: /範囲を選ぶ|コメント/ })).toHaveCount(0);
+    await expect(u.lightbox.getByRole('button', { name: /範囲を選ぶ|コメント(?!の印を隠す)/ })).toHaveCount(0); // 「コメントの印を隠す」は、読む操作（印の表示の切り替え）
     await expect(u.lightbox.getByRole('toolbar', { name: 'コメントの道具' })).toHaveCount(0);
     await expectNoWriteEntries(page, '拡大表示（画像）');
     await page.keyboard.press('Escape');

@@ -41,7 +41,7 @@ test('初期値：未解決のタブ・差分を表示・左の一覧は開い�
     panelW: 380,
     panelUser: false,
     links: true,
-    regionBoxes: true,
+    marks: true,
     theme: 'system',
     notify: false,
   });
@@ -204,7 +204,7 @@ test('画面の広さ：開閉・幅を localStorage に保存する。ドラッ
     panelW: 380,
     panelUser: false,
     links: true,
-    regionBoxes: true,
+    marks: true,
     theme: 'system',
     notify: false,
   });
@@ -216,7 +216,7 @@ test('画面の広さ：開閉・幅を localStorage に保存する。ドラッ
     panelW: 500,
     panelUser: true, // 取っ手で決めた幅：印が付く
     links: true,
-    regionBoxes: true,
+    marks: true,
     theme: 'system',
     notify: false,
   });
@@ -226,22 +226,22 @@ test('画面の広さ：開閉・幅を localStorage に保存する。ドラッ
     panelW: 410,
     panelUser: true,
     links: true,
-    regionBoxes: true,
+    marks: true,
     theme: 'system',
     notify: false,
   });
 });
 
-// 範囲の枠を隠す（regionBoxes）：既定は表示。切り替えると、保存される（リロード後も、そのまま）
-test('範囲の枠：既定は表示。toggleRegionBoxes で、隠す・出す。そのつど localStorage に保存する', () => {
-  expect(ui().ui.regionBoxes).toBe(true);
-  ui().toggleRegionBoxes();
-  expect(ui().ui.regionBoxes).toBe(false);
-  expect(JSON.parse(localStorage.getItem(UI_KEY) ?? '{}').regionBoxes).toBe(false);
-  expect(initialUi().ui.regionBoxes).toBe(false); // 読み戻し（リロード）
-  ui().toggleRegionBoxes();
-  expect(ui().ui.regionBoxes).toBe(true);
-  expect(JSON.parse(localStorage.getItem(UI_KEY) ?? '{}').regionBoxes).toBe(true);
+// コメントの印を隠す（marks）：既定は表示。切り替えると、保存される（リロード後も、そのまま）
+test('コメントの印：既定は表示。toggleMarks で、隠す・出す。そのつど localStorage に保存する', () => {
+  expect(ui().ui.marks).toBe(true);
+  ui().toggleMarks();
+  expect(ui().ui.marks).toBe(false);
+  expect(JSON.parse(localStorage.getItem(UI_KEY) ?? '{}').marks).toBe(false);
+  expect(initialUi().ui.marks).toBe(false); // 読み戻し（リロード）
+  ui().toggleMarks();
+  expect(ui().ui.marks).toBe(true);
+  expect(JSON.parse(localStorage.getItem(UI_KEY) ?? '{}').marks).toBe(true);
 });
 
 test('トースト：出すたびに id が変わる。古い id では消えない', () => {

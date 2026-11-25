@@ -1,6 +1,6 @@
-// 範囲の枠を隠す（0.1.6）：html-app の枠に、範囲のコメントの枠が重なると、枠の中のボタン・入力欄に、操作が届かない箇所がある（拡大表示の .fv-box・入力中の枠）。
-// 「範囲の枠を隠す」（右のパネルの見出し・拡大表示のドックの見出し）で、本文の .regionbox・拡大表示の .fv-box と、その線を、DOM に置かない。実際の Chrome・本物のマウス・キー・ホイール。資料・コメントは、作り物。
-// 後半：html-app の見出しの注意（隔離・秘密を入力しない）は、見える文字にしない。title・aria-label に持つ。旧い版が保存した、範囲の名前の注意は、表示から除く。
+// コメントの印を隠す（0.1.6 の「範囲の枠を隠す」→ 0.1.7 で、すべての印へ）：html-app の枠に、範囲のコメントの枠が重なると、枠の中のボタン・入力欄に、操作が届かない箇所がある（拡大表示の .fv-box・入力中の枠）。
+// 「コメントの印を隠す」（右のパネルの見出し・拡大表示のドックの見出し）で、本文の .regionbox・番号の丸・拡大表示の .fv-box と、その線を、DOM に置かない。実際の Chrome・本物のマウス・キー・ホイール。資料・コメントは、作り物。
+// 印の種類ごとの、見えない確認（文の強調・ブロックの外枠・番号・線）は、hide-marks.spec.ts。後半：html-app の見出しの注意（隔離・秘密を入力しない）は、見える文字にしない。title・aria-label に持つ。旧い版が保存した、範囲の名前の注意は、表示から除く。
 import type { Page } from '@playwright/test';
 import { expect, type RikaiApp, test } from './fixtures';
 import { makePng } from './samples';
@@ -75,8 +75,8 @@ const bodyBoxes = (page: Page) => page.locator('#badges .regionbox');
 const bodyLines = (page: Page) => page.locator('#links path[data-tid]');
 const fvBoxes = (page: Page) => page.locator('#lightbox .fv-box');
 const fvLines = (page: Page) => page.locator('svg.fv-links path[data-tid]');
-const regionsToggle = (page: Page) => page.locator('#regions-toggle');
-const dockToggle = (page: Page) => page.locator('#lightbox .fv-regions-toggle');
+const regionsToggle = (page: Page) => page.locator('#marks-toggle');
+const dockToggle = (page: Page) => page.locator('#lightbox .fv-marks-toggle');
 
 interface Probe {
   /** 枠の中の要素の中心で、最前面の要素（iframe であれば、操作が、枠の中へ届く） */
@@ -159,7 +159,7 @@ async function openZoom(page: Page) {
   await page.waitForTimeout(1500);
 }
 
-test.describe('範囲の枠を隠す：本文', () => {
+test.describe('コメントの印を隠す：本文（html-app の操作）', () => {
   test('既定は表示。隠すと、枠（.regionbox）と、その線が消え、枠の中のボタン・文字欄・スライダー・ホイールが、元の枠の位置でも届く。番号・カードは、そのまま。出すと、戻る', async ({
     page,
     app,
@@ -173,7 +173,7 @@ test.describe('範囲の枠を隠す：本文', () => {
     const t = regionsToggle(page);
     // 既定：表示（aria-pressed=false）。枠 4・線 4
     await expect(t).toHaveAttribute('aria-pressed', 'false');
-    await expect(t).toHaveAccessibleName('範囲の枠を隠す');
+    await expect(t).toHaveAccessibleName('コメントの印を隠す');
     await expect(bodyBoxes(page)).toHaveCount(4);
     await expect(bodyLines(page)).toHaveCount(4);
     // 隠す：画像の範囲も、同じボタンで
@@ -182,12 +182,13 @@ test.describe('範囲の枠を隠す：本文', () => {
     await expect(t).toHaveAttribute('title', /いま：非表示/);
     await expect(bodyBoxes(page)).toHaveCount(0);
     await expect(bodyLines(page)).toHaveCount(0);
-    await expect(u.bno).toHaveText(['1', '2', '3', '4']); // 番号は、そのまま
-    await expect(u.threads).toHaveCount(4); // カードも
+    await expect(u.bno).toHaveCount(0); // 番号の丸も、隠す（0.1.7）
+    await expect(u.threads).toHaveCount(4); // カードは、そのまま使える
     reached(await probe(page, '#article iframe.appframe'));
-    // 番号を押すと、そのカードだけを見る（隠していても、選べる）
-    await u.bno.nth(1).click();
-    await expect(page.locator('#threads .thread[data-tid]')).toHaveCount(1);
+    // カードを押すと、選べる（本文側に印は出ない：hide-marks.spec.ts）
+    await u.threads.nth(1).locator('.th-head').click();
+    await expect(u.threads.nth(1)).toHaveClass(/active/);
+    await expect(bodyBoxes(page)).toHaveCount(0);
     // 出す：戻る
     await t.click();
     await expect(t).toHaveAttribute('aria-pressed', 'false');
@@ -203,15 +204,15 @@ test.describe('範囲の枠を隠す：本文', () => {
     await expect(ui(page).threads).toHaveCount(3);
     await regionsToggle(page).click();
     await expect(bodyBoxes(page)).toHaveCount(0);
-    expect(JSON.parse((await page.evaluate(() => localStorage.getItem('rikai-ui'))) ?? '{}').regionBoxes).toBe(false);
+    expect(JSON.parse((await page.evaluate(() => localStorage.getItem('rikai-ui'))) ?? '{}').marks).toBe(false);
     await page.reload();
     await expect(page.locator('#article iframe.appframe')).toHaveCount(1);
-    await expect(ui(page).bno).toHaveCount(3);
+    await expect(ui(page).bno).toHaveCount(0);
     await expect(regionsToggle(page)).toHaveAttribute('aria-pressed', 'true');
     await expect(bodyBoxes(page)).toHaveCount(0);
     await regionsToggle(page).click();
     await expect(bodyBoxes(page)).toHaveCount(3);
-    expect(JSON.parse((await page.evaluate(() => localStorage.getItem('rikai-ui'))) ?? '{}').regionBoxes).toBe(true);
+    expect(JSON.parse((await page.evaluate(() => localStorage.getItem('rikai-ui'))) ?? '{}').marks).toBe(true);
   });
 
   test('隠している間：範囲を選ぶ → 入力中の枠（pending）だけが、押せない形（.still・ハンドルなし）で、対象を示す。枠の中の操作は届く。出すと、つかめる枠（ハンドルつき）が、枠を塞ぐ', async ({
@@ -268,7 +269,7 @@ test.describe('範囲の枠を隠す：本文', () => {
   });
 });
 
-test.describe('範囲の枠を隠す：拡大表示', () => {
+test.describe('コメントの印を隠す：拡大表示（html-app の操作）', () => {
   test('ステージの枠（.fv-box）は、ドックの見出しのボタンで消える。線も。枠の位置でも、枠の中の操作が届く。カードは使える。本文のボタンも、同じ状態（共有）', async ({
     page,
     app,
@@ -282,7 +283,7 @@ test.describe('範囲の枠を隠す：拡大表示', () => {
     expect(await overlapped(page, '#lightbox iframe.appframe', '#lightbox .fv-box')).toBe(true); // 隠す前は、ボタン・文字欄が、枠の下
     const dt = dockToggle(page);
     await expect(dt).toHaveAttribute('aria-pressed', 'false');
-    await expect(dt).toHaveAccessibleName('範囲の枠を隠す');
+    await expect(dt).toHaveAccessibleName('コメントの印を隠す');
     // 関連の線のボタンの隣
     const [a, b] = await Promise.all([box(dt), box(page.locator('#lightbox .fv-links-toggle'))]);
     expect(Math.abs(a.y - b.y)).toBeLessThan(2);
@@ -330,7 +331,7 @@ test.describe('範囲の枠を隠す：拡大表示', () => {
   });
 });
 
-test.describe('範囲の枠を隠す：終了したトピック・狭い窓・ダーク', () => {
+test.describe('コメントの印を隠す：終了したトピック・狭い窓・ダーク', () => {
   test('終了したトピック（閲覧専用）でも、同じボタンが効く（本文・拡大表示）', async ({ page, app }) => {
     const u = ui(page);
     await open(page, app);
@@ -342,7 +343,7 @@ test.describe('範囲の枠を隠す：終了したトピック・狭い窓・�
     await expect(bodyBoxes(page)).toHaveCount(3);
     await regionsToggle(page).click();
     await expect(bodyBoxes(page)).toHaveCount(0);
-    await expect(u.bno).toHaveCount(3);
+    await expect(u.bno).toHaveCount(0);
     reached(await probe(page, '#article iframe.appframe'));
     await regionsToggle(page).click();
     await expect(bodyBoxes(page)).toHaveCount(3);
@@ -369,12 +370,12 @@ test.describe('範囲の枠を隠す：終了したトピック・狭い窓・�
         expect(b.width).toBeGreaterThan(10);
         return b;
       };
-      await inView('#regions-toggle');
+      await inView('#marks-toggle');
       await inView('#links-toggle');
       const head = await box(page.locator('#threads .panel-h'));
       expect(head.height).toBeLessThan(40); // 1 行
       await openZoom(page);
-      await inView('#lightbox .fv-regions-toggle');
+      await inView('#lightbox .fv-marks-toggle');
       await inView('#lightbox .fv-links-toggle');
       const dh = await box(page.locator('#lightbox .fv-dock-h'));
       expect(dh.height).toBeLessThan(60);
