@@ -44,7 +44,7 @@ export function useFocusCtx(ref: FocusRef): FocusCtx {
   const view = useView();
   const raw = useDoc((s) => s.model);
   const composer = useUi((s) => s.composer);
-  const regionBoxes = useUi((s) => s.ui.regionBoxes);
+  const marks = useUi((s) => s.ui.marks);
   const model = view && raw && raw.key === view.key && !isStale(raw) ? raw : null;
   const block = model ? (resolveFocusBlock(model.blocks, ref)?.el ?? null) : null;
   const topicThreads = view?.topic.threads;
@@ -64,12 +64,12 @@ export function useFocusCtx(ref: FocusRef): FocusCtx {
       block,
       (topicThreads ?? EMPTY).filter((t) => t.page === page),
     ).sort((a, b) => docOrder(model, a.id, b.id));
-    // 範囲の枠を隠している間（`ui.regionBoxes`）は、保存済みの範囲の枠を渡さない（DOM に置かない：押せない・線も引かれない）。入力中の枠だけは、渡す（押せない：focus.css）
+    // コメントの印を隠している間（`ui.marks`）は、保存済みの範囲の枠を渡さない（DOM に置かない：押せない・線も引かれない）。入力中の枠だけは、渡す（押せない：focus.css）
     const regions: RegionMark[] = [];
     for (const t of inBlock) {
       const loc = model.locs.get(t.id);
       const n = model.nums.get(t.id);
-      if (regionBoxes && loc?.kind === 'region' && loc.el === block && n !== undefined)
+      if (marks && loc?.kind === 'region' && loc.el === block && n !== undefined)
         regions.push({ tid: t.id, n, rect: loc.rect, resolved: t.resolved });
     }
     if (pendingRect) regions.push({ tid: 'pending', n: '新', rect: pendingRect, resolved: false });
@@ -78,7 +78,7 @@ export function useFocusCtx(ref: FocusRef): FocusCtx {
       threads: [...inBlock.filter((t) => !t.resolved), ...inBlock.filter((t) => t.resolved)],
       regions,
     };
-  }, [model, block, topicThreads, page, pendingRect, regionBoxes]);
+  }, [model, block, topicThreads, page, pendingRect, marks]);
 
   return { view, model, block, canComment, ...derived };
 }

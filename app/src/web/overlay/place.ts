@@ -33,8 +33,8 @@ export interface PlaceInput {
   composer: { rect: Rect | null } | null;
   /** いま光らせているスレッド（描き直しても、光ったままにする） */
   linkedTid: string | null;
-  /** 範囲の枠を出すか（`ui.regionBoxes`）。false の間は、保存済みの範囲の枠を、DOM に置かない（番号の丸は、そのまま）。入力中の枠だけは、つかめない形（`still`）で出す */
-  regionBoxes: boolean;
+  /** コメントの印を出すか（`ui.marks`）。false の間は、保存済みの範囲の枠・番号の丸を、DOM に置かない（文の強調・ブロックの外枠・線は、CSS〔`body.hide-marks`〕が隠す）。入力中の枠・「新」だけは、出す（枠は、つかめない形〔`still`〕） */
+  marks: boolean;
 }
 
 interface Region {
@@ -108,7 +108,7 @@ function build(input: PlaceInput): HTMLElement[] {
   }
 
   const items: BadgeItem[] = [];
-  for (const [tid, n] of ordered) {
+  for (const [tid, n] of input.marks ? ordered : []) {
     const loc = model.locs.get(tid);
     if (!loc) continue;
     const isResolved = resolved.has(tid);
@@ -189,10 +189,10 @@ function build(input: PlaceInput): HTMLElement[] {
 
   for (const g of regions) {
     if (!g.m) continue;
-    if (!input.regionBoxes && !g.pending) continue; // 隠している間は、置かない（押せない・見えない）。丸の高さ（`regionTop`）は、上で決めた
+    if (!input.marks && !g.pending) continue; // 隠している間は、置かない（押せない・見えない）。丸の高さ（`regionTop`）は、上で決めた
     const b = regionBox(g.m, dr, { left: ds.scrollLeft, top: ds.scrollTop }, ds.clientWidth, g.rect);
     if (!b) continue;
-    const still = g.pending && !input.regionBoxes; // 隠している間の入力中の枠：対象を示すだけ（つかめない）
+    const still = g.pending && !input.marks; // 隠している間の入力中の枠：対象を示すだけ（つかめない）
     const rb = h('div', {
       class: `regionbox${g.resolved ? ' resolved' : ''}${g.pending ? ' pending' : ''}${still ? ' still' : ''}`,
       'data-tid': g.tid,

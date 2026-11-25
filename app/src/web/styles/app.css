@@ -250,7 +250,7 @@ button.turn-btn:hover { background: var(--hover); }
 .modeseg button:focus-visible { outline-offset: -2px; }
 label.chk { font-size: var(--fs-s); color: var(--muted); display: flex; gap: 6px; align-items: center; cursor: pointer; }
 .swatch { display: inline-block; width: 3px; height: 14px; border-radius: 2px; background: var(--change); } /* 凡例の色の見本（件数の札の頭：右端の緑の線と同じ色） */
-#links-toggle[aria-pressed=true], .fv-links-toggle[aria-pressed=true], #regions-toggle[aria-pressed=true], .fv-regions-toggle[aria-pressed=true] { color: var(--accent-ink); background: var(--accent-soft); }
+#links-toggle[aria-pressed=true], .fv-links-toggle[aria-pressed=true], #marks-toggle[aria-pressed=true], .fv-marks-toggle[aria-pressed=true] { color: var(--accent-ink); background: var(--accent-soft); }
 
 /* ---- 中央：本文（白い紙の上。カードの枠・影はなし） ---- */
 #docscroll { --doc-pad-t: 32px; flex: 1; overflow: auto; padding: var(--doc-pad-t) 40px 120px 36px; position: relative; background: var(--paper); } /* --doc-pad-t：上の余白。`position: sticky; top: 0` は、この余白の下に止まる（容器の上端ではない）ので、固定する要素は、`top: calc(var(--doc-pad-t) * -1)`（compare.css の .cmphead） */
@@ -346,8 +346,16 @@ mark.hl.pending { background: var(--accent-soft); outline: 1.5px dashed var(--ac
 .blk-thread { outline: 2px solid var(--hl); outline-offset: 3px; cursor: pointer; }
 .blk-thread.resolved { outline: 1px solid var(--line-strong); }
 .blk-thread.active { outline: 2px solid var(--accent); }
-.blk-thread.linked { outline: 2px solid var(--accent); outline-offset: 3px; background: var(--accent-a4); }
+body:not(.hide-marks) .blk-thread.linked { outline: 2px solid var(--accent); outline-offset: 3px; background: var(--accent-a4); } /* `body:not(.hide-marks)`：隠している間は、ブロック自身の背景を、塞がない（背景は、この 1 行だけが足す） */
 .blk-pending { outline: 2px dashed var(--accent); outline-offset: 3px; background: var(--accent-a4); }
+/* ---- コメントの印を隠す（`body.hide-marks`：`ui.marks`。App.tsx）：DOM に残る印を、すべて隠す。入力中の対象（.pending・.blk-pending）は、隠さない。
+   文の強調：`!important`（形式ごとの詳しい指定〔`.md .fmt-term mark.hl.live` ほか〕に勝つ。色も戻す：端末の枠の強調は、暗い文字色を足す）。ブロックの外枠：ふつうの `outline` だけ（キーボードの焦点の輪〔:focus-visible〕は、残す）。
+   番号の丸・範囲の枠は、DOM に置かない（place.ts）が、置き直しの 1 フレームの間も見えないよう、ここでも隠す。関連の線（本文・拡大表示）は、入力中の線だけ残す ---- */
+body.hide-marks mark.hl:not(.pending) { background: transparent !important; color: inherit !important; box-shadow: none !important; outline: none !important; cursor: inherit !important; }
+body.hide-marks .blk-thread:not(.blk-pending):not(:focus-visible) { outline: none; cursor: auto; }
+body.hide-marks #badges .bno:not(.pending), body.hide-marks #badges .bno-more, body.hide-marks #badges .bno-pop, body.hide-marks #badges .regionbox:not(.pending) { display: none !important; }
+body.hide-marks .fv-box:not(.pending), body.hide-marks .fv-chip:not(.pending) { display: none !important; }
+body.hide-marks :is(#links, .fv-links) .cn-g:not(.pending) { display: none; }
 
 /* ブロックの番号は、要素の外の層（#badges）に、絶対位置で出す（要素の中だと、箱の overflow で切れる・横スクロールで流れる・行末の文字に重なる）。位置は placeBadges */
 #badges { position: absolute; top: 0; left: 0; width: 0; height: 0; z-index: 2; }

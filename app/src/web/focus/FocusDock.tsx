@@ -10,8 +10,8 @@ import { openComposer } from '../interact/compose';
 import { READ_ONLY_REASON } from '../lib/messages';
 import { Composer } from '../panel/Composer';
 import { LinksToggle } from '../panel/LinksToggle';
+import { MarksToggle } from '../panel/MarksToggle';
 import { type PanelActions, PanelContext } from '../panel/panelContext';
-import { RegionBoxesToggle } from '../panel/RegionBoxesToggle';
 import { ThreadCard } from '../panel/ThreadCard';
 import { useDoc } from '../store/doc';
 import { type FocusRef, useUi } from '../store/ui';
@@ -90,7 +90,7 @@ export function FocusDock({ focus, ctx, frame }: { focus: FocusRef; ctx: FocusCt
           </span>
         ) : null}
         <span className="fv-dock-tools">
-          <RegionBoxesToggle className="fv-regions-toggle" />
+          <MarksToggle className="fv-marks-toggle" />
           <LinksToggle className="fv-links-toggle" />
         </span>
       </div>
