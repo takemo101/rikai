@@ -22,6 +22,7 @@ import { resolvedTheme } from '../lib/theme';
 import { clampRegionRect } from '../overlay/layout';
 import { type LightboxTarget, useUi } from '../store/ui';
 import { DragOverlay } from './DragOverlay';
+import { hoverBox } from './FocusLinks';
 import { RangeTool } from './FocusTools';
 import type { DragSelection } from './focusGeom';
 import { finishFocusApp } from './focusRegion';
@@ -296,6 +297,7 @@ function AppOverlay({ built, ctx, deps }: { built: Built; ctx: FocusCtx; deps: R
                   height: `${m.frac.h * 100}%`,
                 }}
                 onClick={m.tid === 'pending' ? undefined : () => selectThread(m.tid)}
+                {...hoverBox(m.tid)}
               >
                 <span className="fv-no">{m.n}</span>
               </div>

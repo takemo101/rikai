@@ -8,6 +8,9 @@ import { articleTid } from '../doc/hit';
 import { locEl, type ThreadLoc, useDoc } from '../store/doc';
 import { useUi } from '../store/ui';
 
+/** 拡大表示の関連の線（`svg.fv-links`。`FocusLinks`）：クラスは、React が持つ（`linkedTid` から描く）。ここで外すと、React の持つ値と食い違って、あとの描き直しで、戻らない（SVG の要素は、付ける側〔`HTMLElement` だけ〕にも入らない） */
+const ownedByReact = (e: Element): boolean => !!e.closest('svg.fv-links');
+
 /** `.linked` を付ける要素：`data-tid` がスレッド ID のもの（本文の印・番号・枠・カード）と、位置の要素（1 つのブロックに複数のコメントがあるとき、`data-tid` は最後の 1 つだけなので） */
 export function linkedTargets(root: ParentNode, tid: string, locs: ReadonlyMap<string, ThreadLoc> | null): Element[] {
   const out = new Set<Element>();
@@ -23,7 +26,7 @@ export function linkedTargets(root: ParentNode, tid: string, locs: ReadonlyMap<s
 /** `.linked` を、tid のものだけにする（null なら、すべて外す） */
 export function applyLinked(root: ParentNode, tid: string | null, locs: ReadonlyMap<string, ThreadLoc> | null): void {
   const want = new Set(tid ? linkedTargets(root, tid, locs) : []);
-  for (const e of root.querySelectorAll('.linked')) if (!want.has(e)) e.classList.remove('linked');
+  for (const e of root.querySelectorAll('.linked')) if (!want.has(e) && !ownedByReact(e)) e.classList.remove('linked');
   for (const e of want) if (!e.classList.contains('linked')) e.classList.add('linked');
 }
 

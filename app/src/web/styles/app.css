@@ -250,7 +250,7 @@ button.turn-btn:hover { background: var(--hover); }
 .modeseg button:focus-visible { outline-offset: -2px; }
 label.chk { font-size: var(--fs-s); color: var(--muted); display: flex; gap: 6px; align-items: center; cursor: pointer; }
 .swatch { display: inline-block; width: 3px; height: 14px; border-radius: 2px; background: var(--change); } /* 凡例の色の見本（件数の札の頭：右端の緑の線と同じ色） */
-#links-toggle[aria-pressed=true] { color: var(--accent-ink); background: var(--accent-soft); }
+#links-toggle[aria-pressed=true], .fv-links-toggle[aria-pressed=true] { color: var(--accent-ink); background: var(--accent-soft); }
 
 /* ---- 中央：本文（白い紙の上。カードの枠・影はなし） ---- */
 #docscroll { --doc-pad-t: 32px; flex: 1; overflow: auto; padding: var(--doc-pad-t) 40px 120px 36px; position: relative; background: var(--paper); } /* --doc-pad-t：上の余白。`position: sticky; top: 0` は、この余白の下に止まる（容器の上端ではない）ので、固定する要素は、`top: calc(var(--doc-pad-t) * -1)`（compare.css の .cmphead） */

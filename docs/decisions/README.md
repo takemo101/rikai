@@ -73,3 +73,4 @@
 | [0056](0056-version-and-help.md) | 2026-11-24 | バージョン表示と `--help`：版はビルド時に埋め込み、ヘルプは 1 か所のデータから描く | [F53](../features/ai-commands.md#f53-バージョンとヘルプを見られる) |
 | [0057](0057-opencode-support.md) | 2026-11-24 | opencode 対応：プラグインは作らず、スキルだけにした。待ち受けは、SKILL.md で `run_in_background` の有無を分けた | [F18](../features/ai-commands.md#f18-エージェントのスキルとして使える)・[F19](../features/ai-commands.md#f19-待ち方をエージェントに合わせる) |
 | [0058](0058-closed-topic-readonly.md) | 2026-11-25 | 終了したトピックは、全面の終了画面をやめて、閲覧専用で見られるようにした | [F54](../features/topics-pages.md#f54-終了したトピックを閲覧専用で見られる)・[F16](../features/topics-pages.md#f16-レビューを終えられる)・[F34](../features/topics-pages.md#f34-終了の確認は画面のダイアログで行う) |
+| [0059](0059-focus-links.md) | 2026-11-25 | 拡大表示にも関連の線を引く：共用部品・`ui.links` の共有・760px 未満は引かない。見本のデータの問題の記録 | [F55](../features/zoom.md#f55-拡大表示でも関連の線で結ぶ)・[F35](../features/appearance.md#f35-コメントと本文の対象を線で結ぶ)・[F43](../features/zoom.md#f43-個別表示でコメントする) |
