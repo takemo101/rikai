@@ -33,6 +33,8 @@ export interface PlaceInput {
   composer: { rect: Rect | null } | null;
   /** いま光らせているスレッド（描き直しても、光ったままにする） */
   linkedTid: string | null;
+  /** 範囲の枠を出すか（`ui.regionBoxes`）。false の間は、保存済みの範囲の枠を、DOM に置かない（番号の丸は、そのまま）。入力中の枠だけは、つかめない形（`still`）で出す */
+  regionBoxes: boolean;
 }
 
 interface Region {
@@ -187,15 +189,17 @@ function build(input: PlaceInput): HTMLElement[] {
 
   for (const g of regions) {
     if (!g.m) continue;
+    if (!input.regionBoxes && !g.pending) continue; // 隠している間は、置かない（押せない・見えない）。丸の高さ（`regionTop`）は、上で決めた
     const b = regionBox(g.m, dr, { left: ds.scrollLeft, top: ds.scrollTop }, ds.clientWidth, g.rect);
     if (!b) continue;
+    const still = g.pending && !input.regionBoxes; // 隠している間の入力中の枠：対象を示すだけ（つかめない）
     const rb = h('div', {
-      class: `regionbox${g.resolved ? ' resolved' : ''}${g.pending ? ' pending' : ''}`,
+      class: `regionbox${g.resolved ? ' resolved' : ''}${g.pending ? ' pending' : ''}${still ? ' still' : ''}`,
       'data-tid': g.tid,
     });
     Object.assign(rb.style, { left: `${b.left}px`, top: `${b.top}px`, width: `${b.width}px`, height: `${b.height}px` });
-    // 入力中の枠だけ、つかめる
-    if (g.pending) for (const k of HANDLES) rb.append(h('span', { class: `rh rh-${k}`, 'data-h': k }));
+    // 入力中の枠だけ、つかめる（隠している間は、つかめない）
+    if (g.pending && !still) for (const k of HANDLES) rb.append(h('span', { class: `rh rh-${k}`, 'data-h': k }));
     layer.append(rb);
     made.push(rb);
   }

@@ -112,7 +112,10 @@ test('読み取り専用：コメントの入口に使う印・枠のツール�
     '/appframe/demo/root/1/0?mode=light',
     '/appframe/demo/root/2/0?mode=light',
   ]);
-  expect(frames.map((f) => f.title)).toEqual(['左の実行できる枠 1', '右の実行できる枠 1']);
+  // 見出しの道具がない（比べる画面）：安全の注意は、枠の名前（読み上げ）に持つ。見える文字は、ない
+  const notice = '（隔離されています。パスワードなどの秘密は、入力しないでください）';
+  expect(frames.map((f) => f.title)).toEqual([`左の実行できる枠 1${notice}`, `右の実行できる枠 1${notice}`]);
+  expect(el.textContent).not.toContain('隔離されています');
   expect(registeredFrames()).toBe(2);
 });
 

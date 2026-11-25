@@ -6,6 +6,7 @@ import type { FrameWidth } from '../lib/frameWidth';
 import { type ResolvedTheme, resolvedTheme } from '../lib/theme';
 import type { View } from '../lib/view';
 import { mountToolbar } from './AppToolbar';
+import { appName, appNotice } from './appName';
 import { registerFrame } from './frameBridge';
 import { compareFrameState, initialFrameState } from './frameState';
 
@@ -60,7 +61,7 @@ export function appFrameDom(
   const ht = fixed === null ? AUTO_INITIAL_HEIGHT : Math.min(1200, Math.max(120, fixed));
   const iframe = h('iframe', {
     class: 'appframe',
-    title: opts.title ?? `実行できる枠 ${n + 1}`,
+    title: opts.title ?? appName(n),
     loading: opts.eager ? 'eager' : 'lazy',
     referrerpolicy: 'no-referrer',
     sandbox: 'allow-scripts',
@@ -97,7 +98,8 @@ export function fillApps(container: ParentNode, ctx: AppsContext): void {
         n,
         fixed,
         state.mode,
-        cmp ? { title: `${cmp.label}の実行できる枠 ${n + 1}` } : {},
+        // 比べる画面の枠：見出しに道具がない（見出しは、空）ので、注意は、枠の名前（読み上げ）に持つ
+        cmp ? { title: `${cmp.label}の${appNotice(n)}` } : {},
       );
       box.append(wrap);
       const frame = registerFrame(
@@ -111,6 +113,10 @@ export function fillApps(container: ParentNode, ctx: AppsContext): void {
           : { onPick: (pick, stateJson) => ctx.onPick?.(box, pick, stateJson) },
       );
       if (cap && !cmp) {
+        // 安全の注意は、見える文字ではなく、見出しの行の `title`（ホバー）・`aria-label`（読み上げ：道具の組を含む `group`）に持つ（利用者の決定：2026-11-25）
+        cap.setAttribute('role', 'group');
+        cap.setAttribute('aria-label', appNotice(n));
+        cap.setAttribute('title', appNotice(n));
         const tools = h('span', { class: 'apptools', role: 'group', 'aria-label': '枠の表示（幅・外観）' });
         cap.append(' ', tools);
         mountToolbar(tools, frame, ctx.onFocus ? () => ctx.onFocus?.(box) : undefined, !view.readOnly);

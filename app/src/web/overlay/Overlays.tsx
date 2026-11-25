@@ -60,6 +60,7 @@ export function Overlays({ view, scrollRef }: OverlaysProps) {
       resolved: new Set(v.topic.threads.filter((t) => t.resolved).map((t) => t.id)),
       composer: ui.composer ? { rect: ui.composer.anchor.rect ?? null } : null,
       linkedTid: ui.linkedTid,
+      regionBoxes: ui.ui.regionBoxes,
     });
   };
   const schedule = useRef(() => {});

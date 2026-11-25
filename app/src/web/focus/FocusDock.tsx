@@ -11,6 +11,7 @@ import { READ_ONLY_REASON } from '../lib/messages';
 import { Composer } from '../panel/Composer';
 import { LinksToggle } from '../panel/LinksToggle';
 import { type PanelActions, PanelContext } from '../panel/panelContext';
+import { RegionBoxesToggle } from '../panel/RegionBoxesToggle';
 import { ThreadCard } from '../panel/ThreadCard';
 import { useDoc } from '../store/doc';
 import { type FocusRef, useUi } from '../store/ui';
@@ -88,7 +89,10 @@ export function FocusDock({ focus, ctx, frame }: { focus: FocusRef; ctx: FocusCt
             未送信 {unsent} 件
           </span>
         ) : null}
-        <LinksToggle className="fv-links-toggle" />
+        <span className="fv-dock-tools">
+          <RegionBoxesToggle className="fv-regions-toggle" />
+          <LinksToggle className="fv-links-toggle" />
+        </span>
       </div>
       <PanelContext.Provider value={actions}>
         {/* biome-ignore lint/a11y/noStaticElementInteractions: カードにマウスを置く・カードの中にフォーカスがあると、ステージの枠を光らせる（見た目の補助） */}

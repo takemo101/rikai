@@ -411,6 +411,36 @@ test('既存の範囲コメントの枠・番号が、ステージに重なる�
   expect(q('#lightbox .fv-box.pending .fv-no')?.textContent).toBe('新');
 });
 
+// 範囲の枠を隠す（`ui.regionBoxes`）：ステージの `.fv-box` を、DOM に置かない（押せない・線の端点もない）。入力中の枠だけは、示す。ドックのカードは、そのまま。切り替えは、ドックの見出しから
+test('範囲の枠を隠す：ドックの見出しのボタンで、ステージの .fv-box が消える（番号・カードは残る）。入力中の枠は、示す。出すと、戻る', async () => {
+  await mount();
+  const a = { ...blockAnchor(q('#article .mermaid-block') as HTMLElement), rect: { x: 0.1, y: 0.2, w: 0.3, h: 0.4 } };
+  setTopic(topicState({ threads: [thread({ id: 'tr', anchor: a })], meta: meta() }));
+  await settle();
+  openMermaid();
+  await settle();
+  expect(q('#lightbox .fv-box[data-tid="tr"]')).not.toBeNull();
+  const toggle = q<HTMLButtonElement>('#lightbox .fv-dock-h .fv-regions-toggle') as HTMLButtonElement;
+  expect(toggle.getAttribute('aria-label')).toBe('範囲の枠を隠す');
+  expect(toggle.getAttribute('aria-pressed')).toBe('false');
+  expect(toggle.nextElementSibling?.classList.contains('fv-links-toggle')).toBe(true); // 関連の線のボタンの隣
+  fireEvent.click(toggle);
+  await settle();
+  expect(toggle.getAttribute('aria-pressed')).toBe('true');
+  expect(document.querySelectorAll('#lightbox .fv-box')).toHaveLength(0);
+  expect(q('#lightbox .fv-dock .thread[data-tid="tr"]')).not.toBeNull(); // カードは、そのまま使える
+  // 入力中の対象（この図の範囲）は、枠なしでは、見えない：破線の枠だけ、出す
+  act(() => {
+    ui().startComposer({ ...a, rect: { x: 0.5, y: 0.5, w: 0.2, h: 0.2 } });
+  });
+  await settle();
+  const tids = () => [...document.querySelectorAll<HTMLElement>('#lightbox .fv-box')].map((e) => e.dataset.tid);
+  expect(tids()).toEqual(['pending']);
+  fireEvent.click(toggle);
+  await settle();
+  expect(tids()).toEqual(['tr', 'pending']);
+});
+
 test('対象のブロックが、更新で消えたら、閉じて、知らせる（書きかけは、パネルに残る）。内容が同じなら、描き直されても、開いたまま', async () => {
   await mount();
   press(mermaidSvg());

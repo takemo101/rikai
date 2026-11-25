@@ -42,6 +42,8 @@ export interface SettingsActions {
   setPanelWNarrow: (w: number | null) => void;
   /** 関連の線（コメントと本文の対象を結ぶ線）の、出す・隠す */
   toggleLinks: () => void;
+  /** 範囲の枠（本文・拡大表示）の、出す・隠す（保存する）。隠している間も、番号・コメントのカードは、そのまま使える */
+  toggleRegionBoxes: () => void;
   /** ブラウザの通知（F41）を、オン・オフにする（保存する）。許可を求めるのは、呼ぶ側（ベルの押下） */
   setNotify: (on: boolean) => void;
   /** 外観のモードを選ぶ（ライト・ダーク・システム）。`<html data-theme>` に反映して、保存する */
@@ -89,6 +91,10 @@ export const createSettingsSlice: StateCreator<UiStore, [], [], SettingsSlice> =
   },
   toggleLinks: () => {
     set((s) => ({ ui: { ...s.ui, links: !s.ui.links } }));
+    saveUi(get().ui);
+  },
+  toggleRegionBoxes: () => {
+    set((s) => ({ ui: { ...s.ui, regionBoxes: !s.ui.regionBoxes } }));
     saveUi(get().ui);
   },
   setPanelW: (w, opts) => {

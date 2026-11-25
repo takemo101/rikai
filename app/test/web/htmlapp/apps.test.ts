@@ -52,6 +52,22 @@ test('枠：iframe は sandbox="allow-scripts" だけ（allow-same-origin なし
   expect(root.querySelectorAll('.mm-err')).toHaveLength(0);
 });
 
+test('見出し（.cap）：安全の注意（隔離・秘密を入力しない）は、見える文字にしない。見出しの行の title（ホバー）と aria-label（読み上げ：group）に持つ。枠の名前（iframe の title）は、そのまま', () => {
+  const { root } = boxes(true);
+  const notice = '実行できる枠 2（隔離されています。パスワードなどの秘密は、入力しないでください）';
+  const caps = [...root.querySelectorAll<HTMLElement>('.htmlapp .cap')];
+  expect(caps).toHaveLength(2);
+  expect(caps.map((c) => c.getAttribute('role'))).toEqual(['group', 'group']);
+  expect(caps[1]?.getAttribute('aria-label')).toBe(notice);
+  expect(caps[1]?.getAttribute('title')).toBe(notice);
+  expect(caps[0]?.getAttribute('aria-label')).toContain('実行できる枠 1（隔離されています');
+  // 見える文字（textContent）には、出さない。道具の名前・「この枠にコメント」は、ある
+  expect(root.textContent).not.toContain('隔離されています');
+  expect(root.textContent).not.toContain('パスワード');
+  expect(caps[1]?.textContent).toContain('この枠にコメント');
+  expect(root.querySelectorAll('iframe')[1]?.title).toBe('実行できる枠 2');
+});
+
 test('ソースを見る：ソースは、文字として出す（タグにならない）。表から付けたソースだけ', () => {
   const { root } = boxes(true);
   const src = root.querySelector('details.appsrc');

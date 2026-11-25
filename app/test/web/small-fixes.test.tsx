@@ -124,9 +124,25 @@ test('関連の線のボタン：名前は、状態に関係なく「関連の�
   expect(b).toHaveAttribute('title', expect.stringContaining('押すと、出します'));
 });
 
+// ---- 範囲の枠を隠す ----
+test('範囲の枠のボタン：名前は「範囲の枠を隠す」（状態に関係なく）。押している（aria-pressed）＝隠している。title に、いまの状態。押すと切り替わり、保存される。右のパネルの見出しに、関連の線のボタンと並ぶ', async () => {
+  renderPanel([thread({ id: 't1', anchor: anchor('文'), messages: [user('質問')] })]);
+  const b = screen.getByRole('button', { name: '範囲の枠を隠す' });
+  expect(b.id).toBe('regions-toggle');
+  expect(b.parentElement).toBe(screen.getByRole('button', { name: '関連の線' }).parentElement); // 同じ組（見出しの右端）
+  expect(b).toHaveAttribute('aria-pressed', 'false'); // 既定は、表示
+  expect(b).toHaveAttribute('title', expect.stringContaining('いま：表示'));
+  await userEvent.click(b);
+  expect(screen.getByRole('button', { name: '範囲の枠を隠す' })).toHaveAttribute('aria-pressed', 'true');
+  expect(b).toHaveAttribute('title', expect.stringContaining('いま：非表示'));
+  expect(JSON.parse(localStorage.getItem('rikai-ui') ?? '{}').regionBoxes).toBe(false);
+  await userEvent.click(b);
+  expect(b).toHaveAttribute('aria-pressed', 'false');
+});
+
 // ---- 位置の名前は 1 行 ----
 test('対象の行：位置の名前（label）は、1 行に収め（qlabel）、全文を title に。選んだ文（quote）は、そのまま（複数行でよい）', () => {
-  const long = `範囲：実行できる枠 1（隔離されています。パスワードなどの秘密は…（枠の幅 980px で選択）（枠の画像は、枠自身が作ったもの）`;
+  const long = `範囲：実行できる枠 1（枠の幅 980px で選択）（枠の画像は、枠自身が作ったもの）`;
   renderPanel([
     thread({ id: 't1', anchor: anchor('', { label: long }), messages: [user('A')] }),
     thread({ id: 't2', anchor: anchor('選んだ文です'), messages: [user('B')] }),

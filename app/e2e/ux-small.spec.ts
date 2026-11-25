@@ -203,7 +203,10 @@ test.describe('P10 小さな束', () => {
     // 保存されるラベルは、全文のまま（表示だけ、1 行）
     await submitAll(page);
     const r = await app.nextRound();
-    expect(r.items[0].anchor.label.startsWith('範囲：')).toBe(true);
-    expect(r.items[0].anchor.label.length).toBeGreaterThan(30);
+    // 名前は、枠の名前から始まる（見出しの注意の文字は、含まない：利用者の決定 2026-11-25）。末尾の「（枠の画像は…）」は、枠の画像が付いたときに、足される
+    const label: string = r.items[0].anchor.label;
+    expect(label.startsWith('範囲：実行できる枠 1')).toBe(true);
+    expect(label).not.toContain('隔離');
+    expect(label.startsWith(full)).toBe(true); // 表示（title）は、保存される名前の、前の部分（画像が付く前に読んだ）
   });
 });

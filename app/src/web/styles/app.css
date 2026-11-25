@@ -250,7 +250,7 @@ button.turn-btn:hover { background: var(--hover); }
 .modeseg button:focus-visible { outline-offset: -2px; }
 label.chk { font-size: var(--fs-s); color: var(--muted); display: flex; gap: 6px; align-items: center; cursor: pointer; }
 .swatch { display: inline-block; width: 3px; height: 14px; border-radius: 2px; background: var(--change); } /* 凡例の色の見本（件数の札の頭：右端の緑の線と同じ色） */
-#links-toggle[aria-pressed=true], .fv-links-toggle[aria-pressed=true] { color: var(--accent-ink); background: var(--accent-soft); }
+#links-toggle[aria-pressed=true], .fv-links-toggle[aria-pressed=true], #regions-toggle[aria-pressed=true], .fv-regions-toggle[aria-pressed=true] { color: var(--accent-ink); background: var(--accent-soft); }
 
 /* ---- 中央：本文（白い紙の上。カードの枠・影はなし） ---- */
 #docscroll { --doc-pad-t: 32px; flex: 1; overflow: auto; padding: var(--doc-pad-t) 40px 120px 36px; position: relative; background: var(--paper); } /* --doc-pad-t：上の余白。`position: sticky; top: 0` は、この余白の下に止まる（容器の上端ではない）ので、固定する要素は、`top: calc(var(--doc-pad-t) * -1)`（compare.css の .cmphead） */
@@ -391,6 +391,7 @@ mark.hl.pending { background: var(--accent-soft); outline: 1.5px dashed var(--ac
 .regionbox.resolved { border: 1px solid var(--done); background: transparent; }
 .regionbox.linked { border: 2px solid var(--accent); background: var(--accent-a10); }
 .regionbox.pending, .regionbox.pending.linked { border: 1.5px dashed var(--accent); background: var(--accent-a8); pointer-events: auto; cursor: move; touch-action: none; } /* 入力中の枠は、マウスを置いても（つかんでいる間も）、アクセントの破線 */
+.regionbox.pending.still, .regionbox.pending.still.linked { pointer-events: none; cursor: auto; } /* 範囲の枠を隠している間の、入力中の枠：対象を示すだけ（つかめない・html-app の中の操作を、邪魔しない。調整は、枠を出してから） */
 .regionbox .rh { position: absolute; width: 10px; height: 10px; box-sizing: border-box; background: var(--handle); border: 1.5px solid var(--accent); border-radius: 2px; }
 .rh-nw { top: -6px; left: -6px; cursor: nwse-resize; } .rh-n { top: -6px; left: calc(50% - 5px); cursor: ns-resize; } .rh-ne { top: -6px; right: -6px; cursor: nesw-resize; }
 .rh-e { top: calc(50% - 5px); right: -6px; cursor: ew-resize; } .rh-se { bottom: -6px; right: -6px; cursor: nwse-resize; } .rh-s { bottom: -6px; left: calc(50% - 5px); cursor: ns-resize; }
@@ -406,6 +407,7 @@ mark.hl.pending { background: var(--accent-soft); outline: 1.5px dashed var(--ac
 #threads .side-h { padding-left: 2px; }
 #threads .panel-h { display: flex; align-items: center; justify-content: space-between; padding: 4px 0 0 2px; }
 #threads .panel-h button { margin: -2px 0; }
+.panel-h-tools { display: inline-flex; align-items: center; gap: 2px; }
 .panel-top { position: sticky; top: -6px; z-index: 4; margin: -6px calc(var(--tpad) * -1) 0; padding: 6px var(--tpad) 4px; background: var(--surface); } /* 見出し・切り替えは、スクロールしても、右パネルの上に固定する（上に -6px：#threads の上の余白の分） */
 /* 切り替え（未解決・解決済み・すべて） */
 .tabs { display: flex; gap: 2px; margin: 4px 0 2px; padding: 2px; background: var(--hover); border: 1px solid var(--line); border-radius: var(--r-l); }

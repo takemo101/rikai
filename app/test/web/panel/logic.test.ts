@@ -12,6 +12,7 @@ import {
   latestRevisionId,
   pickOption,
   plainText,
+  quoteOf,
   replyExpanded,
   threadStatus,
   typeOther,
@@ -45,6 +46,16 @@ test('threadStatus：解決済み > 未送信 > AI の返信（最後が AI）> 
   expect(threadStatus(T([ai('a'), me('b')]))).toEqual(['AI の返信待ち', 'wait']);
   // 未送信は、回答でも数える（保存しただけの回答）
   expect(threadStatus(T([ask('q'), ans('a', 'q', false)]))[1]).toBe('draft');
+});
+
+test('quoteOf：選んだ文があれば、それ。なければ位置の名前（label）。旧い版が保存した、枠の見出しの注意は、表示から除く（保存したデータは、そのまま）', () => {
+  const base = { blockId: 'b', blockHash: 'h', blockTag: 'DIV', blockText: '', prefix: '', suffix: '' };
+  const legacy = '範囲：実行できる枠 2（隔離されています。パスワードなどの秘密は…（枠の幅 1028px で選択）';
+  const a = { ...base, quote: '', label: legacy };
+  expect(quoteOf({ anchor: a })).toBe('範囲：実行できる枠 2（枠の幅 1028px で選択）');
+  expect(a.label).toBe(legacy);
+  expect(quoteOf({ anchor: { ...base, quote: '選んだ文', label: legacy } })).toBe('選んだ文');
+  expect(quoteOf({ anchor: { ...base, quote: '', label: '範囲：実行できる枠 1' } })).toBe('範囲：実行できる枠 1');
 });
 
 test('answerOf：質問への、いちばん新しい回答。別の質問への回答は、返さない', () => {

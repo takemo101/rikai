@@ -31,6 +31,7 @@ import { Composer } from './Composer';
 import { LinksToggle } from './LinksToggle';
 import { composerSlot, lastSpeech, quoteOf } from './logic';
 import { type PanelActions, PanelContext, usePanel } from './panelContext';
+import { RegionBoxesToggle } from './RegionBoxesToggle';
 import { ThreadCard } from './ThreadCard';
 import { preventFileDropOutside } from './useImageAttach';
 
@@ -190,7 +191,10 @@ const Threads = memo(function Threads({ view, panelRef }: { view: View; panelRef
   const top: ReactNode[] = [
     <div className="side-h panel-h" key="h">
       コメント
-      <LinksToggle id="links-toggle" />
+      <span className="panel-h-tools">
+        <RegionBoxesToggle id="regions-toggle" />
+        <LinksToggle id="links-toggle" />
+      </span>
     </div>,
   ];
   top.push(<LostDraft key="lost" />);

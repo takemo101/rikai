@@ -6,6 +6,7 @@
 import { IMG_MAX_BYTES, IMG_MAX_N, IMG_OUT_MAX_SIDE } from '../../shared/image';
 import type { Anchor, Rect } from '../../shared/types';
 import { blockAnchor, frameOf, isDiagram } from '../doc/render/blocks';
+import { appName } from '../htmlapp/appName';
 import { requestFrameSnapshot } from '../htmlapp/frameRegistry';
 import { $, $$, trunc } from '../lib/dom';
 import type { Box, Size } from '../lib/geom';
@@ -39,6 +40,11 @@ export interface RegionDeps {
 }
 
 export const textOfBlock = (blk: Element): string => {
+  // 実行できる枠：見出しは、空（注意は、見える文字にしない：`htmlapp/appName.ts`）。枠の名前を、名前にする（道具の文字・ソースを、名前にしない）
+  if (blk.classList.contains('htmlapp')) {
+    const n = Number((blk as HTMLElement).dataset.n);
+    return Number.isInteger(n) && n >= 0 ? appName(n) : '実行できる枠';
+  }
   // <style>・<script> の中身（図の CSS など）は、名前に入れない
   const plain = blk.cloneNode(true) as Element;
   for (const x of plain.querySelectorAll('style, script')) x.remove();

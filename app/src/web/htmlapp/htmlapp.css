@@ -1,7 +1,8 @@
 /* 実行できる枠（html-app）：隔離した iframe */
 .htmlapp { margin: 1em 0; }
-/* 見出し：説明の文（折り返す）・道具・「この枠にコメント」。`container-type` は、見出しの幅で、見た目を切り替えるため（下の @container：見出しは、道具が 1 行に収まる作りに） */
+/* 見出し：道具・「この枠にコメント」（説明の文は、出さない：安全の注意は、`title`・`aria-label`。appName.ts）。`container-type` は、見出しの幅で、見た目を切り替えるため（下の @container：見出しは、道具が 1 行に収まる作りに） */
 .htmlapp .cap { container-type: inline-size; display: flex; flex-wrap: wrap; align-items: center; gap: 2px 8px; font-size: var(--fs-s); color: var(--muted); margin-bottom: 4px; user-select: none; }
+.htmlapp .cap:empty { margin-bottom: 0; } /* 版を並べて比べる画面の枠：見出しは、空 */
 .htmlapp .apptools { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 2px 8px; max-width: 100%; }
 .grp { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 1px; } /* 枠の見出し・拡大表示のツールバーの、ひとまとまり（幅・外観）。先頭の小さな文字は、見出し */
 .grp-l { margin-right: 2px; }
