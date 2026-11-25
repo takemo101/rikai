@@ -26636,7 +26636,7 @@ function projectRoot(flags) {
 }
 
 // src/shared/version.ts
-var VERSION = "0.1.5";
+var VERSION = "0.1.6";
 
 // src/cli/help.ts
 var ROOT_OPT = {

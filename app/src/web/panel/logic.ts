@@ -1,6 +1,7 @@
 // 右のパネルの、純粋な判定（React・ストアに触れない）：threadStatus・askDraftValid・askStale・折りたたみ・composerSlot・renderDoneRow・画像の検査。
 import { answerOf, askStale } from '../../shared/fresh';
 import type { Ask, Message, Thread } from '../../shared/types';
+import { stripAppNotice } from '../htmlapp/appName';
 import { trunc } from '../lib/dom';
 import type { AskDraft } from '../store/ui';
 
@@ -188,9 +189,9 @@ export function lastSpeech(t: Msgs): string {
   return text ? `${m.author === 'ai' ? 'AI' : 'あなた'}：${trunc(text, 48)}` : '';
 }
 
-/** 対象の文字（カードの引用）。AI 起点で、位置のないスレッドは「AIからの質問」 */
+/** 対象の文字（カードの引用）。AI 起点で、位置のないスレッドは「AIからの質問」。位置の名前（`label`）は、旧い版が書き込んだ、枠の見出しの注意を除く（表示だけ：保存したデータは、書き換えない） */
 export const quoteOf = (t: Pick<Thread, 'anchor'>): string =>
-  t.anchor ? t.anchor.quote || t.anchor.label : 'AI からの質問';
+  t.anchor ? t.anchor.quote || stripAppNotice(t.anchor.label) : 'AI からの質問';
 
 /** 添付の画像の URL（トピックの assets/） */
 export const imgUrl = (slug: string, name: string): string =>

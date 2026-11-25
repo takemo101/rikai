@@ -64,7 +64,8 @@ const marked = new Marked({
         // ソースは、ここで持つ（属性に入れない：資料の生の HTML で、偽の data-src を書かれても、ソースの表示・位置づけ・差分に、使わない）
         appCtx.srcs[n] = text;
         const ht = appHeight(lang || '');
-        return `<div class="htmlapp" data-n="${n}" data-h="${ht}"><div class="cap">実行できる枠 ${n + 1}（隔離されています。パスワードなどの秘密は、入力しないでください）</div></div>`;
+        // 見出し（`.cap`）は、空：安全の注意（隔離・秘密を入力しない）は、見える文字としては出さない（利用者の決定：2026-11-25）。見出しの `title`・`aria-label` に持つ（`htmlapp/apps.ts`）
+        return `<div class="htmlapp" data-n="${n}" data-h="${ht}"><div class="cap"></div></div>`;
       }
       // diff・json・terminal（ANSI）・trace：決まった形の HTML にする（文字は escape 済み。読めないものは、ふつうのコードブロック）
       return renderFmt(kind, text) ?? false;

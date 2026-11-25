@@ -239,8 +239,20 @@ test.describe('html-app（実行できる枠）', () => {
     await expect(first).toHaveAttribute('src', /\/appframe\/app\/root\/1\/0\?mode=(light|dark)$/);
     await expect(iframes.nth(1)).toHaveAttribute('src', /\/appframe\/app\/root\/1\/1\?mode=(light|dark)$/);
     await expect(iframes.nth(1)).toHaveAttribute('sandbox', 'allow-scripts');
-    await expect(u.article.locator('.htmlapp').first()).toContainText('実行できる枠 1');
-    await expect(u.article.locator('.htmlapp').first()).toContainText('隔離されています');
+    // 安全の注意（隔離・秘密を入力しない）は、見える文字としては出さない（利用者の決定：2026-11-25）。見出しの行の aria-label・title に持つ（読み上げ・ホバー）
+    const cap = u.article.locator('.htmlapp').first().locator('.cap');
+    await expect(u.article.locator('.htmlapp').first()).not.toContainText('実行できる枠 1');
+    await expect(u.article.locator('.htmlapp').first()).not.toContainText('隔離されています');
+    await expect(cap).toHaveAttribute('role', 'group');
+    await expect(cap).toHaveAttribute(
+      'aria-label',
+      '実行できる枠 1（隔離されています。パスワードなどの秘密は、入力しないでください）',
+    );
+    await expect(cap).toHaveAttribute(
+      'title',
+      '実行できる枠 1（隔離されています。パスワードなどの秘密は、入力しないでください）',
+    );
+    await expect(page.getByRole('group', { name: /^実行できる枠 1（隔離されています/ })).toHaveCount(1); // 読み上げでも、見つかる
 
     const f = page.frameLocator('iframe').first();
     await expect(f.locator('#out')).toHaveText('動いています');

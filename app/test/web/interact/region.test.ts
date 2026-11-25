@@ -9,6 +9,7 @@ import {
   finishRegion,
   type RegionDeps,
   rasterRegion,
+  textOfBlock,
   UserError,
 } from '../../../src/web/interact/region';
 import { useUi } from '../../../src/web/store/ui';
@@ -354,6 +355,18 @@ test('範囲に html-app の枠：複製に iframe が残らず、画面で見�
   ]);
   expect(box).toContain(FRAME_PLACEHOLDER_TEXT);
   expect(box).toContain('2px dashed');
+});
+
+// 範囲の名前（`範囲：<textOfBlock>`）：html-app の見出しは、もう文字（実行できる枠 N…の注意）を持たない。道具の文字・ソースを、名前にしない
+test('textOfBlock：html-app の枠は、「実行できる枠 N」（番号は data-n から）。見出しの道具の文字・ソースの文字は、名前にならない。番号が読めないときは「実行できる枠」', () => {
+  const tools =
+    '<div class="cap" role="group"><span class="apptools"><button>幅 375</button><button>要素を選ぶ</button></span> <button class="link">この枠にコメント</button></div><details class="appsrc"><summary>ソースを見る</summary><pre>const secret = 1</pre></details>';
+  const [a, b, c] = body(
+    `<div class="htmlapp" data-n="2">${tools}</div><div class="htmlapp" data-n="x">${tools}</div><p>ふつうの段落 <style>p{}</style><b>です</b></p>`,
+  );
+  expect(textOfBlock(a as Element)).toBe('実行できる枠 3');
+  expect(textOfBlock(b as Element)).toBe('実行できる枠');
+  expect(textOfBlock(c as Element)).toBe('ふつうの段落 です'); // ほかのブロックは、これまでどおり（style の中身は、除く）
 });
 
 test('縮小表示（枠の祖先の transform・サイズ）でも、箱は、画面で見えている getBoundingClientRect の位置・大きさ。祖先の transform を、二重に掛けない', async () => {

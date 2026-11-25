@@ -46,8 +46,9 @@ export interface ArticleProps {
  *
  * - `#docscroll`（`scrollRef`）の中の、絶対位置。DocModel（`useDoc`）の `locs`・`nums`・`blocks`・`pending` と、`useUi` の `composer`・`active`・`linkedTid` から作る。
  * - `view` が null・DocModel が null・`model.key !== view.key`（別のページの古い DocModel）なら、何も出さない。
- * - 置き直す契機：DocModel の変化・`ResizeObserver`（本文・`#docscroll`）・画像の読み込み・窓の大きさ・`useUi` の `ui`（左の一覧の開閉・右の幅）の変化。
+ * - 置き直す契機：DocModel の変化・`ResizeObserver`（本文・`#docscroll`）・画像の読み込み・窓の大きさ・`useUi` の `ui`（左の一覧の開閉・右の幅・範囲の枠の表示）の変化。
  *   **`regDrag` が true の間は、置き直さない**（つかんでいる枠が消えるため）。
+ * - `ui.regionBoxes` が false の間は、保存済みの範囲の枠（`.regionbox`）を、DOM に置かない（番号の丸は、そのまま）。入力中の枠だけは、押せない形（`.still`・ハンドルなし）で出す。
  * - 番号を押す：`openSolo(tid)`＋`focusThread`。枠のドラッグ：`setRegDrag(true/false)`（F31 の、枠の動き・大きさの変更の部分は、`overlay/` と `interact/` が分け合う）。
  */
 export interface OverlaysProps {

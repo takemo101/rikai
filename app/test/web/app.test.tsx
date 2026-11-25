@@ -482,7 +482,15 @@ test('左の一覧の開閉・右の幅は、保存した設定から。#app に
     JSON.stringify({ sideOpen: false, panelW: 500, panelUser: true, links: true, theme: 'system', notify: false }),
   );
   useUi.setState({
-    ui: { sideOpen: false, panelW: 500, panelUser: true, links: true, theme: 'system', notify: false },
+    ui: {
+      sideOpen: false,
+      panelW: 500,
+      panelUser: true,
+      links: true,
+      regionBoxes: true,
+      theme: 'system',
+      notify: false,
+    },
   });
   server([]);
   renderWithClient(<App />);

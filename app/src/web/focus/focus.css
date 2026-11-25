@@ -84,7 +84,7 @@
 /* 拡大表示の関連の線（F55：.fv-links。見た目は、本文の線と同じ：connectors.css）。ステージの範囲の枠・ドックの上に重ねる（押せない）が、道具（.fv-tools・.lb-tools：z-index 5）の下 */
 #lightbox > .fv-links { z-index: 4; }
 body:has(#lightbox:not([hidden])) #links { visibility: hidden; } /* 窓の後ろ（inert）の、本文の線は、拡大表示の線と、まぎれるので、隠す */
-.fv-dock-h .iconbtn { margin-left: auto; }
+.fv-dock-tools { margin-left: auto; display: inline-flex; align-items: center; gap: 2px; }
 /* 範囲を選ぶ層 */
 .fv-sel { position: absolute; inset: 0; z-index: 3; pointer-events: auto; cursor: crosshair; touch-action: none; user-select: none; background: rgba(0, 0, 0, 0.1); outline: 1.5px dashed var(--accent); outline-offset: -1.5px; }
 .fv-sel .box { position: absolute; border: 1.5px solid var(--accent); background: var(--accent-a22); pointer-events: none; }

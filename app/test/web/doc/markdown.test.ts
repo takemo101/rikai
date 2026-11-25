@@ -1,7 +1,15 @@
 // @vitest-environment jsdom
 // Markdown → 無害化。資料は AI が書いた非信頼のデータ（N1〜N3・F28）：スクリプト・イベント属性・危険なリンク・外部画像・フォーム・style を、本文に入れない。
 import { expect, test } from 'vitest';
-import { blockAnchor, blockEls, blockText, markBlocks, mediaOf } from '../../../src/web/doc/render/blocks';
+import {
+  blockAnchor,
+  blockEls,
+  blockText,
+  markBlocks,
+  mediaOf,
+  plainText,
+  textIndex,
+} from '../../../src/web/doc/render/blocks';
 import { appHeight, mdToFragment } from '../../../src/web/doc/render/markdown';
 import { hash } from '../../../src/web/lib/dom';
 
@@ -141,7 +149,10 @@ test('html-app：置き場は、フェンスの番号と高さ（120〜1200 に�
     '```',
   ].join('\n');
   const boxes = [...dom(md).querySelectorAll<HTMLElement>('.htmlapp')];
-  const real = boxes.filter((b) => b.querySelector('.cap')?.textContent?.startsWith('実行できる枠'));
+  // 本物の置き場は、見出し（`.cap`）が空：安全の注意は、見える文字にしない（利用者の決定：2026-11-25。`title`・`aria-label` は、apps.ts）。資料の生の HTML の偽の置き場は、見出しを持たない・文字がある
+  const real = boxes.filter((b) => b.querySelector(':scope > .cap')?.textContent === '');
+  expect(real).toHaveLength(2);
+  expect(dom(md).textContent).not.toContain('隔離されています');
   expect(real.map((b) => [b.dataset.n, b.dataset.h])).toEqual([
     ['0', '1200'],
     ['1', '120'],
@@ -154,6 +165,35 @@ test('html-app：置き場は、フェンスの番号と高さ（120〜1200 に�
     false,
   );
   expect(boxes.some((b) => !b.dataset.n && b.hasAttribute('data-src'))).toBe(false);
+});
+
+// 見出しの文字（旧は「実行できる枠 N（隔離されています。…）」）を消しても、既存のコメントの錨・差分は、変わらない：枠のブロックの文字・ハッシュ・位置づけは、**ソース**から（見出しの文字は、使わない）
+test('html-app の見出しの文字を消しても、ブロックの文字・ハッシュ・名前・差分の文字は、変わらない（旧い版が保存したコメントの錨が、そのまま合う）', () => {
+  const src = '<button id="x">押す</button>';
+  const md = `前の段落。\n\n\`\`\`html-app height=200\n${src}\n\`\`\`\n\n後の段落。\n`;
+  const render = (capText: string | null) => {
+    const root = dom(md);
+    const cap = root.querySelector('.htmlapp .cap');
+    if (cap && capText !== null) cap.textContent = capText; // 旧い版の見出しを、再現する
+    markBlocks(root);
+    return root;
+  };
+  const now = render(null);
+  const legacy = render('実行できる枠 1（隔離されています。パスワードなどの秘密は、入力しないでください）');
+  const [a, b] = [now, legacy].map((r) => r.querySelector('.htmlapp') as HTMLElement);
+  if (!a || !b) throw new Error('枠の置き場がない');
+  expect(a.querySelector('.cap')?.textContent).toBe('');
+  // 旧い版が保存した blockHash は、ソースから（`hash('html-app ' + ソース)`）：いまも同じ
+  expect(a.dataset.bhash).toBe(hash(`html-app ${src}`));
+  expect(a.dataset.bhash).toBe(b.dataset.bhash);
+  expect(a.dataset.bid).toBe(b.dataset.bid);
+  expect(blockText(a)).toBe(`html-app ${src}`);
+  expect(blockText(a)).toBe(blockText(b));
+  expect(plainText(a)).toBe(plainText(b));
+  expect(blockAnchor(a)).toEqual(blockAnchor(b)); // 錨（blockId・blockHash・blockText・label）
+  expect(blockAnchor(a).label).toBe('実行できる枠');
+  // 位置づけの文字（引用）には、枠の中の文字は、入らない：本文の段落は、前後で変わらない
+  expect(textIndex(now).text).toBe(textIndex(legacy).text);
 });
 
 test('html-app：資料の本文以外（返信・前の版の差分）では、枠にしない（ふつうのコードブロック）', () => {
