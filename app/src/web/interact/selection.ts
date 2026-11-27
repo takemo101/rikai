@@ -1,7 +1,16 @@
 // 文の選択 → コメントの対象（アンカー）。範囲の名前（`regionLabel`）。
 // 本文の文字の数え方は、位置づけ（`doc/render/highlights.ts` の `applyHighlights`）と同じ：`textIndex` が、`.diffbox`・Mermaid・html-app の中の文字を除く。
 import type { Anchor } from '../../shared/types';
-import { blockAnchor, boundaryOffset, DIAGRAM_SEL, elOf, isDiagram, textIndex } from '../doc/render/blocks';
+import {
+  blockAnchor,
+  boundaryOffset,
+  contentText,
+  DIAGRAM_SEL,
+  diagramLabel,
+  elOf,
+  isDiagram,
+  textIndex,
+} from '../doc/render/blocks';
 import { trunc } from '../lib/dom';
 
 /** 引用の長さの上限（これを超える選択は、先頭からここまで） */
@@ -45,8 +54,8 @@ export function anchorFromSelection(article: HTMLElement, sel: Selection | null)
   };
 }
 
-/** 範囲の名前（カードの見出し・AI に届く label）。画像の alt・図（Mermaid）・インラインの svg の文字 */
+/** 範囲の名前（カードの見出し・AI に届く label）。画像の alt・図（Mermaid・draw.io）・数式・インラインの svg の文字 */
 export function regionLabel(blk: Element, media: Element): string {
   if (media instanceof HTMLImageElement) return `画像${media.alt ? `: ${media.alt}` : ''}`;
-  return isDiagram(blk) ? '図' : trunc(blk.textContent, 40) || '図';
+  return isDiagram(blk) ? diagramLabel(blk) : trunc(contentText(blk), 40) || '図';
 }

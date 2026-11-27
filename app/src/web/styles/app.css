@@ -277,6 +277,16 @@ label.chk { font-size: var(--fs-s); color: var(--muted); display: flex; gap: 6px
 .mermaid-block svg, .drawio-block svg { max-width: 100%; height: auto; }
 .dx-note { color: var(--muted); font-size: var(--fs-s); text-align: left; }
 .mm-err { color: var(--warn); font-size: var(--fs-s); text-align: left; }
+/* ---- 数式（KaTeX。F57）：別行 `.math-block`（図と同じ扱い）・文中 `.math-inline`。文字の色は、画面の文字色（`currentColor`：KaTeX は、色を指定しない。ダークでも読める）。KaTeX の CSS・フォントは、数式のある資料でだけ読む（doc/render/math.ts） ---- */
+.math-block { margin: 1em 0; text-align: center; overflow-x: auto; overflow-y: hidden; }
+:is(.math-block, .zoom-math) .katex-display { display: block; margin: 0.3em 0; }
+:is(.math-block, .zoom-math) .katex-display > .katex { display: block; width: fit-content; max-width: none; margin: 0 auto; padding: 0.15em 0.2em; text-align: left; } /* 式の幅に縮める（余白つき：分数・根号が、箱の外へ、少し出ても、拡大表示・範囲の画像で、切れない）（行の箱を作らない：範囲の基準の箱は、式そのもの。拡大表示のステージの箱と、同じになる）。置き場の中央に置く（置き場より広いときは、左から。横にスクロール） */
+:is(.math-block, .zoom-math) .katex-display > .katex > .katex-html > .tag { position: static; margin-left: 2em; } /* `\tag`：式の幅に縮めたので、式の右に続ける（右端に固定しない） */
+.math-block.math-error { text-align: left; }
+/* 文中：描く前は、元の文字（`$x$`）をそのまま見せる。描いたあとは、元の文字を、見えなくする（コメントの引用・ハッシュ・差分・コピーは、元の文字を使う）。コピーは、元の TeX（描いた HTML・MathML の文字は、選ばない） */
+.math-inline.math-done > .math-src { font-size: 0; line-height: 0; letter-spacing: 0; white-space: pre; } /* 幅も高さもなく、行の中に残る（`position: absolute` だと、コピーで、前後に改行が入る） */
+.math-inline > .math-out { user-select: none; }
+.math-inline.math-error > .math-src { color: var(--warn); font-family: var(--mono); font-size: 0.92em; text-decoration: underline wavy var(--warn); text-underline-offset: 3px; cursor: help; }
 
 /* ---- 本文：前の版との差分 ---- */
 #article .blk { position: relative; border-radius: var(--r-s); }
@@ -356,6 +366,13 @@ body.hide-marks .blk-thread:not(.blk-pending):not(:focus-visible) { outline: non
 body.hide-marks #badges .bno:not(.pending), body.hide-marks #badges .bno-more, body.hide-marks #badges .bno-pop, body.hide-marks #badges .regionbox:not(.pending) { display: none !important; }
 body.hide-marks .fv-box:not(.pending), body.hide-marks .fv-chip:not(.pending) { display: none !important; }
 body.hide-marks :is(#links, .fv-links) .cn-g:not(.pending) { display: none; }
+/* 文中の数式を含む文のコメント：強調の `mark.hl` は、見えない元の文字（`.math-src`）に付くので、描いた数式（`.math-out`）に、同じ印を出す */
+.math-inline:has(.math-src mark.hl) > .math-out { background: var(--hl); border-radius: 2px; cursor: pointer; }
+.math-inline:has(.math-src mark.hl.resolved) > .math-out { background: transparent; box-shadow: inset 0 -1px 0 var(--done); }
+.math-inline:has(.math-src mark.hl.active) > .math-out { outline: 2px solid var(--accent); outline-offset: 1px; }
+.math-inline:has(.math-src mark.hl.linked) > .math-out { background: var(--hl-live); outline: 2px solid var(--accent); outline-offset: 1px; }
+.math-inline:has(.math-src mark.hl.pending) > .math-out { background: var(--accent-soft); outline: 1.5px dashed var(--accent); outline-offset: 1px; cursor: default; }
+body.hide-marks .math-inline:has(.math-src mark.hl:not(.pending)) > .math-out { background: transparent; box-shadow: none; outline: none; cursor: inherit; }
 
 /* ブロックの番号は、要素の外の層（#badges）に、絶対位置で出す（要素の中だと、箱の overflow で切れる・横スクロールで流れる・行末の文字に重なる）。位置は placeBadges */
 #badges { position: absolute; top: 0; left: 0; width: 0; height: 0; z-index: 2; }

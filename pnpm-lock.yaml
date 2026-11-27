@@ -216,6 +216,9 @@ importers:
       jsdom:
         specifier: ^31.0.1
         version: 31.0.1
+      katex:
+        specifier: ^0.18.10
+        version: 0.18.10
       lucide-react:
         specifier: ^1.77.0
         version: 1.77.0(@types/react@19.3.0)(react@19.3.1)

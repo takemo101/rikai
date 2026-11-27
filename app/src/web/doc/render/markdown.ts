@@ -5,15 +5,17 @@
 //   import { fillDiagrams, mdToFragment } from '../doc/render';          // `doc/render/index.ts`
 //   const frag = mdToFragment(m.text, { slug, kind: 'reply' });          // 無害化した DocumentFragment
 //   body.replaceChildren(frag);
-//   void fillDiagrams(body);                                             // 図（`.mermaid-block`・`.drawio-block`）を描く。待たなくてよい
+//   void fillDiagrams(body);                                             // 図（`.mermaid-block`・`.drawio-block`）と数式（`.math-block`・`.math-inline`）を描く。待たなくてよい
 // - 形式（diff・json・terminal・trace）・リンク（http(s)・mailto・`page:`）・画像（`assets/` だけ。外部はブロック表示）・Mermaid・draw.io（```drawio。`<mxGraphModel>` の XML）の置き場は、`doc`・`reply` どちらも同じ。
+// - 数式（GitHub と同じ記法：文中 `$…$`・`` $`…`$ ``・別行 `$$…$$`・```math。`mathSyntax.ts`）は、置き場だけを作る。描く（KaTeX）のは `fillDiagrams`（`math.ts`）。別行は、図と同じブロック（`DIAGRAM_SEL`）。
 // - `kind: 'doc'`：資料の本文。```html-app を、枠の置き場（`.htmlapp`）にする（番号は、フェンスの順。サーバーが同じ番号の枠を配る）。
 // - `kind: 'reply'`：返信。```html-app は、ふつうのコードブロック。**ブロックの番号づけ（`markBlocks`）は、しない**（本文だけ。呼ぶ側の仕事）。
 // - `fillApps`（枠に iframe を入れる）も、本文だけ。返信では呼ばない。
 import DOMPurify, { type Config } from 'dompurify';
-import { Marked } from 'marked';
+import { Marked, type Token } from 'marked';
 import { encSrc, h } from '../../lib/dom';
 import { render as renderFmt } from './fmt';
+import { dropBackslashBeforeMath, mathBlockHtml, mathExtensions, noteSource } from './mathSyntax';
 
 export const PURIFY: Config = {
   USE_PROFILES: { html: true, svg: true },
@@ -53,11 +55,20 @@ export function appHeight(info: string): number | 'auto' {
 
 const marked = new Marked({
   gfm: true,
+  extensions: mathExtensions, // 数式：`$…$`・`` $`…`$ ``・`$$…$$`（別行）。GitHub と同じ記法（mathSyntax.ts）
+  hooks: {
+    preprocess: noteSource,
+    processAllTokens(tokens) {
+      dropBackslashBeforeMath(tokens as Token[]);
+      return tokens;
+    },
+  },
   renderer: {
     code({ text, lang }) {
       const kind = (lang || '').trim().split(/\s+/)[0]?.toLowerCase() ?? '';
       if (kind === 'mermaid') return `<div class="mermaid-block" data-mermaid="${encSrc(text)}"></div>`;
       if (kind === 'drawio') return `<div class="drawio-block" data-drawio="${encSrc(text)}"></div>`;
+      if (kind === 'math') return mathBlockHtml(text); // ```math：別行の数式（`$$…$$` と同じ意味）
       if (kind === 'html-app') {
         if (!appCtx) return false;
         const n = appCtx.n++;

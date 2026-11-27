@@ -55,6 +55,7 @@ const MIME: Record<string, string> = {
   '.gif': 'image/gif',
   '.webp': 'image/webp',
   '.json': 'application/json; charset=utf-8',
+  '.woff2': 'font/woff2', // 数式（KaTeX）のフォント
 };
 
 // 画面が配る、public/ の中のもの：`/favicon.svg` と、Vite の出力の `/assets/*`（ファイル名にハッシュは付けない。どの応答も `no-store`）（それ以外は、配らない。index.html は、別の経路）

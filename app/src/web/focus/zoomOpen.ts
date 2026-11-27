@@ -1,7 +1,7 @@
 // 本文・AI の返信・コメントに添付した画像・図を、押して、拡大表示で大きく出す（F37・F31・F43）。本文の画像・図・html-app の枠は、右にコメントのドックのある窓で開く。返信の中の画像・図・添付の画像は、ステージだけ（見るだけ）。
 // **開いても閉じても、本文の DOM は変わらない**：本文（`#article`）・返信の本体（`.msg .body.md`）への、
 // イベントの委譲（クリック 1 つ。押した位置は、mousedown で控える）で受け、ここで、どの画像・図かを決めて、拡大表示へ渡す。
-// 対象：`img`（assets の画像・data: の画像）・Mermaid の図・インラインの `<svg>`。対象外：リンクの中・html-app の枠（iframe）・外部画像のブロック表示（`.img-blocked` は、img でない）。
+// 対象：`img`（assets の画像・data: の画像）・Mermaid・draw.io の図・インラインの `<svg>`・別行の数式（`.math-block` の `.katex`。HTML：`zoomMath.ts`）。対象外：文中の数式（ふつうの文）・リンクの中・html-app の枠（iframe）・外部画像のブロック表示（`.img-blocked` は、img でない）。
 
 import type { BlockEl } from '../doc/render/blocks';
 import { appSpecOf } from '../htmlapp/apps';
@@ -10,6 +10,7 @@ import { getView } from '../lib/view';
 import { ATTACHED_ALT, toast, useUi } from '../store/ui';
 import { focusRefOf } from './focusBlock';
 import { isClickGesture } from './zoom';
+import { cloneMathForZoom } from './zoomMath';
 import { cloneSvgForZoom } from './zoomSvg';
 
 let lastDown: { x: number; y: number } | null = null;
@@ -19,9 +20,23 @@ export function noteMouseDown(e: { clientX: number; clientY: number }): void {
   lastDown = { x: e.clientX, y: e.clientY };
 }
 
-/** root の中で押された、拡大できる画像・図。なければ null */
-export function zoomableAt(target: EventTarget | null, root: Element): HTMLImageElement | SVGSVGElement | null {
+/** 拡大できるもの：画像・図（svg）・別行の、描いた数式（`.katex`。HTML） */
+export type ZoomEl = HTMLImageElement | SVGSVGElement | HTMLElement;
+
+/** 描いた数式（`.katex`）か（別行の数式の中の、式そのもの） */
+export const isMathEl = (el: Element): el is HTMLElement => el.classList.contains('katex');
+
+/**
+ * root の中で押された、拡大できる画像・図・別行の数式。なければ null。
+ * 数式は、式（`.katex`）を押したときだけ（式の中の svg〔根号など〕も、数式として開く）。**文中の数式は、ふつうの文**（拡大しない。コメントは、文として付ける）
+ */
+export function zoomableAt(target: EventTarget | null, root: Element): ZoomEl | null {
   if (!(target instanceof Element) || !root.contains(target)) return null;
+  const katex = target.closest<HTMLElement>('.katex');
+  if (katex) {
+    const block = katex.closest('.math-block');
+    return block && root.contains(block) && !block.closest('a, button') && katex.closest('.math-out') ? katex : null;
+  }
   const img = target.closest('img');
   if (img instanceof HTMLImageElement) return root.contains(img) && !img.closest('a, button') ? img : null;
   let svg = target.closest('svg');
@@ -71,12 +86,18 @@ export function zoomOnCardClick(e: {
  * 画像・図を、拡大表示で、大きく出す（図は、id を付け替えた複製）。本文（`#article`）の画像・図なら、そのブロックを指す印（`focus`）を付ける
  * （右のドックに、そのブロックのコメントを出し、範囲を選んでコメントできる：F43）。返信の中の画像・図は、ステージだけ
  */
-export function openZoomOf(el: HTMLImageElement | SVGSVGElement): void {
+export function openZoomOf(el: ZoomEl): void {
   const block = el.closest<BlockEl>('#article [data-bid]');
   const focus = block ? focusRefOf(block, el) : null;
   const ui = useUi.getState();
   ui.setRegMode('idle');
   cancelAllPicks();
+  if (isMathEl(el)) {
+    const z = cloneMathForZoom(el);
+    if (!z) return; // 式の箱を測れない（隠れている）
+    ui.openZoom({ kind: 'math', node: z.node, alt: '数式（大きく）', size: z.size, ...(focus ? { focus } : {}) });
+    return;
+  }
   if (el instanceof HTMLImageElement) {
     ui.openZoom({
       kind: 'img',
@@ -124,17 +145,19 @@ export function openFocusApp(box: HTMLElement): void {
 }
 
 /** 個別表示を開く：画像・図なら複製して、html-app の枠なら新しい iframe で */
-export function openFocusOf(el: HTMLImageElement | SVGSVGElement | HTMLElement): void {
-  if (el instanceof HTMLImageElement || el instanceof SVGSVGElement) openZoomOf(el);
-  else openFocusApp(el);
+export function openFocusOf(el: ZoomEl): void {
+  if (el instanceof HTMLElement && el.classList.contains('htmlapp')) openFocusApp(el);
+  else openZoomOf(el);
 }
 
 /**
  * ブロックの中の、（最初の）個別表示できる対象：拡大できる画像・図、または、ブロックそのものの html-app の枠。なければ null。
  * 入口のバーの「拡大」が使う（画像にマウスを置いたときの入口）
  */
-export function zoomTargetOfBlock(blk: Element): HTMLImageElement | SVGSVGElement | HTMLElement | null {
+export function zoomTargetOfBlock(blk: Element): ZoomEl | null {
   if (blk instanceof HTMLElement && blk.classList.contains('htmlapp')) return blk;
+  // 別行の数式：式（`.katex`）そのもの。**根号などの svg を含まない式（行列・分数・和）でも、対象になる**（svg を探すだけでは、見つからない）
+  if (blk.classList.contains('math-block')) return zoomableAt(blk.querySelector('.katex'), blk);
   for (const el of [blk, ...blk.querySelectorAll('img, svg')]) {
     if (!el.matches('img, svg')) continue;
     const t = zoomableAt(el, blk);

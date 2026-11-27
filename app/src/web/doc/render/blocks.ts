@@ -17,14 +17,42 @@ export function safeDecode(s: string): string {
 
 export type { BlockEl };
 
-/** 図のブロック（Mermaid・draw.io）の選択子。図の扱い（ラベル・差分・文字の数え方・範囲・拡大表示の入口）は、どちらも同じ */
-export const DIAGRAM_SEL = '.mermaid-block, .drawio-block';
+/**
+ * 図のブロック（Mermaid・draw.io・数式）の選択子。図の扱い（ラベル・差分・文字の数え方・範囲・拡大表示の入口）は、どれも同じ。
+ * 数式（`.math-block`：`$$…$$`・```math。F57）は、ラベルが「数式」。ソースは、`data-math`
+ */
+export const DIAGRAM_SEL = '.mermaid-block, .drawio-block, .math-block';
 
-/** 図のブロックか（Mermaid・draw.io） */
+/** 図のブロックか（Mermaid・draw.io・数式） */
 export const isDiagram = (el: Element): boolean => el.matches(DIAGRAM_SEL);
 
+/** 図のブロックの名前（カードの見出し・AI に届く label・範囲の名前）：数式は「数式」・ほかは「図」 */
+export const diagramLabel = (el: Element): string => (el.matches('.math-block') ? '数式' : '図');
+
 /** 図のソース（URI エンコードのまま：ハッシュが、保存済みのものと合うように）。図でなければ undefined */
-const diagramSource = (el: BlockEl): string | undefined => el.dataset.mermaid ?? el.dataset.drawio;
+const diagramSource = (el: BlockEl): string | undefined =>
+  el.dataset.mermaid ?? el.dataset.drawio ?? (el.classList.contains('math-block') ? el.dataset.math : undefined);
+
+/**
+ * 要素の文字（`textContent`）。**描いた数式（`.math-out`：KaTeX が出す HTML・MathML の文字）は、除く**：文中の数式は、元の文字（`.math-src`：`$x^2$`）が、本文の文字（描く前と後で、同じ。ハッシュ・差分・引用が、描画の前後でずれない）。
+ * 入れ子の別行の数式（リストの項目の中など）は、ソースを、文字にする
+ */
+export function contentText(el: Element): string {
+  if (!el.querySelector('.math-out, .math-block')) return el.textContent || '';
+  let out = '';
+  const walk = (n: Node): void => {
+    for (const c of n.childNodes) {
+      if (c.nodeType === 3) out += c.nodeValue ?? '';
+      else if (c instanceof HTMLElement) {
+        if (c.classList.contains('math-out')) continue;
+        if (c.classList.contains('math-block')) out += ` ${safeDecode(c.dataset.math ?? '')} `;
+        else walk(c);
+      }
+    }
+  };
+  walk(el);
+  return out;
+}
 
 const isBlockEl = (el: Element): el is BlockEl => el instanceof HTMLElement || el instanceof SVGElement;
 
@@ -52,15 +80,21 @@ export function blockText(el: BlockEl): string {
   const src = diagramSource(el);
   if (src) return src;
   if (el.classList.contains('htmlapp')) return `html-app ${safeDecode(el.dataset.src || '')}`;
-  return (el.textContent || '').replace(/\s+/g, ' ').trim();
+  return contentText(el).replace(/\s+/g, ' ').trim();
 }
 
 /**
- * 範囲を選べる要素：ブロックの中の、画像（img）と図（svg。Mermaid・AI が書いたインラインの SVG）。最初の 1 つ。
+ * 範囲を選べる要素：ブロックの中の、画像（img）と図（svg。Mermaid・AI が書いたインラインの SVG）。最初の 1 つ。数式のブロックは、描いた数式（`.katex`。HTML）。
+ * **描いた数式の中の svg（根号など）は、図ではない**（文中の数式を持つ段落を、図のあるブロックにしない）。
  * **html-app の枠のブロックには、ない**（null）：見出しのツールバーの、アイコンの svg（15px）を、拾わない（範囲の基準が、アイコンになる不具合だった：F43 で直した）
  */
-export const mediaOf = (el: BlockEl): BlockEl | null =>
-  el.classList.contains('htmlapp') ? null : el.matches('img, svg') ? el : el.querySelector<BlockEl>('img, svg');
+export function mediaOf(el: BlockEl): BlockEl | null {
+  if (el.classList.contains('htmlapp')) return null;
+  if (el.classList.contains('math-block')) return el.querySelector<BlockEl>('.math-out .katex');
+  if (el.matches('img, svg')) return el;
+  for (const m of el.querySelectorAll<BlockEl>('img, svg')) if (!m.closest('.math-out')) return m;
+  return null;
+}
 
 /**
  * 範囲の基準：ブロックの最初の画像・図。なければ、ブロックそのもの。**壊れた画像**（読み込みが終わって、大きさがない）だけは、ブロックを基準にする。
@@ -98,7 +132,7 @@ export function textIndex(root: Node): TextIndex {
   const w = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
     acceptNode(n) {
       const p = n.parentElement;
-      if (!p || p.closest('.mermaid-block, .drawio-block, .htmlapp, .diffbox, style, script'))
+      if (!p || p.closest(`${DIAGRAM_SEL}, .math-out, .htmlapp, .diffbox, style, script`))
         return NodeFilter.FILTER_REJECT;
       return NodeFilter.FILTER_ACCEPT;
     },
@@ -132,14 +166,14 @@ export const elOf = (n: Node): Element | null => (n.nodeType === 1 ? (n as Eleme
 
 /** ブロックの名前（カードの見出し・AI に届く label） */
 export function blockLabel(el: BlockEl): string {
-  if (isDiagram(el)) return '図';
+  if (isDiagram(el)) return diagramLabel(el);
   if (el.classList.contains('htmlapp')) return '実行できる枠';
   if (el.dataset.fmt) return labelOf(el.dataset.fmt);
   const img = el instanceof HTMLImageElement ? el : el.querySelector('img'); // ブロックそのものが `<img>` のこともある
   if (img) return `画像: ${img.alt || ''}`.trim();
   if (el.tagName === 'TABLE') return '表';
   if (el.tagName === 'PRE') return 'コード';
-  return trunc(el.textContent, 40);
+  return trunc(contentText(el), 40);
 }
 
 /** ブロックへのコメントの対象（アンカー） */
@@ -172,8 +206,8 @@ export function plainText(el: BlockEl): string {
   if (isDiagram(el)) return safeDecode(diagramSource(el) || '');
   if (el.classList.contains('htmlapp')) return safeDecode(el.dataset.src || '');
   if (el instanceof HTMLTableElement)
-    return [...el.rows].map((r) => [...r.cells].map((c) => (c.textContent ?? '').trim()).join(' | ')).join('\n');
+    return [...el.rows].map((r) => [...r.cells].map((c) => contentText(c).trim()).join(' | ')).join('\n');
   if (el.tagName === 'PRE') return (el.textContent || '').replace(/\n$/, '');
   if (el.dataset.fmt) return (el.textContent || '').replace(/\n+$/, ''); // 形式の各行・各項目は、改行で終わる（fmt）。行を、つなげない
-  return (el.textContent || '').replace(/\s+/g, ' ').trim();
+  return contentText(el).replace(/\s+/g, ' ').trim();
 }

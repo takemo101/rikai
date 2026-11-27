@@ -33,6 +33,8 @@ interface Ctl {
   anchor: Anchor | null;
   /** ブロックにマウスを置いたときの、ブロック */
   blk: HTMLElement | null;
+  /** いま出しているバーに、「拡大表示」があるか */
+  zoom: boolean;
   hideTimer: number;
 }
 
@@ -48,7 +50,7 @@ interface Props {
 export function ActionBar({ scroller, latest, readOnly = false }: Props) {
   const [bar, setBar] = useState<Bar | null>(null);
   const barEl = useRef<HTMLDivElement>(null);
-  const ctl = useRef<Ctl>({ mode: null, anchor: null, blk: null, hideTimer: 0 });
+  const ctl = useRef<Ctl>({ mode: null, anchor: null, blk: null, zoom: false, hideTimer: 0 });
   const latestRef = useRef(latest);
   const readOnlyRef = useRef(readOnly);
   const layout = useUi((s) => s.ui);
@@ -59,6 +61,7 @@ export function ActionBar({ scroller, latest, readOnly = false }: Props) {
   }, []);
   const show = useCallback((mode: BarMode, right: number, top: number, zoom = false): void => {
     ctl.current.mode = mode;
+    ctl.current.zoom = zoom;
     setBar({ mode, right, top, zoom });
   }, []);
   /** ブロックのバーを、遅れて隠す（バーへ向かう間に、消えないように） */
@@ -147,6 +150,8 @@ export function ActionBar({ scroller, latest, readOnly = false }: Props) {
       if (
         c.blk &&
         c.mode === 'blk' &&
+        // 数式・図は、描き終える前（動的 import の間）は、拡大の対象がない：描き終えたら、バーを出し直す（「拡大表示」を足す）
+        c.zoom === !!zoomTargetOfBlock(c.blk) &&
         inBand(
           c.blk.getBoundingClientRect(),
           artBox,

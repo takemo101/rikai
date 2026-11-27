@@ -29,7 +29,11 @@ export function articleTid(
   const t = regionTidAt(e.clientX, e.clientY);
   if (t) return t;
   if (!(e.target instanceof Element)) return null;
-  const el = e.target.closest<HTMLElement>('[data-tid]:not([data-tid="pending"])'); // 入力中の強調（pending）の下にある、コメントの印を選ぶ
+  // 入力中の強調（pending）の下にある、コメントの印を選ぶ。文中の数式（`.math-inline`）は、強調が、見えない元の文字（`.math-src`）に付くので、数式を押したときも、その強調を指す
+  const el =
+    e.target.closest<HTMLElement>('[data-tid]:not([data-tid="pending"])') ??
+    e.target.closest('.math-inline')?.querySelector<HTMLElement>('mark[data-tid]:not([data-tid="pending"])') ??
+    null;
   if (!el) return null;
   // 範囲のコメントだけのブロックは、範囲の外では、どのコメントにも当てない（最後の範囲に、飛ばない）
   if (model) {

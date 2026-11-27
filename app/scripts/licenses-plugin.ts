@@ -2,7 +2,11 @@
 // 出力は、並べ順を決めて、同じ入力なら同じ内容にする（`test/build.test.ts` が、コミットしたものと比べる）。
 import fs from 'node:fs';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import type { Plugin } from 'vite';
+
+/** KaTeX のフォント（woff2 を、画面に同梱する）のライセンス：SIL OFL 1.1（`katex` パッケージの LICENSE は、コードの MIT だけ。フォントの表示・権利は、フォントのメタデータにある） */
+const KATEX_FONTS_LICENSE = path.join(path.dirname(fileURLToPath(import.meta.url)), 'katex-fonts-license.txt');
 
 export function licensesPlugin(): Plugin {
   return {
@@ -40,6 +44,8 @@ export function licensesPlugin(): Plugin {
           ? fs.readFileSync(path.join(dir, file), 'utf8').trim()
           : `ライセンス：${pkg.license ?? '（不明）'}（パッケージに、全文のファイルがない。package.json の license）`;
         sections.push(`### ${name} ${version}\n\n${text}\n`);
+        if (name === 'katex')
+          sections.push(`### katex ${version} のフォント\n\n${fs.readFileSync(KATEX_FONTS_LICENSE, 'utf8').trim()}\n`);
       }
       this.emitFile({
         type: 'asset',
