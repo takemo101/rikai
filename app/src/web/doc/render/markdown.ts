@@ -14,6 +14,7 @@
 import DOMPurify, { type Config } from 'dompurify';
 import { Marked, type Token } from 'marked';
 import { encSrc, h } from '../../lib/dom';
+import { decorateCallouts, taskRenderer } from './callouts';
 import { render as renderFmt } from './fmt';
 import { dropBackslashBeforeMath, mathBlockHtml, mathExtensions, noteSource } from './mathSyntax';
 
@@ -83,6 +84,7 @@ const marked = new Marked({
     },
   },
 });
+marked.use({ renderer: taskRenderer }); // タスクリストの印（`input` は、無害化が落とす：callouts.ts）
 
 export interface MarkdownOptions {
   /** トピックの slug（`page:` のリンク・画像の URL に使う） */
@@ -167,5 +169,6 @@ export function mdToFragment(md: string | null | undefined, { slug: topic, kind 
     img.setAttribute('src', `/asset/${encodeURIComponent(topic)}/${p.split('/').map(encodeURIComponent).join('/')}`);
     img.loading = 'lazy';
   }
+  decorateCallouts(root); // アラート（`> [!NOTE]`）・タスクリストの印。無害化のあとに付ける（callouts.ts）
   return root;
 }

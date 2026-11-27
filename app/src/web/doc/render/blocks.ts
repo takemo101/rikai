@@ -4,6 +4,7 @@ import { EXCERPT } from '../../../shared/anchor';
 import type { Anchor } from '../../../shared/types';
 import { hash, trunc } from '../../lib/dom';
 import type { BlockEl } from '../../store/doc';
+import { ALERT_TITLES, type AlertType, blockMark } from './callouts';
 import { labelOf } from './fmt';
 
 /** AI が書いた HTML の属性が、不正なことがある（読めないものは、そのまま返す） */
@@ -170,6 +171,8 @@ export function blockLabel(el: BlockEl): string {
   if (el.classList.contains('htmlapp')) return '実行できる枠';
   if (el.dataset.fmt) return labelOf(el.dataset.fmt);
   const img = el instanceof HTMLImageElement ? el : el.querySelector('img'); // ブロックそのものが `<img>` のこともある
+  const alert = el.dataset.alert as AlertType | undefined;
+  if (alert && alert in ALERT_TITLES) return `${ALERT_TITLES[alert]}: ${trunc(el.textContent, 40)}`; // 題は、表示だけの飾り（文字に入れない）。カードの見出しには、種類を出す
   if (img) return `画像: ${img.alt || ''}`.trim();
   if (el.tagName === 'TABLE') return '表';
   if (el.tagName === 'PRE') return 'コード';
@@ -192,14 +195,22 @@ export function blockAnchor(el: BlockEl): Anchor {
 
 /**
  * 版どうしの対応づけに使う、ブロックの種類（`BlockSig.tag`）。リストの項目は、並びの種類（ul・ol）も含める：箇条書き ⇄ 番号つきの並びも、「種類が変わった」変更になる。
+ * アラート（種類）・タスクの項目（チェックの状態）は、`|` のあとに印を足す：文字が同じでも、種類・チェックが変わったら、「変更」になる（ハッシュ・`blockText` には、入れない：callouts.ts）。
  * 項目を、並びから取り出す前に、呼ぶ（親の並びを見る）
  */
-export const sigTag = (el: BlockEl): string =>
-  el.tagName === 'LI' && el.parentElement ? `LI>${el.parentElement.tagName}` : el.tagName;
+export const sigTag = (el: BlockEl): string => {
+  const base = el.tagName === 'LI' && el.parentElement ? `LI>${el.parentElement.tagName}` : el.tagName;
+  const mark = blockMark(el);
+  return mark ? `${base}|${mark}` : base;
+};
 
 /** `sigTag` の、人に見せる名前（差分の説明用） */
-export const tagLabel = (tag: string): string =>
-  tag === 'LI>UL' ? '箇条書き' : tag === 'LI>OL' ? '番号つきの並び' : tag.toLowerCase();
+export function tagLabel(tag: string): string {
+  const [base = '', mark = ''] = tag.split('|');
+  if (mark in ALERT_TITLES) return `注意書き（${ALERT_TITLES[mark as AlertType]}）`;
+  const name = base === 'LI>UL' ? '箇条書き' : base === 'LI>OL' ? '番号つきの並び' : base.toLowerCase();
+  return mark ? `${name}・チェック ${mark}` : name;
+}
 
 /** 差分に使う、ブロックの文字（表は、セルを「 | 」で、行を改行でつなぐ。図は、ソース） */
 export function plainText(el: BlockEl): string {

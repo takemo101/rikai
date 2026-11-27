@@ -57,21 +57,33 @@ const KIND = {
 } as const;
 type Kind = keyof typeof KIND;
 
+/**
+ * 拡大表示を開く。**押す要素は、本文の描き直しで、作り直される**（コメントが届く・図を描き直す：同じ内容でも、要素は別物になる）：スクロールした直後に外れる（`not attached`）ことがある。
+ * 開けるまで、押し直す（開いていれば、押さない）。人の操作の速さでは、起きない
+ */
 async function openZoom(page: Page, kind: Kind) {
+  const lb = page.locator('#lightbox');
+  await expect(async () => {
+    if (await lb.isHidden()) {
+      if (kind === 'app') {
+        const b = page.locator('#article .htmlapp .cap').getByRole('button', { name: '拡大表示', exact: true });
+        await b.scrollIntoViewIfNeeded({ timeout: 2000 });
+        await b.click({ timeout: 2000 });
+      } else {
+        const e = page.locator(KIND[kind].open).first();
+        await e.scrollIntoViewIfNeeded({ timeout: 2000 });
+        await e.click({ timeout: 2000 });
+      }
+    }
+    await expect(page.locator('#lightbox .fv-dock')).toBeVisible({ timeout: 2000 });
+  }).toPass({ timeout: 20_000 });
   if (kind === 'app') {
-    const b = page.locator('#article .htmlapp .cap').getByRole('button', { name: '拡大表示', exact: true });
-    await b.scrollIntoViewIfNeeded();
-    await b.click();
     await expect(page.locator('#lightbox iframe.appframe')).toHaveCount(1);
     await page.waitForTimeout(1600);
   } else {
-    const e = page.locator(KIND[kind].open).first();
-    await e.scrollIntoViewIfNeeded();
-    await e.click();
     await expect.poll(async () => (await box(page.locator('#lightbox .lb-stage'))).width).toBeGreaterThan(50);
     await page.waitForTimeout(500);
   }
-  await expect(page.locator('#lightbox .fv-dock')).toBeVisible();
 }
 
 interface Chip {

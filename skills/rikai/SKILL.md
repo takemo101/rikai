@@ -76,6 +76,7 @@ rikai() { node "<SKILL_DIR>/rikai.js" "$@"; }; rikai status
 - 見出し・表・箇条書き・コードブロック。図は ```` ```mermaid ````。画像は `.rikai/<topic>/assets/` に置き `![説明](assets/名前.png)`（外部の画像 URL は表示されない）。別ページへは `[詳細](page:<page-id>)`。HTML の `<script>`・`<style>`・iframe は取り除かれる。
 - 数式は GitHub と同じ書き方（KaTeX で描く）：文中は `$x^2$`、別行は `$$ … $$` か ```` ```math ````。通貨の `$5` は、数式にならない（`$` の直後・直前の空白は不可）。
 - コードブロックの形式：`diff`・`json`・`terminal`・`trace`・`drawio`・`html-app`（ユーザーが触って確かめる部品。**書く前に `references/html-app.md` を読む**）。
+- 注意書き `> [!NOTE]`（`TIP`・`IMPORTANT`・`WARNING`・`CAUTION`）とタスクリスト `- [ ]`・`- [x]`（どちらも表示だけ。書き方の例は `references/doc-format.md`）。
 - ユーザーは、本文の画像・図を押して拡大表示で見て、範囲を選んでコメントできる（案内してよい）。並べて比べる・Markdown の保存など、ほかの操作を案内するときは `references/viewer.md` を読む。
 
 ## 2. 返信を待つ
