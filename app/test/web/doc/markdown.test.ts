@@ -313,3 +313,34 @@ test('本文の直下のインライン <svg> も、ブロック（data-bid・bl
   expect(blockAnchor(svg)).toMatchObject({ blockId: 'b1', blockTag: 'svg', blockText: '図' });
   expect(mediaOf(svg)).toBe(svg);
 });
+
+// インライン SVG の伸縮（app.css の `max-width: 100%; height: auto`）：viewBox がないと、枠だけが縮んで、図形は縮まず切れる。width・height が px の数のブロックの svg にだけ、viewBox を足す
+test('ブロックの <svg>：viewBox がなく、width・height が px の数なら、viewBox を足す。それ以外は、触らない', () => {
+  const svg = (attrs: string) =>
+    `<svg xmlns="http://www.w3.org/2000/svg" ${attrs}>\n<rect width="10" height="10"/>\n</svg>`;
+  const vb = (md: string, kind: 'doc' | 'reply' = 'doc') => {
+    const d = document.createElement('div');
+    d.append(mdToFragment(md, { slug: 'demo', kind }));
+    return d.querySelector('svg')?.getAttribute('viewBox') ?? null;
+  };
+  expect(vb(svg('width="1200" height="800"'))).toBe('0 0 1200 800');
+  expect(vb(svg('width="1200px" height="80.5px"'))).toBe('0 0 1200 80.5');
+  expect(vb(svg('width="1200" height="800"'), 'reply')).toBe('0 0 1200 800'); // 返信も同じ
+  // `<p>` に包まれた 1 行
+  expect(
+    vb('<svg xmlns="http://www.w3.org/2000/svg" width="600" height="300"><rect width="10" height="10"/></svg>'),
+  ).toBe('0 0 600 300');
+  // 触らない：viewBox がある・% や em・片方がない・0・数でない
+  expect(vb(svg('width="1200" height="800" viewBox="0 0 12 8"'))).toBe('0 0 12 8');
+  expect(vb(svg('width="100%" height="200"'))).toBeNull();
+  expect(vb(svg('width="10em" height="200"'))).toBeNull();
+  expect(vb(svg('width="1200"'))).toBeNull();
+  expect(vb(svg('height="200"'))).toBeNull();
+  expect(vb(svg('width="0" height="200"'))).toBeNull();
+  expect(vb(svg('width="1e3" height="200"'))).toBeNull();
+  expect(vb(svg('viewBox="0 0 400 200"'))).toBe('0 0 400 200');
+  // ブロックでない svg（段落の文の中・入れ子の要素の中）は、触らない
+  expect(
+    vb('文 <span class="katex"><svg xmlns="http://www.w3.org/2000/svg" width="1200" height="40"><rect/></svg></span>'),
+  ).toBeNull();
+});

@@ -91,6 +91,27 @@ export interface MarkdownOptions {
   kind: 'doc' | 'reply';
 }
 
+const PX_SIZE = /^\s*(\d+(?:\.\d+)?)(?:px)?\s*$/;
+
+/**
+ * ブロックとしての `<svg>`（断片の直下・直下の `<p>` の中）で、`viewBox` がなく、`width`・`height` が、どちらも px の数のとき、`viewBox="0 0 幅 高さ"` を足す。
+ * 列より広いとき、`max-width: 100%; height: auto`（app.css）で縮むが、`viewBox` がないと、枠だけが縮んで、図形は縮まず、はみ出た部分が切れる。
+ * `viewBox` を足しても、元の大きさでは、見た目は同じ（縮尺 1）。無害化のあとで、検査した数だけから作る（資料の文字を、そのまま入れない）
+ */
+function addViewBoxToBlockSvgs(root: DocumentFragment): void {
+  const svgs: SVGSVGElement[] = [];
+  for (const el of root.children) {
+    if (el instanceof SVGSVGElement) svgs.push(el);
+    else if (el.tagName === 'P') for (const c of el.children) if (c instanceof SVGSVGElement) svgs.push(c);
+  }
+  for (const svg of svgs) {
+    if (svg.hasAttribute('viewBox')) continue;
+    const w = PX_SIZE.exec(svg.getAttribute('width') ?? '')?.[1];
+    const h = PX_SIZE.exec(svg.getAttribute('height') ?? '')?.[1];
+    if (w && h && Number(w) > 0 && Number(h) > 0) svg.setAttribute('viewBox', `0 0 ${Number(w)} ${Number(h)}`);
+  }
+}
+
 /** Markdown を、無害化した断片にする（使い方は、ファイルの先頭） */
 export function mdToFragment(md: string | null | undefined, { slug: topic, kind }: MarkdownOptions): DocumentFragment {
   appCtx = kind === 'doc' ? { n: 0, srcs: [] } : null;
@@ -122,6 +143,7 @@ export function mdToFragment(md: string | null | undefined, { slug: topic, kind 
       b.style.width = `${Math.min(Math.max(w, 0.4), 100)}%`;
     }
   }
+  addViewBoxToBlockSvgs(root);
   for (const a of root.querySelectorAll<HTMLAnchorElement>('a[href]')) {
     const href = a.getAttribute('href') ?? '';
     if (href.startsWith('page:')) {

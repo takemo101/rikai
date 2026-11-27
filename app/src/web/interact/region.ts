@@ -369,12 +369,16 @@ export async function rasterRegion(vr: Box, art: HTMLElement, hooks: RasterHooks
         position: 'absolute',
         margin: '0',
         'box-sizing': 'border-box',
+        // 大きさは、上の width・height だけで決める：写した `max-width: 100%`（ブロックの svg・画像の規則）は、範囲の大きさの箱（root）に対する 100% になり、小さな範囲で、図を縮めて、空にする
+        'max-width': 'none',
+        'max-height': 'none',
         left: `${r.left - vr.left}px`,
         top: `${r.top - vr.top}px`,
         width: `${r.width}px`,
         height: `${r.height}px`,
       };
-      if (c instanceof HTMLElement)
+      if (c instanceof HTMLElement || c instanceof SVGElement)
+        // ブロックそのものが `<svg>` のときも（置かないと、範囲の位置に関係なく、図の左上が写る）
         for (const [name, value] of Object.entries(place)) c.style.setProperty(name, value, 'important');
       root.append(c);
     }

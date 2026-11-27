@@ -275,6 +275,8 @@ label.chk { font-size: var(--fs-s); color: var(--muted); display: flex; gap: 6px
 .img-blocked { color: var(--muted); font-size: var(--fs-s); border: 1px dashed var(--line-strong); padding: 2px 6px; border-radius: var(--r-s); }
 .mermaid-block, .drawio-block { margin: 1em 0; text-align: center; overflow: auto; }
 .mermaid-block svg, .drawio-block svg { max-width: 100%; height: auto; }
+/* ブロックとしてのインライン SVG（HTML ブロックの `<svg>`・`<p>` に包まれた `<svg>`）：列より広いときだけ、縦横比を保って縮む（広げない：`width` 属性の大きさが上限）。Mermaid・draw.io と同じ規則。直接の子だけ（KaTeX・html-app・UI のアイコンは巻き込まない） */
+:is(#article, .cmpcell.md, .msg .body.md) > svg, :is(#article, .cmpcell.md, .msg .body.md) > p > svg { max-width: 100%; height: auto; }
 .dx-note { color: var(--muted); font-size: var(--fs-s); text-align: left; }
 .mm-err { color: var(--warn); font-size: var(--fs-s); text-align: left; }
 /* ---- 数式（KaTeX。F57）：別行 `.math-block`（図と同じ扱い）・文中 `.math-inline`。文字の色は、画面の文字色（`currentColor`：KaTeX は、色を指定しない。ダークでも読める）。KaTeX の CSS・フォントは、数式のある資料でだけ読む（doc/render/math.ts） ---- */
