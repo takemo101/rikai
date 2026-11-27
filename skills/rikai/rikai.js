@@ -26228,7 +26228,9 @@ var MIME = {
   ".jpeg": "image/jpeg",
   ".gif": "image/gif",
   ".webp": "image/webp",
-  ".json": "application/json; charset=utf-8"
+  ".json": "application/json; charset=utf-8",
+  ".woff2": "font/woff2"
+  // 数式（KaTeX）のフォント
 };
 var FAVICON_PATH = "/favicon.svg";
 var ASSETS_PREFIX = "/assets/";
@@ -26636,7 +26638,7 @@ function projectRoot(flags) {
 }
 
 // src/shared/version.ts
-var VERSION = "0.1.7";
+var VERSION = "0.1.8";
 
 // src/cli/help.ts
 var ROOT_OPT = {

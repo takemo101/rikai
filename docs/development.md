@@ -186,6 +186,8 @@ pnpm test && pnpm run test:e2e
 ```
 
 更新したら、配布物（`skills/rikai/`）と `pnpm-lock.yaml` を、一緒にコミットする。画面で、Mermaid の図・表・無害化（[検証の入口](#検証の入口)）を確かめる。marked の描画 API（`renderer.code({text, lang})`）が変わると、`app/src/web/doc/render/markdown.ts` の `renderer` を直す必要がある。DOMPurify の設定（`PURIFY`）の挙動も、版で変わりうる。
+**KaTeX（0.18）の扱い**（F57。0.1.8）：KaTeX は `app/package.json` の `devDependencies`（`katex`）にあり、mermaid が `^0.18` を要求するので、**同じ版（0.18.x）にそろえる**（0.19 にすると chunk が重複する）。フォント（woff2 20 個）は `skills/rikai/public/assets/KaTeX_*.woff2` に、**埋め込まずに同梱**し（`vite.config.ts`。ハッシュなしのファイル名）、`katex.min.css` の woff・ttf は除く。更新したら、`THIRD-PARTY-LICENSES.txt`（KaTeX は MIT・フォントは SIL OFL 1.1）が更新されることと、数式のない資料で katex の chunk・CSS・フォントを読まないこと（`e2e/math.spec.ts`）を確かめる。**見本・検証データを作るときの注意**（F59）：`viewBox` のない SVG の見本は、`width`・`height` が px の数でないと、補完されない。
+
 
 ## mikan の Issue 進行
 

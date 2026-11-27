@@ -8,7 +8,10 @@
 #lightbox .lb-view.panning, #lightbox .lb-view.panning .lb-stage { cursor: grabbing; }
 #lightbox .lb-stage img { display: block; width: 100%; height: 100%; max-width: none; max-height: none; border-radius: var(--r); box-shadow: none; }
 #lightbox .lb-stage.img { background: #fff; } /* 画像の地は、白（透明な画像が、暗い地に沈まない） */
-#lightbox .lb-stage.svg { background: var(--paper); overflow: hidden; outline: 1px solid var(--line-strong); } /* 図の地は、画面の紙の色（ダークは暗い地：Mermaid の色が、正しく見える） */
+#lightbox .lb-stage.svg, #lightbox .lb-stage.math { background: var(--paper); overflow: hidden; outline: 1px solid var(--line-strong); } /* 図の地は、画面の紙の色（ダークは暗い地：Mermaid の色が、正しく見える） */
+#lightbox .lb-stage.math { display: flex; align-items: center; justify-content: center; color: var(--ink); } /* 数式（HTML）：式の箱（自然な大きさ）を、ステージいっぱいに置く。文字色は、画面の文字色（ダークも読める） */
+#lightbox .lb-stage.math .zoom-math { flex: none; text-align: center; user-select: none; }
+#lightbox .lb-stage.math .katex-display { margin: 0; }
 #lightbox .lb-tools { position: absolute; z-index: 5; top: 16px; right: 16px; display: flex; align-items: center; gap: 2px; padding: 4px; color: #fff; background: rgba(24, 24, 27, 0.92); border: 1px solid rgba(255, 255, 255, 0.2); border-radius: var(--r); box-shadow: 0 2px 12px rgba(0, 0, 0, 0.4); cursor: default; } /* 白い図の上でも、見える：暗い地 */
 #lightbox .lb-tools button { display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; padding: 0; color: #fff; background: transparent; border: 0; border-radius: var(--r-s); }
 #lightbox .lb-tools button:hover:not(:disabled) { background: rgba(255, 255, 255, 0.2); }
@@ -18,7 +21,7 @@
 #lightbox .lb-tools svg.lucide { width: 16px; height: 16px; }
 #lightbox .lb-pct { min-width: 44px; padding: 0 4px; text-align: center; font-size: var(--fs-s); font-variant-numeric: tabular-nums; }
 /* 本文・返信の、拡大できる画像・図（本文の DOM は、変えない：見た目だけ） */
-#article img, #article .mermaid-block svg, #article svg, .msg .body.md img, .msg .body.md svg { cursor: zoom-in; }
+#article img, #article .mermaid-block svg, #article svg, #article .math-block .katex, .msg .body.md img, .msg .body.md svg, .msg .body.md .math-block .katex { cursor: zoom-in; }
 #article a img, #article a svg { cursor: pointer; }
 .thumb img, .msg .imgs img { cursor: zoom-in; }
 

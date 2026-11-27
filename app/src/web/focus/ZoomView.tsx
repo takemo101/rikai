@@ -76,8 +76,10 @@ export function ZoomView({
   const drag = useRef<DragState | null>(null);
   const tool = useUi((s) => s.focusTool);
 
-  const nat: Size | null = target.kind === 'svg' ? svgNaturalSize(target.node, target.size) : imgNat;
-  const fit = nat ? fitScale(nat, view, target.kind) : 1;
+  // 画像は、読み込んだ大きさ。図（svg）は、自然な大きさ。数式（HTML）は、本文の式の箱の大きさ（`zoomMath.ts`）
+  const nat: Size | null =
+    target.kind === 'svg' ? svgNaturalSize(target.node, target.size) : target.kind === 'math' ? target.size : imgNat;
+  const fit = nat ? fitScale(nat, view, target.kind === 'img' ? 'img' : 'svg') : 1; // 図・数式は、ベクター：窓いっぱいまで
   const pose: Pose = custom ?? fitPose(fit);
   const atFit = pose.scale <= fit + 1e-6;
   const atMax = pose.scale >= Math.max(ZOOM_MAX, fit) - 1e-6;
@@ -106,6 +108,13 @@ export function ZoomView({
       window.removeEventListener('resize', sync);
     };
   }, []);
+
+  // 数式：複製した式（HTML。無害化済みの DOM のコピー）を、舞台に入れる。舞台の大きさは、式の箱（自然な大きさ）
+  useLayoutEffect(() => {
+    const stage = stageRef.current;
+    if (target.kind !== 'math' || !stage) return;
+    if (target.node.parentElement !== stage) stage.replaceChildren(target.node);
+  }, [target]);
 
   // 図：複製した SVG を、舞台に入れる（HTML を、文字列から作らない）。大きさは、自然な大きさ
   useLayoutEffect(() => {
@@ -207,10 +216,12 @@ export function ZoomView({
   }, []);
   const onSelect = (sel: DragSelection): void => {
     const block = ctx?.block;
-    const media = stageRef.current?.querySelector(target.kind === 'img' ? 'img' : 'svg');
+    const media = stageRef.current?.querySelector(
+      target.kind === 'img' ? 'img' : target.kind === 'svg' ? 'svg' : '.katex',
+    );
     if (!block || !media || !deps) return;
     finishFocusMedia(
-      { block, media, rect: sel.rect, size: target.kind === 'svg' ? (live.current.nat ?? null) : null },
+      { block, media, rect: sel.rect, size: target.kind === 'img' ? null : (live.current.nat ?? null) },
       deps,
     );
   };

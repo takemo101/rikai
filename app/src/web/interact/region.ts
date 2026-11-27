@@ -5,7 +5,7 @@
 
 import { IMG_MAX_BYTES, IMG_MAX_N, IMG_OUT_MAX_SIDE } from '../../shared/image';
 import type { Anchor, Rect } from '../../shared/types';
-import { blockAnchor, frameOf, isDiagram } from '../doc/render/blocks';
+import { blockAnchor, diagramLabel, frameOf, isDiagram } from '../doc/render/blocks';
 import { appName } from '../htmlapp/appName';
 import { requestFrameSnapshot } from '../htmlapp/frameRegistry';
 import { $, $$, trunc } from '../lib/dom';
@@ -16,6 +16,7 @@ import { getView } from '../lib/view';
 import { toast, useUi } from '../store/ui';
 import { openComposer } from './compose';
 import { isInsideFrame, overlaps, pickBase, rasterTooBig, ratioRect } from './geometry';
+import { katexFontCss } from './katexFonts';
 import { regionLabel } from './selection';
 
 /** 利用者に見せる失敗（原因が分かるもの） */
@@ -45,9 +46,9 @@ export const textOfBlock = (blk: Element): string => {
     const n = Number((blk as HTMLElement).dataset.n);
     return Number.isInteger(n) && n >= 0 ? appName(n) : '実行できる枠';
   }
-  // <style>・<script> の中身（図の CSS など）は、名前に入れない
+  // <style>・<script> の中身（図の CSS など）・描いた数式（`.math-out`。文中の数式は、元の文字が、名前に入る）は、名前に入れない
   const plain = blk.cloneNode(true) as Element;
-  for (const x of plain.querySelectorAll('style, script')) x.remove();
+  for (const x of plain.querySelectorAll('style, script, .math-out')) x.remove();
   return (plain.textContent ?? '').replace(/\s+/g, ' ').trim();
 };
 
@@ -78,7 +79,7 @@ export function finishRegion(vr: Box, deps: RegionDeps): void {
   // 範囲が、1 つの画像・図の中に収まるなら、元の解像度から切り出す。そうでなければ、表示されている本文を、画像にする
   const ready = media !== null && (!(media instanceof HTMLImageElement) || media.naturalWidth > 0);
   const inside = media !== null && isInsideFrame(vr, fr, ready);
-  const text = isDiagram(blk) ? '図' : textOfBlock(blk);
+  const text = isDiagram(blk) ? diagramLabel(blk) : textOfBlock(blk);
   // 画像・図の外へ出る範囲は、画像の一部ではない
   const label =
     inside && media ? `${regionLabel(blk, media)}の一部` : `範囲：${trunc(text, 30) || blk.tagName.toLowerCase()}`;
@@ -221,6 +222,11 @@ export async function cropMedia(media: Element, rect: Rect, size?: Size): Promis
       const s = Math.min(sw / nw, sh / nh);
       fit = { w: nw * s, h: nh * s, x: (sw - nw * s) / 2, y: (sh - nh * s) / 2 };
     }
+  } else if (media.classList.contains('katex')) {
+    // 描いた数式（HTML）：SVG の foreignObject に入れて、画像にする（フォントは、data: で入れる）
+    sw = Math.round(b.width * vectorScale);
+    sh = Math.round(b.height * vectorScale);
+    src = await mathImage(media as HTMLElement, b, sw, sh);
   } else {
     sw = Math.round(b.width * vectorScale);
     sh = Math.round(b.height * vectorScale);
@@ -243,6 +249,67 @@ export async function cropMedia(media: Element, rect: Rect, size?: Size): Promis
   const f = fit ?? { x: 0, y: 0, w: sw, h: sh };
   ctx.drawImage(src, (f.x - sx) * k, (f.y - sy) * k, f.w * k, f.h * k); // 全体を、ずらして描く（はみ出す所は、切れる）。k が 1 なら、切り出しと同じ
   return canvasFile(cv);
+}
+
+/** 要素と子孫の、見えているスタイル（computed style）を、複製の `style` 属性に写す（`foreignObject` の中は、ページの CSS を持たない） */
+function copyStyles(src: Element, dst: Element): void {
+  const from = [src, ...src.querySelectorAll('*')];
+  const to = [dst, ...dst.querySelectorAll('*')];
+  for (let i = 0; i < from.length; i++) {
+    const s = from[i];
+    const d = to[i];
+    if (!s || !d) continue;
+    const cs = getComputedStyle(s);
+    let css = '';
+    for (const p of cs) css += `${p}:${cs.getPropertyValue(p)};`;
+    d.setAttribute('style', css);
+  }
+}
+
+/** XML として不正な文字（制御文字・対になっていないサロゲート）は、除く（画像として読めなくなるため） */
+const xmlSafe = (xml: string): string =>
+  xml.replace(
+    // biome-ignore lint/suspicious/noControlCharactersInRegex: 制御文字を除くのが目的
+    /[\u0000-\u0008\u000B\u000C\u000E-\u001F\uFFFE\uFFFF]|[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/g,
+    '',
+  );
+
+/**
+ * 描いた数式（`.katex`。HTML）を、画像にする：複製に、スタイルを写し、使うフォントを `data:` で入れ（`katexFonts.ts`）、SVG の `foreignObject` に入れて、画像として読む。
+ * `b`：式の箱（自然な大きさ。個別表示では、ズームで変わらない大きさ）・`sw`・`sh`：画像の大きさ。複製は、スクリプトを持たない（無害化した DOM のコピー。画像として読むだけで、動かない）
+ */
+async function mathImage(
+  el: HTMLElement,
+  b: { width: number; height: number },
+  sw: number,
+  sh: number,
+): Promise<HTMLImageElement> {
+  const W = Math.max(1, Math.round(b.width));
+  const H = Math.max(1, Math.round(b.height));
+  const c = el.cloneNode(true) as HTMLElement;
+  copyStyles(el, c);
+  for (const [name, value] of Object.entries({
+    position: 'absolute',
+    left: '0',
+    top: '0',
+    margin: '0',
+    width: `${b.width}px`,
+    height: `${b.height}px`,
+  }))
+    c.style.setProperty(name, value, 'important');
+  const root = document.createElement('div');
+  root.setAttribute('xmlns', 'http://www.w3.org/1999/xhtml');
+  root.style.cssText = `position:relative;width:${W}px;height:${H}px;overflow:hidden;background:${paperOf(el)}`;
+  const fonts = await katexFontCss([el]);
+  if (fonts) {
+    const st = document.createElement('style');
+    st.textContent = fonts;
+    root.append(st);
+  }
+  root.append(c);
+  const xml = xmlSafe(new XMLSerializer().serializeToString(root));
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${sw}" height="${sh}" viewBox="0 0 ${W} ${H}"><foreignObject x="0" y="0" width="${W}" height="${H}">${xml}</foreignObject></svg>`;
+  return loadImage(`data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`, '数式を画像にできません');
 }
 
 /**
@@ -302,12 +369,16 @@ export async function rasterRegion(vr: Box, art: HTMLElement, hooks: RasterHooks
         position: 'absolute',
         margin: '0',
         'box-sizing': 'border-box',
+        // 大きさは、上の width・height だけで決める：写した `max-width: 100%`（ブロックの svg・画像の規則）は、範囲の大きさの箱（root）に対する 100% になり、小さな範囲で、図を縮めて、空にする
+        'max-width': 'none',
+        'max-height': 'none',
         left: `${r.left - vr.left}px`,
         top: `${r.top - vr.top}px`,
         width: `${r.width}px`,
         height: `${r.height}px`,
       };
-      if (c instanceof HTMLElement)
+      if (c instanceof HTMLElement || c instanceof SVGElement)
+        // ブロックそのものが `<svg>` のときも（置かないと、範囲の位置に関係なく、図の左上が写る）
         for (const [name, value] of Object.entries(place)) c.style.setProperty(name, value, 'important');
       root.append(c);
     }
@@ -328,12 +399,16 @@ export async function rasterRegion(vr: Box, art: HTMLElement, hooks: RasterHooks
     }
   }
   if (framed) hooks.onFrameImages?.();
-  // XML として不正な文字（制御文字・対になっていないサロゲート）は、除く（画像として読めなくなるため）
-  const xml = new XMLSerializer().serializeToString(root).replace(
-    // biome-ignore lint/suspicious/noControlCharactersInRegex: 制御文字を除くのが目的
-    /[\u0000-\u0008\u000B\u000C\u000E-\u001F\uFFFE\uFFFF]|[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/g,
-    '',
-  );
+  // 数式（KaTeX）を含むときは、使うフォントを、data: で入れる（複製の中は、外のフォントを読めない）
+  if (root.querySelector('.katex')) {
+    const fonts = await katexFontCss(targets);
+    if (fonts) {
+      const st = document.createElement('style');
+      st.textContent = fonts;
+      root.prepend(st);
+    }
+  }
+  const xml = xmlSafe(new XMLSerializer().serializeToString(root));
   if (xml.length > 40e6)
     throw new UserError('範囲が大きすぎて、画像にできません。小さい範囲を選んでください。位置だけで、コメントできます');
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${Math.round(W * k)}" height="${Math.round(H * k)}" viewBox="0 0 ${W} ${H}"><foreignObject x="0" y="0" width="${W}" height="${H}">${xml}</foreignObject></svg>`;

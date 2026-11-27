@@ -19,13 +19,15 @@ export interface FocusRef {
 }
 
 /**
- * 拡大表示（`#lightbox`）に出すもの。img：画像（コメントに添付した画像・本文・返信の画像）。svg：図（Mermaid・インラインの SVG）の複製（id を付け替え済み：focus/zoomSvg.ts）。img・svg は、ズーム・移動ができる。
+ * 拡大表示（`#lightbox`）に出すもの。img：画像（コメントに添付した画像・本文・返信の画像）。svg：図（Mermaid・インラインの SVG）の複製（id を付け替え済み：focus/zoomSvg.ts）。
+ * math：別行の数式（HTML。KaTeX の出力）の複製（focus/zoomMath.ts）：`size` は、本文の式の箱（自然な大きさ）。img・svg・math は、ズーム・移動ができる。
  * app：html-app の枠（F43）。**新しい iframe を作る**（本文の枠は、動かさない）。`app`：枠の番号・固定の高さ（なければ自動）・配色への対応。
  * `focus`：本文（`#article`）のブロックを指す印（右のドックに、そのブロックのコメントを出し、範囲・要素のコメントを付けられる）。**添付の画像・返信の中の画像・図には、ない**（ステージだけ：見るだけ）
  */
 export type LightboxTarget =
   | { kind: 'img'; src: string; alt: string; focus?: FocusRef }
   | { kind: 'svg'; node: SVGSVGElement; alt: string; size: { w: number; h: number }; focus?: FocusRef }
+  | { kind: 'math'; node: HTMLElement; alt: string; size: { w: number; h: number }; focus?: FocusRef }
   | { kind: 'app'; alt: string; focus: FocusRef; app: { n: number; fixed: number | null; follows: boolean } };
 
 /** コメントに添付した画像の、拡大表示の名前 */

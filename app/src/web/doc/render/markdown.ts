@@ -5,15 +5,18 @@
 //   import { fillDiagrams, mdToFragment } from '../doc/render';          // `doc/render/index.ts`
 //   const frag = mdToFragment(m.text, { slug, kind: 'reply' });          // 無害化した DocumentFragment
 //   body.replaceChildren(frag);
-//   void fillDiagrams(body);                                             // 図（`.mermaid-block`・`.drawio-block`）を描く。待たなくてよい
+//   void fillDiagrams(body);                                             // 図（`.mermaid-block`・`.drawio-block`）と数式（`.math-block`・`.math-inline`）を描く。待たなくてよい
 // - 形式（diff・json・terminal・trace）・リンク（http(s)・mailto・`page:`）・画像（`assets/` だけ。外部はブロック表示）・Mermaid・draw.io（```drawio。`<mxGraphModel>` の XML）の置き場は、`doc`・`reply` どちらも同じ。
+// - 数式（GitHub と同じ記法：文中 `$…$`・`` $`…`$ ``・別行 `$$…$$`・```math。`mathSyntax.ts`）は、置き場だけを作る。描く（KaTeX）のは `fillDiagrams`（`math.ts`）。別行は、図と同じブロック（`DIAGRAM_SEL`）。
 // - `kind: 'doc'`：資料の本文。```html-app を、枠の置き場（`.htmlapp`）にする（番号は、フェンスの順。サーバーが同じ番号の枠を配る）。
 // - `kind: 'reply'`：返信。```html-app は、ふつうのコードブロック。**ブロックの番号づけ（`markBlocks`）は、しない**（本文だけ。呼ぶ側の仕事）。
 // - `fillApps`（枠に iframe を入れる）も、本文だけ。返信では呼ばない。
 import DOMPurify, { type Config } from 'dompurify';
-import { Marked } from 'marked';
+import { Marked, type Token } from 'marked';
 import { encSrc, h } from '../../lib/dom';
+import { decorateCallouts, taskRenderer } from './callouts';
 import { render as renderFmt } from './fmt';
+import { dropBackslashBeforeMath, mathBlockHtml, mathExtensions, noteSource } from './mathSyntax';
 
 export const PURIFY: Config = {
   USE_PROFILES: { html: true, svg: true },
@@ -53,11 +56,20 @@ export function appHeight(info: string): number | 'auto' {
 
 const marked = new Marked({
   gfm: true,
+  extensions: mathExtensions, // 数式：`$…$`・`` $`…`$ ``・`$$…$$`（別行）。GitHub と同じ記法（mathSyntax.ts）
+  hooks: {
+    preprocess: noteSource,
+    processAllTokens(tokens) {
+      dropBackslashBeforeMath(tokens as Token[]);
+      return tokens;
+    },
+  },
   renderer: {
     code({ text, lang }) {
       const kind = (lang || '').trim().split(/\s+/)[0]?.toLowerCase() ?? '';
       if (kind === 'mermaid') return `<div class="mermaid-block" data-mermaid="${encSrc(text)}"></div>`;
       if (kind === 'drawio') return `<div class="drawio-block" data-drawio="${encSrc(text)}"></div>`;
+      if (kind === 'math') return mathBlockHtml(text); // ```math：別行の数式（`$$…$$` と同じ意味）
       if (kind === 'html-app') {
         if (!appCtx) return false;
         const n = appCtx.n++;
@@ -72,12 +84,34 @@ const marked = new Marked({
     },
   },
 });
+marked.use({ renderer: taskRenderer }); // タスクリストの印（`input` は、無害化が落とす：callouts.ts）
 
 export interface MarkdownOptions {
   /** トピックの slug（`page:` のリンク・画像の URL に使う） */
   slug: string;
   /** `doc`：資料の本文（html-app を枠の置き場にする）／`reply`：AI の返信（html-app は、ふつうのコードブロック） */
   kind: 'doc' | 'reply';
+}
+
+const PX_SIZE = /^\s*(\d+(?:\.\d+)?)(?:px)?\s*$/;
+
+/**
+ * ブロックとしての `<svg>`（断片の直下・直下の `<p>` の中）で、`viewBox` がなく、`width`・`height` が、どちらも px の数のとき、`viewBox="0 0 幅 高さ"` を足す。
+ * 列より広いとき、`max-width: 100%; height: auto`（app.css）で縮むが、`viewBox` がないと、枠だけが縮んで、図形は縮まず、はみ出た部分が切れる。
+ * `viewBox` を足しても、元の大きさでは、見た目は同じ（縮尺 1）。無害化のあとで、検査した数だけから作る（資料の文字を、そのまま入れない）
+ */
+function addViewBoxToBlockSvgs(root: DocumentFragment): void {
+  const svgs: SVGSVGElement[] = [];
+  for (const el of root.children) {
+    if (el instanceof SVGSVGElement) svgs.push(el);
+    else if (el.tagName === 'P') for (const c of el.children) if (c instanceof SVGSVGElement) svgs.push(c);
+  }
+  for (const svg of svgs) {
+    if (svg.hasAttribute('viewBox')) continue;
+    const w = PX_SIZE.exec(svg.getAttribute('width') ?? '')?.[1];
+    const h = PX_SIZE.exec(svg.getAttribute('height') ?? '')?.[1];
+    if (w && h && Number(w) > 0 && Number(h) > 0) svg.setAttribute('viewBox', `0 0 ${Number(w)} ${Number(h)}`);
+  }
 }
 
 /** Markdown を、無害化した断片にする（使い方は、ファイルの先頭） */
@@ -111,6 +145,7 @@ export function mdToFragment(md: string | null | undefined, { slug: topic, kind 
       b.style.width = `${Math.min(Math.max(w, 0.4), 100)}%`;
     }
   }
+  addViewBoxToBlockSvgs(root);
   for (const a of root.querySelectorAll<HTMLAnchorElement>('a[href]')) {
     const href = a.getAttribute('href') ?? '';
     if (href.startsWith('page:')) {
@@ -134,5 +169,6 @@ export function mdToFragment(md: string | null | undefined, { slug: topic, kind 
     img.setAttribute('src', `/asset/${encodeURIComponent(topic)}/${p.split('/').map(encodeURIComponent).join('/')}`);
     img.loading = 'lazy';
   }
+  decorateCallouts(root); // アラート（`> [!NOTE]`）・タスクリストの印。無害化のあとに付ける（callouts.ts）
   return root;
 }
